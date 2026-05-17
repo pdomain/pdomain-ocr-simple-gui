@@ -148,11 +148,85 @@ class TestPutPageText:
 
 
 class TestPostPageRerun:
-    async def test_returns_501(
+    async def test_returns_200_with_mock_pipeline(
         self,
         client: AsyncClient,
         project_with_image: tuple[str, Path],
     ) -> None:
+        """Rerun route returns 200 and updated PageResult when pipeline is wired."""
+        from unittest.mock import patch
+
         project_id, _ = project_with_image
-        resp = await client.post(f"/api/pages/{project_id}/0/rerun")
-        assert resp.status_code == 501
+
+        async def _fake_run_project(spec, dispatcher, status_callback) -> None:
+            from pd_ocr_simple_gui.models import PageResult, ProjectStatus
+            from pd_ocr_simple_gui.storage import write_project
+
+            done_status = ProjectStatus(
+                project_id=spec.project_id,
+                state="done",
+                page_count=1,
+                pages_done=1,
+                pages=[
+                    PageResult(
+                        page_idx=0,
+                        page_name="page_001.png",
+                        state="done",
+                        text_preview="rerun result",
+                    )
+                ],
+            )
+            write_project(spec, done_status)
+            await status_callback(done_status)
+
+        with patch("pd_ocr_simple_gui.routes.pages.run_project", _fake_run_project):
+            resp = await client.post(f"/api/pages/{project_id}/0/rerun")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["page_idx"] == 0
+        assert data["state"] == "done"
+
+    async def test_rerun_updates_page_state(
+        self,
+        client: AsyncClient,
+        project_with_image: tuple[str, Path],
+    ) -> None:
+        """After rerun, GET page returns updated state."""
+        from unittest.mock import patch
+
+        project_id, _ = project_with_image
+
+        async def _fake_run_project(spec, dispatcher, status_callback) -> None:
+            from pd_ocr_simple_gui.models import PageResult, ProjectStatus
+            from pd_ocr_simple_gui.storage import write_project, write_txt
+
+            updated = ProjectStatus(
+                project_id=spec.project_id,
+                state="done",
+                page_count=1,
+                pages_done=1,
+                pages=[
+                    PageResult(
+                        page_idx=0,
+                        page_name="page_001.png",
+                        state="done",
+                        text_preview="rerun text",
+                    )
+                ],
+            )
+            write_project(spec, updated)
+            # Also write page sidecar so GET returns text
+            from pd_ocr_simple_gui.storage import write_page_sidecar
+
+            write_page_sidecar(spec, 0, {"page_idx": 0, "text": "rerun text"})
+            write_txt(spec, 0, "rerun text")
+            await status_callback(updated)
+
+        with patch("pd_ocr_simple_gui.routes.pages.run_project", _fake_run_project):
+            await client.post(f"/api/pages/{project_id}/0/rerun")
+
+        get_resp = await client.get(f"/api/pages/{project_id}/0")
+        assert get_resp.status_code == 200
+        sidecar = get_resp.json()
+        assert sidecar.get("text") == "rerun text"

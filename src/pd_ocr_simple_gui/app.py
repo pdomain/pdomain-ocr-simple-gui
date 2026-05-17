@@ -11,10 +11,13 @@ from fastapi.middleware.cors import CORSMiddleware
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 
+    from pd_ocr_ops.gpu.local_stage import LocalStageDispatcher
     from pd_ocr_ops.suite.prefs import PrefsAdapter
 
 # Module-level prefs adapter — set during lifespan startup
 _prefs_adapter: PrefsAdapter | None = None
+# Module-level dispatcher — set during lifespan startup
+_dispatcher: LocalStageDispatcher | None = None
 
 
 def get_prefs_adapter() -> PrefsAdapter | None:
@@ -22,18 +25,33 @@ def get_prefs_adapter() -> PrefsAdapter | None:
     return _prefs_adapter
 
 
+def get_dispatcher() -> LocalStageDispatcher | None:
+    """Return the current stage dispatcher (None before startup)."""
+    return _dispatcher
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Wire prefs adapter at startup."""
-    global _prefs_adapter  # noqa: PLW0603
+    """Wire prefs adapter and stage dispatcher at startup."""
+    global _prefs_adapter, _dispatcher  # noqa: PLW0603
     try:
         from pd_ocr_ops.suite.prefs import LocalFilePrefs
 
         _prefs_adapter = LocalFilePrefs()
     except Exception:  # noqa: BLE001
         _prefs_adapter = None
+    try:
+        from pd_ocr_ops.gpu import LocalStageDispatcher, register_default_stages
+
+        _dispatcher = LocalStageDispatcher()
+        register_default_stages(_dispatcher)
+    except Exception:  # noqa: BLE001
+        from pd_ocr_ops.gpu import LocalStageDispatcher
+
+        _dispatcher = LocalStageDispatcher()
     yield
     _prefs_adapter = None
+    _dispatcher = None
 
 
 app = FastAPI(

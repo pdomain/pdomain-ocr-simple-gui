@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from pd_ocr_simple_gui.pipeline import run_project
 from pd_ocr_simple_gui.storage import (
     read_page_sidecar,
     read_project,
@@ -80,6 +81,59 @@ async def put_page_text(project_id: str, page_idx: int, body: SaveTextRequest) -
 
 
 @router.post("/{project_id}/{page_idx}/rerun")
-async def rerun_page(project_id: str, page_idx: int) -> None:
-    """Re-run OCR on a single page — stub until M2."""
-    raise HTTPException(status_code=501, detail="Rerun not yet implemented (M2)")
+async def rerun_page(project_id: str, page_idx: int) -> dict[str, Any]:
+    """Re-run OCR on a single page and return the updated PageResult.
+
+    Uses a single-page spec by temporarily pointing source_path at the
+    image file, so run_project processes exactly one image.
+    """
+    from pd_ocr_ops.gpu import LocalStageDispatcher
+
+    from pd_ocr_simple_gui.app import get_dispatcher
+
+    try:
+        spec, status = read_project(project_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Project not found") from exc
+
+    # Resolve the page's image path
+    page_entry = next((p for p in status.pages if p.page_idx == page_idx), None)
+    if page_entry is None:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    source_dir = Path(spec.source_path)
+    image_path = source_dir / page_entry.page_name
+    if not image_path.exists():
+        raise HTTPException(status_code=404, detail="Image file not found")
+
+    dispatcher = get_dispatcher()
+    if dispatcher is None:
+        dispatcher = LocalStageDispatcher()
+
+    # Run single-image OCR: reuse run_project with source_path pointing at
+    # the single image file (collect_images accepts a file path).
+    single_image_spec = spec.model_copy(update={"source_path": str(image_path)})
+
+    # Temporarily set the page to queued so run_project can update it
+    from pd_ocr_simple_gui.models import PageResult, ProjectStatus
+    from pd_ocr_simple_gui.storage import update_page_result
+
+    queued_page = PageResult(
+        page_idx=page_idx,
+        page_name=page_entry.page_name,
+        state="queued",
+    )
+    update_page_result(spec, queued_page)
+
+    result_holder: list[ProjectStatus] = []
+
+    async def _cb(s: ProjectStatus) -> None:
+        result_holder.append(s)
+
+    await run_project(single_image_spec, dispatcher, _cb)
+
+    # The run_project call used single_image_spec (idx 0), but our project
+    # has the page at page_idx. Re-read the actual project page state.
+    _, updated_status = read_project(project_id)
+    updated_page = next((p for p in updated_status.pages if p.page_idx == page_idx), page_entry)
+    return updated_page.model_dump()

@@ -42,8 +42,8 @@ dev = [
 ]
 
 [tool.uv.sources]
-pd-book-tools = { git = "https://github.com/ConcaveTrillion/pd-book-tools.git", tag = "v0.9.0" }
-pd-ocr-ops = { git = "https://github.com/ConcaveTrillion/pd-ocr-ops.git" }
+pd-book-tools = { path = "../pd-book-tools", editable = true }
+pd-ocr-ops = { path = "../pd-ocr-ops", editable = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pd_ocr_simple_gui"]

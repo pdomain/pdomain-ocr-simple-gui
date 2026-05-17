@@ -11,13 +11,12 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from pd_ocr_simple_gui.models import AppPrefs, PageResult, ProjectSpec, ProjectStatus
+from pd_ocr_simple_gui.pipeline import collect_images, run_project
 from pd_ocr_simple_gui.storage import (
     delete_project,
     list_projects,
     read_project,
-    write_combined_txt,
     write_project,
-    write_txt,
 )
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
@@ -35,29 +34,61 @@ class CreateJobRequest(BaseModel):
     combined_txt: bool = True
 
 
-def _stub_run_job(project_id: str) -> None:
-    """Background stub: immediately marks job done with one fake page."""
+async def _pipeline_run_job(spec: ProjectSpec) -> None:
+    """Background task: run OCR pipeline for the given project spec."""
+    from pd_ocr_ops.gpu import LocalStageDispatcher
+
+    from pd_ocr_simple_gui.app import get_dispatcher
+
+    dispatcher = get_dispatcher()
+    if dispatcher is None:
+        # Fallback: create a bare dispatcher if lifespan hasn't run
+        dispatcher = LocalStageDispatcher()
+
+    async def _status_callback(status: ProjectStatus) -> None:
+        pass  # Status is already persisted by run_project; callback is a hook for future SSE
+
     try:
-        spec, status = read_project(project_id)
-        # Mark all pages done
-        done_pages = [
-            PageResult(page_idx=p.page_idx, page_name=p.page_name, state="done", text_preview="[stub]")
-            for p in status.pages
+        # Seed initial page list from collected images
+        images = await collect_images(spec.source_path)
+        init_pages = [
+            PageResult(page_idx=i, page_name=img.name, state="queued") for i, img in enumerate(images)
         ]
-        done_status = ProjectStatus(
-            project_id=project_id,
-            state="done",
-            page_count=status.page_count,
-            pages_done=len(done_pages),
-            pages=done_pages,
+        init_status = ProjectStatus(
+            project_id=spec.project_id,
+            state="queued" if images else "done",
+            page_count=len(images),
+            pages_done=0,
+            pages=init_pages,
         )
-        write_project(spec, done_status)
-        for page in done_pages:
-            write_txt(spec, page.page_idx, "[stub OCR output]")
-        if spec.combined_txt:
-            write_combined_txt(spec, done_status)
-    except Exception:  # noqa: BLE001, S110
-        pass
+        write_project(spec, init_status)
+
+        if not images:
+            done_status = ProjectStatus(
+                project_id=spec.project_id,
+                state="done",
+                page_count=0,
+                pages_done=0,
+                pages=[],
+            )
+            write_project(spec, done_status)
+            return
+
+        await run_project(spec, dispatcher, _status_callback)
+
+    except Exception:  # noqa: BLE001
+        try:
+            _, current = read_project(spec.project_id)
+            err_status = ProjectStatus(
+                project_id=spec.project_id,
+                state="error",
+                page_count=current.page_count,
+                pages_done=current.pages_done,
+                pages=current.pages,
+            )
+            write_project(spec, err_status)
+        except Exception:  # noqa: BLE001, S110
+            pass
 
 
 @router.post("")
@@ -85,7 +116,7 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
         pages=[],
     )
     write_project(spec, status)
-    background_tasks.add_task(_stub_run_job, project_id)
+    background_tasks.add_task(_pipeline_run_job, spec)
     return {"project_id": project_id}
 
 
