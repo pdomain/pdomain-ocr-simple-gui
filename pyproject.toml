@@ -130,6 +130,7 @@ addopts = [
     "--cov=pd_ocr_simple_gui",
     "--cov-branch",
     "--cov-report=term-missing:skip-covered",
+    "-m", "not slow",
 ]
 testpaths = ["tests"]
 pythonpath = ["src"]
@@ -138,4 +139,8 @@ filterwarnings = [
     "error",
     "ignore::pytest.PytestUnraisableExceptionWarning",
     "ignore::ResourceWarning:coverage.*",
+]
+markers = [
+    "slow: marks tests as slow (excluded from default make test run)",
+    "e2e: marks tests as end-to-end (requires a running server and real OCR)",
 ]

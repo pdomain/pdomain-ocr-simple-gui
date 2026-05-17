@@ -79,8 +79,11 @@ typecheck: ## Run basedpyright at recommended mode
 pre-commit-check: ## Run pre-commit on all files
 	uv run pre-commit run --all-files
 
-test: ## Run pytest
+test: ## Run pytest (excludes slow/e2e tests)
 	uv run pytest tests/ -v
+
+smoke: ## Run slow/e2e smoke tests (requires real OCR; use make ci AI=1 to include)
+	uv run pytest tests/smoke/ -v -m "slow or e2e"
 
 frontend-install: ## Install frontend dependencies
 	cd frontend && $(call _pnpm,install)
@@ -98,7 +101,7 @@ clean: ## Clean cache + build artifacts
 	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
 	rm -rf dist/ 2>/dev/null || true
 
-ci: setup lint typecheck test frontend-build ## Full CI pipeline
+ci: setup lint typecheck test smoke frontend-build ## Full CI pipeline (smoke tests run via make smoke)
 
 # ---------------------------------------------------------------------------
 # Run
