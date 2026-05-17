@@ -1,0 +1,236 @@
+// Tests for ResultsPage — M4 task #230
+
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Routes, Route } from "react-router-dom";
+import ResultsPage from "./ResultsPage";
+
+// Mock pd-ui/primitives
+vi.mock("@concavetrillion/pd-ui/primitives", async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    Progress: ({
+      value,
+      status,
+      label,
+    }: {
+      value?: number;
+      status?: string;
+      label?: string;
+    }) => (
+      <div
+        data-testid="progress-bar"
+        data-value={value}
+        data-status={status}
+        aria-label={label ?? "progress"}
+      />
+    ),
+    Chip: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+      <span data-testid="status-chip" className={className}>
+        {children}
+      </span>
+    ),
+    Button: ({ children, disabled, ...props }: { children: React.ReactNode; disabled?: boolean }) => (
+      <button disabled={disabled} {...props}>{children}</button>
+    ),
+  };
+});
+
+function makeJobStatus(
+  state: "queued" | "running" | "done" | "error",
+  pagesDone = 0,
+  pageCount = 3
+) {
+  return {
+    project_id: "proj-abc",
+    name: "test-project",
+    state,
+    pages_done: pagesDone,
+    page_count: pageCount,
+    output_dir: "/tmp/out",
+    pages: [
+      { page_idx: 0, name: "page_001.png", state: "done", text_preview: "Hello world first page text that is long" },
+      { page_idx: 1, name: "page_002.png", state: "running", text_preview: "Second page content here" },
+      { page_idx: 2, name: "page_003.png", state: "queued", text_preview: "" },
+    ].slice(0, pageCount),
+  };
+}
+
+function renderResultsPage(
+  projectId = "proj-abc",
+  makeFetch?: () => ReturnType<typeof vi.fn>
+) {
+  const mockFetch = makeFetch
+    ? makeFetch()
+    : vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => makeJobStatus("done", 3, 3),
+      });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).fetch = mockFetch;
+
+  return {
+    mockFetch,
+    ...render(
+      <MemoryRouter initialEntries={[`/jobs/${projectId}`]}>
+        <Routes>
+          <Route path="/jobs/:id" element={<ResultsPage />} />
+          <Route path="/jobs/:id/pages/:idx" element={<div data-testid="page-view" />} />
+        </Routes>
+      </MemoryRouter>
+    ),
+  };
+}
+
+describe("ResultsPage", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.clearAllMocks();
+  });
+
+  it("renders project name after load", async () => {
+    renderResultsPage();
+    await waitFor(() => {
+      expect(screen.getByText("test-project")).toBeInTheDocument();
+    });
+  });
+
+  it("shows progress bar while state is running", async () => {
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => makeJobStatus("running", 1, 3),
+      })
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("progress-bar")).toBeInTheDocument();
+    });
+  });
+
+  it("hides progress bar in done state", async () => {
+    renderResultsPage();
+    await waitFor(() => {
+      expect(screen.getByText("test-project")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("progress-bar")).not.toBeInTheDocument();
+  });
+
+  it("polling stops when state is done", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: false });
+
+    let callCount = 0;
+    const mockFetch = vi.fn().mockImplementation(async () => {
+      callCount++;
+      return {
+        ok: true,
+        json: async () => makeJobStatus("done", 3, 3),
+      };
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).fetch = mockFetch;
+
+    render(
+      <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
+        <Routes>
+          <Route path="/jobs/:id" element={<ResultsPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    // Let microtasks flush (fetch promise resolves)
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const countAfterDone = callCount;
+    expect(countAfterDone).toBeGreaterThan(0);
+
+    // Advance fake timers — no more polls should fire
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+      await Promise.resolve();
+    });
+
+    expect(callCount).toBe(countAfterDone);
+  });
+
+  it("polling continues when state is running", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: false });
+
+    let callCount = 0;
+    const mockFetch = vi.fn().mockImplementation(async () => {
+      callCount++;
+      return {
+        ok: true,
+        json: async () => makeJobStatus("running", callCount, 5),
+      };
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).fetch = mockFetch;
+
+    render(
+      <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
+        <Routes>
+          <Route path="/jobs/:id" element={<ResultsPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    // Initial fetch
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const countAfterInit = callCount;
+    expect(countAfterInit).toBeGreaterThan(0);
+
+    // Advance 2 polling intervals and drain microtasks each time
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+
+    expect(callCount).toBeGreaterThan(countAfterInit);
+  });
+
+  it("renders page rows in done state", async () => {
+    renderResultsPage();
+    await waitFor(() => {
+      expect(screen.getByText("page_001.png")).toBeInTheDocument();
+      expect(screen.getByText("page_002.png")).toBeInTheDocument();
+    });
+  });
+
+  it("shows text preview", async () => {
+    renderResultsPage();
+    await waitFor(() => {
+      expect(
+        screen.getByText("Hello world first page text that is long")
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("navigates to page view when row is clicked", async () => {
+    const user = userEvent.setup();
+    renderResultsPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("page_001.png")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText("page_001.png"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("page-view")).toBeInTheDocument();
+    });
+  });
+});

@@ -65,6 +65,8 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      {/* /new-job redirects to home — the dialog opens inline on HomePage */}
+      <Route path="/new-job" element={<HomePage />} />
       <Route path="/jobs/:id" element={<ResultsPage />} />
       <Route path="/jobs/:id/pages/:idx" element={<PageViewPage />} />
     </Routes>
