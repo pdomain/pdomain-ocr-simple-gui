@@ -66,8 +66,8 @@ pre-commit-check: ## Run pre-commit on all files
 test: ## Run pytest
 	uv run pytest tests/ -v
 
-frontend-build: ## Build the SPA (stub: no frontend yet)
-	@echo "frontend-build: TODO (M3)"
+frontend-build: ## Build the React/Vite SPA to src/pd_ocr_simple_gui/frontend/
+	cd frontend && pnpm install && pnpm run build
 
 clean: ## Clean cache + build artifacts
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
