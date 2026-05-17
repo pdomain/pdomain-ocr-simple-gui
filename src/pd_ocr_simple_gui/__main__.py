@@ -28,7 +28,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    import uvicorn  # noqa: PLC0415
+    import uvicorn
 
     uvicorn.run(
         "pd_ocr_simple_gui.app:app",
