@@ -54,9 +54,11 @@ app.add_middleware(
 # Register routes
 from pd_ocr_simple_gui.routes.jobs import router as jobs_router  # noqa: E402
 from pd_ocr_simple_gui.routes.pages import router as pages_router  # noqa: E402
+from pd_ocr_simple_gui.routes.prefs import router as prefs_router  # noqa: E402
 
 app.include_router(jobs_router)
 app.include_router(pages_router)
+app.include_router(prefs_router)
 
 
 @app.get("/api/health")
