@@ -1,11 +1,17 @@
-// PageViewPage — M5 task #231
+// PageViewPage — M5 task #231, M6 task #232
 // Screen 4: two-panel layout — image canvas + editable text
 
 import { useEffect, useState, useRef, type ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { PageImageCanvas } from "@concavetrillion/pd-ui/canvas";
 import type { CanvasPage } from "@concavetrillion/pd-ui/canvas";
-import { Button } from "@concavetrillion/pd-ui/primitives";
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@concavetrillion/pd-ui/primitives";
 
 interface PageData {
   page_idx: number;
@@ -35,6 +41,7 @@ export default function PageViewPage() {
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const saveToastRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [rerunStatus, setRerunStatus] = useState<"idle" | "running" | "done" | "error">("idle");
 
   // Load job status to know total page count
   useEffect(() => {
@@ -97,6 +104,35 @@ export default function PageViewPage() {
       }
     } catch {
       setSaveStatus("error");
+    }
+  }
+
+  async function handleRerun(engine: "doctr" | "tesseract") {
+    if (!id) return;
+    setRerunStatus("running");
+    try {
+      const res = await fetch(`/api/pages/${id}/${pageIdx}/rerun`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ engine }),
+      });
+      if (res.ok) {
+        setRerunStatus("done");
+        // Refetch page data to update textarea
+        const pageRes = await fetch(`/api/pages/${id}/${pageIdx}`);
+        if (pageRes.ok) {
+          const data = (await pageRes.json()) as PageData;
+          setPageData(data);
+          setText(data.text ?? "");
+        }
+        setTimeout(() => setRerunStatus("idle"), 3000);
+      } else {
+        setRerunStatus("error");
+        setTimeout(() => setRerunStatus("idle"), 3000);
+      }
+    } catch {
+      setRerunStatus("error");
+      setTimeout(() => setRerunStatus("idle"), 3000);
     }
   }
 
@@ -163,13 +199,36 @@ export default function PageViewPage() {
           </span>
         )}
 
-        <Button
-          variant="ghost"
-          disabled
-          aria-label="Re-run page (coming in M6)"
-        >
-          Re-run page ▾
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              disabled={rerunStatus === "running" || loading}
+              aria-label="Re-run page"
+            >
+              {rerunStatus === "running" ? "Re-running…" : "Re-run page ▾"}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onSelect={() => { void handleRerun("doctr"); }}>
+              DocTR
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => { void handleRerun("tesseract"); }}>
+              Tesseract
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {rerunStatus === "done" && (
+          <span role="status" className="page-view-page__toast page-view-page__toast--success">
+            Re-run complete
+          </span>
+        )}
+        {rerunStatus === "error" && (
+          <span role="alert" className="page-view-page__toast page-view-page__toast--error">
+            Re-run failed
+          </span>
+        )}
       </div>
 
       {/* Two-panel body */}

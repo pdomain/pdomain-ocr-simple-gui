@@ -1,4 +1,4 @@
-// Results page — M4 task #230
+// Results page — M4 task #230, M6 task #233
 // Screen 3: live polling job status + page list
 
 import { useEffect, useRef, useState } from "react";
@@ -34,6 +34,7 @@ export default function ResultsPage() {
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [rerunPending, setRerunPending] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelledRef = useRef(false);
@@ -72,6 +73,26 @@ export default function ResultsPage() {
         setFetchError("Network error fetching job status.");
         setLoading(false);
       }
+    }
+  }
+
+  async function handleRerunAll() {
+    if (!id) return;
+    setRerunPending(true);
+    try {
+      const res = await fetch(`/api/jobs/${id}/rerun`, { method: "POST" });
+      if (res.ok) {
+        // Reset local state to trigger re-polling
+        setJobStatus(null);
+        setLoading(true);
+        cancelledRef.current = false;
+        clearTimer();
+        void fetchStatus();
+      }
+    } catch {
+      // ignore — user can retry
+    } finally {
+      setRerunPending(false);
     }
   }
 
@@ -140,8 +161,13 @@ export default function ResultsPage() {
           >
             Open folder
           </a>
-          <Button variant="ghost" disabled aria-label="Re-run all (coming soon)">
-            Re-run all
+          <Button
+            variant="ghost"
+            disabled={rerunPending}
+            aria-label="Re-run all"
+            onClick={() => { void handleRerunAll(); }}
+          >
+            {rerunPending ? "Re-running…" : "Re-run all"}
           </Button>
         </div>
       )}

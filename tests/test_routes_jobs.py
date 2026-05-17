@@ -191,3 +191,88 @@ class TestPipelineIntegration:
 
         assert len(received_dispatchers) == 1
         assert isinstance(received_dispatchers[0], LocalStageDispatcher)
+
+
+class TestRerunJob:
+    """Tests for POST /api/jobs/{project_id}/rerun."""
+
+    async def test_rerun_returns_queued_state(self, client_with_source) -> None:
+        """POST /api/jobs/:id/rerun resets status to queued."""
+        client, source_path = client_with_source
+
+        # Create a job first
+        with patch("pd_ocr_simple_gui.routes.jobs.run_project", _make_done_status_callback("")):
+            post_resp = await client.post(
+                "/api/jobs",
+                json={**JOB_PAYLOAD, "source_path": source_path},
+            )
+        project_id = post_resp.json()["project_id"]
+
+        # Confirm it is done
+        get_resp = await client.get(f"/api/jobs/{project_id}")
+        assert get_resp.json()["state"] == "done"
+
+        # Rerun it — pipeline is a no-op stub so state will be queued immediately
+        async def _noop_run(spec, dispatcher, cb):
+            pass
+
+        with patch("pd_ocr_simple_gui.routes.jobs.run_project", _noop_run):
+            rerun_resp = await client.post(f"/api/jobs/{project_id}/rerun")
+
+        assert rerun_resp.status_code == 200
+        data = rerun_resp.json()
+        assert data["project_id"] == project_id
+        assert data["state"] == "queued"
+
+    async def test_rerun_resets_pages_to_queued(self, client_with_source) -> None:
+        """After rerun, all pages should have state 'queued'."""
+        client, source_path = client_with_source
+
+        with patch("pd_ocr_simple_gui.routes.jobs.run_project", _make_done_status_callback("")):
+            post_resp = await client.post(
+                "/api/jobs",
+                json={**JOB_PAYLOAD, "source_path": source_path},
+            )
+        project_id = post_resp.json()["project_id"]
+
+        # Check it reached done
+        done_resp = await client.get(f"/api/jobs/{project_id}")
+        assert done_resp.json()["state"] == "done"
+
+        async def _noop_run(spec, dispatcher, cb):
+            pass
+
+        with patch("pd_ocr_simple_gui.routes.jobs.run_project", _noop_run):
+            await client.post(f"/api/jobs/{project_id}/rerun")
+
+        status_resp = await client.get(f"/api/jobs/{project_id}")
+        status = status_resp.json()
+        assert status["state"] == "queued"
+        for page in status["pages"]:
+            assert page["state"] == "queued"
+
+    async def test_rerun_404_for_missing(self, client: AsyncClient) -> None:
+        """Reruns a non-existent project → 404."""
+        resp = await client.post("/api/jobs/no-such-project/rerun")
+        assert resp.status_code == 404
+
+    async def test_rerun_triggers_pipeline(self, client_with_source) -> None:
+        """POST /api/jobs/:id/rerun re-triggers run_project."""
+        client, source_path = client_with_source
+
+        with patch("pd_ocr_simple_gui.routes.jobs.run_project", _make_done_status_callback("")):
+            post_resp = await client.post(
+                "/api/jobs",
+                json={**JOB_PAYLOAD, "source_path": source_path},
+            )
+        project_id = post_resp.json()["project_id"]
+
+        call_log: list[str] = []
+
+        async def _capture(spec, dispatcher, cb):
+            call_log.append(spec.project_id)
+
+        with patch("pd_ocr_simple_gui.routes.jobs.run_project", _capture):
+            await client.post(f"/api/jobs/{project_id}/rerun")
+
+        assert project_id in call_log

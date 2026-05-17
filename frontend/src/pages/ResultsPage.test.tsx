@@ -233,4 +233,78 @@ describe("ResultsPage", () => {
       expect(screen.getByTestId("page-view")).toBeInTheDocument();
     });
   });
+
+  it("re-run all button sends POST /api/jobs/:id/rerun", async () => {
+    const user = userEvent.setup();
+    let rerunCalled = false;
+    const mockFetch = vi.fn().mockImplementation(async (url: string, opts?: RequestInit) => {
+      if (url.includes("/rerun") && (!opts || opts.method === "POST")) {
+        rerunCalled = true;
+        return { ok: true, json: async () => ({ project_id: "proj-abc", state: "queued" }) };
+      }
+      return {
+        ok: true,
+        json: async () => makeJobStatus("done", 3, 3),
+      };
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).fetch = mockFetch;
+
+    render(
+      <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
+        <Routes>
+          <Route path="/jobs/:id" element={<ResultsPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /re.run all/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /re.run all/i }));
+
+    await waitFor(() => {
+      expect(rerunCalled).toBe(true);
+    });
+  });
+
+  it("re-run all button re-fetches job status on success", async () => {
+    const user = userEvent.setup();
+    let fetchCount = 0;
+    const mockFetch = vi.fn().mockImplementation(async (url: string, opts?: RequestInit) => {
+      if (url.includes("/rerun") && opts?.method === "POST") {
+        return { ok: true, json: async () => ({ project_id: "proj-abc", state: "queued" }) };
+      }
+      fetchCount++;
+      // Always return done so button stays visible and polling stops
+      return {
+        ok: true,
+        json: async () => makeJobStatus("done", 3, 3),
+      };
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).fetch = mockFetch;
+
+    render(
+      <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
+        <Routes>
+          <Route path="/jobs/:id" element={<ResultsPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /re.run all/i })).toBeInTheDocument();
+    });
+
+    const countBeforeRerun = fetchCount;
+
+    await user.click(screen.getByRole("button", { name: /re.run all/i }));
+
+    // After re-run POST, fetchStatus should be called again
+    await waitFor(() => {
+      expect(fetchCount).toBeGreaterThan(countBeforeRerun);
+    });
+  });
 });

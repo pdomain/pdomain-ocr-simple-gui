@@ -151,6 +151,37 @@ async def delete_job(project_id: str) -> Response:
     return Response(status_code=200, content='{"status": "deleted"}', media_type="application/json")
 
 
+@router.post("/{project_id}/rerun")
+async def rerun_job(project_id: str, background_tasks: BackgroundTasks) -> dict[str, Any]:
+    """Reset all pages to queued and re-run the full project pipeline."""
+    try:
+        spec, status = read_project(project_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Project not found") from exc
+
+    # Reset all pages to queued
+    reset_pages = [
+        PageResult(
+            page_idx=page.page_idx,
+            page_name=page.page_name,
+            state="queued",
+        )
+        for page in status.pages
+    ]
+    reset_status = ProjectStatus(
+        project_id=project_id,
+        state="queued",
+        page_count=status.page_count,
+        pages_done=0,
+        pages=reset_pages,
+    )
+    write_project(spec, reset_status)
+
+    # Re-enqueue the pipeline
+    background_tasks.add_task(_pipeline_run_job, spec)
+    return {"project_id": project_id, "state": "queued"}
+
+
 def _remove_from_recent_projects(project_id: str) -> None:
     """Remove project_id from prefs recent_projects (best-effort, no-op on error)."""
     try:

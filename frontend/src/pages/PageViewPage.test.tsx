@@ -32,6 +32,21 @@ vi.mock("@concavetrillion/pd-ui/primitives", async (importOriginal) => {
         {children}
       </button>
     ),
+    // Minimal DropdownMenu shim: renders trigger + items inline
+    DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    DropdownMenuTrigger: ({ children }: { children: React.ReactNode; asChild?: boolean }) => <>{children}</>,
+    DropdownMenuContent: ({ children }: { children: React.ReactNode }) => <div data-testid="dropdown-content">{children}</div>,
+    DropdownMenuItem: ({
+      children,
+      onSelect,
+    }: {
+      children: React.ReactNode;
+      onSelect?: () => void;
+    }) => (
+      <button role="menuitem" onClick={onSelect}>
+        {children}
+      </button>
+    ),
   };
 });
 
@@ -91,6 +106,12 @@ function renderPageView(projectId = "proj-abc", pageIdx = 0) {
       return Promise.resolve({
         ok: true,
         json: async () => ({ ok: true }),
+      });
+    }
+    if (url.includes("/api/pages/") && url.endsWith("/rerun") && opts?.method === "POST") {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ page_idx: pageIdx, state: "done" }),
       });
     }
     return Promise.resolve({ ok: false, json: async () => ({}) });
@@ -211,10 +232,100 @@ describe("PageViewPage", () => {
     });
   });
 
-  it("re-run page button is rendered (stub)", async () => {
+  it("re-run page trigger button is rendered", async () => {
     renderPageView("proj-abc", 0);
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /re.run/i })).toBeInTheDocument();
+    });
+  });
+
+  it("DocTR menu item calls POST /api/pages/:id/:idx/rerun with engine doctr", async () => {
+    const user = userEvent.setup();
+    const { mockFetch } = renderPageView("proj-abc", 0);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /re.run/i })).toBeInTheDocument();
+    });
+
+    // Click the DocTR menu item (rendered inline by our DropdownMenuItem shim)
+    const doctrItem = screen.getByRole("menuitem", { name: /doctr/i });
+    await user.click(doctrItem);
+
+    await waitFor(() => {
+      const rerunCalls = mockFetch.mock.calls.filter(
+        ([url, opts]: [string, RequestInit | undefined]) =>
+          url.includes("/api/pages/") && url.endsWith("/rerun") && opts?.method === "POST"
+      );
+      expect(rerunCalls).toHaveLength(1);
+      const body = JSON.parse(rerunCalls[0][1].body as string) as { engine: string };
+      expect(body.engine).toBe("doctr");
+    });
+  });
+
+  it("Tesseract menu item calls POST with engine tesseract", async () => {
+    const user = userEvent.setup();
+    const { mockFetch } = renderPageView("proj-abc", 0);
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("menuitem").length).toBeGreaterThanOrEqual(2);
+    });
+
+    const tessItem = screen.getByRole("menuitem", { name: /tesseract/i });
+    await user.click(tessItem);
+
+    await waitFor(() => {
+      const rerunCalls = mockFetch.mock.calls.filter(
+        ([url, opts]: [string, RequestInit | undefined]) =>
+          url.includes("/api/pages/") && url.endsWith("/rerun") && opts?.method === "POST"
+      );
+      expect(rerunCalls).toHaveLength(1);
+      const body = JSON.parse(rerunCalls[0][1].body as string) as { engine: string };
+      expect(body.engine).toBe("tesseract");
+    });
+  });
+
+  it("textarea updates after rerun completes", async () => {
+    const user = userEvent.setup();
+
+    // Set up fetch to return updated page data after rerun
+    let rerunCalled = false;
+    const mockFetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+      if (url.includes("/api/jobs/") && !url.includes("/pages/")) {
+        return Promise.resolve({ ok: true, json: async () => makeJobStatus(3) });
+      }
+      if (url.includes("/api/pages/") && url.endsWith("/rerun") && opts?.method === "POST") {
+        rerunCalled = true;
+        return Promise.resolve({ ok: true, json: async () => ({ page_idx: 0, state: "done" }) });
+      }
+      if (url.includes("/api/pages/") && !url.endsWith("/image") && (!opts || !opts.method || opts.method === "GET")) {
+        const text = rerunCalled ? "new rerun text" : "OCR text for page 0";
+        return Promise.resolve({ ok: true, json: async () => makePageData(0, text) });
+      }
+      return Promise.resolve({ ok: false, json: async () => ({}) });
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).fetch = mockFetch;
+
+    render(
+      <MemoryRouter initialEntries={["/jobs/proj-abc/pages/0"]}>
+        <Routes>
+          <Route path="/jobs/:id/pages/:idx" element={<PageViewPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+      expect(textarea.value).toBe("OCR text for page 0");
+    });
+
+    const doctrItem = screen.getByRole("menuitem", { name: /doctr/i });
+    await user.click(doctrItem);
+
+    await waitFor(() => {
+      const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+      expect(textarea.value).toBe("new rerun text");
     });
   });
 });
