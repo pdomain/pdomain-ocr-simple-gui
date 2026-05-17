@@ -26,7 +26,38 @@ def main() -> None:
         action="store_true",
         help="Enable auto-reload (dev mode)",
     )
+    parser.add_argument(
+        "--unregister-suite",
+        action="store_true",
+        help="Unregister this app from the suite registry and exit",
+    )
+    parser.add_argument(
+        "--install-desktop-shortcut",
+        action="store_true",
+        help="Install a desktop shortcut for this app (not implemented)",
+    )
+    parser.add_argument(
+        "--remove-desktop-shortcut",
+        action="store_true",
+        help="Remove the desktop shortcut for this app (not implemented)",
+    )
     args = parser.parse_args()
+
+    if args.unregister_suite:
+        try:
+            from pd_ocr_ops.suite.registry import LocalTomlSuiteRegistry
+
+            registry = LocalTomlSuiteRegistry()
+            registry.unregister("pd-ocr-simple-gui")
+        except Exception:  # noqa: BLE001, S110
+            pass
+        return
+
+    if args.install_desktop_shortcut:
+        raise NotImplementedError("--install-desktop-shortcut is not implemented in Phase 1")
+
+    if args.remove_desktop_shortcut:
+        raise NotImplementedError("--remove-desktop-shortcut is not implemented in Phase 1")
 
     import uvicorn
 
