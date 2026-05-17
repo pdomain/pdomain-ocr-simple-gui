@@ -1,6 +1,204 @@
-// Per-page view — stub for M5
-// Issue #225
+// PageViewPage — M5 task #231
+// Screen 4: two-panel layout — image canvas + editable text
+
+import { useEffect, useState, useRef, type ChangeEvent } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { PageImageCanvas } from "@concavetrillion/pd-ui/canvas";
+import type { CanvasPage } from "@concavetrillion/pd-ui/canvas";
+import { Button } from "@concavetrillion/pd-ui/primitives";
+
+interface PageData {
+  page_idx: number;
+  name: string;
+  state: string;
+  text: string;
+  width: number;
+  height: number;
+}
+
+interface JobStatus {
+  project_id: string;
+  name: string;
+  state: string;
+  page_count: number;
+}
 
 export default function PageViewPage() {
-  return <div data-testid="page-view-page">PageView (stub)</div>;
+  const { id, idx } = useParams<{ id: string; idx: string }>();
+  const navigate = useNavigate();
+
+  const pageIdx = parseInt(idx ?? "0", 10);
+
+  const [pageData, setPageData] = useState<PageData | null>(null);
+  const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
+  const [text, setText] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveToastRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load job status to know total page count
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/jobs/${id ?? ""}`)
+      .then(async (res) => {
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as JobStatus;
+        if (!cancelled) setJobStatus(data);
+      })
+      .catch(() => {
+        // ignore — pageCount will default to 0, disabling next
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  // Load page data
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setSaveStatus("idle");
+
+    fetch(`/api/pages/${id ?? ""}/${pageIdx}`)
+      .then(async (res) => {
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as PageData;
+        if (!cancelled) {
+          setPageData(data);
+          setText(data.text ?? "");
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, pageIdx]);
+
+  async function handleSave() {
+    if (!id) return;
+    setSaveStatus("saving");
+    try {
+      const res = await fetch(`/api/pages/${id}/${pageIdx}/text`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (res.ok) {
+        setSaveStatus("saved");
+        // Clear any pending toast timer
+        if (saveToastRef.current) clearTimeout(saveToastRef.current);
+        saveToastRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
+      } else {
+        setSaveStatus("error");
+      }
+    } catch {
+      setSaveStatus("error");
+    }
+  }
+
+  const totalPages = jobStatus?.page_count ?? 0;
+  const hasPrev = pageIdx > 0;
+  const hasNext = pageIdx < totalPages - 1;
+
+  function goToPage(newIdx: number) {
+    navigate(`/jobs/${id ?? ""}/pages/${newIdx}`);
+  }
+
+  const imageSrc = `/api/pages/${id ?? ""}/${pageIdx}/image`;
+
+  // Minimal CanvasPage for read-only display — width/height from page data
+  const canvasPage: CanvasPage = {
+    width: pageData?.width ?? 800,
+    height: pageData?.height ?? 1200,
+  };
+
+  return (
+    <div data-testid="page-view-page" className="page-view-page">
+      {/* Toolbar */}
+      <div className="page-view-page__toolbar" role="toolbar">
+        <Button
+          variant="ghost"
+          onClick={() => goToPage(pageIdx - 1)}
+          disabled={!hasPrev}
+          aria-label="Prev page"
+        >
+          ← Prev
+        </Button>
+
+        <span className="page-view-page__page-indicator">
+          {pageData?.name ?? `Page ${pageIdx + 1}`}
+          {totalPages > 0 ? ` (${pageIdx + 1} / ${totalPages})` : ""}
+        </span>
+
+        <Button
+          variant="ghost"
+          onClick={() => goToPage(pageIdx + 1)}
+          disabled={!hasNext}
+          aria-label="Next page"
+        >
+          Next →
+        </Button>
+
+        <Button
+          variant="primary"
+          onClick={() => { void handleSave(); }}
+          disabled={saveStatus === "saving" || loading}
+          aria-label="Save edits"
+        >
+          {saveStatus === "saving" ? "Saving…" : "Save edits"}
+        </Button>
+
+        {saveStatus === "saved" && (
+          <span role="status" className="page-view-page__toast page-view-page__toast--success">
+            Saved
+          </span>
+        )}
+        {saveStatus === "error" && (
+          <span role="alert" className="page-view-page__toast page-view-page__toast--error">
+            Save failed
+          </span>
+        )}
+
+        <Button
+          variant="ghost"
+          disabled
+          aria-label="Re-run page (coming in M6)"
+        >
+          Re-run page ▾
+        </Button>
+      </div>
+
+      {/* Two-panel body */}
+      <div className="page-view-page__panels">
+        {/* Left — image canvas */}
+        <div className="page-view-page__canvas-panel">
+          {!loading && (
+            <PageImageCanvas
+              src={imageSrc}
+              page={canvasPage}
+              words={[]}
+            />
+          )}
+        </div>
+
+        {/* Right — editable text */}
+        <div className="page-view-page__text-panel">
+          <textarea
+            className="page-view-page__textarea"
+            value={text}
+            onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+              setText(e.target.value)
+            }
+            disabled={loading}
+            aria-label="OCR text"
+            rows={40}
+          />
+        </div>
+      </div>
+    </div>
+  );
 }

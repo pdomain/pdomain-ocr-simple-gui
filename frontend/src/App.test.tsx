@@ -16,6 +16,15 @@ vi.mock("@concavetrillion/pd-ui/shell", () => ({
   ),
 }));
 
+// Mock @concavetrillion/pd-ui/canvas — Konva requires a native 'canvas' module
+// not available in jsdom. PageViewPage is the consumer; we mock here to prevent
+// the module from loading in App-level tests.
+vi.mock("@concavetrillion/pd-ui/canvas", () => ({
+  PageImageCanvas: ({ src }: { src: string }) => (
+    <div data-testid="page-image-canvas-mock" data-src={src} />
+  ),
+}));
+
 // Suppress jsdom fetch warnings in tests
 beforeAll(() => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -12,8 +12,24 @@ $(_goals):
 
 else
 
+MISE := $(shell command -v mise 2>/dev/null || echo $$HOME/.local/bin/mise)
+HAVE_MISE = [ -x "$(MISE)" ]
+MISE_RUN = if $(HAVE_MISE); then $(MISE) exec --; fi
+
+# Run pnpm through mise if available, else fall back to PATH pnpm/npm
+define _pnpm
+	if $(HAVE_MISE); then \
+		$(MISE) exec -- pnpm $(1); \
+	elif command -v pnpm >/dev/null 2>&1; then \
+		pnpm $(1); \
+	else \
+		echo "❌ no pnpm/mise available. Run 'make mise-setup' or install Node."; \
+		exit 1; \
+	fi
+endef
+
 .PHONY: help setup install uninstall remove-venv reset lint format typecheck \
-        pre-commit-check test frontend-build clean ci upgrade-deps
+        pre-commit-check test frontend-build frontend-test clean ci upgrade-deps
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -66,8 +82,14 @@ pre-commit-check: ## Run pre-commit on all files
 test: ## Run pytest
 	uv run pytest tests/ -v
 
-frontend-build: ## Build the React/Vite SPA to src/pd_ocr_simple_gui/frontend/
-	cd frontend && pnpm install && pnpm run build
+frontend-install: ## Install frontend dependencies
+	cd frontend && $(call _pnpm,install)
+
+frontend-test: frontend-install ## Run frontend vitest suite
+	cd frontend && $(call _pnpm,run test)
+
+frontend-build: frontend-install ## Build the React/Vite SPA to src/pd_ocr_simple_gui/frontend/
+	cd frontend && $(call _pnpm,run build)
 
 clean: ## Clean cache + build artifacts
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
