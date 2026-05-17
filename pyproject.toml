@@ -1,0 +1,141 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pd-ocr-simple-gui"
+version = "0.1.0a0"
+description = "Drag-and-drop OCR app — reference consumer of pd-ocr-ops LocalStageDispatcher"
+authors = [
+    { name = "CT", email = "concavetrillion@gmail.com" }
+]
+readme = "README.md"
+license = { text = "Unlicense" }
+requires-python = ">=3.11"
+dependencies = [
+    "pd-book-tools",
+    "pd-ocr-ops",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.29",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "aiofiles>=23.2",
+]
+
+[project.scripts]
+pd-ocr-simple-gui = "pd_ocr_simple_gui.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/ConcaveTrillion/pd-ocr-simple-gui"
+Repository = "https://github.com/ConcaveTrillion/pd-ocr-simple-gui"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.39.4",
+    "gitlint>=0.19.1",
+    "pre-commit>=4.0",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.2.1",
+    "ruff>=0.15.13",
+    "httpx>=0.28",
+]
+
+[tool.uv.sources]
+pd-book-tools = { git = "https://github.com/ConcaveTrillion/pd-book-tools.git", tag = "v0.9.0" }
+pd-ocr-ops = { git = "https://github.com/ConcaveTrillion/pd-ocr-ops.git" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pd_ocr_simple_gui"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E", "W",
+    "F",
+    "I",
+    "N",
+    "B",
+    "SIM",
+    "UP",
+    "RUF",
+    "ERA",
+    "T20",
+    "ANN",
+    "S",
+    "C4",
+    "PERF",
+    "TC",
+    "TID",
+    "PT",
+    "RET",
+    "PL",
+    "D",
+    "BLE",
+    "TRY",
+    "LOG",
+    "G",
+]
+ignore = [
+    "B008",
+    "UP042",
+    "E501",
+    "D203",
+    "D212",
+    "D100",
+    "D104",
+    "D107",
+    "PLR0913",
+    "PLR2004",
+    "TRY003",
+    "COM812",
+    "PLC0415",
+    "PLR0912",
+    "PLR0911",
+    "PLR0915",
+    "ANN401",
+    "D205",
+    "D105",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E741", "N806", "S101", "S104", "S105", "S106", "S301", "S311", "S603", "T201", "ANN", "D", "PLR2004", "PT011", "PT018", "S108", "PLR0133", "PLW2901", "PLW1510", "PERF401", "PERF402", "TRY", "BLE001"]
+"scripts/*.py" = ["T201", "D", "ANN", "S603", "S607", "PLW1510"]
+"**/__init__.py" = ["D104", "F401", "TC"]
+"**/_*.py" = ["D"]
+"src/pd_ocr_simple_gui/__main__.py" = ["ANN", "D", "T201"]
+
+[tool.basedpyright]
+include = ["src", "tests"]
+exclude = ["**/__pycache__", "**/.venv", "**/node_modules"]
+typeCheckingMode = "recommended"
+reportImportCycles = "none"
+venvPath = "."
+venv = ".venv"
+
+[[tool.basedpyright.executionEnvironments]]
+root = "tests"
+
+[tool.pytest.ini_options]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=pd_ocr_simple_gui",
+    "--cov-branch",
+    "--cov-report=term-missing:skip-covered",
+]
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+filterwarnings = [
+    "error",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+    "ignore::ResourceWarning:coverage.*",
+]
