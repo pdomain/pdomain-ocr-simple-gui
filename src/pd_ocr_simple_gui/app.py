@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import importlib.resources
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -101,6 +104,8 @@ async def health() -> dict[str, Any]:
     return {"status": "ok"}
 
 
+_FRONTEND_DIR = Path(__file__).parent / "frontend"
+
 _ALLOWED_SELF_ICON_SIZES = {16, 24, 32, 48, 64, 128, 256}
 
 
@@ -119,3 +124,22 @@ async def get_self_icon(size: int) -> Response:
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=f"Icon {size}.png not found") from exc
     return Response(content=icon_bytes, media_type="image/png")
+
+
+# Serve static JS/CSS assets — must come before the catch-all route
+if (_FRONTEND_DIR / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=_FRONTEND_DIR / "assets"), name="assets")
+
+
+# SPA catch-all — React Router owns all non-API paths.
+# MUST be registered last so it never shadows /api/* routes.
+@app.get("/{full_path:path}", include_in_schema=False)
+async def spa_fallback(full_path: str) -> FileResponse:
+    """Serve the React SPA index.html for any unmatched path."""
+    index = _FRONTEND_DIR / "index.html"
+    if not index.exists():
+        raise HTTPException(
+            status_code=503,
+            detail="Frontend not built — run make frontend-build",
+        )
+    return FileResponse(index)
