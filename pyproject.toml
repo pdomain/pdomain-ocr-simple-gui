@@ -40,6 +40,9 @@ dev = [
     "ruff>=0.15.13",
     "httpx>=0.28",
 ]
+e2e = [
+    "pytest-playwright>=0.5",
+]
 
 [tool.uv.sources]
 pd-book-tools = { path = "../pd-book-tools", editable = true }

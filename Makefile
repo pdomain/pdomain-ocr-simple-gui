@@ -29,7 +29,7 @@ define _pnpm
 endef
 
 .PHONY: help setup install uninstall remove-venv reset lint format typecheck \
-        pre-commit-check test frontend-build frontend-test clean ci upgrade-deps
+        pre-commit-check test e2e-browser frontend-build frontend-test clean ci ci-full upgrade-deps
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -85,6 +85,11 @@ test: ## Run pytest (excludes slow/e2e tests)
 smoke: ## Run slow/e2e smoke tests (requires real OCR; use make ci AI=1 to include)
 	uv run pytest tests/smoke/ -v -m "slow or e2e"
 
+e2e-browser: frontend-build ## Run Playwright browser e2e tests (requires chromium)
+	@echo "🌐 Running Playwright e2e tests..."
+	PLAYWRIGHT_BROWSERS_PATH=/cache/shared-ai/ms-playwright \
+	uv run --group e2e pytest tests/e2e/ -v -m "slow or e2e" --no-cov
+
 frontend-install: ## Install frontend dependencies
 	cd frontend && $(call _pnpm,install)
 
@@ -102,6 +107,8 @@ clean: ## Clean cache + build artifacts
 	rm -rf dist/ 2>/dev/null || true
 
 ci: setup lint typecheck test smoke frontend-build ## Full CI pipeline (smoke tests run via make smoke)
+
+ci-full: ci e2e-browser ## Full CI including Playwright browser tests (requires --group e2e + chromium)
 
 # ---------------------------------------------------------------------------
 # Run
