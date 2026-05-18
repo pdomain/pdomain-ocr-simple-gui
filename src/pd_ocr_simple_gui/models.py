@@ -28,7 +28,7 @@ class PageResult(BaseModel):
 
     page_idx: int
     page_name: str
-    state: Literal["queued", "running", "done", "error"]
+    state: Literal["queued", "running", "succeeded", "failed", "cancelled"]
     text_preview: str = ""
     error: str | None = None
 
@@ -37,7 +37,7 @@ class ProjectStatus(BaseModel):
     """Aggregated status for a project."""
 
     project_id: str
-    state: Literal["queued", "running", "done", "error"]
+    state: Literal["queued", "running", "succeeded", "failed", "cancelled"]
     page_count: int
     pages_done: int
     pages: list[PageResult]

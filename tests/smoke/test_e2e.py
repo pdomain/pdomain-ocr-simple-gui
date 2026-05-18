@@ -116,20 +116,20 @@ def test_e2e_job_completes(tmp_path: Path) -> None:
             assert poll.status_code == 200, f"GET /api/jobs/{project_id} failed: {poll.text}"
             final_status = poll.json()
             state = final_status.get("state")
-            if state in ("done", "error"):
+            if state in ("succeeded", "failed", "cancelled"):
                 break
             time.sleep(_POLL_INTERVAL)
         else:
             pytest.fail(f"Job did not reach terminal state within {_TIMEOUT}s; last state={final_status}")
 
-        # Assert job completed (done or error is both acceptable — real OCR may fail on
+        # Assert job completed (succeeded or failed is both acceptable — real OCR may fail on
         # environments without model weights, but the server lifecycle must work).
-        assert final_status.get("state") in ("done", "error"), (
+        assert final_status.get("state") in ("succeeded", "failed", "cancelled"), (
             f"Unexpected final state: {final_status.get('state')}"
         )
 
-        # If done, assert at least one .txt file was written
-        if final_status.get("state") == "done":
+        # If succeeded, assert at least one .txt file was written
+        if final_status.get("state") == "succeeded":
             txt_files = list(output_dir.rglob("*.txt")) or list(
                 (
                     Path.home() / ".local" / "share" / "pd-suite" / "simple-gui" / "projects" / project_id

@@ -52,7 +52,7 @@ class TestPageResult:
         assert pr.error is None
 
     def test_round_trip(self) -> None:
-        pr = PageResult(page_idx=2, page_name="page_003.png", state="done", text_preview="Hello world")
+        pr = PageResult(page_idx=2, page_name="page_003.png", state="succeeded", text_preview="Hello world")
         restored = PageResult.model_validate_json(pr.model_dump_json())
         assert restored == pr
 
@@ -69,7 +69,7 @@ class TestProjectStatus:
             page_count=3,
             pages_done=1,
             pages=[
-                PageResult(page_idx=0, page_name="a.png", state="done"),
+                PageResult(page_idx=0, page_name="a.png", state="succeeded"),
                 PageResult(page_idx=1, page_name="b.png", state="running"),
                 PageResult(page_idx=2, page_name="c.png", state="queued"),
             ],

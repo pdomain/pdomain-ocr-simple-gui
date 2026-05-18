@@ -61,10 +61,10 @@ def _make_done_status_callback(project_id: str):
 
         done_status = ProjectStatus(
             project_id=spec.project_id,
-            state="done",
+            state="succeeded",
             page_count=1,
             pages_done=1,
-            pages=[PageResult(page_idx=0, page_name="page0.png", state="done", text_preview="")],
+            pages=[PageResult(page_idx=0, page_name="page0.png", state="succeeded", text_preview="")],
         )
         write_project(spec, done_status)
         await status_callback(done_status)
@@ -87,7 +87,7 @@ class TestPostJob:
         assert get_resp.status_code == 200
         status = get_resp.json()
         assert status["project_id"] == project_id
-        assert status["state"] in ("queued", "running", "done", "error")
+        assert status["state"] in ("queued", "running", "succeeded", "failed", "cancelled")
 
 
 class TestGetJob:
@@ -171,7 +171,7 @@ class TestPipelineIntegration:
         project_id = resp.json()["project_id"]
 
         get_resp = await client.get(f"/api/jobs/{project_id}")
-        assert get_resp.json()["state"] == "done"
+        assert get_resp.json()["state"] == "succeeded"
 
     async def test_dispatcher_passed_to_run_project(self, client_with_source) -> None:
         """run_project receives a LocalStageDispatcher instance."""
@@ -210,7 +210,7 @@ class TestRerunJob:
 
         # Confirm it is done
         get_resp = await client.get(f"/api/jobs/{project_id}")
-        assert get_resp.json()["state"] == "done"
+        assert get_resp.json()["state"] == "succeeded"
 
         # Rerun it — pipeline is a no-op stub so state will be queued immediately
         async def _noop_run(spec, dispatcher, cb):
@@ -237,7 +237,7 @@ class TestRerunJob:
 
         # Check it reached done
         done_resp = await client.get(f"/api/jobs/{project_id}")
-        assert done_resp.json()["state"] == "done"
+        assert done_resp.json()["state"] == "succeeded"
 
         async def _noop_run(spec, dispatcher, cb):
             pass

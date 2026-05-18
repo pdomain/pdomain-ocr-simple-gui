@@ -59,10 +59,10 @@ def project_with_image(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple
     )
     status = ProjectStatus(
         project_id=project_id,
-        state="done",
+        state="succeeded",
         page_count=1,
         pages_done=1,
-        pages=[PageResult(page_idx=0, page_name="page_001.png", state="done", text_preview="Hello")],
+        pages=[PageResult(page_idx=0, page_name="page_001.png", state="succeeded", text_preview="Hello")],
     )
     write_project(spec, status)
     write_page_sidecar(spec, 0, {"page_idx": 0, "text": "Hello world", "edited_text": None})
@@ -164,14 +164,14 @@ class TestPostPageRerun:
 
             done_status = ProjectStatus(
                 project_id=spec.project_id,
-                state="done",
+                state="succeeded",
                 page_count=1,
                 pages_done=1,
                 pages=[
                     PageResult(
                         page_idx=0,
                         page_name="page_001.png",
-                        state="done",
+                        state="succeeded",
                         text_preview="rerun result",
                     )
                 ],
@@ -185,7 +185,7 @@ class TestPostPageRerun:
         assert resp.status_code == 200
         data = resp.json()
         assert data["page_idx"] == 0
-        assert data["state"] == "done"
+        assert data["state"] == "succeeded"
 
     async def test_rerun_updates_page_state(
         self,
@@ -203,14 +203,14 @@ class TestPostPageRerun:
 
             updated = ProjectStatus(
                 project_id=spec.project_id,
-                state="done",
+                state="succeeded",
                 page_count=1,
                 pages_done=1,
                 pages=[
                     PageResult(
                         page_idx=0,
                         page_name="page_001.png",
-                        state="done",
+                        state="succeeded",
                         text_preview="rerun text",
                     )
                 ],

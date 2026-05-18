@@ -5,13 +5,15 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Chip } from "@concavetrillion/pd-ui/primitives";
 
+type JobState = "queued" | "running" | "succeeded" | "failed" | "cancelled";
+
 interface RecentProject {
   project_id: string;
   name: string;
   last_opened_at: string;
   page_count: number;
   engine: string;
-  status: string;
+  status: JobState;
 }
 
 interface PrefsResponse {

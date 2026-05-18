@@ -56,7 +56,7 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
         ]
         init_status = ProjectStatus(
             project_id=spec.project_id,
-            state="queued" if images else "done",
+            state="queued" if images else "succeeded",
             page_count=len(images),
             pages_done=0,
             pages=init_pages,
@@ -66,7 +66,7 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
         if not images:
             done_status = ProjectStatus(
                 project_id=spec.project_id,
-                state="done",
+                state="succeeded",
                 page_count=0,
                 pages_done=0,
                 pages=[],
@@ -81,7 +81,7 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
             _, current = read_project(spec.project_id)
             err_status = ProjectStatus(
                 project_id=spec.project_id,
-                state="error",
+                state="failed",
                 page_count=current.page_count,
                 pages_done=current.pages_done,
                 pages=current.pages,

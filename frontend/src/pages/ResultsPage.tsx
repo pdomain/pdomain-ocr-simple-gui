@@ -5,17 +5,19 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Progress, Chip, Button } from "@concavetrillion/pd-ui/primitives";
 
+type JobState = "queued" | "running" | "succeeded" | "failed" | "cancelled";
+
 interface PageRow {
   page_idx: number;
   name: string;
-  state: string;
+  state: JobState;
   text_preview: string;
 }
 
 interface JobStatus {
   project_id: string;
   name: string;
-  state: "queued" | "running" | "done" | "error";
+  state: JobState;
   pages_done: number;
   page_count: number;
   output_dir?: string;
@@ -24,8 +26,8 @@ interface JobStatus {
 
 const POLL_INTERVAL_MS = 1000;
 
-function isTerminal(state: string): boolean {
-  return state === "done" || state === "error";
+function isTerminal(state: JobState): boolean {
+  return state === "succeeded" || state === "failed" || state === "cancelled";
 }
 
 export default function ResultsPage() {
@@ -153,7 +155,7 @@ export default function ResultsPage() {
         </div>
       )}
 
-      {state === "done" && output_dir && (
+      {state === "succeeded" && output_dir && (
         <div className="results-page__actions">
           <a
             href={`file://${output_dir}`}

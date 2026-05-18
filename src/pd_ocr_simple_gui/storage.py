@@ -118,14 +118,14 @@ def update_page_result(spec: ProjectSpec, page_result: PageResult) -> None:
     """Update a single PageResult in the stored project status."""
     s, status = read_project(spec.project_id)
     new_pages = [p if p.page_idx != page_result.page_idx else page_result for p in status.pages]
-    pages_done = sum(1 for p in new_pages if p.state == "done")
+    pages_done = sum(1 for p in new_pages if p.state == "succeeded")
     all_states = {p.state for p in new_pages}
     if "running" in all_states:
         agg_state: str = "running"
-    elif "error" in all_states:
-        agg_state = "error"
-    elif all_states == {"done"}:
-        agg_state = "done"
+    elif "failed" in all_states:
+        agg_state = "failed"
+    elif all_states == {"succeeded"}:
+        agg_state = "succeeded"
     elif "queued" in all_states:
         agg_state = "queued"
     else:

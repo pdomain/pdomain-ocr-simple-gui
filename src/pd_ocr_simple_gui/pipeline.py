@@ -157,14 +157,14 @@ async def run_project(
             page_done = PageResult(
                 page_idx=idx,
                 page_name=img_path.name,
-                state="done",
+                state="succeeded",
                 text_preview=text[:60],
             )
         except Exception as exc:  # noqa: BLE001
             page_done = PageResult(
                 page_idx=idx,
                 page_name=img_path.name,
-                state="error",
+                state="failed",
                 error=str(exc),
             )
 
@@ -174,13 +174,13 @@ async def run_project(
 
     # Final state
     _, final_status = read_project(spec.project_id)
-    all_done = all(p.state == "done" for p in final_status.pages)
-    final_state = "done" if all_done else "error"
+    all_done = all(p.state == "succeeded" for p in final_status.pages)
+    final_state = "succeeded" if all_done else "failed"
     terminal_status = ProjectStatus(
         project_id=spec.project_id,
         state=final_state,
         page_count=total,
-        pages_done=sum(1 for p in final_status.pages if p.state == "done"),
+        pages_done=sum(1 for p in final_status.pages if p.state == "succeeded"),
         pages=final_status.pages,
     )
     write_project(spec, terminal_status)

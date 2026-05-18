@@ -224,7 +224,7 @@ form > [class*="Field"] {
   font-weight: 600;
 }
 
-.status-chip--done {
+.status-chip--succeeded {
   background: color-mix(in srgb, var(--exact) 14%, transparent);
   border-color: color-mix(in srgb, var(--exact) 40%, transparent);
   color: var(--exact);
@@ -242,10 +242,16 @@ form > [class*="Field"] {
   color: var(--ink-3);
 }
 
-.status-chip--error {
+.status-chip--failed {
   background: color-mix(in srgb, var(--mismatch) 14%, transparent);
   border-color: color-mix(in srgb, var(--mismatch) 40%, transparent);
   color: var(--mismatch);
+}
+
+.status-chip--cancelled {
+  background: color-mix(in srgb, var(--ink-3) 8%, transparent);
+  border-color: color-mix(in srgb, var(--ink-3) 25%, transparent);
+  color: var(--ink-3);
 }
 
 /* ------------------------------------------------------------------ */

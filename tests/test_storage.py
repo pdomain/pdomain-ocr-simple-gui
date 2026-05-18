@@ -37,12 +37,12 @@ def _make_spec(tmp_path: Path) -> ProjectSpec:
 def _make_status() -> ProjectStatus:
     return ProjectStatus(
         project_id="test-proj-id-001",
-        state="done",
+        state="succeeded",
         page_count=2,
         pages_done=2,
         pages=[
-            PageResult(page_idx=0, page_name="page_001.png", state="done", text_preview="Hello"),
-            PageResult(page_idx=1, page_name="page_002.png", state="done", text_preview="World"),
+            PageResult(page_idx=0, page_name="page_001.png", state="succeeded", text_preview="Hello"),
+            PageResult(page_idx=1, page_name="page_002.png", state="succeeded", text_preview="World"),
         ],
     )
 
