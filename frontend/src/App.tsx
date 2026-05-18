@@ -3,6 +3,23 @@
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppShell, SuiteSiblingsProvider } from "@concavetrillion/pd-ui/shell";
+
+/** App header — inline because TopNav is not yet exported from pd-ui/shell */
+function AppHeader() {
+  return (
+    <div className="app-header">
+      <img
+        src="/api/self/icons/32"
+        alt=""
+        className="app-header__icon"
+        width="24"
+        height="24"
+      />
+      <span className="app-header__title">OCR Simple GUI</span>
+      <div className="app-header__launcher" />
+    </div>
+  );
+}
 import type { UIPrefsConfig, InstalledApp, LaunchResult } from "@concavetrillion/pd-ui/shell";
 import HomePage from "./pages/HomePage";
 import ResultsPage from "./pages/ResultsPage";
@@ -80,10 +97,11 @@ export default function App() {
         <AppShell
           appId="pd-ocr-simple-gui"
           appDisplayName="OCR Simple GUI"
-          appIconUrl="/api/icons/32"
+          appIconUrl="/api/self/icons/32"
           deployMode="local"
           launcherSlot="header"
           uiPrefsConfig={uiPrefsConfig}
+          header={<AppHeader />}
           main={<AppRoutes />}
         />
       </SuiteSiblingsProvider>
