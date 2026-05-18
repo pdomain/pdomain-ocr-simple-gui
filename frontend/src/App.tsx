@@ -2,22 +2,37 @@
 // Issues #225 (scaffold), #226 (shell)
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AppShell, SuiteSiblingsProvider } from "@concavetrillion/pd-ui/shell";
+import {
+  AppShell,
+  SuiteSiblingsProvider,
+  TopNav,
+  LauncherSlot,
+} from "@concavetrillion/pd-ui/shell";
 
-/** App header — inline because TopNav is not yet exported from pd-ui/shell */
 function AppHeader() {
   return (
-    <div className="app-header">
+    <TopNav>
       <img
         src="/api/self/icons/32"
         alt=""
-        className="app-header__icon"
-        width="24"
-        height="24"
+        width={20}
+        height={20}
+        style={{ borderRadius: 4, flexShrink: 0 }}
       />
-      <span className="app-header__title">OCR Simple GUI</span>
-      <div className="app-header__launcher" />
-    </div>
+      <span
+        style={{
+          fontSize: 13,
+          fontWeight: 600,
+          color: "var(--ink-1)",
+          letterSpacing: "-0.01em",
+          whiteSpace: "nowrap",
+        }}
+      >
+        OCR Simple GUI
+      </span>
+      <div style={{ flex: 1 }} />
+      <LauncherSlot />
+    </TopNav>
   );
 }
 import type { UIPrefsConfig, InstalledApp, LaunchResult } from "@concavetrillion/pd-ui/shell";
