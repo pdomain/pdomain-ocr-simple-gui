@@ -78,7 +78,7 @@ body,
   gap: 12px;
   padding: 32px 28px;
   border: 1.5px dashed var(--border-3);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--bg-surface);
   transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
   position: relative;
@@ -181,9 +181,9 @@ body,
 .recent-projects__table th {
   padding: 6px 10px;
   text-align: left;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-3);
   white-space: nowrap;
@@ -404,9 +404,9 @@ form > [class*="Field"] {
 .results-page__table th {
   padding: 8px 12px;
   text-align: left;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-3);
 }
