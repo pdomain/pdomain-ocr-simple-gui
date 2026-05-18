@@ -193,6 +193,79 @@ class TestPipelineIntegration:
         assert isinstance(received_dispatchers[0], LocalStageDispatcher)
 
 
+class TestCanonicalJobStates:
+    """Verify that the API always emits pd-ocr-ops canonical state values.
+
+    The canonical states are: queued | running | succeeded | failed | cancelled.
+    Legacy values like 'done' or 'error' must never appear in API responses.
+    """
+
+    async def test_failed_job_returns_failed_not_error(self, client_with_source) -> None:
+        """A job whose pipeline raises must return state='failed', not 'error'."""
+        client, source_path = client_with_source
+
+        async def _fail_run(spec, dispatcher, status_callback) -> None:
+            from pd_ocr_simple_gui.models import PageResult
+            from pd_ocr_simple_gui.storage import write_project
+
+            failed_status = ProjectStatus(
+                project_id=spec.project_id,
+                state="failed",
+                page_count=1,
+                pages_done=0,
+                pages=[PageResult(page_idx=0, page_name="page0.png", state="failed", text_preview="")],
+            )
+            write_project(spec, failed_status)
+            await status_callback(failed_status)
+
+        with patch("pd_ocr_simple_gui.routes.jobs.run_project", _fail_run):
+            resp = await client.post(
+                "/api/jobs",
+                json={**JOB_PAYLOAD, "source_path": source_path},
+            )
+        assert resp.status_code == 200
+        project_id = resp.json()["project_id"]
+
+        get_resp = await client.get(f"/api/jobs/{project_id}")
+        assert get_resp.status_code == 200
+        state = get_resp.json()["state"]
+        # Must be canonical 'failed' — never the legacy 'error' value
+        assert state == "failed", f"Expected 'failed' but got {state!r}"
+        assert state != "error", "Legacy 'error' state must not be returned by the API"
+
+    async def test_succeeded_job_returns_succeeded_not_done(self, client_with_source) -> None:
+        """A completed job must return state='succeeded', not the legacy 'done'."""
+        client, source_path = client_with_source
+
+        with patch(
+            "pd_ocr_simple_gui.routes.jobs.run_project",
+            _make_done_status_callback(""),
+        ):
+            resp = await client.post(
+                "/api/jobs",
+                json={**JOB_PAYLOAD, "source_path": source_path},
+            )
+        project_id = resp.json()["project_id"]
+
+        get_resp = await client.get(f"/api/jobs/{project_id}")
+        state = get_resp.json()["state"]
+        # Must be canonical 'succeeded' — never the legacy 'done' value
+        assert state == "succeeded", f"Expected 'succeeded' but got {state!r}"
+        assert state != "done", "Legacy 'done' state must not be returned by the API"
+
+    async def test_state_is_always_a_canonical_value(self, client: AsyncClient) -> None:
+        """Every job state returned by the API must be a canonical pd-ocr-ops value."""
+        CANONICAL_STATES = {"queued", "running", "succeeded", "failed", "cancelled"}
+        LEGACY_STATES = {"done", "error", "pending", "created", "complete"}
+
+        resp = await client.post("/api/jobs", json=JOB_PAYLOAD)
+        project_id = resp.json()["project_id"]
+        get_resp = await client.get(f"/api/jobs/{project_id}")
+        state = get_resp.json()["state"]
+        assert state in CANONICAL_STATES, f"Job state {state!r} is not a canonical pd-ocr-ops state"
+        assert state not in LEGACY_STATES, f"Legacy state {state!r} must not be returned by the API"
+
+
 class TestRerunJob:
     """Tests for POST /api/jobs/{project_id}/rerun."""
 

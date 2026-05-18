@@ -39,7 +39,7 @@ vi.mock("@concavetrillion/pd-ui/primitives", async (importOriginal) => {
 });
 
 function makeJobStatus(
-  state: "queued" | "running" | "done" | "error",
+  state: "queued" | "running" | "succeeded" | "failed" | "cancelled",
   pagesDone = 0,
   pageCount = 3
 ) {
@@ -51,7 +51,7 @@ function makeJobStatus(
     page_count: pageCount,
     output_dir: "/tmp/out",
     pages: [
-      { page_idx: 0, name: "page_001.png", state: "done", text_preview: "Hello world first page text that is long" },
+      { page_idx: 0, name: "page_001.png", state: "succeeded", text_preview: "Hello world first page text that is long" },
       { page_idx: 1, name: "page_002.png", state: "running", text_preview: "Second page content here" },
       { page_idx: 2, name: "page_003.png", state: "queued", text_preview: "" },
     ].slice(0, pageCount),
@@ -66,7 +66,7 @@ function renderResultsPage(
     ? makeFetch()
     : vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => makeJobStatus("done", 3, 3),
+        json: async () => makeJobStatus("succeeded", 3, 3),
       });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -127,7 +127,7 @@ describe("ResultsPage", () => {
       callCount++;
       return {
         ok: true,
-        json: async () => makeJobStatus("done", 3, 3),
+        json: async () => makeJobStatus("succeeded", 3, 3),
       };
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -210,6 +210,14 @@ describe("ResultsPage", () => {
     });
   });
 
+  it("page rows have data-testid='page-row' for Playwright targeting", async () => {
+    renderResultsPage();
+    await waitFor(() => {
+      const rows = screen.getAllByTestId("page-row");
+      expect(rows).toHaveLength(3);
+    });
+  });
+
   it("shows text preview", async () => {
     renderResultsPage();
     await waitFor(() => {
@@ -244,7 +252,7 @@ describe("ResultsPage", () => {
       }
       return {
         ok: true,
-        json: async () => makeJobStatus("done", 3, 3),
+        json: async () => makeJobStatus("succeeded", 3, 3),
       };
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -280,7 +288,7 @@ describe("ResultsPage", () => {
       // Always return done so button stays visible and polling stops
       return {
         ok: true,
-        json: async () => makeJobStatus("done", 3, 3),
+        json: async () => makeJobStatus("succeeded", 3, 3),
       };
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

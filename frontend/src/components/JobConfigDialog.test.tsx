@@ -221,4 +221,14 @@ describe("JobConfigDialog", () => {
       expect(screen.getByLabelText(/engine/i)).toBeInTheDocument();
     });
   });
+
+  it("has data-testid attributes for Playwright targeting", async () => {
+    renderDialog("/tmp/scans");
+    await waitFor(() => {
+      expect(screen.getByTestId("job-config-dialog-form")).toBeInTheDocument();
+      expect(screen.getByTestId("engine-select")).toBeInTheDocument();
+      expect(screen.getByTestId("language-input")).toBeInTheDocument();
+      expect(screen.getByTestId("run-ocr-button")).toBeInTheDocument();
+    });
+  });
 });

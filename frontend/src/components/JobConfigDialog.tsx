@@ -135,7 +135,7 @@ export function JobConfigDialog({ open, sourcePath, onClose }: JobConfigDialogPr
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} noValidate>
+        <form onSubmit={handleSubmit} noValidate data-testid="job-config-dialog-form">
           {validationError && (
             <p role="alert" className="job-config-dialog__error">
               {validationError}
@@ -163,6 +163,7 @@ export function JobConfigDialog({ open, sourcePath, onClose }: JobConfigDialogPr
               }
               className="input"
               aria-label="Engine"
+              data-testid="engine-select"
             >
               <option value="doctr">DocTR</option>
               <option value="tesseract">Tesseract</option>
@@ -178,6 +179,7 @@ export function JobConfigDialog({ open, sourcePath, onClose }: JobConfigDialogPr
                 setLanguage(e.target.value)
               }
               placeholder="eng"
+              data-testid="language-input"
             />
           </Field>
 
@@ -224,7 +226,7 @@ export function JobConfigDialog({ open, sourcePath, onClose }: JobConfigDialogPr
             <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" disabled={submitting}>
+            <Button type="submit" variant="primary" disabled={submitting} data-testid="run-ocr-button">
               {submitting ? "Running…" : "Run OCR →"}
             </Button>
           </DialogFooter>

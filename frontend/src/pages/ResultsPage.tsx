@@ -188,6 +188,7 @@ export default function ResultsPage() {
                 style={{ cursor: "pointer" }}
                 tabIndex={0}
                 role="row"
+                data-testid="page-row"
                 onClick={() =>
                   navigate(`/jobs/${id ?? ""}/pages/${page.page_idx}`)
                 }
