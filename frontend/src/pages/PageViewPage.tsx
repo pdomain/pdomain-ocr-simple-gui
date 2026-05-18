@@ -7,6 +7,7 @@ import { PageImageCanvas } from "@concavetrillion/pd-ui/canvas";
 import type { CanvasPage } from "@concavetrillion/pd-ui/canvas";
 import {
   Button,
+  Textarea,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -246,7 +247,7 @@ export default function PageViewPage() {
 
         {/* Right — editable text */}
         <div className="page-view-page__text-panel">
-          <textarea
+          <Textarea
             className="page-view-page__textarea"
             value={text}
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>

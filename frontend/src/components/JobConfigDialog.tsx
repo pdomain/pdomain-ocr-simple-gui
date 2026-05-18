@@ -161,7 +161,7 @@ export function JobConfigDialog({ open, sourcePath, onClose }: JobConfigDialogPr
               onChange={(e: ChangeEvent<HTMLSelectElement>) =>
                 setEngine(e.target.value)
               }
-              className="job-config-dialog__select"
+              className="input"
               aria-label="Engine"
             >
               <option value="doctr">DocTR</option>
