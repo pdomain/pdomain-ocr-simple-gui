@@ -130,14 +130,14 @@ class TestPutPrefs:
         assert resp.status_code == 200
 
     async def test_put_ui_prefs_subset(self, client_with_mock_prefs: AsyncClient) -> None:
-        """PUT /api/prefs accepts {ui_prefs: {theme, density, fontScale}} and returns 200."""
-        payload = {"ui_prefs": {"theme": "light", "density": "compact", "fontScale": 1.15}}
+        """PUT /api/prefs accepts {ui_prefs: {theme, density, font_scale}} and returns 200."""
+        payload = {"ui_prefs": {"theme": "light", "density": "compact", "font_scale": 1.15}}
         resp = await client_with_mock_prefs.put("/api/prefs", json=payload)
         assert resp.status_code == 200
         data = resp.json()
         assert data["ui_prefs"]["theme"] == "light"
         assert data["ui_prefs"]["density"] == "compact"
-        assert data["ui_prefs"]["fontScale"] == 1.15
+        assert data["ui_prefs"]["font_scale"] == 1.15
 
     async def test_put_ui_prefs_persists_via_adapter(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """PUT /api/prefs with ui_prefs calls write_app on the adapter."""
@@ -145,7 +145,7 @@ class TestPutPrefs:
 
         mock_adapter = _make_mock_adapter()
         monkeypatch.setattr(app_mod, "_prefs_adapter", mock_adapter)
-        payload = {"ui_prefs": {"theme": "dark", "density": "normal", "fontScale": 1.0}}
+        payload = {"ui_prefs": {"theme": "dark", "density": "normal", "font_scale": 1.0}}
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             resp = await ac.put("/api/prefs", json=payload)
         assert resp.status_code == 200
