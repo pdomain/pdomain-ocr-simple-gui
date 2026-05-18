@@ -3,9 +3,8 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Chip } from "@concavetrillion/pd-ui/primitives";
-
-type JobState = "queued" | "running" | "succeeded" | "failed" | "cancelled";
+import { JobStatusPip } from "@concavetrillion/pd-ui/primitives";
+import type { JobState } from "@concavetrillion/pd-ui/types";
 
 interface RecentProject {
   project_id: string;
@@ -114,9 +113,7 @@ export function RecentProjectsList() {
               <td className="recent-projects__pages">{project.page_count}</td>
               <td className="recent-projects__engine">{project.engine}</td>
               <td className="recent-projects__status">
-                <Chip variant="static" className={`status-chip status-chip--${project.status}`}>
-                  {project.status}
-                </Chip>
+                <JobStatusPip state={project.status} />
               </td>
             </tr>
           ))}

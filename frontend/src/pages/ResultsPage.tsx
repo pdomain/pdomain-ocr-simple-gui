@@ -3,9 +3,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Progress, Chip, Button } from "@concavetrillion/pd-ui/primitives";
-
-type JobState = "queued" | "running" | "succeeded" | "failed" | "cancelled";
+import { Progress, JobStatusPip, Button } from "@concavetrillion/pd-ui/primitives";
+import type { JobState } from "@concavetrillion/pd-ui/types";
 
 interface PageRow {
   page_idx: number;
@@ -134,12 +133,7 @@ export default function ResultsPage() {
     <div data-testid="results-page" className="results-page">
       <header className="results-page__header">
         <h1 className="results-page__title">{name}</h1>
-        <Chip
-          variant="static"
-          className={`status-chip status-chip--${state}`}
-        >
-          {state}
-        </Chip>
+        <JobStatusPip state={state} />
       </header>
 
       {isRunning && (
@@ -206,12 +200,7 @@ export default function ResultsPage() {
               >
                 <td className="results-page__page-name">{page.name}</td>
                 <td className="results-page__page-status">
-                  <Chip
-                    variant="static"
-                    className={`status-chip status-chip--${page.state}`}
-                  >
-                    {page.state}
-                  </Chip>
+                  <JobStatusPip state={page.state} />
                 </td>
                 <td className="results-page__page-preview">
                   {page.text_preview
