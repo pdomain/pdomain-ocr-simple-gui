@@ -5,36 +5,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import {
   AppShell,
   SuiteSiblingsProvider,
-  TopNav,
-  LauncherSlot,
 } from "@concavetrillion/pd-ui/shell";
-
-function AppHeader() {
-  return (
-    <TopNav>
-      <img
-        src="/api/self/icons/32"
-        alt=""
-        width={20}
-        height={20}
-        style={{ borderRadius: 4, flexShrink: 0 }}
-      />
-      <span
-        style={{
-          fontSize: 13,
-          fontWeight: 600,
-          color: "var(--ink-1)",
-          letterSpacing: "-0.01em",
-          whiteSpace: "nowrap",
-        }}
-      >
-        OCR Simple GUI
-      </span>
-      <div style={{ flex: 1 }} />
-      <LauncherSlot />
-    </TopNav>
-  );
-}
 import type { UIPrefsConfig, InstalledApp, LaunchResult } from "@concavetrillion/pd-ui/shell";
 import HomePage from "./pages/HomePage";
 import ResultsPage from "./pages/ResultsPage";
@@ -45,8 +16,8 @@ const uiPrefsConfig: UIPrefsConfig = {
   load: async () => {
     try {
       const res = await fetch("/api/prefs");
-      if (!res.ok) return { theme: "dark" as const, density: "normal" as const };
-      const data = (await res.json()) as { ui_prefs?: { theme?: string; density?: string } };
+      if (!res.ok) return { theme: "dark" as const, density: "normal" as const, fontScale: 1.0 };
+      const data = (await res.json()) as { ui_prefs?: { theme?: string; density?: string; fontScale?: number } };
       const ui = data.ui_prefs ?? {};
       return {
         theme: (ui.theme === "light" ? "light" : "dark") as "dark" | "light",
@@ -55,16 +26,25 @@ const uiPrefsConfig: UIPrefsConfig = {
             ? ui.density
             : "normal"
         ) as "compact" | "normal" | "comfortable",
+        fontScale: typeof ui.fontScale === "number" ? Math.min(1.4, Math.max(0.8, ui.fontScale)) : 1.0,
       };
     } catch {
-      return { theme: "dark" as const, density: "normal" as const };
+      return { theme: "dark" as const, density: "normal" as const, fontScale: 1.0 };
     }
   },
-  persistCommon: async (_prefs) => {
-    // TODO: wire to PUT /api/prefs in M7
+  persistCommon: async (prefs) => {
+    try {
+      await fetch("/api/prefs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ui_prefs: prefs }),
+      });
+    } catch {
+      // non-fatal
+    }
   },
   persistApp: async (_appPrefs) => {
-    // TODO: wire to PUT /api/prefs in M7
+    // TODO: wire to PUT /api/prefs app-specific prefs in M7
   },
 };
 
@@ -116,7 +96,6 @@ export default function App() {
           deployMode="local"
           launcherSlot="header"
           uiPrefsConfig={uiPrefsConfig}
-          header={<AppHeader />}
           main={<AppRoutes />}
         />
       </SuiteSiblingsProvider>

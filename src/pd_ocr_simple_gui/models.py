@@ -43,6 +43,14 @@ class ProjectStatus(BaseModel):
     pages: list[PageResult]
 
 
+class UIPrefsSubset(BaseModel):
+    """Common UI prefs persisted by AppShell (theme, density, font scale)."""
+
+    theme: str = "dark"
+    density: str = "normal"
+    fontScale: float = 1.0  # noqa: N815 — camelCase matches JSON contract
+
+
 class AppPrefs(BaseModel):
     """Application-level preferences for pd-ocr-simple-gui."""
 
@@ -52,3 +60,4 @@ class AppPrefs(BaseModel):
     save_json_default: bool = False
     combined_txt_default: bool = True
     recent_projects: list[dict[str, Any]] = []
+    ui_prefs: UIPrefsSubset | None = None

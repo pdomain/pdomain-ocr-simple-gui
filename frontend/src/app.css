@@ -23,6 +23,53 @@ body,
 }
 
 /* ------------------------------------------------------------------ */
+/* Density overrides                                                    */
+/* ------------------------------------------------------------------ */
+
+[data-density="compact"] {
+  --density-gap: 6px;
+  --density-pad: 0.75;
+}
+
+[data-density="comfortable"] {
+  --density-gap: 20px;
+  --density-pad: 1.4;
+}
+
+/* Drop zone adjusts its padding with density */
+[data-density="compact"] .drop-zone {
+  padding: 28px 20px;
+  min-height: 140px;
+}
+
+[data-density="comfortable"] .drop-zone {
+  padding: 64px 48px;
+  min-height: 260px;
+}
+
+/* Results/recent tables row padding */
+[data-density="compact"] .recent-projects__row td,
+[data-density="compact"] .results-page__row td {
+  padding: 4px 10px;
+}
+
+[data-density="comfortable"] .recent-projects__row td,
+[data-density="comfortable"] .results-page__row td {
+  padding: 14px 12px;
+}
+
+/* Home page gap */
+[data-density="compact"] .home-page {
+  gap: 16px;
+  padding: 24px 16px 16px;
+}
+
+[data-density="comfortable"] .home-page {
+  gap: 48px;
+  padding: 56px 32px 32px;
+}
+
+/* ------------------------------------------------------------------ */
 /* Home page                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -42,8 +89,11 @@ body,
 .drop-zone {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 12px;
-  padding: 32px 28px;
+  padding: 48px 36px;
+  min-height: 200px;
   border: 1.5px dashed var(--border-3);
   border-radius: 8px;
   background: var(--bg-surface);
@@ -102,7 +152,7 @@ body,
   }
 }
 
-/* Browse button row */
+/* Browse button row — keep left-aligned despite centred flex container */
 .drop-zone .btn {
   align-self: flex-start;
 }
