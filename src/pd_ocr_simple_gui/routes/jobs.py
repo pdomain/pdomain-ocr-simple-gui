@@ -122,9 +122,12 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
 
 @router.get("")
 async def list_jobs() -> list[dict[str, Any]]:
-    """Return all projects as a list of ProjectStatus dicts."""
+    """Return all projects as a list of ProjectStatus dicts enriched with name and output_dir."""
     projects = list_projects()
-    return [status.model_dump() for _, status in projects]
+    return [
+        status.model_copy(update={"name": spec.name, "output_dir": spec.output_dir}).model_dump()
+        for spec, status in projects
+    ]
 
 
 @router.get("/{project_id}")

@@ -51,7 +51,7 @@ class PageResponse(BaseModel):
 
     page_idx: int
     page_name: str
-    state: str
+    state: Literal["queued", "running", "succeeded", "failed", "cancelled"]
     text: str = ""
     width: int = 800
     height: int = 1200

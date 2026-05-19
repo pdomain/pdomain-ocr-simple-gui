@@ -123,6 +123,8 @@ class TestListJobs:
         assert resp.status_code == 200
         items = resp.json()
         assert len(items) == 2
+        names = {item["name"] for item in items}
+        assert JOB_PAYLOAD["name"] in names, "list_jobs must enrich with name from ProjectSpec"
 
 
 class TestDeleteJob:
