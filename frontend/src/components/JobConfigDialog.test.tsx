@@ -244,7 +244,7 @@ describe("JobConfigDialog", () => {
     // sourcePath="" — the server will reject, BaseJobConfigDialog shows thrown error
     const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
       if (url === "/api/prefs") {
-        return Promise.resolve({ ok: true, json: async () => ({ engine: "doctr", language: "eng" }) });
+        return Promise.resolve({ ok: true, json: async () => ({ engine: "doctr", language: "en" }) });
       }
       if (url === "/api/jobs" && opts?.method === "POST") {
         return Promise.resolve({ ok: false, text: async () => "source path required" });
