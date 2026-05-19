@@ -126,9 +126,13 @@ async def get_self_icon(size: int) -> Response:
     return Response(content=icon_bytes, media_type="image/png")
 
 
-# Serve static JS/CSS assets — must come before the catch-all route
-if (_FRONTEND_DIR / "assets").exists():
-    app.mount("/assets", StaticFiles(directory=_FRONTEND_DIR / "assets"), name="assets")
+# Serve static JS/CSS assets — must come before the catch-all route.
+# check_dir=False skips the existence check at startup; missing-assets requests 404 naturally.
+app.mount(
+    "/assets",
+    StaticFiles(directory=_FRONTEND_DIR / "assets", check_dir=False),
+    name="assets",
+)
 
 
 # SPA catch-all — React Router owns all non-API paths.

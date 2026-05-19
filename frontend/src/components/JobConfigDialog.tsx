@@ -1,24 +1,19 @@
 // JobConfigDialog — M4 task #229
 // Screen 2: user configures project before running OCR
+// Migrated to BaseJobConfigDialog shell (issue #256)
 
-import { useState, useEffect, type ChangeEvent, type FormEvent } from "react";
+import { useState, useEffect, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  Button,
+  BaseJobConfigDialog,
   Input,
   Field,
 } from "@concavetrillion/pd-ui/primitives";
+import type { BaseJobConfig } from "@concavetrillion/pd-ui/primitives";
 
 interface PrefsResponse {
   engine?: string;
   language?: string;
-  output_dir?: string;
 }
 
 export interface JobConfigDialogProps {
@@ -30,30 +25,15 @@ export interface JobConfigDialogProps {
   onClose: () => void;
 }
 
-function basename(path: string): string {
-  const trimmed = path.replace(/\/$/, "");
-  const idx = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
-  return idx >= 0 ? trimmed.slice(idx + 1) : trimmed;
-}
-
 export function JobConfigDialog({ open, sourcePath, onClose }: JobConfigDialogProps) {
   const navigate = useNavigate();
 
-  const [projectName, setProjectName] = useState<string>(() => basename(sourcePath));
   const [engine, setEngine] = useState<string>("doctr");
-  const [language, setLanguage] = useState<string>("eng");
-  const [outputDir, setOutputDir] = useState<string>("");
+  const [language, setLanguage] = useState<string>("en");
   const [saveJson, setSaveJson] = useState<boolean>(true);
   const [combinedTxt, setCombinedTxt] = useState<boolean>(true);
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState<boolean>(false);
 
-  // Pre-fill name from source path
-  useEffect(() => {
-    setProjectName(basename(sourcePath));
-  }, [sourcePath]);
-
-  // Load defaults from prefs
+  // Load engine/language defaults from prefs on open
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -64,7 +44,6 @@ export function JobConfigDialog({ open, sourcePath, onClose }: JobConfigDialogPr
         if (cancelled) return;
         if (data.engine) setEngine(data.engine);
         if (data.language) setLanguage(data.language);
-        if (data.output_dir) setOutputDir(data.output_dir);
       })
       .catch(() => {
         // Network error — keep defaults
@@ -74,164 +53,84 @@ export function JobConfigDialog({ open, sourcePath, onClose }: JobConfigDialogPr
     };
   }, [open]);
 
-  function validate(): string | null {
-    if (!sourcePath.trim()) {
-      return "Source path is required.";
+  async function handleSubmit({ projectName, outputDir }: BaseJobConfig) {
+    const res = await fetch("/api/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: projectName,
+        source_path: sourcePath,
+        engine,
+        language,
+        output_dir: outputDir,
+        save_json: saveJson,
+        combined_txt: combinedTxt,
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Server error: ${text}`);
     }
-    if (!outputDir.trim()) {
-      return "Output directory is required.";
-    }
-    return null;
-  }
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    const err = validate();
-    if (err) {
-      setValidationError(err);
-      return;
-    }
-    setValidationError(null);
-    setSubmitting(true);
-
-    try {
-      const res = await fetch("/api/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: projectName,
-          source_path: sourcePath,
-          engine,
-          language,
-          output_dir: outputDir,
-          save_json: saveJson,
-          combined_txt: combinedTxt,
-        }),
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        setValidationError(`Server error: ${text}`);
-        return;
-      }
-
-      const data = (await res.json()) as { project_id: string };
-      onClose();
-      navigate(`/jobs/${data.project_id}`);
-    } catch (err) {
-      setValidationError("Network error — please try again.");
-    } finally {
-      setSubmitting(false);
-    }
+    const data = (await res.json()) as { project_id: string };
+    onClose();
+    navigate(`/jobs/${data.project_id}`);
   }
 
   return (
-    <Dialog open={open}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>New OCR Job</DialogTitle>
-          <DialogDescription>
-            Configure the job settings before running OCR.
-          </DialogDescription>
-        </DialogHeader>
+    <BaseJobConfigDialog
+      open={open}
+      title="New OCR Job"
+      description="Configure the job settings before running OCR."
+      sourcePath={sourcePath}
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      submitLabel="Run OCR →"
+    >
+      {/* Engine select */}
+      <Field htmlFor="jcd-engine" label="Engine">
+        <select
+          id="jcd-engine"
+          value={engine}
+          onChange={(e: ChangeEvent<HTMLSelectElement>) => setEngine(e.target.value)}
+          className="input"
+          aria-label="Engine"
+          data-testid="engine-select"
+        >
+          <option value="doctr">DocTR</option>
+          <option value="tesseract">Tesseract</option>
+        </select>
+      </Field>
 
-        <form onSubmit={handleSubmit} noValidate data-testid="job-config-dialog-form">
-          {validationError && (
-            <p role="alert" className="job-config-dialog__error">
-              {validationError}
-            </p>
-          )}
+      {/* Language */}
+      <Field htmlFor="jcd-language" label="Language">
+        <Input
+          id="jcd-language"
+          type="text"
+          value={language}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setLanguage(e.target.value)}
+          placeholder="en"
+          data-testid="language-input"
+        />
+      </Field>
 
-          <Field htmlFor="jcd-project-name" label="Project name">
-            <Input
-              id="jcd-project-name"
-              type="text"
-              value={projectName}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                setProjectName(e.target.value)
-              }
-              placeholder="my-scans"
-            />
-          </Field>
+      {/* Checkboxes */}
+      <Field htmlFor="jcd-save-json" label="Save JSON sidecar">
+        <input
+          id="jcd-save-json"
+          type="checkbox"
+          checked={saveJson}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setSaveJson(e.target.checked)}
+        />
+      </Field>
 
-          <Field htmlFor="jcd-engine" label="Engine">
-            <select
-              id="jcd-engine"
-              value={engine}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                setEngine(e.target.value)
-              }
-              className="input"
-              aria-label="Engine"
-              data-testid="engine-select"
-            >
-              <option value="doctr">DocTR</option>
-              <option value="tesseract">Tesseract</option>
-            </select>
-          </Field>
-
-          <Field htmlFor="jcd-language" label="Language">
-            <Input
-              id="jcd-language"
-              type="text"
-              value={language}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                setLanguage(e.target.value)
-              }
-              placeholder="eng"
-              data-testid="language-input"
-            />
-          </Field>
-
-          <Field htmlFor="jcd-output-dir" label="Output directory">
-            <Input
-              id="jcd-output-dir"
-              type="text"
-              value={outputDir}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                setOutputDir(e.target.value);
-                if (validationError && e.target.value.trim()) {
-                  setValidationError(null);
-                }
-              }}
-              placeholder="/home/user/ocr-output"
-              aria-describedby={validationError ? "jcd-error" : undefined}
-              aria-invalid={validationError ? true : undefined}
-            />
-          </Field>
-
-          <Field htmlFor="jcd-save-json" label="Save JSON sidecar">
-            <input
-              id="jcd-save-json"
-              type="checkbox"
-              checked={saveJson}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                setSaveJson(e.target.checked)
-              }
-            />
-          </Field>
-
-          <Field htmlFor="jcd-combined-txt" label="Save combined .txt">
-            <input
-              id="jcd-combined-txt"
-              type="checkbox"
-              checked={combinedTxt}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                setCombinedTxt(e.target.checked)
-              }
-            />
-          </Field>
-
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" disabled={submitting} data-testid="run-ocr-button">
-              {submitting ? "Running…" : "Run OCR →"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <Field htmlFor="jcd-combined-txt" label="Save combined .txt">
+        <input
+          id="jcd-combined-txt"
+          type="checkbox"
+          checked={combinedTxt}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setCombinedTxt(e.target.checked)}
+        />
+      </Field>
+    </BaseJobConfigDialog>
   );
 }
