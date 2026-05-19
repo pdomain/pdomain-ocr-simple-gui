@@ -113,11 +113,13 @@ def test_e2e_job_completes(tmp_path: Path) -> None:
         else:
             pytest.fail(f"Job did not reach terminal state within {_TIMEOUT}s; last state={final_status}")
 
-        # Assert job completed (succeeded or failed is both acceptable — real OCR may fail on
-        # environments without model weights, but the server lifecycle must work).
-        assert final_status.get("state") in ("succeeded", "failed", "cancelled"), (
-            f"Unexpected final state: {final_status.get('state')}"
-        )
+        state = final_status.get("state")
+        if state == "failed":
+            pytest.xfail(
+                "Job reached state=failed — likely missing OCR model weights or a pipeline error. "
+                "Run with a full model cache to verify OCR output."
+            )
+        assert state == "succeeded", f"Expected state=succeeded, got {state!r}. Full status: {final_status}"
 
         # If succeeded, assert at least one .txt file was written
         if final_status.get("state") == "succeeded":
