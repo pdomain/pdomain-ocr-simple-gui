@@ -51,9 +51,9 @@ function makeJobStatus(
     page_count: pageCount,
     output_dir: "/tmp/out",
     pages: [
-      { page_idx: 0, name: "page_001.png", state: "succeeded", text_preview: "Hello world first page text that is long" },
-      { page_idx: 1, name: "page_002.png", state: "running", text_preview: "Second page content here" },
-      { page_idx: 2, name: "page_003.png", state: "queued", text_preview: "" },
+      { page_idx: 0, page_name: "page_001.png", state: "succeeded", text_preview: "Hello world first page text that is long" },
+      { page_idx: 1, page_name: "page_002.png", state: "running", text_preview: "Second page content here" },
+      { page_idx: 2, page_name: "page_003.png", state: "queued", text_preview: "" },
     ].slice(0, pageCount),
   };
 }

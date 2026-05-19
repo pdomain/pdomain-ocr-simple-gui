@@ -70,7 +70,7 @@ def project_with_image(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple
 
 
 class TestGetPage:
-    async def test_returns_sidecar(
+    async def test_returns_page_response(
         self,
         client: AsyncClient,
         project_with_image: tuple[str, Path],
@@ -79,7 +79,13 @@ class TestGetPage:
         resp = await client.get(f"/api/pages/{project_id}/0")
         assert resp.status_code == 200
         data = resp.json()
+        # Issue #5: must return PageResponse shape
         assert data["page_idx"] == 0
+        assert data["page_name"] == "page_001.png"
+        assert data["state"] == "succeeded"
+        assert data["text"] == "Hello world"
+        assert data["width"] == 800
+        assert data["height"] == 1200
 
     async def test_404_for_missing_project(self, client: AsyncClient) -> None:
         resp = await client.get("/api/pages/nonexistent/0")
@@ -142,9 +148,10 @@ class TestPutPageText:
             f"/api/pages/{project_id}/0/text",
             json={"text": "updated text"},
         )
+        # Issue #5: GET now returns PageResponse; edited_text is surfaced as "text"
         get_resp = await client.get(f"/api/pages/{project_id}/0")
         data = get_resp.json()
-        assert data.get("edited_text") == "updated text"
+        assert data.get("text") == "updated text"
 
 
 class TestPostPageRerun:

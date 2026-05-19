@@ -129,12 +129,13 @@ async def list_jobs() -> list[dict[str, Any]]:
 
 @router.get("/{project_id}")
 async def get_job(project_id: str) -> dict[str, Any]:
-    """Return ProjectStatus for the given project_id."""
+    """Return ProjectStatus enriched with name and output_dir from ProjectSpec."""
     try:
-        _, status = read_project(project_id)
+        spec, status = read_project(project_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Project not found") from exc
-    return status.model_dump()
+    enriched = status.model_copy(update={"name": spec.name, "output_dir": spec.output_dir})
+    return enriched.model_dump()
 
 
 @router.delete("/{project_id}")

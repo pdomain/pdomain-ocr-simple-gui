@@ -105,6 +105,9 @@ class TestGetJob:
         assert "page_count" in status
         assert "pages_done" in status
         assert "pages" in status
+        # Issue #3: must include name and output_dir from ProjectSpec
+        assert status["name"] == JOB_PAYLOAD["name"]
+        assert status["output_dir"] == JOB_PAYLOAD["output_dir"]
 
 
 class TestListJobs:

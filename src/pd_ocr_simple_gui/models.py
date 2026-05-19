@@ -38,10 +38,23 @@ class ProjectStatus(BaseModel):
     """Aggregated status for a project."""
 
     project_id: str
+    name: str = ""
+    output_dir: str = ""
     state: Literal["queued", "running", "succeeded", "failed", "cancelled"]
     page_count: int
     pages_done: int
     pages: list[PageResult]
+
+
+class PageResponse(BaseModel):
+    """Structured page data returned by GET /api/pages/{project_id}/{page_idx}."""
+
+    page_idx: int
+    page_name: str
+    state: str
+    text: str = ""
+    width: int = 800
+    height: int = 1200
 
 
 class AppPrefs(BaseModel):

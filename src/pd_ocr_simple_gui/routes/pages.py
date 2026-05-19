@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from pd_ocr_simple_gui.models import PageResponse
 from pd_ocr_simple_gui.pipeline import run_project
 from pd_ocr_simple_gui.storage import (
     read_page_sidecar,
@@ -28,15 +30,35 @@ class SaveTextRequest(BaseModel):
 
 @router.get("/{project_id}/{page_idx}")
 async def get_page(project_id: str, page_idx: int) -> dict[str, Any]:
-    """Return the page sidecar JSON for the given page."""
+    """Return structured PageResponse for the given page."""
     try:
-        spec, _ = read_project(project_id)
+        spec, status = read_project(project_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Project not found") from exc
-    try:
-        return read_page_sidecar(spec, page_idx)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail="Page not found") from exc
+
+    # Resolve page metadata from status
+    page_entry = next((p for p in status.pages if p.page_idx == page_idx), None)
+    if page_entry is None:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    # Read sidecar for text/dimensions (best-effort)
+    sidecar: dict[str, Any] = {}
+    with contextlib.suppress(FileNotFoundError):
+        sidecar = read_page_sidecar(spec, page_idx)
+
+    text = sidecar.get("edited_text") or sidecar.get("text") or ""
+    width = int(sidecar.get("width", 800))
+    height = int(sidecar.get("height", 1200))
+
+    response = PageResponse(
+        page_idx=page_idx,
+        page_name=page_entry.page_name,
+        state=page_entry.state,
+        text=text,
+        width=width,
+        height=height,
+    )
+    return response.model_dump()
 
 
 @router.get("/{project_id}/{page_idx}/image")

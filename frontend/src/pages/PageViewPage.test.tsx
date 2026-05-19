@@ -52,7 +52,7 @@ vi.mock("@concavetrillion/pd-ui/primitives", async (importOriginal) => {
 
 interface PageData {
   page_idx: number;
-  name: string;
+  page_name: string;
   state: string;
   text: string;
   width: number;
@@ -62,7 +62,7 @@ interface PageData {
 function makePageData(idx = 0, text = "Sample OCR text"): PageData {
   return {
     page_idx: idx,
-    name: `page_00${idx + 1}.png`,
+    page_name: `page_00${idx + 1}.png`,
     state: "done",
     text,
     width: 800,
@@ -79,7 +79,7 @@ function makeJobStatus(pageCount = 3, state = "done") {
     page_count: pageCount,
     pages: Array.from({ length: pageCount }, (_, i) => ({
       page_idx: i,
-      name: `page_00${i + 1}.png`,
+      page_name: `page_00${i + 1}.png`,
       state: "done",
       text_preview: "preview",
     })),

@@ -8,7 +8,7 @@ import type { JobState } from "@concavetrillion/pd-ui/types";
 
 interface PageRow {
   page_idx: number;
-  name: string;
+  page_name: string;
   state: JobState;
   text_preview: string;
 }
@@ -197,9 +197,9 @@ export default function ResultsPage() {
                     navigate(`/jobs/${id ?? ""}/pages/${page.page_idx}`);
                   }
                 }}
-                aria-label={`Open page ${page.name}`}
+                aria-label={`Open page ${page.page_name}`}
               >
-                <td className="results-page__page-name">{page.name}</td>
+                <td className="results-page__page-name">{page.page_name}</td>
                 <td className="results-page__page-status">
                   <JobStatusPip state={page.state} />
                 </td>

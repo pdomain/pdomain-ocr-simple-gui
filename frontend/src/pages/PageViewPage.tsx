@@ -1,5 +1,6 @@
 // PageViewPage — M5 task #231, M6 task #232
 // Screen 4: two-panel layout — image canvas + editable text
+// Migrated to PageSplitView — issue #254
 
 import { useEffect, useState, useRef, type ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -12,11 +13,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  PageSplitView,
 } from "@concavetrillion/pd-ui/primitives";
 
 interface PageData {
   page_idx: number;
-  name: string;
+  page_name: string;
   state: string;
   text: string;
   width: number;
@@ -153,112 +155,111 @@ export default function PageViewPage() {
     height: pageData?.height ?? 1200,
   };
 
-  return (
-    <div data-testid="page-view-page" className="page-view-page">
-      {/* Toolbar */}
-      <div className="page-view-page__toolbar" role="toolbar">
-        <Button
-          variant="ghost"
-          onClick={() => goToPage(pageIdx - 1)}
-          disabled={!hasPrev}
-          aria-label="Prev page"
-        >
-          ← Prev
-        </Button>
+  const toolbarContent = (
+    <>
+      <Button
+        variant="ghost"
+        onClick={() => goToPage(pageIdx - 1)}
+        disabled={!hasPrev}
+        aria-label="Prev page"
+      >
+        ← Prev
+      </Button>
 
-        <span className="page-view-page__page-indicator">
-          {pageData?.name ?? `Page ${pageIdx + 1}`}
-          {totalPages > 0 ? ` (${pageIdx + 1} / ${totalPages})` : ""}
+      <span className="page-view-page__page-indicator">
+        {pageData?.page_name ?? `Page ${pageIdx + 1}`}
+        {totalPages > 0 ? ` (${pageIdx + 1} / ${totalPages})` : ""}
+      </span>
+
+      <Button
+        variant="ghost"
+        onClick={() => goToPage(pageIdx + 1)}
+        disabled={!hasNext}
+        aria-label="Next page"
+      >
+        Next →
+      </Button>
+
+      <Button
+        variant="primary"
+        onClick={() => { void handleSave(); }}
+        disabled={saveStatus === "saving" || loading}
+        aria-label="Save edits"
+      >
+        {saveStatus === "saving" ? "Saving…" : "Save edits"}
+      </Button>
+
+      {saveStatus === "saved" && (
+        <span role="status" className="page-toast page-toast--success">
+          Saved
         </span>
+      )}
+      {saveStatus === "error" && (
+        <span role="alert" className="page-toast page-toast--error">
+          Save failed
+        </span>
+      )}
 
-        <Button
-          variant="ghost"
-          onClick={() => goToPage(pageIdx + 1)}
-          disabled={!hasNext}
-          aria-label="Next page"
-        >
-          Next →
-        </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            disabled={rerunStatus === "running" || loading}
+            aria-label="Re-run page"
+          >
+            {rerunStatus === "running" ? "Re-running…" : "Re-run page ▾"}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem onSelect={() => { void handleRerun("doctr"); }}>
+            DocTR
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => { void handleRerun("tesseract"); }}>
+            Tesseract
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-        <Button
-          variant="primary"
-          onClick={() => { void handleSave(); }}
-          disabled={saveStatus === "saving" || loading}
-          aria-label="Save edits"
-        >
-          {saveStatus === "saving" ? "Saving…" : "Save edits"}
-        </Button>
+      {rerunStatus === "done" && (
+        <span role="status" className="page-toast page-toast--success">
+          Re-run complete
+        </span>
+      )}
+      {rerunStatus === "error" && (
+        <span role="alert" className="page-toast page-toast--error">
+          Re-run failed
+        </span>
+      )}
+    </>
+  );
 
-        {saveStatus === "saved" && (
-          <span role="status" className="page-view-page__toast page-view-page__toast--success">
-            Saved
-          </span>
-        )}
-        {saveStatus === "error" && (
-          <span role="alert" className="page-view-page__toast page-view-page__toast--error">
-            Save failed
-          </span>
-        )}
+  const canvasContent = !loading ? (
+    <PageImageCanvas
+      src={imageSrc}
+      page={canvasPage}
+      words={[]}
+    />
+  ) : null;
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              disabled={rerunStatus === "running" || loading}
-              aria-label="Re-run page"
-            >
-              {rerunStatus === "running" ? "Re-running…" : "Re-run page ▾"}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onSelect={() => { void handleRerun("doctr"); }}>
-              DocTR
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => { void handleRerun("tesseract"); }}>
-              Tesseract
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+  const editorContent = (
+    <Textarea
+      value={text}
+      onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+        setText(e.target.value)
+      }
+      disabled={loading}
+      aria-label="OCR text"
+      rows={40}
+    />
+  );
 
-        {rerunStatus === "done" && (
-          <span role="status" className="page-view-page__toast page-view-page__toast--success">
-            Re-run complete
-          </span>
-        )}
-        {rerunStatus === "error" && (
-          <span role="alert" className="page-view-page__toast page-view-page__toast--error">
-            Re-run failed
-          </span>
-        )}
-      </div>
-
-      {/* Two-panel body */}
-      <div className="page-view-page__panels">
-        {/* Left — image canvas */}
-        <div className="page-view-page__canvas-panel">
-          {!loading && (
-            <PageImageCanvas
-              src={imageSrc}
-              page={canvasPage}
-              words={[]}
-            />
-          )}
-        </div>
-
-        {/* Right — editable text */}
-        <div className="page-view-page__text-panel">
-          <Textarea
-            className="page-view-page__textarea"
-            value={text}
-            onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
-              setText(e.target.value)
-            }
-            disabled={loading}
-            aria-label="OCR text"
-            rows={40}
-          />
-        </div>
-      </div>
+  return (
+    <div data-testid="page-view-page" className="page-split-view-wrapper">
+      <PageSplitView
+        toolbar={toolbarContent}
+        canvas={canvasContent}
+        editor={editorContent}
+      />
     </div>
   );
 }
