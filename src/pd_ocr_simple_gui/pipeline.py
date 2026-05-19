@@ -44,7 +44,7 @@ async def collect_images(source_path: str) -> list[Path]:
     return sorted(child for child in p.iterdir() if child.suffix.lower() in _IMAGE_SUFFIXES)
 
 
-def _extract_text(page_dict: dict[str, Any]) -> str:
+def extract_text(page_dict: dict[str, Any]) -> str:
     """Extract plain text from a ``Page.to_dict()`` dict.
 
     The dict is a recursive structure mirroring the ``Block``/``Word`` tree:
@@ -66,7 +66,7 @@ def _extract_text(page_dict: dict[str, Any]) -> str:
     node_type: str = page_dict.get("type", "")
     parts: list[str] = []
     for item in items:
-        text = _extract_text(item)
+        text = extract_text(item)
         if text:
             parts.append(text)
     if not parts:
@@ -149,7 +149,7 @@ async def run_project(
             # metadata["pages"] is a list; take the first page dict
             pages_list: list[dict[str, Any]] = stage_result.metadata.get("pages", [])
             page_dict: dict[str, Any] = pages_list[0] if pages_list else {}
-            text = _extract_text(page_dict)
+            text = extract_text(page_dict)
 
             write_page_sidecar(spec, idx, page_dict)
             write_txt(spec, idx, text)

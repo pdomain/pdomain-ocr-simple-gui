@@ -10,10 +10,12 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from pd_ocr_simple_gui.models import PageResponse
+from pd_ocr_simple_gui.models import PageResponse, PageResult
+from pd_ocr_simple_gui.pipeline import extract_text
 from pd_ocr_simple_gui.storage import (
     read_page_sidecar,
     read_project,
+    update_page_result,
     write_page_sidecar,
     write_txt,
 )
@@ -119,9 +121,6 @@ async def rerun_page(project_id: str, page_idx: int) -> dict[str, Any]:
     from pd_ocr_ops.gpu import LocalStageDispatcher
 
     from pd_ocr_simple_gui.app import get_dispatcher
-    from pd_ocr_simple_gui.models import PageResult
-    from pd_ocr_simple_gui.pipeline import _extract_text
-    from pd_ocr_simple_gui.storage import update_page_result
 
     try:
         spec, status = read_project(project_id)
@@ -164,7 +163,7 @@ async def rerun_page(project_id: str, page_idx: int) -> dict[str, Any]:
         )
         pages_list: list[dict[str, Any]] = stage_result.metadata.get("pages", [])
         page_dict: dict[str, Any] = pages_list[0] if pages_list else {}
-        text = _extract_text(page_dict)
+        text = extract_text(page_dict)
 
         # Augment the sidecar with the extracted text so GET /api/pages can surface it
         sidecar_data: dict[str, Any] = {**page_dict, "text": text}
