@@ -105,7 +105,7 @@ def test_e2e_job_completes(tmp_path: Path) -> None:
             },
             timeout=10.0,
         )
-        assert resp.status_code == 200, f"POST /api/jobs failed: {resp.text}"
+        assert resp.status_code == 202, f"POST /api/jobs failed: {resp.text}"
         project_id = resp.json()["project_id"]
 
         # Poll until terminal state

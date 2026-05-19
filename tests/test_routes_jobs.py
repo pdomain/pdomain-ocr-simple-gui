@@ -75,7 +75,7 @@ def _make_done_status_callback(project_id: str):
 class TestPostJob:
     async def test_creates_job(self, client: AsyncClient) -> None:
         resp = await client.post("/api/jobs", json=JOB_PAYLOAD)
-        assert resp.status_code == 200
+        assert resp.status_code == 202
         data = resp.json()
         assert "project_id" in data
         assert len(data["project_id"]) > 0
@@ -157,7 +157,7 @@ class TestPipelineIntegration:
                 "/api/jobs",
                 json={**JOB_PAYLOAD, "source_path": source_path},
             )
-        assert resp.status_code == 200
+        assert resp.status_code == 202
         project_id = resp.json()["project_id"]
         assert project_id in call_log
 
@@ -228,7 +228,7 @@ class TestCanonicalJobStates:
                 "/api/jobs",
                 json={**JOB_PAYLOAD, "source_path": source_path},
             )
-        assert resp.status_code == 200
+        assert resp.status_code == 202
         project_id = resp.json()["project_id"]
 
         get_resp = await client.get(f"/api/jobs/{project_id}")
@@ -297,7 +297,7 @@ class TestRerunJob:
         with patch("pd_ocr_simple_gui.routes.jobs.run_project", _noop_run):
             rerun_resp = await client.post(f"/api/jobs/{project_id}/rerun")
 
-        assert rerun_resp.status_code == 200
+        assert rerun_resp.status_code == 202
         data = rerun_resp.json()
         assert data["project_id"] == project_id
         assert data["state"] == "queued"

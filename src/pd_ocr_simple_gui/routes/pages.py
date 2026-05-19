@@ -29,8 +29,8 @@ class SaveTextRequest(BaseModel):
     text: str
 
 
-@router.get("/{project_id}/{page_idx}")
-async def get_page(project_id: str, page_idx: int) -> dict[str, Any]:
+@router.get("/{project_id}/{page_idx}", response_model=PageResponse)
+async def get_page(project_id: str, page_idx: int) -> PageResponse:
     """Return structured PageResponse for the given page."""
     try:
         spec, status = read_project(project_id)
@@ -51,7 +51,7 @@ async def get_page(project_id: str, page_idx: int) -> dict[str, Any]:
     width = int(sidecar.get("width", 800))
     height = int(sidecar.get("height", 1200))
 
-    response = PageResponse(
+    return PageResponse(
         page_idx=page_idx,
         page_name=page_entry.page_name,
         state=page_entry.state,
@@ -59,10 +59,9 @@ async def get_page(project_id: str, page_idx: int) -> dict[str, Any]:
         width=width,
         height=height,
     )
-    return response.model_dump()
 
 
-@router.get("/{project_id}/{page_idx}/image")
+@router.get("/{project_id}/{page_idx}/image", response_class=FileResponse)
 async def get_page_image(project_id: str, page_idx: int) -> FileResponse:
     """Stream the source image file for the given page."""
     try:
@@ -92,7 +91,7 @@ async def get_page_image(project_id: str, page_idx: int) -> FileResponse:
     return FileResponse(str(image_path))
 
 
-@router.put("/{project_id}/{page_idx}/text")
+@router.put("/{project_id}/{page_idx}/text", response_model=dict[str, str])
 async def put_page_text(project_id: str, page_idx: int, body: SaveTextRequest) -> dict[str, str]:
     """Save edited text for the given page."""
     try:
@@ -110,8 +109,8 @@ async def put_page_text(project_id: str, page_idx: int, body: SaveTextRequest) -
     return {"status": "saved"}
 
 
-@router.post("/{project_id}/{page_idx}/rerun")
-async def rerun_page(project_id: str, page_idx: int) -> dict[str, Any]:
+@router.post("/{project_id}/{page_idx}/rerun", response_model=PageResult)
+async def rerun_page(project_id: str, page_idx: int) -> PageResult:
     """Re-run OCR on a single page and return the updated PageResult.
 
     Runs OCR inline (does NOT call run_project) so that the correct page_idx
@@ -185,4 +184,4 @@ async def rerun_page(project_id: str, page_idx: int) -> dict[str, Any]:
         )
 
     update_page_result(spec, done_page)
-    return done_page.model_dump()
+    return done_page

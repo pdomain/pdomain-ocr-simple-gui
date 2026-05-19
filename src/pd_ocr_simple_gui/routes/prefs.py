@@ -11,7 +11,7 @@ router = APIRouter(prefix="/api/prefs", tags=["prefs"])
 _APP_ID = "pd-ocr-simple-gui"
 
 
-@router.get("")
+@router.get("", response_model=AppPrefs)
 async def get_prefs() -> AppPrefs:
     """Return the app prefs, or defaults if no adapter/data present."""
     from pd_ocr_simple_gui.app import get_prefs_adapter
@@ -25,7 +25,7 @@ async def get_prefs() -> AppPrefs:
     return AppPrefs.model_validate(raw)
 
 
-@router.put("")
+@router.put("", response_model=AppPrefs)
 async def put_prefs(body: AppPrefs) -> AppPrefs:
     """Persist app prefs via adapter (best-effort if no adapter)."""
     from pd_ocr_simple_gui.app import get_prefs_adapter

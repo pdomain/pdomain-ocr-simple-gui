@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import Response
@@ -91,7 +91,7 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
             pass
 
 
-@router.post("")
+@router.post("", status_code=202, response_model=dict[str, str])
 async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) -> dict[str, str]:
     """Create a new OCR project and enqueue it."""
     project_id = str(uuid.uuid4())
@@ -120,28 +120,27 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
     return {"project_id": project_id}
 
 
-@router.get("")
-async def list_jobs() -> list[dict[str, Any]]:
-    """Return all projects as a list of ProjectStatus dicts enriched with name and output_dir."""
+@router.get("", response_model=list[ProjectStatus])
+async def list_jobs() -> list[ProjectStatus]:
+    """Return all projects as a list of ProjectStatus enriched with name and output_dir."""
     projects = list_projects()
     return [
-        status.model_copy(update={"name": spec.name, "output_dir": spec.output_dir}).model_dump()
+        status.model_copy(update={"name": spec.name, "output_dir": spec.output_dir})
         for spec, status in projects
     ]
 
 
-@router.get("/{project_id}")
-async def get_job(project_id: str) -> dict[str, Any]:
+@router.get("/{project_id}", response_model=ProjectStatus)
+async def get_job(project_id: str) -> ProjectStatus:
     """Return ProjectStatus enriched with name and output_dir from ProjectSpec."""
     try:
         spec, status = read_project(project_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Project not found") from exc
-    enriched = status.model_copy(update={"name": spec.name, "output_dir": spec.output_dir})
-    return enriched.model_dump()
+    return status.model_copy(update={"name": spec.name, "output_dir": spec.output_dir})
 
 
-@router.delete("/{project_id}")
+@router.delete("/{project_id}", response_class=Response)
 async def delete_job(project_id: str) -> Response:
     """Delete a project. Returns 200 if it existed, 204 if it didn't."""
     from pd_ocr_simple_gui.storage import get_project_dir
@@ -155,8 +154,8 @@ async def delete_job(project_id: str) -> Response:
     return Response(status_code=200, content='{"status": "deleted"}', media_type="application/json")
 
 
-@router.post("/{project_id}/rerun")
-async def rerun_job(project_id: str, background_tasks: BackgroundTasks) -> dict[str, Any]:
+@router.post("/{project_id}/rerun", status_code=202, response_model=dict[str, str])
+async def rerun_job(project_id: str, background_tasks: BackgroundTasks) -> dict[str, str]:
     """Reset all pages to queued and re-run the full project pipeline."""
     try:
         spec, status = read_project(project_id)
