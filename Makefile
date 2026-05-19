@@ -80,7 +80,7 @@ pre-commit-check: ## Run pre-commit on all files
 	uv run pre-commit run --all-files
 
 test: ## Run pytest (excludes slow/e2e tests)
-	uv run pytest tests/ -v
+	uv run pytest tests/ -v -n auto
 
 smoke: ## Run slow/e2e smoke tests (requires real OCR; use make ci AI=1 to include)
 	uv run pytest tests/smoke/ -v -m "slow or e2e"
