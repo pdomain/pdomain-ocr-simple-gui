@@ -106,7 +106,7 @@ clean: ## Clean cache + build artifacts
 	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
 	rm -rf dist/ 2>/dev/null || true
 
-ci: setup lint typecheck test smoke frontend-build ## Full CI pipeline (smoke tests run via make smoke)
+ci: setup frontend-install pre-commit-check lint typecheck test smoke frontend-build frontend-test ## Full CI pipeline (smoke tests run via make smoke)
 
 ci-full: ci e2e-browser ## Full CI including Playwright browser tests (requires --group e2e + chromium)
 
