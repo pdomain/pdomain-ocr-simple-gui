@@ -18,10 +18,6 @@ from pathlib import Path
 import httpx
 import pytest
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 _FIXTURE_IMAGE = Path("/workspaces/ocr-container/pd-book-tools/tests/ocr-test-image.png")
 _POLL_INTERVAL = 1.0  # seconds
 _TIMEOUT = 60.0  # seconds — generous for first DocTR model load
@@ -46,11 +42,6 @@ def _wait_ready(base_url: str, timeout: float = 20.0) -> None:
             pass
         time.sleep(0.25)
     raise TimeoutError(f"Server at {base_url} did not become ready within {timeout}s")
-
-
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.slow

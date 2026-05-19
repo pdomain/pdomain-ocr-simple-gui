@@ -26,11 +26,6 @@ from playwright.sync_api import Page, expect
 _FIXTURE_IMAGE = Path("/workspaces/ocr-container/pd-book-tools/tests/ocr-test-image.png")
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
 def _create_job_via_api(base_url: str, source_dir: str, output_dir: str) -> str:
     """POST to /api/jobs and return the project_id."""
     resp = httpx.post(
@@ -48,11 +43,6 @@ def _create_job_via_api(base_url: str, source_dir: str, output_dir: str) -> str:
     )
     assert resp.status_code == 200, f"POST /api/jobs failed: {resp.text}"
     return resp.json()["project_id"]
-
-
-# ---------------------------------------------------------------------------
-# #245: Job submission → results page
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.slow
@@ -96,11 +86,6 @@ def test_results_page_contains_page_rows(page: Page, live_server_url: str, tmp_p
     expect(page.get_by_test_id("results-page")).to_be_visible()
     # At least one page row should eventually appear (job has 1 image)
     expect(page.get_by_test_id("page-row").first).to_be_visible(timeout=10_000)
-
-
-# ---------------------------------------------------------------------------
-# #246: PageView opens from results row
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.slow
