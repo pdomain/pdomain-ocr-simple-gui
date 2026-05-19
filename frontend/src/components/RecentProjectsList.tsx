@@ -1,5 +1,5 @@
 // RecentProjectsList — fetches GET /api/prefs and shows recent projects
-// Issue #228
+// Issue #228 — migrated to shared jobs-table CSS (issue #255)
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -80,21 +80,21 @@ export function RecentProjectsList() {
 
   return (
     <div data-testid="recent-projects-list" className="recent-projects">
-      <table className="recent-projects__table" aria-label="Recent projects">
+      <table className="jobs-table" aria-label="Recent projects">
         <thead>
           <tr>
-            <th scope="col">Name</th>
-            <th scope="col">Last opened</th>
-            <th scope="col">Pages</th>
-            <th scope="col">Engine</th>
-            <th scope="col">Status</th>
+            <th scope="col" className="jobs-table__th">Name</th>
+            <th scope="col" className="jobs-table__th">Last opened</th>
+            <th scope="col" className="jobs-table__th">Pages</th>
+            <th scope="col" className="jobs-table__th">Engine</th>
+            <th scope="col" className="jobs-table__th">Status</th>
           </tr>
         </thead>
         <tbody>
           {displayedProjects.map((project) => (
             <tr
               key={project.project_id}
-              className="recent-projects__row"
+              className="jobs-table__row"
               onClick={() => navigate(`/jobs/${project.project_id}`)}
               style={{ cursor: "pointer" }}
               tabIndex={0}
@@ -106,13 +106,13 @@ export function RecentProjectsList() {
               }}
               aria-label={`Open project ${project.name}`}
             >
-              <td className="recent-projects__name">{project.name}</td>
-              <td className="recent-projects__date">
+              <td className="jobs-table__name">{project.name}</td>
+              <td className="jobs-table__date">
                 {formatDate(project.last_opened_at)}
               </td>
-              <td className="recent-projects__pages">{project.page_count}</td>
-              <td className="recent-projects__engine">{project.engine}</td>
-              <td className="recent-projects__status">
+              <td className="jobs-table__meta">{project.page_count}</td>
+              <td className="jobs-table__meta">{project.engine}</td>
+              <td>
                 <JobStatusPip state={project.status} />
               </td>
             </tr>
