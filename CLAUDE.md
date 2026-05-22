@@ -59,9 +59,10 @@ workspace root.
 
 ## Current status
 
-All milestones shipped (M0–M8 + verification milestone). Open work:
-
-- **#14** — `docs/conventions/lint-deviations.md` chore (`kind:chore`, unblocked).
+All milestones shipped (M0–M8 + verification milestone). No open
+repo-scoped work. Lint deviations are catalogued in
+`docs/conventions/lint-deviations.md` with inline rationale at each
+suppression point (ocr-container-meta #291).
 
 ## GH issues
 

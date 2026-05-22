@@ -175,7 +175,7 @@ async def rerun_page(project_id: str, page_idx: int) -> PageResult:
             state="succeeded",
             text_preview=text[:60],
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # per-page re-run failure is recorded on the page, not raised
         done_page = PageResult(
             page_idx=page_idx,
             page_name=page_entry.page_name,

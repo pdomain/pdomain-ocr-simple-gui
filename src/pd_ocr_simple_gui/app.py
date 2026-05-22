@@ -37,19 +37,19 @@ def get_dispatcher() -> LocalStageDispatcher | None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Wire prefs adapter, stage dispatcher, and suite registration at startup."""
-    global _prefs_adapter, _dispatcher  # noqa: PLW0603
+    global _prefs_adapter, _dispatcher  # noqa: PLW0603  # module-level singletons for FastAPI lifespan
     try:
         from pd_ocr_ops.suite.prefs import LocalFilePrefs
 
         _prefs_adapter = LocalFilePrefs()
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001  # optional prefs integration — app runs without it
         _prefs_adapter = None
     try:
         from pd_ocr_ops.gpu import LocalStageDispatcher, register_default_stages
 
         _dispatcher = LocalStageDispatcher()
         register_default_stages(_dispatcher)
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001  # default stages optional — fall back to bare dispatcher
         from pd_ocr_ops.gpu import LocalStageDispatcher
 
         _dispatcher = LocalStageDispatcher()
@@ -58,7 +58,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from pd_ocr_ops.suite import register_self
 
         register_self(_caller_package="pd_ocr_simple_gui")
-    except Exception:  # noqa: BLE001, S110
+    except Exception:  # noqa: BLE001, S110  # suite self-registration is best-effort — never crash startup
         pass
     yield
     _prefs_adapter = None
@@ -80,7 +80,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register routes
+# Register routes.
+# E402 suppressed below: routers are imported after `app` is defined to avoid
+# a circular import (the route modules import `app` helpers).
 from pd_ocr_simple_gui.routes.jobs import router as jobs_router  # noqa: E402
 from pd_ocr_simple_gui.routes.pages import router as pages_router  # noqa: E402
 from pd_ocr_simple_gui.routes.prefs import router as prefs_router  # noqa: E402
@@ -94,7 +96,7 @@ try:
     from pd_ocr_ops.suite.routes import mount_routes as _mount_suite_routes
 
     _mount_suite_routes(app)
-except Exception:  # noqa: BLE001, S110
+except Exception:  # noqa: BLE001, S110  # suite plumbing routes optional — app serves without them
     pass
 
 
@@ -120,6 +122,7 @@ async def get_self_icon(size: int) -> Response:
     icons_pkg = importlib.resources.files("pd_ocr_simple_gui") / "icons"
     icon_file = icons_pkg / f"{size}.png"
     try:
+        # importlib.resources Traversable has .read_bytes() at runtime; not in the stub protocol
         icon_bytes = icon_file.read_bytes()  # type: ignore[attr-defined]
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=f"Icon {size}.png not found") from exc
