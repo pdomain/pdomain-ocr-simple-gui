@@ -5,14 +5,16 @@ picks an engine, runs OCR, gets `.txt` files. Phase 3 reference consumer
 that validates `pd-ocr-ops`' `LocalStageDispatcher` and the
 `register_default_stages()` helper before `pd-prep-for-pgdp` migrates.
 
-**Architecture:** `docs/` (plan/spec under workspace `docs/superpowers/`).
-Spec: `docs/superpowers/specs/2026-05-17-pd-ocr-simple-gui-design.md`.
+**Architecture:** see workspace-level docs for historical plans/specs.
+Spec: workspace `docs/specs/2026-05-17-pd-ocr-simple-gui-design.md`.
+Plans: workspace `docs/archive/plans/2026-05-17-pd-ocr-simple-gui.md` (complete).
 
 ## Quick orientation
 
+Architecture doc: `docs/architecture/00-overview.md`.
+
 - **Backend:** FastAPI + uvicorn, Python 3.11+. `src/pd_ocr_simple_gui/`.
-- **Frontend:** React + Vite + TS + `@concavetrillion/pd-ui`. `frontend/`
-  (M3, not yet scaffolded).
+- **Frontend:** React + Vite + TS + `@concavetrillion/pd-ui`. `frontend/` (shipped M3+).
 - **OCR pipeline:** `pd-ocr-ops` `LocalStageDispatcher` +
   `register_default_stages()`. `pd-book-tools` supplies the runners.
 - **Suite integration:** `pd-ocr-ops.suite.register_self()` wires the
@@ -21,11 +23,20 @@ Spec: `docs/superpowers/specs/2026-05-17-pd-ocr-simple-gui-design.md`.
 
 ## Commands
 
-```sh
-make ci AI=1        # full CI — always run before committing
-make test           # uv run pytest tests/ -v
-make run            # launch on :8004
-```
+| Target | Does |
+|--------|------|
+| `make setup AI=1` | `uv sync` + pre-commit hooks |
+| `make test AI=1` | pytest — unit + integration, excludes `slow`/`e2e` |
+| `make smoke AI=1` | httpx end-to-end smoke (xfails without model weights) |
+| `make e2e-browser AI=1` | Playwright browser e2e (requires chromium) |
+| `make frontend-test AI=1` | vitest frontend component tests |
+| `make frontend-build AI=1` | Vite build → `src/pd_ocr_simple_gui/static/` |
+| `make lint AI=1` / `make format AI=1` | ruff check / format |
+| `make typecheck AI=1` | basedpyright |
+| `make pre-commit-check AI=1` | all pre-commit hooks on every tracked file |
+| `make ci AI=1` | full gate: setup + lint + typecheck + build + test + smoke + frontend-test |
+| `make ci-full AI=1` | `make ci` + `e2e-browser` (Playwright) |
+| `make run` | launch on :8004 |
 
 `AI=1` captures verbose output to `.ci-ai.log`; stdout shows ✅ on pass
 or filtered failure sections on error.
@@ -46,10 +57,16 @@ Always write to the **absolute path** above. Never use a relative
 `.claude/agent-memory/...` path — cwd at write time may not be the
 workspace root.
 
+## Current status
+
+All milestones shipped (M0–M8 + verification milestone). Open work:
+
+- **#14** — `docs/conventions/lint-deviations.md` chore (`kind:chore`, unblocked).
+
 ## GH issues
 
 Cross-cut tasks tracked in `ConcaveTrillion/ocr-container-meta`.
-Milestone: `spec: 2026-05-17-pd-ocr-simple-gui (#211)`.
+Milestone: `spec: 2026-05-17-pd-ocr-simple-gui (#211)` — all tasks closed.
 
 Before starting: `gh issue view <N> --repo ConcaveTrillion/ocr-container-meta`
 After completing: `gh issue close <N> --repo ConcaveTrillion/ocr-container-meta`
