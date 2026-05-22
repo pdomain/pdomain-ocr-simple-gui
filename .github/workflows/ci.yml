@@ -21,4 +21,12 @@ jobs:
       - uses: astral-sh/setup-uv@v4
         with:
           version: latest
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
       - run: make ci
