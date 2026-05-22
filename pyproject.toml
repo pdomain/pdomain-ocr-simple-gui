@@ -120,6 +120,7 @@ convention = "google"
 include = ["src", "tests"]
 exclude = ["**/__pycache__", "**/.venv", "**/node_modules"]
 typeCheckingMode = "recommended"
+failOnWarnings = true
 reportImportCycles = "none"
 venvPath = "."
 venv = ".venv"
