@@ -71,3 +71,6 @@ simple-gui-projects/
 frontend/node_modules
 .worktrees/**/.venv
 .worktrees/**/frontend/node_modules
+
+# Transient snapshot from `make frontend-install` regression guard
+frontend/pnpm-workspace.yaml.preinstall

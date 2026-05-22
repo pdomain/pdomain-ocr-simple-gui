@@ -91,7 +91,25 @@ e2e-browser: frontend-build ## Run Playwright browser e2e tests (requires chromi
 	uv run --group e2e pytest tests/e2e/ -v -m "slow or e2e" --no-cov
 
 frontend-install: ## Install frontend dependencies
-	cd frontend && $(call _pnpm,install)
+	@# pnpm >=11 rewrites pnpm-workspace.yaml (appends an unfilled `allowBuilds:`
+	@# placeholder) when it meets an un-approved build script. The committed file
+	@# already lists `allowBuilds: { esbuild: true }`, so a clean install must be
+	@# idempotent. Snapshot it, install, and — whether install succeeds or fails —
+	@# detect any mutation, restore the committed file, and fail loudly. A mutation
+	@# means a new dependency ships an un-approved build script and needs an entry
+	@# in the `allowBuilds:` map of frontend/pnpm-workspace.yaml.
+	@cp frontend/pnpm-workspace.yaml frontend/pnpm-workspace.yaml.preinstall
+	@( cd frontend && $(call _pnpm,install) ); rc=$$?; \
+	if ! diff -q frontend/pnpm-workspace.yaml.preinstall frontend/pnpm-workspace.yaml >/dev/null 2>&1; then \
+		echo "❌ pnpm install mutated frontend/pnpm-workspace.yaml:"; \
+		diff frontend/pnpm-workspace.yaml.preinstall frontend/pnpm-workspace.yaml || true; \
+		echo "   A dependency ships an un-approved build script. Add it to the"; \
+		echo "   'allowBuilds:' map in frontend/pnpm-workspace.yaml (set true/false)."; \
+		mv frontend/pnpm-workspace.yaml.preinstall frontend/pnpm-workspace.yaml; \
+		exit 1; \
+	fi; \
+	rm -f frontend/pnpm-workspace.yaml.preinstall; \
+	exit $$rc
 
 frontend-test: frontend-install ## Run frontend vitest suite
 	cd frontend && $(call _pnpm,run test)
