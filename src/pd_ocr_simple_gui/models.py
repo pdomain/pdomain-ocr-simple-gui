@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+# TC002/TC003 suppressed: these are runtime imports — Pydantic needs the
+# concrete types at runtime for field introspection, not type-checking only.
 from datetime import datetime  # noqa: TC003
 from typing import Any, Literal
 

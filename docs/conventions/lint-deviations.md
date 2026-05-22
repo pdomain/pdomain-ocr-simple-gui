@@ -76,6 +76,12 @@ Suppressed: `ANN D T201`
 
 ## Inline suppressions
 
+Each inline suppression below also carries a concise rationale comment
+**at the suppression point** in source, per the workspace "Document
+every lint-rule suppression" rule. The entries here are the catalogued
+summary; the trailing comment in code is the point-of-deviation
+justification.
+
 ### `BLE001` (blind exception catch) — multiple files
 
 **Files:** `app.py`, `storage.py`, `routes/jobs.py`, `routes/pages.py`, `pipeline.py`, `__main__.py`

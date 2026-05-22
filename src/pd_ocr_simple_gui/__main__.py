@@ -49,7 +49,7 @@ def main() -> None:
 
             registry = LocalTomlSuiteRegistry()
             registry.unregister("pd-ocr-simple-gui")
-        except Exception:  # noqa: BLE001, S110
+        except Exception:  # noqa: BLE001, S110  # best-effort suite unregister — never block shutdown
             pass
         return
 

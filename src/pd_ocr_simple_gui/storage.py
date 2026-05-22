@@ -67,6 +67,7 @@ def read_page_sidecar(spec: ProjectSpec, idx: int) -> dict[str, Any]:
     sidecar_path = _pages_dir(spec) / f"{page_name}.json"
     if not sidecar_path.exists():
         raise FileNotFoundError(f"Sidecar not found for page {idx} in {spec.project_id}")
+    # json.loads returns Any; caller validates the shape via Pydantic downstream
     return json.loads(sidecar_path.read_text())  # type: ignore[no-any-return]
 
 
@@ -102,7 +103,7 @@ def list_projects() -> list[tuple[ProjectSpec, ProjectStatus]]:
             try:
                 spec, status = read_project(proj_dir.name)
                 results.append((spec, status))
-            except Exception:  # noqa: BLE001, S110
+            except Exception:  # noqa: BLE001, S110  # skip unreadable project dirs; listing must not fail
                 pass
     return results
 
@@ -132,7 +133,7 @@ def update_page_result(spec: ProjectSpec, page_result: PageResult) -> None:
         agg_state = status.state
     new_status = ProjectStatus(
         project_id=status.project_id,
-        state=agg_state,  # type: ignore[arg-type]
+        state=agg_state,  # type: ignore[arg-type]  # str literal accepted by ProjectStatusState; not narrowed
         page_count=status.page_count,
         pages_done=pages_done,
         pages=new_pages,

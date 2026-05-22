@@ -160,7 +160,7 @@ async def run_project(
                 state="succeeded",
                 text_preview=text[:60],
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001  # per-page OCR failure must not abort the whole batch
             page_done = PageResult(
                 page_idx=idx,
                 page_name=img_path.name,

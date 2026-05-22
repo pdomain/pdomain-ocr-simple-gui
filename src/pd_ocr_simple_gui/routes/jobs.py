@@ -76,7 +76,7 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
 
         await run_project(spec, dispatcher, _status_callback)
 
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001  # background job failure must be recorded, not propagated
         try:
             _, current = read_project(spec.project_id)
             err_status = ProjectStatus(
@@ -87,7 +87,7 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
                 pages=current.pages,
             )
             write_project(spec, err_status)
-        except Exception:  # noqa: BLE001, S110
+        except Exception:  # noqa: BLE001, S110  # best-effort failed-status write; nothing left to do if it fails
             pass
 
 
@@ -197,5 +197,5 @@ def _remove_from_recent_projects(project_id: str) -> None:
         prefs = AppPrefs.model_validate(raw) if raw else AppPrefs()
         prefs.recent_projects = [p for p in prefs.recent_projects if p.get("project_id") != project_id]
         adapter.write_app("pd-ocr-simple-gui", prefs.model_dump())
-    except Exception:  # noqa: BLE001, S110
+    except Exception:  # noqa: BLE001, S110  # recent-projects prefs update is best-effort
         pass

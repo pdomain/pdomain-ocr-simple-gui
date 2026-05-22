@@ -104,6 +104,7 @@ export function DropZone({ onValidPath }: DropZoneProps) {
       <input
         ref={fileInputRef}
         type="file"
+        // webkitdirectory is a valid non-standard DOM attr missing from React's JSX types
         // eslint-disable-next-line react/no-unknown-property
         {...({ webkitdirectory: "" } as Record<string, string>)}
         multiple

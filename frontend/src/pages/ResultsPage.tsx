@@ -104,6 +104,7 @@ export default function ResultsPage() {
       cancelledRef.current = true;
       clearTimer();
     };
+    // polling effect intentionally keyed only on id; adding poll state would restart the interval
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
