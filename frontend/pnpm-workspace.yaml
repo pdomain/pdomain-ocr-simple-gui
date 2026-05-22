@@ -1,4 +1,4 @@
-onlyBuiltDependencies:
-  - esbuild
+allowBuilds:
+  esbuild: true
 minimumReleaseAgeExclude:
   - '@concavetrillion/pd-ui@0.1.0-alpha.1'
