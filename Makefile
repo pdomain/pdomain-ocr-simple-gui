@@ -28,8 +28,11 @@ define _pnpm
 	fi
 endef
 
+PEER_BOOK_TOOLS_PATH ?= ../pd-book-tools
+
 .PHONY: help setup install uninstall remove-venv reset lint format typecheck \
-        pre-commit-check test e2e-browser frontend-build frontend-test clean ci ci-full upgrade-deps
+        pre-commit-check test e2e-browser frontend-build frontend-test clean ci ci-full \
+        upgrade-deps dev-local
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -60,6 +63,16 @@ upgrade-deps: ## Upgrade dependencies and sync local environment
 	@echo "📦 Syncing upgraded dependencies..."
 	uv sync --group dev
 	@echo "✅ Dependencies upgraded and environment synced!"
+
+dev-local: ## [local-dev] Install pd-book-tools from ../pd-book-tools as editable (overlays the wheel)
+	@if [ ! -d "$(PEER_BOOK_TOOLS_PATH)" ]; then \
+		echo "❌ $(PEER_BOOK_TOOLS_PATH) not found. Clone pd-book-tools as a sibling directory."; \
+		exit 1; \
+	fi
+	@echo "🔧 Installing local editable pd-book-tools from $(PEER_BOOK_TOOLS_PATH)..."
+	uv sync --group dev
+	uv pip install --editable "$(PEER_BOOK_TOOLS_PATH)"
+	@echo "✅ Local editable pd-book-tools active. Canonical baseline: make setup"
 
 # ---------------------------------------------------------------------------
 # Lint / format / typecheck / test
