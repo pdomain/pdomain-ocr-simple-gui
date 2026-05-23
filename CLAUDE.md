@@ -61,7 +61,7 @@ workspace root.
 
 All milestones shipped (M0–M8 + verification milestone). No open
 repo-scoped work. Lint deviations are catalogued in
-`docs/conventions/lint-deviations.md` with inline rationale at each
+`docs/process/lint-deviations.md` with inline rationale at each
 suppression point (ocr-container-meta #291).
 
 ## GH issues
