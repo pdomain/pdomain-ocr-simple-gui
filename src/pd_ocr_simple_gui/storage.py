@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from pathlib import Path
 from typing import TypeAlias, cast
@@ -21,6 +22,35 @@ def _read_json_object(path: Path) -> JSONObject:
     if not isinstance(data, dict):
         raise TypeError(f"Expected JSON object in {path}")
     return cast("JSONObject", data)
+
+
+# Allowlist: only alphanumeric, hyphens, and underscores.
+# UUIDs (the canonical project_id form) use hex digits and hyphens; this is intentionally
+# narrow — forward slashes, dots, backslashes, null bytes, and percent signs are all banned.
+_PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def validate_project_id(project_id: str) -> None:
+    """Raise ValueError if project_id contains traversal-unsafe characters.
+
+    Two defences in depth:
+    1. Allowlist check — only [A-Za-z0-9_-] permitted; bans dots, slashes,
+       backslashes, null bytes, percent signs, etc.
+    2. Path containment — the resolved path must be a direct child of
+       _PROJECTS_ROOT (not _PROJECTS_ROOT itself, not above it).
+
+    Call this at the API boundary, before any filesystem operation.
+    """
+    if not _PROJECT_ID_RE.fullmatch(project_id):
+        raise ValueError(
+            f"Invalid project_id {project_id!r}: only A-Za-z0-9, hyphens and underscores allowed"
+        )
+    # Containment check against the resolved root (handles symlinks on the root)
+    resolved_root = _PROJECTS_ROOT.resolve()
+    candidate = (_PROJECTS_ROOT / project_id).resolve()
+    # Must be strictly under the root, not equal to it
+    if candidate == resolved_root or not str(candidate).startswith(str(resolved_root) + "/"):
+        raise ValueError(f"project_id {project_id!r} resolves outside the project store")
 
 
 def get_project_dir(project_id: str) -> Path:

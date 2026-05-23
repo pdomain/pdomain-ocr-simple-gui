@@ -16,6 +16,7 @@ from pd_ocr_simple_gui.storage import (
     read_page_sidecar,
     read_project,
     update_page_result,
+    validate_project_id,
     write_page_sidecar,
     write_txt,
 )
@@ -58,6 +59,10 @@ def _json_int(value: object, *, default: int) -> int:
 async def get_page(project_id: str, page_idx: int) -> PageResponse:
     """Return structured PageResponse for the given page."""
     try:
+        validate_project_id(project_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    try:
         spec, status = read_project(project_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Project not found") from exc
@@ -87,6 +92,10 @@ async def get_page(project_id: str, page_idx: int) -> PageResponse:
 @router.get("/{project_id}/{page_idx}/image", response_class=FileResponse)
 async def get_page_image(project_id: str, page_idx: int) -> FileResponse:
     """Stream the source image file for the given page."""
+    try:
+        validate_project_id(project_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     try:
         spec, status = read_project(project_id)
     except FileNotFoundError as exc:
@@ -118,6 +127,10 @@ async def get_page_image(project_id: str, page_idx: int) -> FileResponse:
 async def put_page_text(project_id: str, page_idx: int, body: SaveTextRequest) -> dict[str, str]:
     """Save edited text for the given page."""
     try:
+        validate_project_id(project_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    try:
         spec, _ = read_project(project_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Project not found") from exc
@@ -142,6 +155,10 @@ async def rerun_page(project_id: str, page_idx: int) -> PageResult:
 
     from pd_ocr_simple_gui.app import get_dispatcher
 
+    try:
+        validate_project_id(project_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     try:
         spec, status = read_project(project_id)
     except FileNotFoundError as exc:
