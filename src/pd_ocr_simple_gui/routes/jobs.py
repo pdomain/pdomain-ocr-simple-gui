@@ -16,6 +16,7 @@ from pd_ocr_simple_gui.storage import (
     delete_project,
     list_projects,
     read_project,
+    validate_project_id,
     write_project,
 )
 
@@ -135,6 +136,10 @@ async def list_jobs() -> list[ProjectStatus]:
 async def get_job(project_id: str) -> ProjectStatus:
     """Return ProjectStatus enriched with name and output_dir from ProjectSpec."""
     try:
+        validate_project_id(project_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    try:
         spec, status = read_project(project_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Project not found") from exc
@@ -145,6 +150,11 @@ async def get_job(project_id: str) -> ProjectStatus:
 async def delete_job(project_id: str) -> Response:
     """Delete a project. Returns 200 if it existed, 204 if it didn't."""
     from pd_ocr_simple_gui.storage import get_project_dir
+
+    try:
+        validate_project_id(project_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     proj_dir = get_project_dir(project_id)
     if not proj_dir.exists():
@@ -158,6 +168,10 @@ async def delete_job(project_id: str) -> Response:
 @router.post("/{project_id}/rerun", status_code=202, response_model=dict[str, str])
 async def rerun_job(project_id: str, background_tasks: BackgroundTasks) -> dict[str, str]:
     """Reset all pages to queued and re-run the full project pipeline."""
+    try:
+        validate_project_id(project_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     try:
         spec, status = read_project(project_id)
     except FileNotFoundError as exc:
