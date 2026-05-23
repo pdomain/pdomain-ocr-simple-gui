@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Literal, cast
+from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
 from pd_ocr_simple_gui.models import AppPrefs, PageResult, ProjectSpec, ProjectStatus
-from pd_ocr_simple_gui.pipeline import OCRDispatcher, collect_images, run_project
+from pd_ocr_simple_gui.pipeline import collect_images, run_project
 from pd_ocr_simple_gui.storage import (
     delete_project,
     list_projects,
@@ -76,7 +76,7 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
             write_project(spec, done_status)
             return
 
-        await run_project(spec, cast("OCRDispatcher", cast("object", dispatcher)), _status_callback)
+        await run_project(spec, dispatcher, _status_callback)  # pyright: ignore[reportArgumentType]  # LocalStageDispatcher lacks stubs
 
     except Exception:  # noqa: BLE001  # background job failure must be recorded, not propagated
         try:
