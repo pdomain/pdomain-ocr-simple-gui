@@ -74,7 +74,7 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
             write_project(spec, done_status)
             return
 
-        await run_project(spec, dispatcher, _status_callback)
+        await run_project(spec, dispatcher, _status_callback)  # pyright: ignore[reportArgumentType]  # LocalStageDispatcher lacks stubs
 
     except Exception:  # noqa: BLE001  # background job failure must be recorded, not propagated
         try:

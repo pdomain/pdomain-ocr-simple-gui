@@ -12,17 +12,67 @@ Entry points:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Protocol, TypeAlias, cast
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
-
-    from pd_ocr_ops.gpu.local_stage import LocalStageDispatcher
+    from collections.abc import Awaitable, Callable, Mapping
 
     from pd_ocr_simple_gui.models import ProjectSpec, ProjectStatus
 
 # Image extensions we recognise (case-insensitive).
 _IMAGE_SUFFIXES: frozenset[str] = frozenset({".png", ".jpg", ".jpeg", ".tiff", ".tif"})
+
+JsonPrimitive: TypeAlias = str | int | float | bool | None
+JsonValue: TypeAlias = JsonPrimitive | list["JsonValue"] | dict[str, "JsonValue"]
+JsonObject: TypeAlias = dict[str, JsonValue]
+
+
+class StageResultLike(Protocol):
+    """Subset of stage result required by pipeline/page extraction."""
+
+    metadata: Mapping[str, object]
+
+
+class OCRDispatcher(Protocol):
+    """Structural type for OCR dispatchers used by this module."""
+
+    async def run_stage(
+        self,
+        stage_id: str,
+        page_id: str,
+        **kwargs: object,
+    ) -> StageResultLike:
+        """Run an OCR stage and return a result with metadata."""
+        ...
+
+
+def _json_object_or_none(value: object) -> JsonObject | None:
+    """Return value as a JSON object when shape looks like dict[str, ...]."""
+    if not isinstance(value, dict):
+        return None
+    raw_dict = cast("dict[object, object]", value)
+    if not all(isinstance(key, str) for key in raw_dict):
+        return None
+    return cast("JsonObject", raw_dict)
+
+
+def _json_object_list(value: object) -> list[JsonObject]:
+    """Filter a JSON-like list down to dict members only."""
+    if not isinstance(value, list):
+        return []
+    raw_list = cast("list[object]", value)
+    objects: list[JsonObject] = []
+    for item in raw_list:
+        obj = _json_object_or_none(item)
+        if obj is not None:
+            objects.append(obj)
+    return objects
+
+
+def first_page_dict(metadata: Mapping[str, object]) -> JsonObject:
+    """Extract the first page object from stage metadata."""
+    pages_list = _json_object_list(metadata.get("pages"))
+    return pages_list[0] if pages_list else {}
 
 
 async def collect_images(source_path: str) -> list[Path]:
@@ -44,7 +94,7 @@ async def collect_images(source_path: str) -> list[Path]:
     return sorted(child for child in p.iterdir() if child.suffix.lower() in _IMAGE_SUFFIXES)
 
 
-def extract_text(page_dict: dict[str, Any]) -> str:
+def extract_text(page_dict: JsonObject) -> str:
     """Extract plain text from a ``Page.to_dict()`` dict.
 
     The dict is a recursive structure mirroring the ``Block``/``Word`` tree:
@@ -57,16 +107,25 @@ def extract_text(page_dict: dict[str, Any]) -> str:
     ``child_type == "WORD"``) are joined with spaces; nested blocks are
     separated by single newlines.  This mirrors :meth:`Page.text` semantics.
     """
-    if page_dict.get("type") == "Word":
-        return page_dict.get("text", "") or ""
-    items: list[dict[str, Any]] = page_dict.get("items", [])
-    if not items:
+    node_type_value = page_dict.get("type")
+    if node_type_value == "Word":
+        text_value = page_dict.get("text")
+        return text_value if isinstance(text_value, str) else ""
+
+    items_value = page_dict.get("items")
+    if not isinstance(items_value, list):
         return ""
-    child_type: str | None = page_dict.get("child_type")
-    node_type: str = page_dict.get("type", "")
+
+    child_type_value = page_dict.get("child_type")
+    child_type = child_type_value if isinstance(child_type_value, str) else None
+    node_type = node_type_value if isinstance(node_type_value, str) else ""
+
     parts: list[str] = []
-    for item in items:
-        text = extract_text(item)
+    for item in items_value:
+        child = _json_object_or_none(item)
+        if child is None:
+            continue
+        text = extract_text(child)
         if text:
             parts.append(text)
     if not parts:
@@ -83,7 +142,7 @@ def extract_text(page_dict: dict[str, Any]) -> str:
 
 async def run_project(
     spec: ProjectSpec,
-    dispatcher: LocalStageDispatcher,
+    dispatcher: OCRDispatcher,
     status_callback: Callable[[ProjectStatus], Awaitable[None]],
 ) -> None:
     """Orchestrate OCR for all pages in *spec.source_path*.
@@ -147,8 +206,7 @@ async def run_project(
                 language=spec.language,
             )
             # metadata["pages"] is a list; take the first page dict
-            pages_list: list[dict[str, Any]] = stage_result.metadata.get("pages", [])
-            page_dict: dict[str, Any] = pages_list[0] if pages_list else {}
+            page_dict = first_page_dict(stage_result.metadata)
             text = extract_text(page_dict)
 
             write_page_sidecar(spec, idx, page_dict)

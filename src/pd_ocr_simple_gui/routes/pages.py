@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import contextlib
 from pathlib import Path
-from typing import Any
+from typing import cast
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from pd_ocr_simple_gui.models import PageResponse, PageResult
-from pd_ocr_simple_gui.pipeline import extract_text
+from pd_ocr_simple_gui.models import PageResponse, PageResult, ProjectSpec
+from pd_ocr_simple_gui.pipeline import JsonObject, extract_text, first_page_dict
 from pd_ocr_simple_gui.storage import (
     read_page_sidecar,
     read_project,
@@ -29,6 +29,31 @@ class SaveTextRequest(BaseModel):
     text: str
 
 
+def _read_sidecar(spec: ProjectSpec, page_idx: int) -> JsonObject:
+    """Best-effort JSON object reader for page sidecars."""
+    with contextlib.suppress(FileNotFoundError):
+        sidecar = read_page_sidecar(spec, page_idx)
+        return cast("JsonObject", sidecar)
+    return {}
+
+
+def _json_str(value: object) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def _json_int(value: object, *, default: int) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        with contextlib.suppress(ValueError):
+            return int(value)
+    return default
+
+
 @router.get("/{project_id}/{page_idx}", response_model=PageResponse)
 async def get_page(project_id: str, page_idx: int) -> PageResponse:
     """Return structured PageResponse for the given page."""
@@ -43,13 +68,11 @@ async def get_page(project_id: str, page_idx: int) -> PageResponse:
         raise HTTPException(status_code=404, detail="Page not found")
 
     # Read sidecar for text/dimensions (best-effort)
-    sidecar: dict[str, Any] = {}
-    with contextlib.suppress(FileNotFoundError):
-        sidecar = read_page_sidecar(spec, page_idx)
+    sidecar = _read_sidecar(spec, page_idx)
 
-    text = sidecar.get("edited_text") or sidecar.get("text") or ""
-    width = int(sidecar.get("width", 800))
-    height = int(sidecar.get("height", 1200))
+    text = _json_str(sidecar.get("edited_text")) or _json_str(sidecar.get("text")) or ""
+    width = _json_int(sidecar.get("width"), default=800)
+    height = _json_int(sidecar.get("height"), default=1200)
 
     return PageResponse(
         page_idx=page_idx,
@@ -98,10 +121,8 @@ async def put_page_text(project_id: str, page_idx: int, body: SaveTextRequest) -
         spec, _ = read_project(project_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Project not found") from exc
-    sidecar: dict[str, Any]
-    try:
-        sidecar = read_page_sidecar(spec, page_idx)
-    except FileNotFoundError:
+    sidecar: JsonObject = _read_sidecar(spec, page_idx)
+    if not sidecar:
         sidecar = {"page_idx": page_idx}
     sidecar["edited_text"] = body.text
     write_page_sidecar(spec, page_idx, sidecar)
@@ -117,7 +138,7 @@ async def rerun_page(project_id: str, page_idx: int) -> PageResult:
     is always updated and page 0 is never corrupted.  Awaits the async
     dispatcher directly — non-blocking, yields control to the event loop.
     """
-    from pd_ocr_ops.gpu import LocalStageDispatcher
+    from pd_ocr_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
 
     from pd_ocr_simple_gui.app import get_dispatcher
 
@@ -160,12 +181,11 @@ async def rerun_page(project_id: str, page_idx: int) -> PageResult:
             engine=spec.engine,
             language=spec.language,
         )
-        pages_list: list[dict[str, Any]] = stage_result.metadata.get("pages", [])
-        page_dict: dict[str, Any] = pages_list[0] if pages_list else {}
+        page_dict = first_page_dict(stage_result.metadata)
         text = extract_text(page_dict)
 
         # Augment the sidecar with the extracted text so GET /api/pages can surface it
-        sidecar_data: dict[str, Any] = {**page_dict, "text": text}
+        sidecar_data: JsonObject = {**page_dict, "text": text}
         write_page_sidecar(spec, page_idx, sidecar_data)
         write_txt(spec, page_idx, text)
 
