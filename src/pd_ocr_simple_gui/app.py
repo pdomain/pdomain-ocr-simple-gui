@@ -97,8 +97,8 @@ app.include_router(prefs_router)
 
 # Mount suite plumbing routes (/api/suite/*, /api/icons/*, /healthz)
 try:
-    from pd_ocr_ops.suite.routes import (
-        mount_routes as _mount_suite_routes,  # pyright: ignore[reportMissingTypeStubs]
+    from pd_ocr_ops.suite.routes import (  # pyright: ignore[reportMissingTypeStubs]
+        mount_routes as _mount_suite_routes,
     )
 
     _mount_suite_routes(app)
