@@ -5,9 +5,9 @@ from __future__ import annotations
 # TC002/TC003 suppressed: these are runtime imports — Pydantic needs the
 # concrete types at runtime for field introspection, not type-checking only.
 from datetime import datetime  # noqa: TC003
-from typing import Any, Literal
+from typing import Literal
 
-from pd_ocr_ops.suite.types import CommonUIPrefs  # noqa: TC002
+from pd_ocr_ops.suite.types import CommonUIPrefs  # noqa: TC002  # pyright: ignore[reportMissingTypeStubs]
 from pydantic import BaseModel
 
 
@@ -67,5 +67,5 @@ class AppPrefs(BaseModel):
     default_output_dir: str = ""
     save_json_default: bool = False
     combined_txt_default: bool = True
-    recent_projects: list[dict[str, Any]] = []
+    recent_projects: list[dict[str, object]] = []
     ui_prefs: CommonUIPrefs | None = None

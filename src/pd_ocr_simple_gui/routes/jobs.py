@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Literal, cast
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
 from pd_ocr_simple_gui.models import AppPrefs, PageResult, ProjectSpec, ProjectStatus
-from pd_ocr_simple_gui.pipeline import collect_images, run_project
+from pd_ocr_simple_gui.pipeline import OCRDispatcher, collect_images, run_project
 from pd_ocr_simple_gui.storage import (
     delete_project,
     list_projects,
@@ -36,7 +36,7 @@ class CreateJobRequest(BaseModel):
 
 async def _pipeline_run_job(spec: ProjectSpec) -> None:
     """Background task: run OCR pipeline for the given project spec."""
-    from pd_ocr_ops.gpu import LocalStageDispatcher
+    from pd_ocr_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
 
     from pd_ocr_simple_gui.app import get_dispatcher
 
@@ -46,6 +46,7 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
         dispatcher = LocalStageDispatcher()
 
     async def _status_callback(status: ProjectStatus) -> None:
+        _ = status
         pass  # Status is already persisted by run_project; callback is a hook for future SSE
 
     try:
@@ -74,7 +75,7 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
             write_project(spec, done_status)
             return
 
-        await run_project(spec, dispatcher, _status_callback)
+        await run_project(spec, cast("OCRDispatcher", cast("object", dispatcher)), _status_callback)
 
     except Exception:  # noqa: BLE001  # background job failure must be recorded, not propagated
         try:

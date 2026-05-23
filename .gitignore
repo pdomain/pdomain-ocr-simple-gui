@@ -66,6 +66,9 @@ simple-gui-projects/
 
 # AI=1 make output capture log
 .ci-ai.log
+.worktree/
+.worktree/**/.venv
+.worktree/**/frontend/node_modules
 .worktrees/
 .venv
 frontend/node_modules

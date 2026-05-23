@@ -3,49 +3,83 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
+from typing import cast
 
 
-def main() -> None:
-    """Start the pd-ocr-simple-gui server."""
+@dataclass(frozen=True)
+class _CliArgs:
+    host: str
+    port: int
+    reload: bool
+    unregister_suite: bool
+    install_desktop_shortcut: bool
+    remove_desktop_shortcut: bool
+
+
+def _parse_args() -> _CliArgs:
     parser = argparse.ArgumentParser(
         description="pd-ocr-simple-gui — drag-and-drop OCR app",
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--host",
         default="127.0.0.1",
         help="Host to bind to (default: 127.0.0.1)",
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--port",
         type=int,
         default=8004,
         help="Port to listen on (default: 8004)",
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--reload",
         action="store_true",
         help="Enable auto-reload (dev mode)",
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--unregister-suite",
         action="store_true",
         help="Unregister this app from the suite registry and exit",
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--install-desktop-shortcut",
         action="store_true",
         help="Install a desktop shortcut for this app (not implemented)",
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--remove-desktop-shortcut",
         action="store_true",
         help="Remove the desktop shortcut for this app (not implemented)",
     )
-    args = parser.parse_args()
+
+    parsed = parser.parse_args()
+    values = cast("dict[str, object]", vars(parsed))
+    return _CliArgs(
+        host=cast("str", values["host"]),
+        port=cast("int", values["port"]),
+        reload=cast("bool", values["reload"]),
+        unregister_suite=cast("bool", values["unregister_suite"]),
+        install_desktop_shortcut=cast(
+            "bool",
+            values["install_desktop_shortcut"],
+        ),
+        remove_desktop_shortcut=cast(
+            "bool",
+            values["remove_desktop_shortcut"],
+        ),
+    )
+
+
+def main() -> None:
+    """Start the pd-ocr-simple-gui server."""
+    args = _parse_args()
 
     if args.unregister_suite:
         try:
-            from pd_ocr_ops.suite.registry import LocalTomlSuiteRegistry
+            from pd_ocr_ops.suite.registry import (  # pyright: ignore[reportMissingTypeStubs] pd_ocr_ops dependency may omit typing stubs
+                LocalTomlSuiteRegistry,
+            )
 
             registry = LocalTomlSuiteRegistry()
             registry.unregister("pd-ocr-simple-gui")
