@@ -5,11 +5,22 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import TypeAlias, cast
 
 from pd_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
 
 _PROJECTS_ROOT: Path = Path.home() / ".local" / "share" / "pd-suite" / "simple-gui" / "projects"
+
+JSONValue: TypeAlias = str | int | float | bool | None | list["JSONValue"] | dict[str, "JSONValue"]
+JSONObject: TypeAlias = dict[str, JSONValue]
+
+
+def _read_json_object(path: Path) -> JSONObject:
+    """Read a JSON file and ensure it contains an object with string keys."""
+    data = cast("object", json.loads(path.read_text()))
+    if not isinstance(data, dict):
+        raise TypeError(f"Expected JSON object in {path}")
+    return cast("JSONObject", data)
 
 
 def get_project_dir(project_id: str) -> Path:
@@ -21,11 +32,11 @@ def write_project(spec: ProjectSpec, status: ProjectStatus) -> None:
     """Write project.json to the project directory."""
     proj_dir = get_project_dir(spec.project_id)
     proj_dir.mkdir(parents=True, exist_ok=True)
-    data: dict[str, Any] = {
+    data: JSONObject = {
         "spec": json.loads(spec.model_dump_json()),
         "status": json.loads(status.model_dump_json()),
     }
-    (proj_dir / "project.json").write_text(json.dumps(data, indent=2))
+    _ = (proj_dir / "project.json").write_text(json.dumps(data, indent=2))
 
 
 def read_project(project_id: str) -> tuple[ProjectSpec, ProjectStatus]:
@@ -33,7 +44,7 @@ def read_project(project_id: str) -> tuple[ProjectSpec, ProjectStatus]:
     proj_file = get_project_dir(project_id) / "project.json"
     if not proj_file.exists():
         raise FileNotFoundError(f"Project not found: {project_id}")
-    data = json.loads(proj_file.read_text())
+    data = _read_json_object(proj_file)
     spec = ProjectSpec.model_validate(data["spec"])
     status = ProjectStatus.model_validate(data["status"])
     return spec, status
@@ -51,24 +62,23 @@ def _pages_dir(spec: ProjectSpec) -> Path:
     return get_project_dir(spec.project_id) / "pages"
 
 
-def write_page_sidecar(spec: ProjectSpec, idx: int, page_dict: dict[str, Any]) -> None:
+def write_page_sidecar(spec: ProjectSpec, idx: int, page_dict: JSONObject) -> None:
     """Write a per-page JSON sidecar. Reads status to resolve page_name."""
     _, status = read_project(spec.project_id)
     page_name = _page_name_for_idx(spec, status, idx)
     pages_dir = _pages_dir(spec)
     pages_dir.mkdir(parents=True, exist_ok=True)
-    (pages_dir / f"{page_name}.json").write_text(json.dumps(page_dict, indent=2))
+    _ = (pages_dir / f"{page_name}.json").write_text(json.dumps(page_dict, indent=2))
 
 
-def read_page_sidecar(spec: ProjectSpec, idx: int) -> dict[str, Any]:
+def read_page_sidecar(spec: ProjectSpec, idx: int) -> JSONObject:
     """Read a per-page JSON sidecar; raises FileNotFoundError if missing."""
     _, status = read_project(spec.project_id)
     page_name = _page_name_for_idx(spec, status, idx)
     sidecar_path = _pages_dir(spec) / f"{page_name}.json"
     if not sidecar_path.exists():
         raise FileNotFoundError(f"Sidecar not found for page {idx} in {spec.project_id}")
-    # json.loads returns Any; caller validates the shape via Pydantic downstream
-    return json.loads(sidecar_path.read_text())  # type: ignore[no-any-return]
+    return _read_json_object(sidecar_path)
 
 
 def write_txt(spec: ProjectSpec, idx: int, text: str) -> None:
@@ -77,7 +87,7 @@ def write_txt(spec: ProjectSpec, idx: int, text: str) -> None:
     page_name = _page_name_for_idx(spec, status, idx)
     pages_dir = _pages_dir(spec)
     pages_dir.mkdir(parents=True, exist_ok=True)
-    (pages_dir / f"{page_name}.txt").write_text(text)
+    _ = (pages_dir / f"{page_name}.txt").write_text(text)
 
 
 def write_combined_txt(spec: ProjectSpec, status: ProjectStatus) -> None:
@@ -89,7 +99,7 @@ def write_combined_txt(spec: ProjectSpec, status: ProjectStatus) -> None:
         if txt_path.exists():
             parts.append(txt_path.read_text())
     combined = "\n\n".join(parts)
-    (get_project_dir(spec.project_id) / "combined.txt").write_text(combined)
+    _ = (get_project_dir(spec.project_id) / "combined.txt").write_text(combined)
 
 
 def list_projects() -> list[tuple[ProjectSpec, ProjectStatus]]:
