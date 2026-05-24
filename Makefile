@@ -35,6 +35,7 @@ PEER_BOOK_TOOLS_PATH ?= ../pd-book-tools
         frontend-test frontend-lint frontend-format frontend-format-check frontend-knip \
         openapi-export clean ci ci-full upgrade-deps dev-local \
         local-setup local-dev local-check local-upgrade-deps local-run \
+        update-pd-deps upgrade-pd-book-tools \
         release-patch release-minor release-major _do-release
 
 help: ## Show this help message
@@ -197,6 +198,17 @@ local-upgrade-deps: ## Upgrade deps then restore editable siblings
 
 local-run: ## Run the SPA against local-dev workspace
 	@./scripts/local-run.sh
+
+# ---------------------------------------------------------------------------
+# Sibling-dep refresh (spec #363)
+# ---------------------------------------------------------------------------
+
+update-pd-deps: ## Bump pd-* sibling deps to registry latest; leaves diff for review
+	@./scripts/update-pd-deps.sh
+
+upgrade-pd-book-tools: ## [DEPRECATED] Use 'make update-pd-deps' instead
+	@echo "⚠️  upgrade-pd-book-tools is deprecated. Use 'make update-pd-deps' for all sibling deps."
+	@$(MAKE) --no-print-directory update-pd-deps
 
 # ---------------------------------------------------------------------------
 # Releases
