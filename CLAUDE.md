@@ -37,6 +37,13 @@ Architecture doc: `docs/architecture/00-overview.md`.
 | `make ci AI=1` | full gate: setup + lint + typecheck + build + test + smoke + frontend-test |
 | `make ci-full AI=1` | `make ci` + `e2e-browser` (Playwright) |
 | `make run` | launch on :8004 |
+| `make local-setup` | clone any missing sibling pd-* repos |
+| `make local-dev` | switch to local-dev mode (Python + npm siblings editable + marker) |
+| `make local-check` | print local-dev mode + per-sibling resolution |
+| `make local-upgrade-deps` | upgrade deps then restore editables (local-mode only) |
+| `make local-run` | run the SPA against local-dev workspace (local-mode only) |
+
+See [workspace `docs/process/local-dev.md`](../docs/process/local-dev.md) for the canonical local-dev pattern (spec #362).
 
 `AI=1` captures verbose output to `.ci-ai.log`; stdout shows ✅ on pass
 or filtered failure sections on error.
