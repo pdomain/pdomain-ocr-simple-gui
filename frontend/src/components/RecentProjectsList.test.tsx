@@ -129,7 +129,9 @@ describe("RecentProjectsList", () => {
   });
 
   it("shows empty state when fetch fails", async () => {
-    globalThis.fetch = vi.fn().mockRejectedValueOnce(new Error("network error"));
+    globalThis.fetch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("network error"));
 
     render(
       <MemoryRouter>

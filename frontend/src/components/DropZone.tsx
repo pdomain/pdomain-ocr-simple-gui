@@ -1,7 +1,13 @@
 // DropZone — drag-and-drop zone + path text field + Browse button
 // Issue #227
 
-import { useState, useRef, type DragEvent, type ChangeEvent, type KeyboardEvent } from "react";
+import {
+  useState,
+  useRef,
+  type DragEvent,
+  type ChangeEvent,
+  type KeyboardEvent,
+} from "react";
 import { Button, Input, Field } from "@concavetrillion/pd-ui/primitives";
 
 export interface DropZoneProps {
@@ -105,7 +111,6 @@ export function DropZone({ onValidPath }: DropZoneProps) {
         ref={fileInputRef}
         type="file"
         // webkitdirectory is a valid non-standard DOM attr missing from React's JSX types
-        // eslint-disable-next-line react/no-unknown-property
         {...({ webkitdirectory: "" } as Record<string, string>)}
         multiple
         style={{ display: "none" }}
@@ -118,10 +123,7 @@ export function DropZone({ onValidPath }: DropZoneProps) {
         Drop a folder of images here, or use Browse below.
       </p>
 
-      <Field
-        htmlFor="drop-zone-path"
-        label="Folder or file path"
-      >
+      <Field htmlFor="drop-zone-path" label="Folder or file path">
         <Input
           id="drop-zone-path"
           type="text"

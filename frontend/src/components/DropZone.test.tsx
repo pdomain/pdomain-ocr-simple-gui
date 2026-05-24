@@ -33,7 +33,9 @@ describe("DropZone", () => {
     await userEvent.click(input);
     await userEvent.tab();
     expect(screen.getByRole("alert")).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent(/path.*required|required|enter a path/i);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /path.*required|required|enter a path/i,
+    );
   });
 
   it("shows inline error for invalid path on blur", async () => {
@@ -62,7 +64,9 @@ describe("DropZone", () => {
 
     // Simulate a drop with a file-like path
     const dataTransfer = {
-      files: [{ name: "scan.png", path: "/tmp/scan.png" }] as unknown as FileList,
+      files: [
+        { name: "scan.png", path: "/tmp/scan.png" },
+      ] as unknown as FileList,
       items: [],
     };
 

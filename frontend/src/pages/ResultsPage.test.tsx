@@ -27,13 +27,28 @@ vi.mock("@concavetrillion/pd-ui/primitives", async (importOriginal) => {
         aria-label={label ?? "progress"}
       />
     ),
-    Chip: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    Chip: ({
+      children,
+      className,
+    }: {
+      children: React.ReactNode;
+      className?: string;
+    }) => (
       <span data-testid="status-chip" className={className}>
         {children}
       </span>
     ),
-    Button: ({ children, disabled, ...props }: { children: React.ReactNode; disabled?: boolean }) => (
-      <button disabled={disabled} {...props}>{children}</button>
+    Button: ({
+      children,
+      disabled,
+      ...props
+    }: {
+      children: React.ReactNode;
+      disabled?: boolean;
+    }) => (
+      <button disabled={disabled} {...props}>
+        {children}
+      </button>
     ),
   };
 });
@@ -41,7 +56,7 @@ vi.mock("@concavetrillion/pd-ui/primitives", async (importOriginal) => {
 function makeJobStatus(
   state: "queued" | "running" | "succeeded" | "failed" | "cancelled",
   pagesDone = 0,
-  pageCount = 3
+  pageCount = 3,
 ) {
   return {
     project_id: "proj-abc",
@@ -51,16 +66,31 @@ function makeJobStatus(
     page_count: pageCount,
     output_dir: "/tmp/out",
     pages: [
-      { page_idx: 0, page_name: "page_001.png", state: "succeeded", text_preview: "Hello world first page text that is long" },
-      { page_idx: 1, page_name: "page_002.png", state: "running", text_preview: "Second page content here" },
-      { page_idx: 2, page_name: "page_003.png", state: "queued", text_preview: "" },
+      {
+        page_idx: 0,
+        page_name: "page_001.png",
+        state: "succeeded",
+        text_preview: "Hello world first page text that is long",
+      },
+      {
+        page_idx: 1,
+        page_name: "page_002.png",
+        state: "running",
+        text_preview: "Second page content here",
+      },
+      {
+        page_idx: 2,
+        page_name: "page_003.png",
+        state: "queued",
+        text_preview: "",
+      },
     ].slice(0, pageCount),
   };
 }
 
 function renderResultsPage(
   projectId = "proj-abc",
-  makeFetch?: () => ReturnType<typeof vi.fn>
+  makeFetch?: () => ReturnType<typeof vi.fn>,
 ) {
   const mockFetch = makeFetch
     ? makeFetch()
@@ -78,9 +108,12 @@ function renderResultsPage(
       <MemoryRouter initialEntries={[`/jobs/${projectId}`]}>
         <Routes>
           <Route path="/jobs/:id" element={<ResultsPage />} />
-          <Route path="/jobs/:id/pages/:idx" element={<div data-testid="page-view" />} />
+          <Route
+            path="/jobs/:id/pages/:idx"
+            element={<div data-testid="page-view" />}
+          />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     ),
   };
 }
@@ -103,7 +136,7 @@ describe("ResultsPage", () => {
       vi.fn().mockResolvedValue({
         ok: true,
         json: async () => makeJobStatus("running", 1, 3),
-      })
+      }),
     );
 
     await waitFor(() => {
@@ -138,7 +171,7 @@ describe("ResultsPage", () => {
         <Routes>
           <Route path="/jobs/:id" element={<ResultsPage />} />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     // Let microtasks flush (fetch promise resolves)
@@ -177,7 +210,7 @@ describe("ResultsPage", () => {
         <Routes>
           <Route path="/jobs/:id" element={<ResultsPage />} />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     // Initial fetch
@@ -222,7 +255,7 @@ describe("ResultsPage", () => {
     renderResultsPage();
     await waitFor(() => {
       expect(
-        screen.getByText("Hello world first page text that is long")
+        screen.getByText("Hello world first page text that is long"),
       ).toBeInTheDocument();
     });
   });
@@ -245,16 +278,21 @@ describe("ResultsPage", () => {
   it("re-run all button sends POST /api/jobs/:id/rerun", async () => {
     const user = userEvent.setup();
     let rerunCalled = false;
-    const mockFetch = vi.fn().mockImplementation(async (url: string, opts?: RequestInit) => {
-      if (url.includes("/rerun") && (!opts || opts.method === "POST")) {
-        rerunCalled = true;
-        return { ok: true, json: async () => ({ project_id: "proj-abc", state: "queued" }) };
-      }
-      return {
-        ok: true,
-        json: async () => makeJobStatus("succeeded", 3, 3),
-      };
-    });
+    const mockFetch = vi
+      .fn()
+      .mockImplementation(async (url: string, opts?: RequestInit) => {
+        if (url.includes("/rerun") && (!opts || opts.method === "POST")) {
+          rerunCalled = true;
+          return {
+            ok: true,
+            json: async () => ({ project_id: "proj-abc", state: "queued" }),
+          };
+        }
+        return {
+          ok: true,
+          json: async () => makeJobStatus("succeeded", 3, 3),
+        };
+      });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).fetch = mockFetch;
 
@@ -263,11 +301,13 @@ describe("ResultsPage", () => {
         <Routes>
           <Route path="/jobs/:id" element={<ResultsPage />} />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /re.run all/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /re.run all/i }),
+      ).toBeInTheDocument();
     });
 
     await user.click(screen.getByRole("button", { name: /re.run all/i }));
@@ -280,17 +320,22 @@ describe("ResultsPage", () => {
   it("re-run all button re-fetches job status on success", async () => {
     const user = userEvent.setup();
     let fetchCount = 0;
-    const mockFetch = vi.fn().mockImplementation(async (url: string, opts?: RequestInit) => {
-      if (url.includes("/rerun") && opts?.method === "POST") {
-        return { ok: true, json: async () => ({ project_id: "proj-abc", state: "queued" }) };
-      }
-      fetchCount++;
-      // Always return done so button stays visible and polling stops
-      return {
-        ok: true,
-        json: async () => makeJobStatus("succeeded", 3, 3),
-      };
-    });
+    const mockFetch = vi
+      .fn()
+      .mockImplementation(async (url: string, opts?: RequestInit) => {
+        if (url.includes("/rerun") && opts?.method === "POST") {
+          return {
+            ok: true,
+            json: async () => ({ project_id: "proj-abc", state: "queued" }),
+          };
+        }
+        fetchCount++;
+        // Always return done so button stays visible and polling stops
+        return {
+          ok: true,
+          json: async () => makeJobStatus("succeeded", 3, 3),
+        };
+      });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).fetch = mockFetch;
 
@@ -299,11 +344,13 @@ describe("ResultsPage", () => {
         <Routes>
           <Route path="/jobs/:id" element={<ResultsPage />} />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /re.run all/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /re.run all/i }),
+      ).toBeInTheDocument();
     });
 
     const countBeforeRerun = fetchCount;

@@ -25,7 +25,11 @@ export interface JobConfigDialogProps {
   onClose: () => void;
 }
 
-export function JobConfigDialog({ open, sourcePath, onClose }: JobConfigDialogProps) {
+export function JobConfigDialog({
+  open,
+  sourcePath,
+  onClose,
+}: JobConfigDialogProps) {
   const navigate = useNavigate();
 
   const [engine, setEngine] = useState<string>("doctr");
@@ -91,7 +95,9 @@ export function JobConfigDialog({ open, sourcePath, onClose }: JobConfigDialogPr
         <select
           id="jcd-engine"
           value={engine}
-          onChange={(e: ChangeEvent<HTMLSelectElement>) => setEngine(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+            setEngine(e.target.value)
+          }
           className="input"
           aria-label="Engine"
           data-testid="engine-select"
@@ -107,7 +113,9 @@ export function JobConfigDialog({ open, sourcePath, onClose }: JobConfigDialogPr
           id="jcd-language"
           type="text"
           value={language}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setLanguage(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLInputElement>) =>
+            setLanguage(e.target.value)
+          }
           placeholder="en"
           data-testid="language-input"
         />
@@ -119,7 +127,9 @@ export function JobConfigDialog({ open, sourcePath, onClose }: JobConfigDialogPr
           id="jcd-save-json"
           type="checkbox"
           checked={saveJson}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setSaveJson(e.target.checked)}
+          onChange={(e: ChangeEvent<HTMLInputElement>) =>
+            setSaveJson(e.target.checked)
+          }
         />
       </Field>
 
@@ -128,7 +138,9 @@ export function JobConfigDialog({ open, sourcePath, onClose }: JobConfigDialogPr
           id="jcd-combined-txt"
           type="checkbox"
           checked={combinedTxt}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setCombinedTxt(e.target.checked)}
+          onChange={(e: ChangeEvent<HTMLInputElement>) =>
+            setCombinedTxt(e.target.checked)
+          }
         />
       </Field>
     </BaseJobConfigDialog>

@@ -42,9 +42,13 @@ export default function PageViewPage() {
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const [text, setText] = useState<string>("");
   const [loading, setLoading] = useState(true);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveStatus, setSaveStatus] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
   const saveToastRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [rerunStatus, setRerunStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [rerunStatus, setRerunStatus] = useState<
+    "idle" | "running" | "done" | "error"
+  >("idle");
 
   // Load job status to know total page count
   useEffect(() => {
@@ -182,7 +186,9 @@ export default function PageViewPage() {
 
       <Button
         variant="primary"
-        onClick={() => { void handleSave(); }}
+        onClick={() => {
+          void handleSave();
+        }}
         disabled={saveStatus === "saving" || loading}
         aria-label="Save edits"
       >
@@ -211,10 +217,18 @@ export default function PageViewPage() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          <DropdownMenuItem onSelect={() => { void handleRerun("doctr"); }}>
+          <DropdownMenuItem
+            onSelect={() => {
+              void handleRerun("doctr");
+            }}
+          >
             DocTR
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => { void handleRerun("tesseract"); }}>
+          <DropdownMenuItem
+            onSelect={() => {
+              void handleRerun("tesseract");
+            }}
+          >
             Tesseract
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -234,11 +248,7 @@ export default function PageViewPage() {
   );
 
   const canvasContent = !loading ? (
-    <PageImageCanvas
-      src={imageSrc}
-      page={canvasPage}
-      words={[]}
-    />
+    <PageImageCanvas src={imageSrc} page={canvasPage} words={[]} />
   ) : null;
 
   const editorContent = (

@@ -33,9 +33,18 @@ vi.mock("@concavetrillion/pd-ui/primitives", async (importOriginal) => {
       </button>
     ),
     // Minimal DropdownMenu shim: renders trigger + items inline
-    DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-    DropdownMenuTrigger: ({ children }: { children: React.ReactNode; asChild?: boolean }) => <>{children}</>,
-    DropdownMenuContent: ({ children }: { children: React.ReactNode }) => <div data-testid="dropdown-content">{children}</div>,
+    DropdownMenu: ({ children }: { children: React.ReactNode }) => (
+      <div>{children}</div>
+    ),
+    DropdownMenuTrigger: ({
+      children,
+    }: {
+      children: React.ReactNode;
+      asChild?: boolean;
+    }) => <>{children}</>,
+    DropdownMenuContent: ({ children }: { children: React.ReactNode }) => (
+      <div data-testid="dropdown-content">{children}</div>
+    ),
     DropdownMenuItem: ({
       children,
       onSelect,
@@ -87,35 +96,49 @@ function makeJobStatus(pageCount = 3, state = "done") {
 }
 
 function renderPageView(projectId = "proj-abc", pageIdx = 0) {
-  const mockFetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-    if (url.includes("/api/jobs/") && !url.includes("/pages/")) {
-      return Promise.resolve({
-        ok: true,
-        json: async () => makeJobStatus(3),
-      });
-    }
-    if (url.includes("/api/pages/") && !url.endsWith("/image") && (!opts || !opts.method || opts.method === "GET")) {
-      const idxMatch = url.match(/\/pages\/[^/]+\/(\d+)$/);
-      const idx = idxMatch ? parseInt(idxMatch[1], 10) : pageIdx;
-      return Promise.resolve({
-        ok: true,
-        json: async () => makePageData(idx, `OCR text for page ${idx}`),
-      });
-    }
-    if (url.includes("/api/pages/") && url.endsWith("/text") && opts?.method === "PUT") {
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ ok: true }),
-      });
-    }
-    if (url.includes("/api/pages/") && url.endsWith("/rerun") && opts?.method === "POST") {
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ page_idx: pageIdx, state: "done" }),
-      });
-    }
-    return Promise.resolve({ ok: false, json: async () => ({}) });
-  });
+  const mockFetch = vi
+    .fn()
+    .mockImplementation((url: string, opts?: RequestInit) => {
+      if (url.includes("/api/jobs/") && !url.includes("/pages/")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => makeJobStatus(3),
+        });
+      }
+      if (
+        url.includes("/api/pages/") &&
+        !url.endsWith("/image") &&
+        (!opts || !opts.method || opts.method === "GET")
+      ) {
+        const idxMatch = url.match(/\/pages\/[^/]+\/(\d+)$/);
+        const idx = idxMatch ? parseInt(idxMatch[1], 10) : pageIdx;
+        return Promise.resolve({
+          ok: true,
+          json: async () => makePageData(idx, `OCR text for page ${idx}`),
+        });
+      }
+      if (
+        url.includes("/api/pages/") &&
+        url.endsWith("/text") &&
+        opts?.method === "PUT"
+      ) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ ok: true }),
+        });
+      }
+      if (
+        url.includes("/api/pages/") &&
+        url.endsWith("/rerun") &&
+        opts?.method === "POST"
+      ) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ page_idx: pageIdx, state: "done" }),
+        });
+      }
+      return Promise.resolve({ ok: false, json: async () => ({}) });
+    });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (globalThis as any).fetch = mockFetch;
@@ -127,7 +150,7 @@ function renderPageView(projectId = "proj-abc", pageIdx = 0) {
         <Routes>
           <Route path="/jobs/:id/pages/:idx" element={<PageViewPage />} />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     ),
   };
 }
@@ -142,7 +165,9 @@ describe("PageViewPage", () => {
     await waitFor(() => {
       const canvas = screen.getByTestId("page-image-canvas");
       expect(canvas).toBeInTheDocument();
-      expect(canvas.getAttribute("data-src")).toBe("/api/pages/proj-abc/0/image");
+      expect(canvas.getAttribute("data-src")).toBe(
+        "/api/pages/proj-abc/0/image",
+      );
     });
   });
 
@@ -174,10 +199,14 @@ describe("PageViewPage", () => {
     await waitFor(() => {
       const putCalls = mockFetch.mock.calls.filter(
         ([url, opts]: [string, RequestInit | undefined]) =>
-          url.includes("/api/pages/") && url.endsWith("/text") && opts?.method === "PUT"
+          url.includes("/api/pages/") &&
+          url.endsWith("/text") &&
+          opts?.method === "PUT",
       );
       expect(putCalls).toHaveLength(1);
-      const body = JSON.parse(putCalls[0][1].body as string) as { text: string };
+      const body = JSON.parse(putCalls[0][1].body as string) as {
+        text: string;
+      };
       expect(body.text).toBe("Edited text");
     });
   });
@@ -220,7 +249,9 @@ describe("PageViewPage", () => {
 
     await waitFor(() => {
       const canvas = screen.getByTestId("page-image-canvas");
-      expect(canvas.getAttribute("data-src")).toBe("/api/pages/proj-abc/1/image");
+      expect(canvas.getAttribute("data-src")).toBe(
+        "/api/pages/proj-abc/1/image",
+      );
     });
   });
 
@@ -235,7 +266,9 @@ describe("PageViewPage", () => {
   it("re-run page trigger button is rendered", async () => {
     renderPageView("proj-abc", 0);
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /re.run/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /re.run/i }),
+      ).toBeInTheDocument();
     });
   });
 
@@ -244,7 +277,9 @@ describe("PageViewPage", () => {
     const { mockFetch } = renderPageView("proj-abc", 0);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /re.run/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /re.run/i }),
+      ).toBeInTheDocument();
     });
 
     // Click the DocTR menu item (rendered inline by our DropdownMenuItem shim)
@@ -254,10 +289,14 @@ describe("PageViewPage", () => {
     await waitFor(() => {
       const rerunCalls = mockFetch.mock.calls.filter(
         ([url, opts]: [string, RequestInit | undefined]) =>
-          url.includes("/api/pages/") && url.endsWith("/rerun") && opts?.method === "POST"
+          url.includes("/api/pages/") &&
+          url.endsWith("/rerun") &&
+          opts?.method === "POST",
       );
       expect(rerunCalls).toHaveLength(1);
-      const body = JSON.parse(rerunCalls[0][1].body as string) as { engine: string };
+      const body = JSON.parse(rerunCalls[0][1].body as string) as {
+        engine: string;
+      };
       expect(body.engine).toBe("doctr");
     });
   });
@@ -276,10 +315,14 @@ describe("PageViewPage", () => {
     await waitFor(() => {
       const rerunCalls = mockFetch.mock.calls.filter(
         ([url, opts]: [string, RequestInit | undefined]) =>
-          url.includes("/api/pages/") && url.endsWith("/rerun") && opts?.method === "POST"
+          url.includes("/api/pages/") &&
+          url.endsWith("/rerun") &&
+          opts?.method === "POST",
       );
       expect(rerunCalls).toHaveLength(1);
-      const body = JSON.parse(rerunCalls[0][1].body as string) as { engine: string };
+      const body = JSON.parse(rerunCalls[0][1].body as string) as {
+        engine: string;
+      };
       expect(body.engine).toBe("tesseract");
     });
   });
@@ -289,20 +332,39 @@ describe("PageViewPage", () => {
 
     // Set up fetch to return updated page data after rerun
     let rerunCalled = false;
-    const mockFetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-      if (url.includes("/api/jobs/") && !url.includes("/pages/")) {
-        return Promise.resolve({ ok: true, json: async () => makeJobStatus(3) });
-      }
-      if (url.includes("/api/pages/") && url.endsWith("/rerun") && opts?.method === "POST") {
-        rerunCalled = true;
-        return Promise.resolve({ ok: true, json: async () => ({ page_idx: 0, state: "done" }) });
-      }
-      if (url.includes("/api/pages/") && !url.endsWith("/image") && (!opts || !opts.method || opts.method === "GET")) {
-        const text = rerunCalled ? "new rerun text" : "OCR text for page 0";
-        return Promise.resolve({ ok: true, json: async () => makePageData(0, text) });
-      }
-      return Promise.resolve({ ok: false, json: async () => ({}) });
-    });
+    const mockFetch = vi
+      .fn()
+      .mockImplementation((url: string, opts?: RequestInit) => {
+        if (url.includes("/api/jobs/") && !url.includes("/pages/")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => makeJobStatus(3),
+          });
+        }
+        if (
+          url.includes("/api/pages/") &&
+          url.endsWith("/rerun") &&
+          opts?.method === "POST"
+        ) {
+          rerunCalled = true;
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ page_idx: 0, state: "done" }),
+          });
+        }
+        if (
+          url.includes("/api/pages/") &&
+          !url.endsWith("/image") &&
+          (!opts || !opts.method || opts.method === "GET")
+        ) {
+          const text = rerunCalled ? "new rerun text" : "OCR text for page 0";
+          return Promise.resolve({
+            ok: true,
+            json: async () => makePageData(0, text),
+          });
+        }
+        return Promise.resolve({ ok: false, json: async () => ({}) });
+      });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).fetch = mockFetch;
@@ -312,7 +374,7 @@ describe("PageViewPage", () => {
         <Routes>
           <Route path="/jobs/:id/pages/:idx" element={<PageViewPage />} />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     await waitFor(() => {
