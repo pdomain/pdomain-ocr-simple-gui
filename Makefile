@@ -34,6 +34,7 @@ PEER_BOOK_TOOLS_PATH ?= ../pd-book-tools
         pre-commit-check test e2e-browser frontend-install frontend-build frontend-dev \
         frontend-test frontend-lint frontend-format frontend-format-check frontend-knip \
         openapi-export clean ci ci-full upgrade-deps dev-local \
+        local-setup local-dev local-check local-upgrade-deps local-run \
         release-patch release-minor release-major _do-release
 
 help: ## Show this help message
@@ -66,15 +67,9 @@ upgrade-deps: ## Upgrade dependencies and sync local environment
 	uv sync --group dev
 	@echo "✅ Dependencies upgraded and environment synced!"
 
-dev-local: ## [local-dev] Install pd-book-tools from ../pd-book-tools as editable (overlays the wheel)
-	@if [ ! -d "$(PEER_BOOK_TOOLS_PATH)" ]; then \
-		echo "❌ $(PEER_BOOK_TOOLS_PATH) not found. Clone pd-book-tools as a sibling directory."; \
-		exit 1; \
-	fi
-	@echo "🔧 Installing local editable pd-book-tools from $(PEER_BOOK_TOOLS_PATH)..."
-	uv sync --group dev
-	uv pip install --editable "$(PEER_BOOK_TOOLS_PATH)"
-	@echo "✅ Local editable pd-book-tools active. Canonical baseline: make setup"
+dev-local: ## [DEPRECATED] Use 'make local-dev' instead
+	@echo "⚠️  dev-local is deprecated. Use 'make local-dev' for the standard local-dev workflow."
+	@$(MAKE) --no-print-directory local-dev
 
 # ---------------------------------------------------------------------------
 # Lint / format / typecheck / test
@@ -183,6 +178,25 @@ ci-full: ci e2e-browser ## Full CI including Playwright browser tests (requires 
 run: ## Launch pd-ocr-simple-gui on :8004
 	@echo "🚀 Launching pd-ocr-simple-gui at http://127.0.0.1:8004 ..."
 	uv run pd-ocr-simple-gui $(ARGS)
+
+# ---------------------------------------------------------------------------
+# Local dev (editable sibling deps)
+# ---------------------------------------------------------------------------
+
+local-setup: ## Clone any missing sibling pd-* repos
+	@./scripts/local-setup.sh
+
+local-dev: ## Switch to local-dev mode (siblings editable + marker)
+	@./scripts/local-dev.sh
+
+local-check: ## Print local-dev mode status
+	@./scripts/local-check.sh
+
+local-upgrade-deps: ## Upgrade deps then restore editable siblings
+	@./scripts/local-upgrade-deps.sh
+
+local-run: ## Run the SPA against local-dev workspace
+	@./scripts/local-run.sh
 
 # ---------------------------------------------------------------------------
 # Releases
