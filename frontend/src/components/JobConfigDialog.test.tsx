@@ -30,7 +30,10 @@ vi.mock("@concavetrillion/pd-ui/primitives", async (importOriginal) => {
     title?: string;
     sourcePath?: string;
     onClose?: () => void;
-    onSubmit?: (base: { projectName: string; outputDir: string }) => Promise<void>;
+    onSubmit?: (base: {
+      projectName: string;
+      outputDir: string;
+    }) => Promise<void>;
     submitLabel?: string;
     children?: React.ReactNode;
   }) {
@@ -67,38 +70,46 @@ vi.mock("@concavetrillion/pd-ui/primitives", async (importOriginal) => {
         React.createElement(
           "div",
           { "data-testid": "dialog-header" },
-          React.createElement("h2", { "data-testid": "dialog-title" }, title)
+          React.createElement("h2", { "data-testid": "dialog-title" }, title),
         ),
         React.createElement(
           "form",
           {
             "data-testid": "job-config-dialog-form",
-            onSubmit: (e: React.FormEvent) => { void handleSubmit(e); },
+            onSubmit: (e: React.FormEvent) => {
+              void handleSubmit(e);
+            },
             noValidate: true,
           },
           error !== null &&
-            React.createElement("p", { role: "alert", className: "job-config-dialog__error" }, error),
+            React.createElement(
+              "p",
+              { role: "alert", className: "job-config-dialog__error" },
+              error,
+            ),
           React.createElement(
             "label",
             { htmlFor: "bjcd-name" },
-            "Project name"
+            "Project name",
           ),
           React.createElement("input", {
             id: "bjcd-name",
             "aria-label": "Project name",
             value: projectName,
-            onChange: (e: React.ChangeEvent<HTMLInputElement>) => setProjectName(e.target.value),
+            onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+              setProjectName(e.target.value),
           }),
           React.createElement(
             "label",
             { htmlFor: "bjcd-output" },
-            "Output directory"
+            "Output directory",
           ),
           React.createElement("input", {
             id: "bjcd-output",
             "aria-label": "Output directory",
             value: outputDir,
-            onChange: (e: React.ChangeEvent<HTMLInputElement>) => setOutputDir(e.target.value),
+            onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+              setOutputDir(e.target.value),
           }),
           children,
           React.createElement(
@@ -107,20 +118,23 @@ vi.mock("@concavetrillion/pd-ui/primitives", async (importOriginal) => {
             React.createElement(
               "button",
               { type: "button", onClick: onClose, disabled: submitting },
-              "Cancel"
+              "Cancel",
             ),
             React.createElement(
               "button",
               {
                 type: "submit",
-                disabled: submitting || !projectName.trim() || !outputDir.trim(),
+                disabled:
+                  submitting || !projectName.trim() || !outputDir.trim(),
                 "data-testid": "run-ocr-button",
               },
-              submitting ? `${submitLabel ?? "Run →"}…` : (submitLabel ?? "Run →")
-            )
-          )
-        )
-      )
+              submitting
+                ? `${submitLabel ?? "Run →"}…`
+                : (submitLabel ?? "Run →"),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -142,30 +156,32 @@ function LocationCapture({ onLocation }: { onLocation: (p: string) => void }) {
 
 function renderDialog(
   sourcePath = "/tmp/scans",
-  fetchMock?: ReturnType<typeof vi.fn>
+  fetchMock?: ReturnType<typeof vi.fn>,
 ) {
   const navigatedTo: string[] = [];
   const onClose = vi.fn();
 
   // Default fetch mock: GET /api/prefs (engine/language only) + POST /api/jobs
-  const defaultFetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-    if (url === "/api/prefs" && (!opts || opts.method !== "POST")) {
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({
-          engine: "doctr",
-          language: "en",
-        }),
-      });
-    }
-    if (url === "/api/jobs" && opts?.method === "POST") {
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ project_id: "proj-123" }),
-      });
-    }
-    return Promise.resolve({ ok: false, json: async () => ({}) });
-  });
+  const defaultFetch = vi
+    .fn()
+    .mockImplementation((url: string, opts?: RequestInit) => {
+      if (url === "/api/prefs" && (!opts || opts.method !== "POST")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            engine: "doctr",
+            language: "en",
+          }),
+        });
+      }
+      if (url === "/api/jobs" && opts?.method === "POST") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ project_id: "proj-123" }),
+        });
+      }
+      return Promise.resolve({ ok: false, json: async () => ({}) });
+    });
 
   const mockFetch = fetchMock ?? defaultFetch;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -186,14 +202,10 @@ function renderDialog(
         />
         <Route
           path="/jobs/:id"
-          element={
-            <LocationCapture
-              onLocation={(p) => navigatedTo.push(p)}
-            />
-          }
+          element={<LocationCapture onLocation={(p) => navigatedTo.push(p)} />}
         />
       </Routes>
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 
   return { ...result, navigatedTo, onClose, mockFetch };
@@ -242,15 +254,23 @@ describe("JobConfigDialog", () => {
   it("blocks submit when source_path is empty (server error path)", async () => {
     const user = userEvent.setup();
     // sourcePath="" — the server will reject, BaseJobConfigDialog shows thrown error
-    const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-      if (url === "/api/prefs") {
-        return Promise.resolve({ ok: true, json: async () => ({ engine: "doctr", language: "en" }) });
-      }
-      if (url === "/api/jobs" && opts?.method === "POST") {
-        return Promise.resolve({ ok: false, text: async () => "source path required" });
-      }
-      return Promise.resolve({ ok: false, json: async () => ({}) });
-    });
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, opts?: RequestInit) => {
+        if (url === "/api/prefs") {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ engine: "doctr", language: "en" }),
+          });
+        }
+        if (url === "/api/jobs" && opts?.method === "POST") {
+          return Promise.resolve({
+            ok: false,
+            text: async () => "source path required",
+          });
+        }
+        return Promise.resolve({ ok: false, json: async () => ({}) });
+      });
     renderDialog("", fetchMock);
 
     // Fill in form fields
@@ -266,7 +286,8 @@ describe("JobConfigDialog", () => {
       expect(screen.getByRole("alert")).toBeInTheDocument();
     });
     const postCalls = fetchMock.mock.calls.filter(
-      ([url, opts]: [string, RequestInit | undefined]) => url === "/api/jobs" && opts?.method === "POST"
+      ([url, opts]: [string, RequestInit | undefined]) =>
+        url === "/api/jobs" && opts?.method === "POST",
     );
     expect(postCalls).toHaveLength(1);
   });
@@ -286,7 +307,8 @@ describe("JobConfigDialog", () => {
 
     await waitFor(() => {
       const postCalls = mockFetch.mock.calls.filter(
-        ([url, opts]: [string, RequestInit | undefined]) => url === "/api/jobs" && opts?.method === "POST"
+        ([url, opts]: [string, RequestInit | undefined]) =>
+          url === "/api/jobs" && opts?.method === "POST",
       );
       expect(postCalls).toHaveLength(1);
     });

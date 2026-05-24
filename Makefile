@@ -30,9 +30,11 @@ endef
 
 PEER_BOOK_TOOLS_PATH ?= ../pd-book-tools
 
-.PHONY: help setup install uninstall remove-venv reset lint format typecheck \
-        pre-commit-check test e2e-browser frontend-build frontend-test clean ci ci-full \
-        upgrade-deps dev-local
+.PHONY: help setup install uninstall remove-venv reset lint format format-check typecheck \
+        pre-commit-check test e2e-browser frontend-install frontend-build frontend-dev \
+        frontend-test frontend-lint frontend-format frontend-format-check frontend-knip \
+        openapi-export clean ci ci-full upgrade-deps dev-local \
+        release-patch release-minor release-major _do-release
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -86,6 +88,10 @@ format: ## Format code with ruff
 	uv run ruff format
 	@$(MAKE) --no-print-directory lint
 
+format-check: ## Check Python formatting with ruff (no writes)
+	uv run ruff format --check
+	uv run ruff check --select I
+
 typecheck: ## Run basedpyright at recommended mode
 	uv run basedpyright src/pd_ocr_simple_gui --level error
 
@@ -130,6 +136,35 @@ frontend-test: frontend-install ## Run frontend vitest suite
 frontend-build: frontend-install ## Build the React/Vite SPA to src/pd_ocr_simple_gui/frontend/
 	cd frontend && $(call _pnpm,run build)
 
+frontend-dev: frontend-install ## Run Vite dev server (frontend only, hot-reload)
+	cd frontend && $(call _pnpm,run dev)
+
+frontend-lint: frontend-install ## Run ESLint on the SPA
+	@echo "🧹 Running frontend ESLint..."
+	cd frontend && $(call _pnpm,run lint)
+
+frontend-format: frontend-install ## Apply Prettier formatting to the SPA
+	@echo "🎨 Applying Prettier to the frontend..."
+	cd frontend && $(call _pnpm,run format)
+
+frontend-format-check: frontend-install ## Check SPA formatting with Prettier
+	@echo "🎨 Checking frontend formatting (Prettier)..."
+	cd frontend && $(call _pnpm,run format:check)
+
+frontend-knip: frontend-install ## Run knip dead-export detector (blocking)
+	@echo "🔍 Running knip dead-export scan..."
+	cd frontend && $(call _pnpm,run knip)
+
+openapi-export: ## Regenerate openapi.json + frontend/src/api/types.gen.ts
+	@echo "📤 Exporting OpenAPI schema and regenerating TS types..."
+	uv run python scripts/export_openapi.py openapi.json
+	@if $(HAVE_MISE); then \
+		cd frontend && $(MISE) exec -- npx --yes openapi-typescript ../openapi.json -o src/api/types.gen.ts; \
+	else \
+		cd frontend && npx --yes openapi-typescript ../openapi.json -o src/api/types.gen.ts; \
+	fi
+	@echo "✅ frontend/src/api/types.gen.ts regenerated."
+
 clean: ## Clean cache + build artifacts
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
@@ -137,7 +172,7 @@ clean: ## Clean cache + build artifacts
 	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
 	rm -rf dist/ 2>/dev/null || true
 
-ci: setup frontend-install pre-commit-check lint typecheck frontend-build test smoke frontend-test ## Full CI pipeline (smoke tests run via make smoke)
+ci: setup frontend-install pre-commit-check lint typecheck frontend-build test smoke frontend-format-check frontend-lint frontend-test frontend-knip ## Full CI pipeline
 
 ci-full: ci e2e-browser ## Full CI including Playwright browser tests (requires --group e2e + chromium)
 
@@ -148,5 +183,26 @@ ci-full: ci e2e-browser ## Full CI including Playwright browser tests (requires 
 run: ## Launch pd-ocr-simple-gui on :8004
 	@echo "🚀 Launching pd-ocr-simple-gui at http://127.0.0.1:8004 ..."
 	uv run pd-ocr-simple-gui $(ARGS)
+
+# ---------------------------------------------------------------------------
+# Releases
+# ---------------------------------------------------------------------------
+
+release-patch: ## Release: bump patch, run ci, tag, push, trigger GitHub release workflow (e.g. v0.4.2 → v0.4.3)
+	@$(MAKE) --no-print-directory _do-release BUMP=patch
+
+release-minor: ## Release: bump minor, run ci, tag, push, trigger GitHub release workflow (e.g. v0.4.2 → v0.5.0)
+	@$(MAKE) --no-print-directory _do-release BUMP=minor
+
+release-major: ## Release: bump major, run ci, tag, push, trigger GitHub release workflow (e.g. v0.4.2 → v1.0.0)
+	@$(MAKE) --no-print-directory _do-release BUMP=major
+
+# scripts/do-release.sh handles repo-state guards, runs the ci pre-flight,
+# creates a three-component tag, pushes main + tag, and triggers the
+# GitHub release workflow via `gh workflow run`.
+# Pass FORCE=1 to skip the repo-state guards (pre-flight still runs).
+# Pass SKIP_PUSH=1 to create the tag locally without pushing (dry-run).
+_do-release:
+	@BUMP=$(or $(BUMP),minor) ./scripts/do-release.sh
 
 endif

@@ -83,11 +83,21 @@ export function RecentProjectsList() {
       <table className="jobs-table" aria-label="Recent projects">
         <thead>
           <tr>
-            <th scope="col" className="jobs-table__th">Name</th>
-            <th scope="col" className="jobs-table__th">Last opened</th>
-            <th scope="col" className="jobs-table__th">Pages</th>
-            <th scope="col" className="jobs-table__th">Engine</th>
-            <th scope="col" className="jobs-table__th">Status</th>
+            <th scope="col" className="jobs-table__th">
+              Name
+            </th>
+            <th scope="col" className="jobs-table__th">
+              Last opened
+            </th>
+            <th scope="col" className="jobs-table__th">
+              Pages
+            </th>
+            <th scope="col" className="jobs-table__th">
+              Engine
+            </th>
+            <th scope="col" className="jobs-table__th">
+              Status
+            </th>
           </tr>
         </thead>
         <tbody>

@@ -2,11 +2,12 @@
 // Issues #225 (scaffold), #226 (shell)
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import {
-  AppShell,
-  SuiteSiblingsProvider,
+import { AppShell, SuiteSiblingsProvider } from "@concavetrillion/pd-ui/shell";
+import type {
+  UIPrefsConfig,
+  InstalledApp,
+  LaunchResult,
 } from "@concavetrillion/pd-ui/shell";
-import type { UIPrefsConfig, InstalledApp, LaunchResult } from "@concavetrillion/pd-ui/shell";
 import HomePage from "./pages/HomePage";
 import ResultsPage from "./pages/ResultsPage";
 import PageViewPage from "./pages/PageViewPage";
@@ -16,20 +17,34 @@ const uiPrefsConfig: UIPrefsConfig = {
   load: async () => {
     try {
       const res = await fetch("/api/prefs");
-      if (!res.ok) return { theme: "dark" as const, density: "normal" as const, fontScale: 1.0 };
-      const data = (await res.json()) as { ui_prefs?: { theme?: string; density?: string; fontScale?: number } };
+      if (!res.ok)
+        return {
+          theme: "dark" as const,
+          density: "normal" as const,
+          fontScale: 1.0,
+        };
+      const data = (await res.json()) as {
+        ui_prefs?: { theme?: string; density?: string; fontScale?: number };
+      };
       const ui = data.ui_prefs ?? {};
       return {
         theme: (ui.theme === "light" ? "light" : "dark") as "dark" | "light",
-        density: (
-          ["compact", "normal", "comfortable"].includes(ui.density ?? "")
-            ? ui.density
-            : "normal"
-        ) as "compact" | "normal" | "comfortable",
-        fontScale: typeof ui.fontScale === "number" ? Math.min(1.4, Math.max(0.8, ui.fontScale)) : 1.0,
+        density: (["compact", "normal", "comfortable"].includes(
+          ui.density ?? "",
+        )
+          ? ui.density
+          : "normal") as "compact" | "normal" | "comfortable",
+        fontScale:
+          typeof ui.fontScale === "number"
+            ? Math.min(1.4, Math.max(0.8, ui.fontScale))
+            : 1.0,
       };
     } catch {
-      return { theme: "dark" as const, density: "normal" as const, fontScale: 1.0 };
+      return {
+        theme: "dark" as const,
+        density: "normal" as const,
+        fontScale: 1.0,
+      };
     }
   },
   persistCommon: async (prefs) => {

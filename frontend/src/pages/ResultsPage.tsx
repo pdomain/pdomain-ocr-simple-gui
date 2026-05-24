@@ -3,7 +3,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Progress, JobStatusPip, Button } from "@concavetrillion/pd-ui/primitives";
+import {
+  Progress,
+  JobStatusPip,
+  Button,
+} from "@concavetrillion/pd-ui/primitives";
 import type { JobState } from "@concavetrillion/pd-ui/types";
 
 interface PageRow {
@@ -127,7 +131,8 @@ export default function ResultsPage() {
   }
 
   const { name, state, pages_done, page_count, output_dir, pages } = jobStatus;
-  const progressValue = page_count > 0 ? Math.round((pages_done / page_count) * 100) : 0;
+  const progressValue =
+    page_count > 0 ? Math.round((pages_done / page_count) * 100) : 0;
   const isRunning = state === "queued" || state === "running";
 
   return (
@@ -162,7 +167,9 @@ export default function ResultsPage() {
             variant="ghost"
             disabled={rerunPending}
             aria-label="Re-run all"
-            onClick={() => { void handleRerunAll(); }}
+            onClick={() => {
+              void handleRerunAll();
+            }}
           >
             {rerunPending ? "Re-running…" : "Re-run all"}
           </Button>
@@ -170,10 +177,7 @@ export default function ResultsPage() {
       )}
 
       {pages && pages.length > 0 && (
-        <table
-          className="results-page__table"
-          aria-label="Page results"
-        >
+        <table className="results-page__table" aria-label="Page results">
           <thead>
             <tr>
               <th scope="col">Page</th>
@@ -205,9 +209,7 @@ export default function ResultsPage() {
                   <JobStatusPip state={page.state} />
                 </td>
                 <td className="results-page__page-preview">
-                  {page.text_preview
-                    ? page.text_preview.slice(0, 60)
-                    : "—"}
+                  {page.text_preview ? page.text_preview.slice(0, 60) : "—"}
                 </td>
               </tr>
             ))}
