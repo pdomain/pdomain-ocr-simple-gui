@@ -19,6 +19,7 @@ htmlcov/
 venv/
 env/
 .uv-cache/
+.venv/.pd-local-mode
 
 # Frontend
 frontend/node_modules/
