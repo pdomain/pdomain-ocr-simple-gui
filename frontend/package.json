@@ -16,7 +16,7 @@
     "knip": "knip"
   },
   "dependencies": {
-    "@pdomain/pdomain-ui": "file:/workspaces/ocr-container/pd-ui/.claude/worktrees/rename-pdomain",
+    "@pdomain/pdomain-ui": "file:../../pd-ui",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0"
