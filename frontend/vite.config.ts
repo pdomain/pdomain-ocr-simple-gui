@@ -6,7 +6,7 @@ import { resolve } from "path";
 export default defineConfig({
   plugins: [react()],
   build: {
-    outDir: resolve(__dirname, "../src/pd_ocr_simple_gui/frontend"),
+    outDir: resolve(__dirname, "../src/pdomain_ocr_simple_gui/frontend"),
     emptyOutDir: true,
   },
   server: {

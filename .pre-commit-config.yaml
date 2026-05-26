@@ -50,8 +50,8 @@ repos:
 
     -   id: basedpyright
         name: basedpyright type check (recommended mode; workspace canonical)
-        entry: uv run basedpyright src/pd_ocr_simple_gui --level error
+        entry: uv run basedpyright src/pdomain_ocr_simple_gui --level error
         language: system
         stages: [pre-commit]
         pass_filenames: false
-        files: ^src/pd_ocr_simple_gui/.*\.py$
+        files: ^src/pdomain_ocr_simple_gui/.*\.py$

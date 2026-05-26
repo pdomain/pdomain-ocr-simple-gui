@@ -1,4 +1,4 @@
-"""Tests for M7 suite integration — pd-suite.json, register_self(), mount_routes()."""
+"""Tests for M7 suite integration — pdomain-suite.json, register_self(), mount_routes()."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from pd_ocr_simple_gui.app import app
+from pdomain_ocr_simple_gui.app import app
 
 
 @pytest.fixture
@@ -21,24 +21,24 @@ async def client() -> AsyncClient:
 
 class TestSuiteJson:
     def test_pd_suite_json_exists(self) -> None:
-        """pd-suite.json is present as a package resource."""
+        """pdomain-suite.json is present as a package resource."""
         import importlib.resources
 
-        pkg_files = importlib.resources.files("pd_ocr_simple_gui")
-        fragment = pkg_files / "pd-suite.json"
+        pkg_files = importlib.resources.files("pdomain_ocr_simple_gui")
+        fragment = pkg_files / "pdomain-suite.json"
         raw = fragment.read_text(encoding="utf-8")  # type: ignore[attr-defined]
         data = json.loads(raw)
 
-        assert data["app_id"] == "pd-ocr-simple-gui"
+        assert data["app_id"] == "pdomain-ocr-simple-gui"
         assert data["display_name"] == "Simple OCR"
         assert data["default_port"] == 8004
 
     def test_pd_suite_json_has_required_fields(self) -> None:
-        """pd-suite.json contains all required InstalledApp fields."""
+        """pdomain-suite.json contains all required InstalledApp fields."""
         import importlib.resources
 
-        pkg_files = importlib.resources.files("pd_ocr_simple_gui")
-        fragment = pkg_files / "pd-suite.json"
+        pkg_files = importlib.resources.files("pdomain_ocr_simple_gui")
+        fragment = pkg_files / "pdomain-suite.json"
         raw = fragment.read_text(encoding="utf-8")  # type: ignore[attr-defined]
         data = json.loads(raw)
 
@@ -68,25 +68,25 @@ class TestSuiteRoutes:
 
 class TestRegisterSelf:
     def test_register_self_called_with_correct_package(self, tmp_path: Path) -> None:
-        """register_self() is called on startup with pd_ocr_simple_gui package."""
+        """register_self() is called on startup with pdomain_ocr_simple_gui package."""
         call_log: list[str] = []
 
         def _fake_register_self(**kwargs: object) -> None:
             call_log.append(kwargs.get("_caller_package", "auto") or "auto")
 
-        with patch("pd_ocr_ops.suite.register_self", _fake_register_self):
+        with patch("pdomain_ocr_ops.suite.register_self", _fake_register_self):
             # Import the lifespan setup to verify the call would happen
             # (we check the app module sources the correct import path)
             import inspect
 
-            import pd_ocr_simple_gui.app as app_mod
+            import pdomain_ocr_simple_gui.app as app_mod
 
             src = inspect.getsource(app_mod)
             assert "register_self" in src
 
     def test_register_self_is_importable(self) -> None:
-        """register_self is importable from pd_ocr_ops.suite."""
-        from pd_ocr_ops.suite import register_self
+        """register_self is importable from pdomain_ocr_ops.suite."""
+        from pdomain_ocr_ops.suite import register_self
 
         assert callable(register_self)
 
@@ -120,7 +120,7 @@ class TestIcons:
         """All required icon sizes exist as PNG files."""
         import importlib.resources
 
-        pkg = importlib.resources.files("pd_ocr_simple_gui")
+        pkg = importlib.resources.files("pdomain_ocr_simple_gui")
         for size in [16, 24, 32, 48, 64, 128, 256]:
             icon = pkg / "icons" / f"{size}.png"
             raw = icon.read_bytes()  # type: ignore[attr-defined]
@@ -130,7 +130,7 @@ class TestIcons:
         """simple-gui.ico exists as a package resource."""
         import importlib.resources
 
-        pkg = importlib.resources.files("pd_ocr_simple_gui")
+        pkg = importlib.resources.files("pdomain_ocr_simple_gui")
         ico = pkg / "icons" / "simple-gui.ico"
         raw = ico.read_bytes()  # type: ignore[attr-defined]
         assert len(raw) > 0
@@ -142,11 +142,11 @@ class TestCLIFlags:
         import sys
 
         # Patch sys.argv to avoid argparse reading pytest args
-        with patch.object(sys, "argv", ["pd-ocr-simple-gui", "--help"]):
+        with patch.object(sys, "argv", ["pdomain-ocr-simple-gui", "--help"]):
             # Import the parser-builder — we directly inspect __main__
             import inspect
 
-            import pd_ocr_simple_gui.__main__ as main_mod
+            import pdomain_ocr_simple_gui.__main__ as main_mod
 
             src = inspect.getsource(main_mod)
             assert "--unregister-suite" in src
@@ -155,7 +155,7 @@ class TestCLIFlags:
         """--install-desktop-shortcut flag is present in the CLI parser."""
         import inspect
 
-        import pd_ocr_simple_gui.__main__ as main_mod
+        import pdomain_ocr_simple_gui.__main__ as main_mod
 
         src = inspect.getsource(main_mod)
         assert "--install-desktop-shortcut" in src
@@ -164,7 +164,7 @@ class TestCLIFlags:
         """--remove-desktop-shortcut flag is present in the CLI parser."""
         import inspect
 
-        import pd_ocr_simple_gui.__main__ as main_mod
+        import pdomain_ocr_simple_gui.__main__ as main_mod
 
         src = inspect.getsource(main_mod)
         assert "--remove-desktop-shortcut" in src

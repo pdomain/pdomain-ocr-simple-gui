@@ -7,12 +7,12 @@ flattens it to ``[{text, bbox: {x,y,w,h}, confidence}]`` in page-relative
 coordinates (0.0-1.0 range, origin top-left).
 
 Deviation from plan sketch: the plan referenced
-``pd_ocr_simple_gui.pages.read_page_result``, which does not exist in this
+``pdomain_ocr_simple_gui.pages.read_page_result``, which does not exist in this
 repo.  The equivalent data lives in the per-page JSON sidecar written by
 ``storage.write_page_sidecar``.  ``load_page_words`` reads that sidecar
 directly via ``storage.read_page_sidecar`` + ``storage.read_project``, then
 walks the DocTR tree to extract words.  The monkeypatch target
-``pd_ocr_simple_gui.routes.words.load_page_words`` is preserved exactly as
+``pdomain_ocr_simple_gui.routes.words.load_page_words`` is preserved exactly as
 the plan specifies.
 """
 
@@ -27,7 +27,7 @@ from pydantic import BaseModel
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from pd_ocr_simple_gui.pipeline import JsonObject
+    from pdomain_ocr_simple_gui.pipeline import JsonObject
 
 _Numeric = float | int
 
@@ -138,9 +138,9 @@ def load_page_words(job_id: str, idx: int) -> Iterable[dict[str, object]] | None
     which the route maps to a 404 response.
 
     This function is defined at module top-level so tests can monkeypatch
-    ``pd_ocr_simple_gui.routes.words.load_page_words`` without ceremony.
+    ``pdomain_ocr_simple_gui.routes.words.load_page_words`` without ceremony.
     """
-    from pd_ocr_simple_gui.storage import (
+    from pdomain_ocr_simple_gui.storage import (
         read_page_sidecar,
         read_project,
         validate_project_id,

@@ -7,14 +7,14 @@ from unittest.mock import patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from pd_ocr_simple_gui.app import app
-from pd_ocr_simple_gui.models import ProjectStatus
+from pdomain_ocr_simple_gui.app import app
+from pdomain_ocr_simple_gui.models import ProjectStatus
 
 
 @pytest.fixture
 async def client(tmp_path, monkeypatch):
     """Async HTTP client wired to the FastAPI app with tmp storage root."""
-    import pd_ocr_simple_gui.storage as storage_mod
+    import pdomain_ocr_simple_gui.storage as storage_mod
 
     root = tmp_path / "projects"
     root.mkdir()
@@ -26,7 +26,7 @@ async def client(tmp_path, monkeypatch):
 @pytest.fixture
 async def client_with_source(tmp_path, monkeypatch):
     """Client with a tmp storage root AND a real source directory with one image."""
-    import pd_ocr_simple_gui.storage as storage_mod
+    import pdomain_ocr_simple_gui.storage as storage_mod
 
     root = tmp_path / "projects"
     root.mkdir()
@@ -56,8 +56,8 @@ def _make_done_status_callback(project_id: str):
     """Return an async run_project mock that immediately marks the project done."""
 
     async def _mock_run_project(spec, dispatcher, status_callback) -> None:
-        from pd_ocr_simple_gui.models import PageResult
-        from pd_ocr_simple_gui.storage import write_project
+        from pdomain_ocr_simple_gui.models import PageResult
+        from pdomain_ocr_simple_gui.storage import write_project
 
         done_status = ProjectStatus(
             project_id=spec.project_id,
@@ -152,7 +152,7 @@ class TestPipelineIntegration:
         async def _fake_run_project(spec, dispatcher, status_callback) -> None:
             call_log.append(spec.project_id)
 
-        with patch("pd_ocr_simple_gui.routes.jobs.run_project", _fake_run_project):
+        with patch("pdomain_ocr_simple_gui.routes.jobs.run_project", _fake_run_project):
             resp = await client.post(
                 "/api/jobs",
                 json={**JOB_PAYLOAD, "source_path": source_path},
@@ -166,7 +166,7 @@ class TestPipelineIntegration:
         client, source_path = client_with_source
 
         with patch(
-            "pd_ocr_simple_gui.routes.jobs.run_project",
+            "pdomain_ocr_simple_gui.routes.jobs.run_project",
             _make_done_status_callback(""),
         ):
             resp = await client.post(
@@ -180,7 +180,7 @@ class TestPipelineIntegration:
 
     async def test_dispatcher_passed_to_run_project(self, client_with_source) -> None:
         """run_project receives a LocalStageDispatcher instance."""
-        from pd_ocr_ops.gpu import LocalStageDispatcher
+        from pdomain_ocr_ops.gpu import LocalStageDispatcher
 
         client, source_path = client_with_source
         received_dispatchers: list = []
@@ -188,7 +188,7 @@ class TestPipelineIntegration:
         async def _capture(spec, dispatcher, status_callback) -> None:
             received_dispatchers.append(dispatcher)
 
-        with patch("pd_ocr_simple_gui.routes.jobs.run_project", _capture):
+        with patch("pdomain_ocr_simple_gui.routes.jobs.run_project", _capture):
             await client.post(
                 "/api/jobs",
                 json={**JOB_PAYLOAD, "source_path": source_path},
@@ -199,7 +199,7 @@ class TestPipelineIntegration:
 
 
 class TestCanonicalJobStates:
-    """Verify that the API always emits pd-ocr-ops canonical state values.
+    """Verify that the API always emits pdomain-ocr-ops canonical state values.
 
     The canonical states are: queued | running | succeeded | failed | cancelled.
     Legacy values like 'done' or 'error' must never appear in API responses.
@@ -210,8 +210,8 @@ class TestCanonicalJobStates:
         client, source_path = client_with_source
 
         async def _fail_run(spec, dispatcher, status_callback) -> None:
-            from pd_ocr_simple_gui.models import PageResult
-            from pd_ocr_simple_gui.storage import write_project
+            from pdomain_ocr_simple_gui.models import PageResult
+            from pdomain_ocr_simple_gui.storage import write_project
 
             failed_status = ProjectStatus(
                 project_id=spec.project_id,
@@ -223,7 +223,7 @@ class TestCanonicalJobStates:
             write_project(spec, failed_status)
             await status_callback(failed_status)
 
-        with patch("pd_ocr_simple_gui.routes.jobs.run_project", _fail_run):
+        with patch("pdomain_ocr_simple_gui.routes.jobs.run_project", _fail_run):
             resp = await client.post(
                 "/api/jobs",
                 json={**JOB_PAYLOAD, "source_path": source_path},
@@ -243,7 +243,7 @@ class TestCanonicalJobStates:
         client, source_path = client_with_source
 
         with patch(
-            "pd_ocr_simple_gui.routes.jobs.run_project",
+            "pdomain_ocr_simple_gui.routes.jobs.run_project",
             _make_done_status_callback(""),
         ):
             resp = await client.post(
@@ -259,7 +259,7 @@ class TestCanonicalJobStates:
         assert state != "done", "Legacy 'done' state must not be returned by the API"
 
     async def test_state_is_always_a_canonical_value(self, client: AsyncClient) -> None:
-        """Every job state returned by the API must be a canonical pd-ocr-ops value."""
+        """Every job state returned by the API must be a canonical pdomain-ocr-ops value."""
         CANONICAL_STATES = {"queued", "running", "succeeded", "failed", "cancelled"}
         LEGACY_STATES = {"done", "error", "pending", "created", "complete"}
 
@@ -267,7 +267,7 @@ class TestCanonicalJobStates:
         project_id = resp.json()["project_id"]
         get_resp = await client.get(f"/api/jobs/{project_id}")
         state = get_resp.json()["state"]
-        assert state in CANONICAL_STATES, f"Job state {state!r} is not a canonical pd-ocr-ops state"
+        assert state in CANONICAL_STATES, f"Job state {state!r} is not a canonical pdomain-ocr-ops state"
         assert state not in LEGACY_STATES, f"Legacy state {state!r} must not be returned by the API"
 
 
@@ -279,7 +279,7 @@ class TestRerunJob:
         client, source_path = client_with_source
 
         # Create a job first
-        with patch("pd_ocr_simple_gui.routes.jobs.run_project", _make_done_status_callback("")):
+        with patch("pdomain_ocr_simple_gui.routes.jobs.run_project", _make_done_status_callback("")):
             post_resp = await client.post(
                 "/api/jobs",
                 json={**JOB_PAYLOAD, "source_path": source_path},
@@ -294,7 +294,7 @@ class TestRerunJob:
         async def _noop_run(spec, dispatcher, cb):
             pass
 
-        with patch("pd_ocr_simple_gui.routes.jobs.run_project", _noop_run):
+        with patch("pdomain_ocr_simple_gui.routes.jobs.run_project", _noop_run):
             rerun_resp = await client.post(f"/api/jobs/{project_id}/rerun")
 
         assert rerun_resp.status_code == 202
@@ -306,7 +306,7 @@ class TestRerunJob:
         """After rerun, all pages should have state 'queued'."""
         client, source_path = client_with_source
 
-        with patch("pd_ocr_simple_gui.routes.jobs.run_project", _make_done_status_callback("")):
+        with patch("pdomain_ocr_simple_gui.routes.jobs.run_project", _make_done_status_callback("")):
             post_resp = await client.post(
                 "/api/jobs",
                 json={**JOB_PAYLOAD, "source_path": source_path},
@@ -320,7 +320,7 @@ class TestRerunJob:
         async def _noop_run(spec, dispatcher, cb):
             pass
 
-        with patch("pd_ocr_simple_gui.routes.jobs.run_project", _noop_run):
+        with patch("pdomain_ocr_simple_gui.routes.jobs.run_project", _noop_run):
             await client.post(f"/api/jobs/{project_id}/rerun")
 
         status_resp = await client.get(f"/api/jobs/{project_id}")
@@ -338,7 +338,7 @@ class TestRerunJob:
         """POST /api/jobs/:id/rerun re-triggers run_project."""
         client, source_path = client_with_source
 
-        with patch("pd_ocr_simple_gui.routes.jobs.run_project", _make_done_status_callback("")):
+        with patch("pdomain_ocr_simple_gui.routes.jobs.run_project", _make_done_status_callback("")):
             post_resp = await client.post(
                 "/api/jobs",
                 json={**JOB_PAYLOAD, "source_path": source_path},
@@ -350,7 +350,7 @@ class TestRerunJob:
         async def _capture(spec, dispatcher, cb):
             call_log.append(spec.project_id)
 
-        with patch("pd_ocr_simple_gui.routes.jobs.run_project", _capture):
+        with patch("pdomain_ocr_simple_gui.routes.jobs.run_project", _capture):
             await client.post(f"/api/jobs/{project_id}/rerun")
 
         assert project_id in call_log
@@ -361,7 +361,7 @@ class TestUploadIdSource:
 
     async def test_create_job_with_upload(self, tmp_path, monkeypatch) -> None:
         """POST /api/jobs with upload_id and output:managed returns 200 or 202."""
-        import pd_ocr_simple_gui.storage as storage_mod
+        import pdomain_ocr_simple_gui.storage as storage_mod
 
         root = tmp_path / "projects"
         root.mkdir()
@@ -403,7 +403,7 @@ class TestOutputModeRoundTrip:
 
     async def test_output_mode_returned_on_get(self, tmp_path, monkeypatch) -> None:
         """Creating a job with output.mode='managed' surfaces output_mode on GET."""
-        import pd_ocr_simple_gui.storage as storage_mod
+        import pdomain_ocr_simple_gui.storage as storage_mod
 
         root = tmp_path / "projects"
         root.mkdir()

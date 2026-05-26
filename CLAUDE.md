@@ -1,23 +1,23 @@
-# CLAUDE — pd-ocr-simple-gui
+# CLAUDE — pdomain-ocr-simple-gui
 
 Minimal drag-and-drop OCR web app. User drops a folder of scanned images,
 picks an engine, runs OCR, gets `.txt` files. Phase 3 reference consumer
-that validates `pd-ocr-ops`' `LocalStageDispatcher` and the
-`register_default_stages()` helper before `pd-prep-for-pgdp` migrates.
+that validates `pdomain-ocr-ops`' `LocalStageDispatcher` and the
+`register_default_stages()` helper before `pdomain-prep-for-pgdp` migrates.
 
 **Architecture:** see workspace-level docs for historical plans/specs.
-Spec: workspace `docs/specs/2026-05-17-pd-ocr-simple-gui-design.md`.
-Plans: workspace `docs/archive/plans/2026-05-17-pd-ocr-simple-gui.md` (complete).
+Spec: workspace `docs/specs/2026-05-17-pdomain-ocr-simple-gui-design.md`.
+Plans: workspace `docs/archive/plans/2026-05-17-pdomain-ocr-simple-gui.md` (complete).
 
 ## Quick orientation
 
 Architecture doc: `docs/architecture/00-overview.md`.
 
-- **Backend:** FastAPI + uvicorn, Python 3.11+. `src/pd_ocr_simple_gui/`.
-- **Frontend:** React + Vite + TS + `@concavetrillion/pd-ui`. `frontend/` (shipped M3+).
-- **OCR pipeline:** `pd-ocr-ops` `LocalStageDispatcher` +
-  `register_default_stages()`. `pd-book-tools` supplies the runners.
-- **Suite integration:** `pd-ocr-ops.suite.register_self()` wires the
+- **Backend:** FastAPI + uvicorn, Python 3.11+. `src/pdomain_ocr_simple_gui/`.
+- **Frontend:** React + Vite + TS + `@pdomain/pdomain-ui`. `frontend/` (shipped M3+).
+- **OCR pipeline:** `pdomain-ocr-ops` `LocalStageDispatcher` +
+  `register_default_stages()`. `pdomain-book-tools` supplies the runners.
+- **Suite integration:** `pdomain-ocr-ops.suite.register_self()` wires the
   app into the installed.toml launcher registry.
 - **Port:** 8004 (default).
 
@@ -30,7 +30,7 @@ Architecture doc: `docs/architecture/00-overview.md`.
 | `make smoke AI=1` | httpx end-to-end smoke (xfails without model weights) |
 | `make e2e-browser AI=1` | Playwright browser e2e (requires chromium) |
 | `make frontend-test AI=1` | vitest frontend component tests |
-| `make frontend-build AI=1` | Vite build → `src/pd_ocr_simple_gui/static/` |
+| `make frontend-build AI=1` | Vite build → `src/pdomain_ocr_simple_gui/static/` |
 | `make lint AI=1` / `make format AI=1` | ruff check / format |
 | `make typecheck AI=1` | basedpyright |
 | `make pre-commit-check AI=1` | all pre-commit hooks on every tracked file |
@@ -59,7 +59,7 @@ or filtered failure sections on error.
 
 ## Memory path
 
-Agent memory: `/workspaces/ocr-container/.claude/agent-memory/pd-ocr-simple-gui/`
+Agent memory: `/workspaces/ocr-container/.claude/agent-memory/pdomain-ocr-simple-gui/`
 
 Always write to the **absolute path** above. Never use a relative
 `.claude/agent-memory/...` path — cwd at write time may not be the
@@ -75,7 +75,7 @@ suppression point (ocr-container-meta #291).
 ## GH issues
 
 Cross-cut tasks tracked in `ConcaveTrillion/ocr-container-meta`.
-Milestone: `spec: 2026-05-17-pd-ocr-simple-gui (#211)` — all tasks closed.
+Milestone: `spec: 2026-05-17-pdomain-ocr-simple-gui (#211)` — all tasks closed.
 
 Before starting: `gh issue view <N> --repo ConcaveTrillion/ocr-container-meta`
 After completing: `gh issue close <N> --repo ConcaveTrillion/ocr-container-meta`
@@ -84,14 +84,14 @@ After completing: `gh issue close <N> --repo ConcaveTrillion/ocr-container-meta`
 
 In `/workspaces/ocr-container/` (when present):
 
-- `pd-book-tools/` — OCR, layout, image primitives. Hard dependency.
-- `pd-ocr-ops/` — suite plumbing, GPU dispatch, prefs. Hard dependency.
-- `pd-prep-for-pgdp/` — sister FastAPI app; mirrors this repo's patterns.
+- `pdomain-book-tools/` — OCR, layout, image primitives. Hard dependency.
+- `pdomain-ocr-ops/` — suite plumbing, GPU dispatch, prefs. Hard dependency.
+- `pdomain-prep-for-pgdp/` — sister FastAPI app; mirrors this repo's patterns.
 
 ## Out of scope
 
-- Editing files outside `/workspaces/ocr-container/pd-ocr-simple-gui/`.
-- Touching shared OCR/layout logic (do that in `pd-book-tools`).
+- Editing files outside `/workspaces/ocr-container/pdomain-ocr-simple-gui/`.
+- Touching shared OCR/layout logic (do that in `pdomain-book-tools`).
 - Releases, force-push, or wheel publish without explicit approval.
 
 ## docs/ folder

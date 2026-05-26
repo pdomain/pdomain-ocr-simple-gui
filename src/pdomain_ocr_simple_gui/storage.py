@@ -9,11 +9,11 @@ import shutil
 from pathlib import Path
 from typing import TypeAlias, cast
 
-from pd_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
+from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
 
 logger = logging.getLogger(__name__)
 
-_PROJECTS_ROOT: Path = Path.home() / ".local" / "share" / "pd-suite" / "simple-gui" / "projects"
+_PROJECTS_ROOT: Path = Path.home() / ".local" / "share" / "pdomain-suite" / "simple-gui" / "projects"
 
 JSONValue: TypeAlias = str | int | float | bool | None | list["JSONValue"] | dict[str, "JSONValue"]
 JSONObject: TypeAlias = dict[str, JSONValue]

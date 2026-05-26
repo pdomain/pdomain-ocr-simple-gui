@@ -30,8 +30,8 @@ from __future__ import annotations
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from pd_ocr_simple_gui.app import app
-from pd_ocr_simple_gui.storage import validate_project_id
+from pdomain_ocr_simple_gui.app import app
+from pdomain_ocr_simple_gui.storage import validate_project_id
 
 
 @pytest.fixture
@@ -47,7 +47,7 @@ async def secured_client(tmp_path, monkeypatch):
     """
     import json
 
-    import pd_ocr_simple_gui.storage as storage_mod
+    import pdomain_ocr_simple_gui.storage as storage_mod
 
     root = tmp_path / "projects"
     root.mkdir()

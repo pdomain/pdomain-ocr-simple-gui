@@ -1,6 +1,6 @@
 // Flat ESLint config for the SPA.
 //
-// Canonical workspace config — matches pd-prep-for-pgdp pattern:
+// Canonical workspace config — matches pdomain-prep-for-pgdp pattern:
 //   - typescript-eslint recommended (no type-aware rules yet; add
 //     strictTypeChecked when tsconfig.app.json is wired up)
 //   - react-hooks recommended (rules-of-hooks + exhaustive-deps)

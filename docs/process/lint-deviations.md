@@ -1,4 +1,4 @@
-# Lint-rule Deviations — pd-ocr-simple-gui
+# Lint-rule Deviations — pdomain-ocr-simple-gui
 
 Standing suppressions and per-file rule overrides in this repo.
 Each entry records: the rule, the tool, the file(s) affected, and
@@ -65,7 +65,7 @@ Suppressed: `D`
 **Justification:** Private implementation modules (named `_*.py`) do not require
 public-facing docstrings.
 
-### `src/pd_ocr_simple_gui/__main__.py`
+### `src/pdomain_ocr_simple_gui/__main__.py`
 
 Suppressed: `ANN D T201`
 
@@ -96,7 +96,7 @@ is also silenced where logging is deliberately omitted for non-critical paths).
 
 ### `TC002`/`TC003` (type-checking imports) — `models.py`
 
-**Files:** `src/pd_ocr_simple_gui/models.py`
+**Files:** `src/pdomain_ocr_simple_gui/models.py`
 
 **Suppression form:** `# noqa: TC002` / `# noqa: TC003`
 
@@ -106,7 +106,7 @@ would break Pydantic's runtime introspection.
 
 ### `PLW0603` (global statement) — `app.py`
 
-**Files:** `src/pd_ocr_simple_gui/app.py`
+**Files:** `src/pdomain_ocr_simple_gui/app.py`
 
 **Suppression form:** `global _prefs_adapter, _dispatcher  # noqa: PLW0603`
 
@@ -116,7 +116,7 @@ is the standard pattern for FastAPI app-level state before `app.state` was commo
 
 ### `E402` (module-level import not at top) — `app.py`
 
-**Files:** `src/pd_ocr_simple_gui/app.py`
+**Files:** `src/pdomain_ocr_simple_gui/app.py`
 
 **Suppression form:** `# noqa: E402` on three router imports
 

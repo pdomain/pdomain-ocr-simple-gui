@@ -8,15 +8,15 @@
 // OcrTextPanel, WordBboxOverlay, EditModeSelector, LabelerCanvas etc.
 // ArtifactViewer is a canvas designed for annotation with split/rotate/illustrate
 // overlay modes. PWHeader requires EditMode + onModeChange which are irrelevant
-// for this read-only OCR review view. This page already uses pd-ui's PageSplitView
+// for this read-only OCR review view. This page already uses pdomain-ui's PageSplitView
 // + PageImageCanvas (from prior milestones), so the "hand-rolled layout" described
 // in the plan has already been replaced. No PageWorkbench wrapper wrapping is
 // applicable without forcing a misfit.
 
 import { useEffect, useState, useRef, type ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { PageImageCanvas } from "@concavetrillion/pd-ui/canvas";
-import type { CanvasPage, CanvasWord } from "@concavetrillion/pd-ui/canvas";
+import { PageImageCanvas } from "@pdomain/pdomain-ui/canvas";
+import type { CanvasPage, CanvasWord } from "@pdomain/pdomain-ui/canvas";
 import {
   Button,
   Textarea,
@@ -25,7 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   PageSplitView,
-} from "@concavetrillion/pd-ui/primitives";
+} from "@pdomain/pdomain-ui/primitives";
 import { APP_TEST_IDS } from "../lib/testids";
 
 interface PageData {

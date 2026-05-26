@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from pd_ocr_simple_gui.app import create_app
+from pdomain_ocr_simple_gui.app import create_app
 
 
 def test_download_streams_zip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

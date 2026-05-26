@@ -11,9 +11,9 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from pd_ocr_simple_gui.models import PageResponse, PageResult, ProjectSpec
-from pd_ocr_simple_gui.pipeline import JsonObject, extract_text, first_page_dict
-from pd_ocr_simple_gui.storage import (
+from pdomain_ocr_simple_gui.models import PageResponse, PageResult, ProjectSpec
+from pdomain_ocr_simple_gui.pipeline import JsonObject, extract_text, first_page_dict
+from pdomain_ocr_simple_gui.storage import (
     read_page_sidecar,
     read_project,
     update_page_result,
@@ -154,9 +154,9 @@ async def rerun_page(project_id: str, page_idx: int) -> PageResult:
     is always updated and page 0 is never corrupted.  Awaits the async
     dispatcher directly — non-blocking, yields control to the event loop.
     """
-    from pd_ocr_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
+    from pdomain_ocr_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
 
-    from pd_ocr_simple_gui.app import get_dispatcher
+    from pdomain_ocr_simple_gui.app import get_dispatcher
 
     try:
         validate_project_id(project_id)

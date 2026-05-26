@@ -1,4 +1,4 @@
-# src/pd_ocr_simple_gui/routes/uploads.py
+# src/pdomain_ocr_simple_gui/routes/uploads.py
 """POST /api/uploads — multipart file upload with size cap and zip auto-extraction."""
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_DEFAULT_ROOT = Path.home() / ".local/share/pd-ocr-simple-gui/uploads"
+_DEFAULT_ROOT = Path.home() / ".local/share/pdomain-ocr-simple-gui/uploads"
 _DEFAULT_MAX_BYTES = 2 * 1024**3  # 2 GiB total per request
 _DEFAULT_MAX_FILES = 5000
 

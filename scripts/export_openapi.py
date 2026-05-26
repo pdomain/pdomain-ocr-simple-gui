@@ -14,7 +14,7 @@ import json
 import sys
 from pathlib import Path
 
-from pd_ocr_simple_gui.app import app
+from pdomain_ocr_simple_gui.app import app
 
 
 def main() -> None:

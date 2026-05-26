@@ -1,5 +1,5 @@
-/* app.css — pd-ocr-simple-gui application styles
- * Uses design tokens from @concavetrillion/pd-ui/theme/tokens.css
+/* app.css — pdomain-ocr-simple-gui application styles
+ * Uses design tokens from @pdomain/pdomain-ui/theme/tokens.css
  * Do not hardcode colors — always use CSS vars or color-mix(in srgb, ...).
  */
 
@@ -189,13 +189,13 @@ body,
 }
 
 /* .recent-projects__table and row/cell styles removed — now provided by
-   pd-ui's .jobs-table/.jobs-table__* CSS classes (issue #255) */
+   pdomain-ui's .jobs-table/.jobs-table__* CSS classes (issue #255) */
 
 /* ------------------------------------------------------------------ */
 /* JobConfigDialog                                                      */
 /* ------------------------------------------------------------------ */
 
-/* .job-config-dialog__error removed — now provided by pd-ui (issue #256) */
+/* .job-config-dialog__error removed — now provided by pdomain-ui (issue #256) */
 
 /* Form fields vertical rhythm */
 form > .field,
@@ -355,7 +355,7 @@ form > [class*="Field"] {
 }
 
 /* ------------------------------------------------------------------ */
-/* PageViewPage wrapper + toast — layout is pd-ui's .page-split-view   */
+/* PageViewPage wrapper + toast — layout is pdomain-ui's .page-split-view   */
 /* ------------------------------------------------------------------ */
 
 .page-split-view-wrapper {

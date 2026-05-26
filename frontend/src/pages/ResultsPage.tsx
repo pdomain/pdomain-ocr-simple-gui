@@ -2,19 +2,15 @@
 // Screen 3: live polling job status + page list
 // A7.2: download button for managed output mode.
 //
-// TODO(A9.2): pd-ui PageList (from @concavetrillion/pd-ui/worklist) requires
+// TODO(A9.2): pdomain-ui PageList (from @pdomain/pdomain-ui/worklist) requires
 // {page_index, name, width, height} per item. PageRow here carries {page_idx,
 // page_name, state, text_preview} with no width/height. The shapes are
 // incompatible. Keeping the hand-rolled <table>.
 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  Progress,
-  JobStatusPip,
-  Button,
-} from "@concavetrillion/pd-ui/primitives";
-import type { JobState } from "@concavetrillion/pd-ui/types";
+import { Progress, JobStatusPip, Button } from "@pdomain/pdomain-ui/primitives";
+import type { JobState } from "@pdomain/pdomain-ui/types";
 import { APP_TEST_IDS } from "../lib/testids";
 
 interface PageRow {

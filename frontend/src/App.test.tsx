@@ -5,9 +5,9 @@ import { describe, it, expect, vi, beforeAll } from "vitest";
 import { render, screen } from "@testing-library/react";
 import App from "./App";
 
-// Mock @concavetrillion/pd-ui/shell — we test App routing, not AppShell internals.
+// Mock @pdomain/pdomain-ui/shell — we test App routing, not AppShell internals.
 // AppShell itself uses complex CSS and zustand stores that don't run well in jsdom.
-vi.mock("@concavetrillion/pd-ui/shell", () => ({
+vi.mock("@pdomain/pdomain-ui/shell", () => ({
   AppShell: ({ main }: { main: React.ReactNode }) => (
     <div data-testid="app-shell-mock">{main}</div>
   ),
@@ -16,10 +16,10 @@ vi.mock("@concavetrillion/pd-ui/shell", () => ({
   ),
 }));
 
-// Mock @concavetrillion/pd-ui/canvas — Konva requires a native 'canvas' module
+// Mock @pdomain/pdomain-ui/canvas — Konva requires a native 'canvas' module
 // not available in jsdom. PageViewPage is the consumer; we mock here to prevent
 // the module from loading in App-level tests.
-vi.mock("@concavetrillion/pd-ui/canvas", () => ({
+vi.mock("@pdomain/pdomain-ui/canvas", () => ({
   PageImageCanvas: ({ src }: { src: string }) => (
     <div data-testid="page-image-canvas-mock" data-src={src} />
   ),

@@ -12,11 +12,11 @@ def app_with_frontend(tmp_path, monkeypatch):
     (frontend_dir / "index.html").write_text("<!DOCTYPE html><html><body>SPA</body></html>")
 
     # Patch the _FRONTEND_DIR in app module
-    import pd_ocr_simple_gui.app as app_module
+    import pdomain_ocr_simple_gui.app as app_module
 
     monkeypatch.setattr(app_module, "_FRONTEND_DIR", frontend_dir)
 
-    from pd_ocr_simple_gui.app import app
+    from pdomain_ocr_simple_gui.app import app
 
     return TestClient(app)
 
@@ -44,10 +44,10 @@ def test_api_routes_not_shadowed_by_spa_fallback(app_with_frontend):
 
 def test_root_503_when_frontend_not_built(tmp_path, monkeypatch):
     # When frontend/index.html doesn't exist → 503, not 404
-    import pd_ocr_simple_gui.app as app_module
+    import pdomain_ocr_simple_gui.app as app_module
 
     monkeypatch.setattr(app_module, "_FRONTEND_DIR", tmp_path / "nonexistent")
-    from pd_ocr_simple_gui.app import app
+    from pdomain_ocr_simple_gui.app import app
 
     client = TestClient(app, raise_server_exceptions=False)
     resp = client.get("/")

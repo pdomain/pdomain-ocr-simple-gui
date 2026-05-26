@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import "@concavetrillion/pd-ui/theme/tokens.css";
-import "@concavetrillion/pd-ui/theme/primitives.css";
+import "@pdomain/pdomain-ui/theme/tokens.css";
+import "@pdomain/pdomain-ui/theme/primitives.css";
 import "./app.css";
 import App from "./App";
 

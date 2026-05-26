@@ -1,4 +1,4 @@
-"""Entry point for pd-ocr-simple-gui."""
+"""Entry point for pdomain-ocr-simple-gui."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ class _CliArgs:
 
 def _parse_args() -> _CliArgs:
     parser = argparse.ArgumentParser(
-        description="pd-ocr-simple-gui — drag-and-drop OCR app",
+        description="pdomain-ocr-simple-gui — drag-and-drop OCR app",
     )
     _ = parser.add_argument(
         "--host",
@@ -75,21 +75,21 @@ def _parse_args() -> _CliArgs:
 
 
 def main() -> None:
-    """Start the pd-ocr-simple-gui server."""
+    """Start the pdomain-ocr-simple-gui server."""
     args = _parse_args()
 
     if args.unregister_suite:
         try:
-            from pd_ocr_ops.suite.registry import (  # pyright: ignore[reportMissingTypeStubs] pd_ocr_ops dependency may omit typing stubs
+            from pdomain_ocr_ops.suite.registry import (  # pyright: ignore[reportMissingTypeStubs] pdomain_ocr_ops dependency may omit typing stubs
                 LocalTomlSuiteRegistry,
             )
 
             registry = LocalTomlSuiteRegistry()
-            registry.unregister("pd-ocr-simple-gui")
+            registry.unregister("pdomain-ocr-simple-gui")
         except Exception:  # best-effort suite unregister — never block shutdown
             logger.exception(
                 "Failed to unregister from suite registry; stale entry may remain",
-                extra={"context": "LocalTomlSuiteRegistry.unregister('pd-ocr-simple-gui')"},
+                extra={"context": "LocalTomlSuiteRegistry.unregister('pdomain-ocr-simple-gui')"},
             )
         return
 
@@ -102,7 +102,7 @@ def main() -> None:
     import uvicorn
 
     uvicorn.run(
-        "pd_ocr_simple_gui.app:app",
+        "pdomain_ocr_simple_gui.app:app",
         host=args.host,
         port=args.port,
         reload=args.reload,

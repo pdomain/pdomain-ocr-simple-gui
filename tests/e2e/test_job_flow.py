@@ -23,7 +23,7 @@ pytest.importorskip("playwright", reason="playwright not installed; run: uv sync
 
 from playwright.sync_api import Page, expect
 
-_FIXTURE_IMAGE = Path("/workspaces/ocr-container/pd-book-tools/tests/ocr-test-image.png")
+_FIXTURE_IMAGE = Path("/workspaces/ocr-container/pdomain-book-tools/tests/ocr-test-image.png")
 
 
 def _create_job_via_api(base_url: str, source_dir: str, output_dir: str) -> str:

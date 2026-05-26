@@ -1,11 +1,11 @@
-# src/pd_ocr_simple_gui/routes/config.py
+# src/pdomain_ocr_simple_gui/routes/config.py
 from __future__ import annotations
 
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from pd_ocr_simple_gui.runtime.container_detect import detect_containerized
-from pd_ocr_simple_gui.runtime.mode import read_mode
+from pdomain_ocr_simple_gui.runtime.container_detect import detect_containerized
+from pdomain_ocr_simple_gui.runtime.mode import read_mode
 
 router = APIRouter()
 

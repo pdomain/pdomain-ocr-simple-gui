@@ -1,4 +1,4 @@
-"""Tests for pd_ocr_simple_gui.models — round-trip JSON and field validation."""
+"""Tests for pdomain_ocr_simple_gui.models — round-trip JSON and field validation."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from pd_ocr_simple_gui.models import AppPrefs, PageResult, ProjectSpec, ProjectStatus
+from pdomain_ocr_simple_gui.models import AppPrefs, PageResult, ProjectSpec, ProjectStatus
 
 
 def _make_spec(**overrides: object) -> ProjectSpec:

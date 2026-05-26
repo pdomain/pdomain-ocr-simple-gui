@@ -14,14 +14,14 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from pd_ocr_simple_gui.models import AppPrefs, PageResult, ProjectSpec, ProjectStatus
-from pd_ocr_simple_gui.output.config import OutputConfig, OutputConfigError, resolve_output_dir
-from pd_ocr_simple_gui.pipeline import collect_images, run_project
-from pd_ocr_simple_gui.runtime.mode import Mode, read_mode
-from pd_ocr_simple_gui.sources import SourceError
-from pd_ocr_simple_gui.sources.local_path import LocalPathSource
-from pd_ocr_simple_gui.sources.uploaded_files import UploadedFilesSource
-from pd_ocr_simple_gui.storage import (
+from pdomain_ocr_simple_gui.models import AppPrefs, PageResult, ProjectSpec, ProjectStatus
+from pdomain_ocr_simple_gui.output.config import OutputConfig, OutputConfigError, resolve_output_dir
+from pdomain_ocr_simple_gui.pipeline import collect_images, run_project
+from pdomain_ocr_simple_gui.runtime.mode import Mode, read_mode
+from pdomain_ocr_simple_gui.sources import SourceError
+from pdomain_ocr_simple_gui.sources.local_path import LocalPathSource
+from pdomain_ocr_simple_gui.sources.uploaded_files import UploadedFilesSource
+from pdomain_ocr_simple_gui.storage import (
     delete_project,
     list_projects,
     read_project,
@@ -33,9 +33,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
-_DEFAULT_OUTPUT_ROOT = Path.home() / ".local/share/pd-ocr-simple-gui/outputs"
-_DEFAULT_UPLOAD_ROOT = Path.home() / ".local/share/pd-ocr-simple-gui/uploads"
-_DEFAULT_JOBS_META_ROOT = Path.home() / ".local/share/pd-ocr-simple-gui/jobs"
+_DEFAULT_OUTPUT_ROOT = Path.home() / ".local/share/pdomain-ocr-simple-gui/outputs"
+_DEFAULT_UPLOAD_ROOT = Path.home() / ".local/share/pdomain-ocr-simple-gui/uploads"
+_DEFAULT_JOBS_META_ROOT = Path.home() / ".local/share/pdomain-ocr-simple-gui/jobs"
 
 
 def _jobs_meta_root() -> Path:
@@ -141,9 +141,9 @@ def _build_source_and_flags(body: CreateJobRequest, mode: Mode) -> tuple[str, bo
 
 async def _pipeline_run_job(spec: ProjectSpec) -> None:
     """Background task: run OCR pipeline for the given project spec."""
-    from pd_ocr_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
+    from pdomain_ocr_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
 
-    from pd_ocr_simple_gui.app import get_dispatcher
+    from pdomain_ocr_simple_gui.app import get_dispatcher
 
     dispatcher = get_dispatcher()
     if dispatcher is None:
@@ -293,7 +293,7 @@ async def get_job(project_id: str) -> ProjectStatus:
 @router.delete("/{project_id}", response_class=Response)
 async def delete_job(project_id: str) -> Response:
     """Delete a project. Returns 200 if it existed, 204 if it didn't."""
-    from pd_ocr_simple_gui.storage import get_project_dir
+    from pdomain_ocr_simple_gui.storage import get_project_dir
 
     try:
         validate_project_id(project_id)
@@ -347,15 +347,15 @@ async def rerun_job(project_id: str, background_tasks: BackgroundTasks) -> dict[
 def _remove_from_recent_projects(project_id: str) -> None:
     """Remove project_id from prefs recent_projects (best-effort, no-op on error)."""
     try:
-        from pd_ocr_simple_gui.app import get_prefs_adapter
+        from pdomain_ocr_simple_gui.app import get_prefs_adapter
 
         adapter = get_prefs_adapter()
         if adapter is None:
             return
-        raw = adapter.read().apps.get("pd-ocr-simple-gui", {})
+        raw = adapter.read().apps.get("pdomain-ocr-simple-gui", {})
         prefs = AppPrefs.model_validate(raw) if raw else AppPrefs()
         prefs.recent_projects = [p for p in prefs.recent_projects if p.get("project_id") != project_id]
-        adapter.write_app("pd-ocr-simple-gui", prefs.model_dump())
+        adapter.write_app("pdomain-ocr-simple-gui", prefs.model_dump())
     except Exception:  # recent-projects prefs update is best-effort
         logger.exception(
             "Failed to remove project from recent-projects prefs",

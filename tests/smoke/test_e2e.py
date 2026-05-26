@@ -18,7 +18,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-_FIXTURE_IMAGE = Path("/workspaces/ocr-container/pd-book-tools/tests/ocr-test-image.png")
+_FIXTURE_IMAGE = Path("/workspaces/ocr-container/pdomain-book-tools/tests/ocr-test-image.png")
 _POLL_INTERVAL = 1.0  # seconds
 _TIMEOUT = 60.0  # seconds — generous for first DocTR model load
 
@@ -68,7 +68,7 @@ def test_e2e_job_completes(tmp_path: Path) -> None:
             sys.executable,
             "-m",
             "uvicorn",
-            "pd_ocr_simple_gui.app:app",
+            "pdomain_ocr_simple_gui.app:app",
             "--host",
             "127.0.0.1",
             "--port",
@@ -125,7 +125,13 @@ def test_e2e_job_completes(tmp_path: Path) -> None:
         if final_status.get("state") == "succeeded":
             txt_files = list(output_dir.rglob("*.txt")) or list(
                 (
-                    Path.home() / ".local" / "share" / "pd-suite" / "simple-gui" / "projects" / project_id
+                    Path.home()
+                    / ".local"
+                    / "share"
+                    / "pdomain-suite"
+                    / "simple-gui"
+                    / "projects"
+                    / project_id
                 ).rglob("*.txt")
             )
             assert txt_files, "Job state=done but no .txt files found in output_dir or project storage"

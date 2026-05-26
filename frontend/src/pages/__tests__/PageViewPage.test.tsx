@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 // Mock PageImageCanvas — Konva doesn't run in jsdom.
 // We render a div with the words array length so we can assert it.
-vi.mock("@concavetrillion/pd-ui/canvas", () => ({
+vi.mock("@pdomain/pdomain-ui/canvas", () => ({
   PageImageCanvas: ({ words }: { words: unknown[]; [k: string]: unknown }) => (
     <div
       data-testid="page-image-canvas"

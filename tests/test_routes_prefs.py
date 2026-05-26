@@ -8,17 +8,17 @@ from unittest.mock import MagicMock
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from pd_ocr_simple_gui.app import app
+from pdomain_ocr_simple_gui.app import app
 
 
 def _make_mock_adapter(app_data: dict[str, Any] | None = None) -> MagicMock:
-    """Build a mock PrefsAdapter that returns app_data for pd-ocr-simple-gui."""
-    from pd_ocr_ops.suite.types import UIPrefs
+    """Build a mock PrefsAdapter that returns app_data for pdomain-ocr-simple-gui."""
+    from pdomain_ocr_ops.suite.types import UIPrefs
 
     mock = MagicMock()
     ui_prefs = UIPrefs()
     if app_data:
-        ui_prefs.apps["pd-ocr-simple-gui"] = app_data
+        ui_prefs.apps["pdomain-ocr-simple-gui"] = app_data
     mock.read.return_value = ui_prefs
     mock.write_app.return_value = None
     return mock
@@ -27,7 +27,7 @@ def _make_mock_adapter(app_data: dict[str, Any] | None = None) -> MagicMock:
 @pytest.fixture
 async def client_with_mock_prefs(monkeypatch: pytest.MonkeyPatch) -> AsyncClient:
     """Async HTTP client with a mocked prefs adapter."""
-    import pd_ocr_simple_gui.app as app_mod
+    import pdomain_ocr_simple_gui.app as app_mod
 
     mock_adapter = _make_mock_adapter()
     monkeypatch.setattr(app_mod, "_prefs_adapter", mock_adapter)
@@ -38,7 +38,7 @@ async def client_with_mock_prefs(monkeypatch: pytest.MonkeyPatch) -> AsyncClient
 @pytest.fixture
 async def client_no_prefs(monkeypatch: pytest.MonkeyPatch) -> AsyncClient:
     """Async HTTP client with prefs adapter set to None."""
-    import pd_ocr_simple_gui.app as app_mod
+    import pdomain_ocr_simple_gui.app as app_mod
 
     monkeypatch.setattr(app_mod, "_prefs_adapter", None)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -57,7 +57,7 @@ class TestGetPrefs:
         assert data["recent_projects"] == []
 
     async def test_returns_stored_prefs(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        import pd_ocr_simple_gui.app as app_mod
+        import pdomain_ocr_simple_gui.app as app_mod
 
         stored = {
             "default_engine": "tesseract",
@@ -98,7 +98,7 @@ class TestPutPrefs:
         assert resp.status_code == 200
 
     async def test_write_app_called_with_app_id(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        import pd_ocr_simple_gui.app as app_mod
+        import pdomain_ocr_simple_gui.app as app_mod
 
         mock_adapter = _make_mock_adapter()
         monkeypatch.setattr(app_mod, "_prefs_adapter", mock_adapter)
@@ -114,7 +114,7 @@ class TestPutPrefs:
             await ac.put("/api/prefs", json=payload)
         mock_adapter.write_app.assert_called_once()
         call_args = mock_adapter.write_app.call_args
-        assert call_args[0][0] == "pd-ocr-simple-gui"
+        assert call_args[0][0] == "pdomain-ocr-simple-gui"
 
     async def test_put_no_adapter_returns_200(self, client_no_prefs: AsyncClient) -> None:
         """PUT /api/prefs with no adapter should still return 200 (best-effort)."""
@@ -141,7 +141,7 @@ class TestPutPrefs:
 
     async def test_put_ui_prefs_persists_via_adapter(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """PUT /api/prefs with ui_prefs calls write_app on the adapter."""
-        import pd_ocr_simple_gui.app as app_mod
+        import pdomain_ocr_simple_gui.app as app_mod
 
         mock_adapter = _make_mock_adapter()
         monkeypatch.setattr(app_mod, "_prefs_adapter", mock_adapter)
@@ -151,4 +151,4 @@ class TestPutPrefs:
         assert resp.status_code == 200
         mock_adapter.write_app.assert_called_once()
         call_args = mock_adapter.write_app.call_args
-        assert call_args[0][0] == "pd-ocr-simple-gui"
+        assert call_args[0][0] == "pdomain-ocr-simple-gui"

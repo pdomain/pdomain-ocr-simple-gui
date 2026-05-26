@@ -1,5 +1,5 @@
 {
-  "name": "pd-ocr-simple-gui-frontend",
+  "name": "pdomain-ocr-simple-gui-frontend",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,7 +16,7 @@
     "knip": "knip"
   },
   "dependencies": {
-    "@concavetrillion/pd-ui": "^0.2.1",
+    "@pdomain/pdomain-ui": "file:/workspaces/ocr-container/pd-ui/.claude/worktrees/rename-pdomain",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0"

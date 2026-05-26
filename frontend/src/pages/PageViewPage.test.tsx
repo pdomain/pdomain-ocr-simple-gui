@@ -6,13 +6,13 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import PageViewPage from "./PageViewPage";
 
-// Mock pd-ui canvas — PageImageCanvas needs a Konva/canvas environment we don't have in jsdom
-vi.mock("@concavetrillion/pd-ui/canvas", () => ({
+// Mock pdomain-ui canvas — PageImageCanvas needs a Konva/canvas environment we don't have in jsdom
+vi.mock("@pdomain/pdomain-ui/canvas", () => ({
   PageImageCanvas: ({ src }: { src: string }) => <div data-canvas-src={src} />,
 }));
 
-// Mock pd-ui/primitives
-vi.mock("@concavetrillion/pd-ui/primitives", async (importOriginal) => {
+// Mock pdomain-ui/primitives
+vi.mock("@pdomain/pdomain-ui/primitives", async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,

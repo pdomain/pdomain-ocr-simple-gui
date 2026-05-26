@@ -1,4 +1,4 @@
-# src/pd_ocr_simple_gui/runtime/container_detect.py
+# src/pdomain_ocr_simple_gui/runtime/container_detect.py
 from __future__ import annotations
 
 import os

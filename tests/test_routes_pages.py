@@ -7,15 +7,15 @@ from pathlib import Path
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from pd_ocr_simple_gui.app import app
-from pd_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
-from pd_ocr_simple_gui.storage import write_page_sidecar, write_project
+from pdomain_ocr_simple_gui.app import app
+from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
+from pdomain_ocr_simple_gui.storage import write_page_sidecar, write_project
 
 
 @pytest.fixture
 async def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncClient:
     """Async HTTP client with tmp storage root."""
-    import pd_ocr_simple_gui.storage as storage_mod
+    import pdomain_ocr_simple_gui.storage as storage_mod
 
     root = tmp_path / "projects"
     root.mkdir()
@@ -27,7 +27,7 @@ async def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncClient
 @pytest.fixture
 def project_with_image(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[str, Path]:
     """Create a project with one page and a real (tiny) image file."""
-    import pd_ocr_simple_gui.storage as storage_mod
+    import pdomain_ocr_simple_gui.storage as storage_mod
 
     root = tmp_path / "projects"
     root.mkdir(exist_ok=True)
@@ -165,7 +165,7 @@ class TestGetPageImageFilePath:
         """get_page_image returns image bytes when source_path is a single file."""
         from datetime import UTC, datetime
 
-        import pd_ocr_simple_gui.storage as storage_mod
+        import pdomain_ocr_simple_gui.storage as storage_mod
 
         root = tmp_path / "projects"
         root.mkdir()
@@ -204,7 +204,7 @@ class TestGetPageImageFilePath:
                 )
             ],
         )
-        from pd_ocr_simple_gui.storage import write_project
+        from pdomain_ocr_simple_gui.storage import write_project
 
         write_project(spec, status)
 
@@ -233,7 +233,7 @@ class TestPostPageRerun:
         mock_dispatcher = AsyncMock()
         mock_dispatcher.run_stage = AsyncMock(return_value=fake_result)
 
-        with patch("pd_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
+        with patch("pdomain_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
             resp = await client.post(f"/api/pages/{project_id}/0/rerun")
 
         assert resp.status_code == 200
@@ -250,7 +250,7 @@ class TestPostPageRerun:
         from datetime import UTC, datetime
         from unittest.mock import patch
 
-        import pd_ocr_simple_gui.storage as storage_mod
+        import pdomain_ocr_simple_gui.storage as storage_mod
 
         root = tmp_path / "projects"
         root.mkdir()
@@ -297,7 +297,7 @@ class TestPostPageRerun:
                 ),
             ],
         )
-        from pd_ocr_simple_gui.storage import write_project
+        from pdomain_ocr_simple_gui.storage import write_project
 
         write_project(spec, status)
 
@@ -323,7 +323,7 @@ class TestPostPageRerun:
         mock_dispatcher.run_stage = AsyncMock(return_value=fake_result)
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-            with patch("pd_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
+            with patch("pdomain_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
                 resp = await ac.post(f"/api/pages/{project_id}/1/rerun")
 
         assert resp.status_code == 200
@@ -333,7 +333,7 @@ class TestPostPageRerun:
         assert data["state"] == "succeeded"
 
         # Critically: page 0 must be untouched
-        from pd_ocr_simple_gui.storage import read_project
+        from pdomain_ocr_simple_gui.storage import read_project
 
         _, updated_status = read_project(project_id)
         page0 = next(p for p in updated_status.pages if p.page_idx == 0)
@@ -360,7 +360,7 @@ class TestPostPageRerun:
         mock_dispatcher = AsyncMock()
         mock_dispatcher.run_stage = AsyncMock(return_value=fake_result)
 
-        with patch("pd_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
+        with patch("pdomain_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
             resp = await client.post(f"/api/pages/{project_id}/0/rerun")
 
         assert resp.status_code == 200
@@ -382,7 +382,7 @@ class TestPostPageRerun:
         mock_dispatcher = AsyncMock()
         mock_dispatcher.run_stage = AsyncMock(side_effect=RuntimeError("OCR failed"))
 
-        with patch("pd_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
+        with patch("pdomain_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
             resp = await client.post(f"/api/pages/{project_id}/0/rerun")
 
         assert resp.status_code == 200
@@ -418,7 +418,7 @@ class TestPostPageRerun:
         mock_dispatcher = AsyncMock()
         mock_dispatcher.run_stage = AsyncMock(return_value=fake_result)
 
-        with patch("pd_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
+        with patch("pdomain_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
             await client.post(f"/api/pages/{project_id}/0/rerun")
 
         get_resp = await client.get(f"/api/pages/{project_id}/0")

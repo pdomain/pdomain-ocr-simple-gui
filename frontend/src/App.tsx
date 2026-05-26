@@ -2,11 +2,11 @@
 // Issues #225 (scaffold), #226 (shell)
 //
 // A9.4 stores swap notes:
-// - pd-ui createUIPrefsStore is already consumed via AppShell.uiPrefsConfig
+// - pdomain-ui createUIPrefsStore is already consumed via AppShell.uiPrefsConfig
 //   (AppShell instantiates it internally). The uiPrefsConfig below is the
 //   factory-config object passed to AppShell, matching UIPrefsConfig exactly.
 // - persistApp is now wired to PUT /api/prefs (was a TODO stub).
-// - useLongJob from pd-ui/stores could replace ResultsPage's hand-rolled
+// - useLongJob from pdomain-ui/stores could replace ResultsPage's hand-rolled
 //   polling, BUT: (1) useLongJob status enum is {idle|pending|running|done|
 //   error|cancelled} while the backend returns {queued|running|succeeded|
 //   failed|cancelled}; (2) useLongJob carries only {status,progress,events}
@@ -15,12 +15,12 @@
 //   SSE/WebSocket endpoint, useLongJob could be retrofitted.
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AppShell, SuiteSiblingsProvider } from "@concavetrillion/pd-ui/shell";
+import { AppShell, SuiteSiblingsProvider } from "@pdomain/pdomain-ui/shell";
 import type {
   UIPrefsConfig,
   InstalledApp,
   LaunchResult,
-} from "@concavetrillion/pd-ui/shell";
+} from "@pdomain/pdomain-ui/shell";
 import { ConfigProvider } from "./runtime/ConfigContext";
 import { HomePage } from "./pages/HomePage";
 import ResultsPage from "./pages/ResultsPage";
@@ -128,7 +128,7 @@ export default function App() {
       <ConfigProvider>
         <SuiteSiblingsProvider value={{ fetchInstalled, postLaunch }}>
           <AppShell
-            appId="pd-ocr-simple-gui"
+            appId="pdomain-ocr-simple-gui"
             appDisplayName="OCR Simple GUI"
             appIconUrl="/api/self/icons/32"
             deployMode="local"
