@@ -69,91 +69,95 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _dispatcher = None
 
 
-app = FastAPI(
-    title="pd-ocr-simple-gui",
-    description="Drag-and-drop OCR app",
-    version="0.1.0a0",
-    lifespan=lifespan,
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Register routes.
-# E402 suppressed below: routers are imported after `app` is defined to avoid
-# a circular import (the route modules import `app` helpers).
-from pd_ocr_simple_gui.routes.jobs import router as jobs_router  # noqa: E402
-from pd_ocr_simple_gui.routes.pages import router as pages_router  # noqa: E402
-from pd_ocr_simple_gui.routes.prefs import router as prefs_router  # noqa: E402
-
-app.include_router(jobs_router)
-app.include_router(pages_router)
-app.include_router(prefs_router)
-
-# Mount suite plumbing routes (/api/suite/*, /api/icons/*, /healthz)
-try:
-    from pd_ocr_ops.suite.routes import (  # pyright: ignore[reportMissingTypeStubs]
-        mount_routes as _mount_suite_routes,
-    )
-
-    _mount_suite_routes(app)
-except Exception:  # noqa: BLE001, S110  # suite plumbing routes optional — app serves without them
-    pass
-
-
-@app.get("/api/health")
-async def health() -> dict[str, str]:
-    """Health check endpoint."""
-    return {"status": "ok"}
-
-
 _FRONTEND_DIR = Path(__file__).parent / "frontend"
-
 _ALLOWED_SELF_ICON_SIZES = {16, 24, 32, 48, 64, 128, 256}
 
 
-@app.get("/api/self/icons/{size}")
-async def get_self_icon(size: int) -> Response:
-    """Serve this app's own icon for the given size (PNG)."""
-    if size not in _ALLOWED_SELF_ICON_SIZES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported size {size}. Allowed: {sorted(_ALLOWED_SELF_ICON_SIZES)}",
-        )
-    icons_pkg = importlib.resources.files("pd_ocr_simple_gui") / "icons"
-    icon_file = icons_pkg / f"{size}.png"
+def create_app() -> FastAPI:
+    """Create and return a configured FastAPI application instance."""
+    _app = FastAPI(
+        title="pd-ocr-simple-gui",
+        description="Drag-and-drop OCR app",
+        version="0.1.0a0",
+        lifespan=lifespan,
+    )
+
+    _app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Register routes.
+    # Imported here (not at module level) to avoid circular imports at collection time.
+    from pd_ocr_simple_gui.routes.config import router as config_router
+    from pd_ocr_simple_gui.routes.jobs import router as jobs_router
+    from pd_ocr_simple_gui.routes.pages import router as pages_router
+    from pd_ocr_simple_gui.routes.prefs import router as prefs_router
+
+    _app.include_router(jobs_router)
+    _app.include_router(pages_router)
+    _app.include_router(prefs_router)
+    _app.include_router(config_router)
+
+    # Mount suite plumbing routes (/api/suite/*, /api/icons/*, /healthz)
     try:
-        # importlib.resources Traversable has .read_bytes() at runtime; not in the stub protocol
-        icon_bytes = icon_file.read_bytes()  # type: ignore[attr-defined]
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=f"Icon {size}.png not found") from exc
-    return Response(content=icon_bytes, media_type="image/png")
-
-
-# Serve static JS/CSS assets — must come before the catch-all route.
-# check_dir=False skips the existence check at startup; missing-assets requests 404 naturally.
-app.mount(
-    "/assets",
-    StaticFiles(directory=_FRONTEND_DIR / "assets", check_dir=False),
-    name="assets",
-)
-
-
-# SPA catch-all — React Router owns all non-API paths.
-# MUST be registered last so it never shadows /api/* routes.
-@app.get("/{full_path:path}", include_in_schema=False)
-async def spa_fallback(full_path: str) -> FileResponse:
-    """Serve the React SPA index.html for any unmatched path."""
-    _ = full_path
-    index = _FRONTEND_DIR / "index.html"
-    if not index.exists():
-        raise HTTPException(
-            status_code=503,
-            detail="Frontend not built — run make frontend-build",
+        from pd_ocr_ops.suite.routes import (  # pyright: ignore[reportMissingTypeStubs]
+            mount_routes as _mount_suite_routes,
         )
-    return FileResponse(index)
+
+        _mount_suite_routes(_app)
+    except Exception:  # noqa: BLE001, S110  # suite plumbing routes optional — app serves without them
+        pass
+
+    @_app.get("/api/health")
+    async def health() -> dict[str, str]:
+        """Health check endpoint."""
+        return {"status": "ok"}
+
+    @_app.get("/api/self/icons/{size}")
+    async def get_self_icon(size: int) -> Response:
+        """Serve this app's own icon for the given size (PNG)."""
+        if size not in _ALLOWED_SELF_ICON_SIZES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported size {size}. Allowed: {sorted(_ALLOWED_SELF_ICON_SIZES)}",
+            )
+        icons_pkg = importlib.resources.files("pd_ocr_simple_gui") / "icons"
+        icon_file = icons_pkg / f"{size}.png"
+        try:
+            # importlib.resources Traversable has .read_bytes() at runtime; not in the stub protocol
+            icon_bytes = icon_file.read_bytes()  # type: ignore[attr-defined]
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=f"Icon {size}.png not found") from exc
+        return Response(content=icon_bytes, media_type="image/png")
+
+    # Serve static JS/CSS assets — must come before the catch-all route.
+    # check_dir=False skips the existence check at startup; missing-assets requests 404 naturally.
+    _app.mount(
+        "/assets",
+        StaticFiles(directory=_FRONTEND_DIR / "assets", check_dir=False),
+        name="assets",
+    )
+
+    # SPA catch-all — React Router owns all non-API paths.
+    # MUST be registered last so it never shadows /api/* routes.
+    @_app.get("/{full_path:path}", include_in_schema=False)
+    async def spa_fallback(full_path: str) -> FileResponse:
+        """Serve the React SPA index.html for any unmatched path."""
+        _ = full_path
+        index = _FRONTEND_DIR / "index.html"
+        if not index.exists():
+            raise HTTPException(
+                status_code=503,
+                detail="Frontend not built — run make frontend-build",
+            )
+        return FileResponse(index)
+
+    return _app
+
+
+# Module-level singleton for uvicorn and existing tests that do `from app import app`.
+app = create_app()
