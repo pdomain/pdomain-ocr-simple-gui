@@ -8,9 +8,7 @@ import PageViewPage from "./PageViewPage";
 
 // Mock pd-ui canvas — PageImageCanvas needs a Konva/canvas environment we don't have in jsdom
 vi.mock("@concavetrillion/pd-ui/canvas", () => ({
-  PageImageCanvas: ({ src }: { src: string }) => (
-    <div data-testid="page-image-canvas" data-src={src} />
-  ),
+  PageImageCanvas: ({ src }: { src: string }) => <div data-canvas-src={src} />,
 }));
 
 // Mock pd-ui/primitives
@@ -163,9 +161,10 @@ describe("PageViewPage", () => {
   it("renders canvas with correct image src", async () => {
     renderPageView("proj-abc", 0);
     await waitFor(() => {
-      const canvas = screen.getByTestId("page-image-canvas");
-      expect(canvas).toBeInTheDocument();
-      expect(canvas.getAttribute("data-src")).toBe(
+      const wrapper = screen.getByTestId("page-image-canvas");
+      expect(wrapper).toBeInTheDocument();
+      const inner = wrapper.querySelector("[data-canvas-src]");
+      expect(inner?.getAttribute("data-canvas-src")).toBe(
         "/api/pages/proj-abc/0/image",
       );
     });
@@ -248,8 +247,9 @@ describe("PageViewPage", () => {
     await user.click(nextBtn);
 
     await waitFor(() => {
-      const canvas = screen.getByTestId("page-image-canvas");
-      expect(canvas.getAttribute("data-src")).toBe(
+      const wrapper = screen.getByTestId("page-image-canvas");
+      const inner = wrapper.querySelector("[data-canvas-src]");
+      expect(inner?.getAttribute("data-canvas-src")).toBe(
         "/api/pages/proj-abc/1/image",
       );
     });
