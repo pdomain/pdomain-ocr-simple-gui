@@ -354,3 +354,34 @@ class TestRerunJob:
             await client.post(f"/api/jobs/{project_id}/rerun")
 
         assert project_id in call_log
+
+
+class TestUploadIdSource:
+    """Tests for POST /api/jobs with upload_id + OutputConfig."""
+
+    async def test_create_job_with_upload(self, tmp_path, monkeypatch) -> None:
+        """POST /api/jobs with upload_id and output:managed returns 200 or 202."""
+        import pd_ocr_simple_gui.storage as storage_mod
+
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setattr(storage_mod, "_PROJECTS_ROOT", root)
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_UPLOAD_ROOT", str(tmp_path))
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_OUTPUT_ROOT", str(tmp_path / "outputs"))
+
+        # Pre-create a staging dir that UploadedFilesSource will find
+        stage = tmp_path / "abc123"
+        stage.mkdir()
+        (stage / "p.png").write_bytes(b"\x89PNG")
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.post(
+                "/api/jobs",
+                json={
+                    "upload_id": "abc123",
+                    "engine": "doctr",
+                    "language": "en",
+                    "output": {"mode": "managed"},
+                },
+            )
+        assert resp.status_code in (200, 202)

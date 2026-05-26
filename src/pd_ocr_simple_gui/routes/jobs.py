@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
@@ -11,7 +13,12 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from pd_ocr_simple_gui.models import AppPrefs, PageResult, ProjectSpec, ProjectStatus
+from pd_ocr_simple_gui.output.config import OutputConfig, OutputConfigError, resolve_output_dir
 from pd_ocr_simple_gui.pipeline import collect_images, run_project
+from pd_ocr_simple_gui.runtime.mode import Mode, read_mode
+from pd_ocr_simple_gui.sources import SourceError
+from pd_ocr_simple_gui.sources.local_path import LocalPathSource
+from pd_ocr_simple_gui.sources.uploaded_files import UploadedFilesSource
 from pd_ocr_simple_gui.storage import (
     delete_project,
     list_projects,
@@ -22,17 +29,77 @@ from pd_ocr_simple_gui.storage import (
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
+_DEFAULT_OUTPUT_ROOT = Path.home() / ".local/share/pd-ocr-simple-gui/outputs"
+_DEFAULT_UPLOAD_ROOT = Path.home() / ".local/share/pd-ocr-simple-gui/uploads"
+
+
+def _managed_output_root() -> Path:
+    """Return the server-managed output root directory (PD_OCR_SIMPLE_GUI_OUTPUT_ROOT)."""
+    raw = os.environ.get("PD_OCR_SIMPLE_GUI_OUTPUT_ROOT")
+    root = Path(raw) if raw else _DEFAULT_OUTPUT_ROOT
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _upload_root() -> Path:
+    """Return the upload staging root directory (PD_OCR_SIMPLE_GUI_UPLOAD_ROOT)."""
+    raw = os.environ.get("PD_OCR_SIMPLE_GUI_UPLOAD_ROOT")
+    root = Path(raw) if raw else _DEFAULT_UPLOAD_ROOT
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
 
 class CreateJobRequest(BaseModel):
-    """Request body for POST /api/jobs."""
+    """Request body for POST /api/jobs.
 
-    name: str
-    source_path: str
-    output_dir: str
+    Accepts either source_path (local-mode folder/image/zip) or upload_id
+    (from POST /api/uploads). At least one must be provided.
+
+    The output field controls where OCR results land. When omitted, output_dir
+    is used directly (legacy behaviour preserved for backward compatibility).
+    """
+
+    name: str = ""
+    # Source — one of:
+    source_path: str = ""
+    upload_id: str = ""
+    # Output location — optional; when absent, output_dir is used directly.
+    output_dir: str = ""
+    output: OutputConfig | None = None
+    # Job options:
     engine: Literal["doctr", "tesseract"] = "doctr"
     language: str = "en"
     save_json: bool = False
     combined_txt: bool = True
+
+
+def _build_source_and_flags(body: CreateJobRequest, mode: Mode) -> tuple[str, bool]:
+    """Resolve the source directory and source_is_folder flag.
+
+    Returns (source_dir_str, source_is_folder).
+    Raises HTTPException on invalid combinations.
+    """
+    if body.upload_id:
+        try:
+            src = UploadedFilesSource(body.upload_id, root=_upload_root())
+            materialized = src.materialize()
+        except SourceError as exc:
+            raise HTTPException(status_code=400, detail=f"source: {exc}") from exc
+        # Uploads are never "next to source" folders
+        return str(materialized), False
+
+    if not body.source_path:
+        raise HTTPException(status_code=400, detail="must supply source_path or upload_id")
+    if mode is Mode.MANAGED:
+        raise HTTPException(status_code=400, detail="source_path is local-mode only")
+
+    path = Path(body.source_path)
+    try:
+        src = LocalPathSource(path)
+        materialized = src.materialize()
+    except SourceError as exc:
+        raise HTTPException(status_code=400, detail=f"source: {exc}") from exc
+    return str(materialized), path.is_dir()
 
 
 async def _pipeline_run_job(spec: ProjectSpec) -> None:
@@ -95,14 +162,42 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
 
 @router.post("", status_code=202, response_model=dict[str, str])
 async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) -> dict[str, str]:
-    """Create a new OCR project and enqueue it."""
+    """Create a new OCR project and enqueue it.
+
+    Accepts either source_path (local mode) or upload_id. Output destination
+    is controlled by the output field (OutputConfig); when absent, output_dir
+    is used directly for backward compatibility.
+    """
+    mode = read_mode()
     project_id = str(uuid.uuid4())
     now = datetime.now(UTC)
+
+    if body.output is not None:
+        # New path: resolve source via Source adapter, then resolve output via OutputConfig.
+        source_dir_str, source_is_folder = _build_source_and_flags(body, mode)
+        try:
+            output_path = resolve_output_dir(
+                body.output,
+                mode=mode,
+                source_dir=Path(source_dir_str),
+                managed_root=_managed_output_root(),
+                job_id=project_id,
+                source_is_folder=source_is_folder,
+            )
+        except OutputConfigError as exc:
+            raise HTTPException(status_code=400, detail=f"output: {exc}") from exc
+        resolved_output_dir = str(output_path)
+        resolved_source_path = source_dir_str
+    else:
+        # Legacy path: source_path and output_dir are used as-is.
+        resolved_source_path = body.source_path
+        resolved_output_dir = body.output_dir
+
     spec = ProjectSpec(
         project_id=project_id,
         name=body.name,
-        source_path=body.source_path,
-        output_dir=body.output_dir,
+        source_path=resolved_source_path,
+        output_dir=resolved_output_dir,
         engine=body.engine,
         language=body.language,
         save_json=body.save_json,
