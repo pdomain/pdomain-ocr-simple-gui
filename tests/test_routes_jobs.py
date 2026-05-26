@@ -385,3 +385,63 @@ class TestUploadIdSource:
                 },
             )
         assert resp.status_code in (200, 202)
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.post(
+                "/api/jobs",
+                json={
+                    "upload_id": "abc123",
+                    "engine": "doctr",
+                    "language": "en",
+                    "output": {"mode": "managed"},
+                },
+            )
+        assert resp.status_code in (200, 202)
+
+
+class TestOutputModeRoundTrip:
+    """output_mode written on create, returned on GET /api/jobs/{id}."""
+
+    async def test_output_mode_returned_on_get(self, tmp_path, monkeypatch) -> None:
+        """Creating a job with output.mode='managed' surfaces output_mode on GET."""
+        import pd_ocr_simple_gui.storage as storage_mod
+
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setattr(storage_mod, "_PROJECTS_ROOT", root)
+
+        # Point jobs-meta sidecar to tmp
+        meta_root = tmp_path / "jobs-meta"
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_JOBS_META_ROOT", str(meta_root))
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_UPLOAD_ROOT", str(tmp_path))
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_OUTPUT_ROOT", str(tmp_path / "outputs"))
+
+        stage = tmp_path / "abc456"
+        stage.mkdir()
+        (stage / "p.png").write_bytes(b"\x89PNG")
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            post_resp = await ac.post(
+                "/api/jobs",
+                json={
+                    "upload_id": "abc456",
+                    "engine": "doctr",
+                    "language": "en",
+                    "output": {"mode": "managed"},
+                },
+            )
+            assert post_resp.status_code in (200, 202)
+            project_id = post_resp.json()["project_id"]
+
+            get_resp = await ac.get(f"/api/jobs/{project_id}")
+        assert get_resp.status_code == 200
+        assert get_resp.json()["output_mode"] == "managed"
+
+    async def test_output_mode_absent_for_legacy_jobs(self, client: AsyncClient) -> None:
+        """Legacy jobs (no output field) return output_mode=None or absent key."""
+        post_resp = await client.post("/api/jobs", json=JOB_PAYLOAD)
+        project_id = post_resp.json()["project_id"]
+        get_resp = await client.get(f"/api/jobs/{project_id}")
+        assert get_resp.status_code == 200
+        body = get_resp.json()
+        # output_mode either absent or None — not a hard value
+        assert body.get("output_mode") is None

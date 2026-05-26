@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import uuid
 from datetime import UTC, datetime
@@ -31,6 +32,36 @@ router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
 _DEFAULT_OUTPUT_ROOT = Path.home() / ".local/share/pd-ocr-simple-gui/outputs"
 _DEFAULT_UPLOAD_ROOT = Path.home() / ".local/share/pd-ocr-simple-gui/uploads"
+_DEFAULT_JOBS_META_ROOT = Path.home() / ".local/share/pd-ocr-simple-gui/jobs"
+
+
+def _jobs_meta_root() -> Path:
+    """Return the root for per-job sidecar metadata files (PD_OCR_SIMPLE_GUI_JOBS_META_ROOT)."""
+    raw = os.environ.get("PD_OCR_SIMPLE_GUI_JOBS_META_ROOT")
+    root = Path(raw) if raw else _DEFAULT_JOBS_META_ROOT
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _write_job_meta(job_id: str, output_mode: str) -> None:
+    """Persist a small output_mode sidecar JSON for job_id."""
+    meta_dir = _jobs_meta_root() / job_id
+    meta_dir.mkdir(parents=True, exist_ok=True)
+    (meta_dir / "output_mode.json").write_text(json.dumps({"mode": output_mode}), encoding="utf-8")
+
+
+def _read_job_meta_output_mode(job_id: str) -> str | None:
+    """Read the persisted output_mode for job_id, returning None if absent."""
+    meta_file = _jobs_meta_root() / job_id / "output_mode.json"
+    if not meta_file.exists():
+        return None
+    try:
+        data = json.loads(meta_file.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            return str(data["mode"])
+    except Exception:  # noqa: BLE001, S110  # sidecar read is best-effort; pass is intentional
+        pass
+    return None
 
 
 def _managed_output_root() -> Path:
@@ -188,6 +219,7 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
             raise HTTPException(status_code=400, detail=f"output: {exc}") from exc
         resolved_output_dir = str(output_path)
         resolved_source_path = source_dir_str
+        _write_job_meta(project_id, body.output.mode)
     else:
         # Legacy path: source_path and output_dir are used as-is.
         resolved_source_path = body.source_path
@@ -229,7 +261,7 @@ async def list_jobs() -> list[ProjectStatus]:
 
 @router.get("/{project_id}", response_model=ProjectStatus)
 async def get_job(project_id: str) -> ProjectStatus:
-    """Return ProjectStatus enriched with name and output_dir from ProjectSpec."""
+    """Return ProjectStatus enriched with name, output_dir, and output_mode from sidecar."""
     try:
         validate_project_id(project_id)
     except ValueError as exc:
@@ -238,7 +270,11 @@ async def get_job(project_id: str) -> ProjectStatus:
         spec, status = read_project(project_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Project not found") from exc
-    return status.model_copy(update={"name": spec.name, "output_dir": spec.output_dir})
+    output_mode = _read_job_meta_output_mode(project_id)
+    update: dict[str, object] = {"name": spec.name, "output_dir": spec.output_dir}
+    if output_mode is not None:
+        update["output_mode"] = output_mode
+    return status.model_copy(update=update)
 
 
 @router.delete("/{project_id}", response_class=Response)
