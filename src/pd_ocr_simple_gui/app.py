@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.resources
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -17,6 +18,8 @@ if TYPE_CHECKING:
 
     from pd_ocr_ops.gpu.local_stage import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
     from pd_ocr_ops.suite.prefs import PrefsAdapter  # pyright: ignore[reportMissingTypeStubs]
+
+logger = logging.getLogger(__name__)
 
 # Module-level prefs adapter — set during lifespan startup
 _prefs_adapter: PrefsAdapter | None = None
@@ -43,7 +46,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from pd_ocr_ops.suite.prefs import LocalFilePrefs  # pyright: ignore[reportMissingTypeStubs]
 
         _prefs_adapter = LocalFilePrefs()
-    except Exception:  # noqa: BLE001  # optional prefs integration — app runs without it
+    except Exception:  # optional prefs integration — app runs without it
+        logger.exception(
+            "Failed to initialise prefs adapter; running without prefs",
+            extra={"context": "LocalFilePrefs()"},
+        )
         _prefs_adapter = None
     try:
         from pd_ocr_ops.gpu import (  # pyright: ignore[reportMissingTypeStubs]
@@ -53,7 +60,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         _dispatcher = LocalStageDispatcher()
         register_default_stages(_dispatcher)
-    except Exception:  # noqa: BLE001  # default stages optional — fall back to bare dispatcher
+    except Exception:  # default stages optional — fall back to bare dispatcher
+        logger.exception(
+            "register_default_stages() failed; falling back to bare LocalStageDispatcher",
+            extra={"context": "register_default_stages(_dispatcher)"},
+        )
         from pd_ocr_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
 
         _dispatcher = LocalStageDispatcher()
@@ -62,8 +73,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from pd_ocr_ops.suite import register_self  # pyright: ignore[reportMissingTypeStubs]
 
         register_self(_caller_package="pd_ocr_simple_gui")
-    except Exception:  # noqa: BLE001, S110  # suite self-registration is best-effort — never crash startup
-        pass
+    except Exception:  # suite self-registration is best-effort — never crash startup
+        logger.exception(
+            "Suite self-registration failed; app will run without launcher registry entry",
+            extra={"context": "register_self(caller_package='pd_ocr_simple_gui')"},
+        )
     yield
     _prefs_adapter = None
     _dispatcher = None
@@ -115,8 +129,11 @@ def create_app() -> FastAPI:
         )
 
         _mount_suite_routes(_app)
-    except Exception:  # noqa: BLE001, S110  # suite plumbing routes optional — app serves without them
-        pass
+    except Exception:  # suite plumbing routes optional — app serves without them
+        logger.exception(
+            "Failed to mount suite plumbing routes; /api/suite/* will be unavailable",
+            extra={"context": "mount_routes(_app)"},
+        )
 
     @_app.get("/api/health")
     async def health() -> dict[str, str]:

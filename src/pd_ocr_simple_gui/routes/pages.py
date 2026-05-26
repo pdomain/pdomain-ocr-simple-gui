@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 from pathlib import Path
 from typing import cast
 
@@ -20,6 +21,8 @@ from pd_ocr_simple_gui.storage import (
     write_page_sidecar,
     write_txt,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/pages", tags=["pages"])
 
@@ -212,7 +215,11 @@ async def rerun_page(project_id: str, page_idx: int) -> PageResult:
             state="succeeded",
             text_preview=text[:60],
         )
-    except Exception as exc:  # noqa: BLE001  # per-page re-run failure is recorded on the page, not raised
+    except Exception as exc:  # per-page re-run failure is recorded on the page, not raised
+        logger.exception(
+            "Per-page re-run OCR failed; recording failure on page",
+            extra={"context": f"project_id={spec.project_id!r}, page_idx={page_idx}"},
+        )
         done_page = PageResult(
             page_idx=page_idx,
             page_name=page_entry.page_name,

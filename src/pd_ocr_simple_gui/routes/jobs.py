@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import uuid
 from datetime import UTC, datetime
@@ -27,6 +28,8 @@ from pd_ocr_simple_gui.storage import (
     validate_project_id,
     write_project,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
@@ -59,8 +62,11 @@ def _read_job_meta_output_mode(job_id: str) -> str | None:
         data = json.loads(meta_file.read_text(encoding="utf-8"))
         if isinstance(data, dict):
             return str(data["mode"])
-    except Exception:  # noqa: BLE001, S110  # sidecar read is best-effort; pass is intentional
-        pass
+    except Exception:  # sidecar read is best-effort; pass is intentional
+        logger.exception(
+            "Failed to read output_mode sidecar; returning None",
+            extra={"context": f"meta_file={meta_file!r}"},
+        )
     return None
 
 
@@ -176,7 +182,11 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
 
         await run_project(spec, dispatcher, _status_callback)  # pyright: ignore[reportArgumentType]  # LocalStageDispatcher lacks stubs
 
-    except Exception:  # noqa: BLE001  # background job failure must be recorded, not propagated
+    except Exception:  # background job failure must be recorded, not propagated
+        logger.exception(
+            "Background OCR job failed; attempting to record failed status",
+            extra={"context": f"project_id={spec.project_id!r}"},
+        )
         try:
             _, current = read_project(spec.project_id)
             err_status = ProjectStatus(
@@ -187,8 +197,11 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
                 pages=current.pages,
             )
             write_project(spec, err_status)
-        except Exception:  # noqa: BLE001, S110  # best-effort failed-status write; nothing left to do if it fails
-            pass
+        except Exception:  # best-effort failed-status write; nothing left to do if it fails
+            logger.exception(
+                "Could not write failed status after job error; project may be stuck in-progress",
+                extra={"context": f"project_id={spec.project_id!r}"},
+            )
 
 
 @router.post("", status_code=202, response_model=dict[str, str])
@@ -343,5 +356,8 @@ def _remove_from_recent_projects(project_id: str) -> None:
         prefs = AppPrefs.model_validate(raw) if raw else AppPrefs()
         prefs.recent_projects = [p for p in prefs.recent_projects if p.get("project_id") != project_id]
         adapter.write_app("pd-ocr-simple-gui", prefs.model_dump())
-    except Exception:  # noqa: BLE001, S110  # recent-projects prefs update is best-effort
-        pass
+    except Exception:  # recent-projects prefs update is best-effort
+        logger.exception(
+            "Failed to remove project from recent-projects prefs",
+            extra={"context": f"project_id={project_id!r}"},
+        )
