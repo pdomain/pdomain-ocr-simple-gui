@@ -1,5 +1,18 @@
 // App root — AppShell + React Router routing skeleton
 // Issues #225 (scaffold), #226 (shell)
+//
+// A9.4 stores swap notes:
+// - pd-ui createUIPrefsStore is already consumed via AppShell.uiPrefsConfig
+//   (AppShell instantiates it internally). The uiPrefsConfig below is the
+//   factory-config object passed to AppShell, matching UIPrefsConfig exactly.
+// - persistApp is now wired to PUT /api/prefs (was a TODO stub).
+// - useLongJob from pd-ui/stores could replace ResultsPage's hand-rolled
+//   polling, BUT: (1) useLongJob status enum is {idle|pending|running|done|
+//   error|cancelled} while the backend returns {queued|running|succeeded|
+//   failed|cancelled}; (2) useLongJob carries only {status,progress,events}
+//   — not the full JobStatus with pages/page_count/output_dir. Keeping the
+//   hand-rolled fetch in ResultsPage. TODO(A9.4-polling): if backend gains a
+//   SSE/WebSocket endpoint, useLongJob could be retrofitted.
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppShell, SuiteSiblingsProvider } from "@concavetrillion/pd-ui/shell";
@@ -59,8 +72,16 @@ const uiPrefsConfig: UIPrefsConfig = {
       // non-fatal
     }
   },
-  persistApp: async (_appPrefs) => {
-    // TODO: wire to PUT /api/prefs app-specific prefs in M7
+  persistApp: async (appPrefs) => {
+    try {
+      await fetch("/api/prefs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ app_prefs: appPrefs }),
+      });
+    } catch {
+      // non-fatal
+    }
   },
 };
 

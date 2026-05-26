@@ -23,4 +23,7 @@ export const APP_TEST_IDS = {
   pageViewPage: "page-view-page",
   pageImageCanvas: "page-image-canvas",
   resultsPage: "results-page",
+  recentProjectsList: "recent-projects-list",
+  engineSelect: "engine-select",
+  languageInput: "language-input",
 } as const;

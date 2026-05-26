@@ -1,6 +1,11 @@
 // Results page — M4 task #230, M6 task #233
 // Screen 3: live polling job status + page list
 // A7.2: download button for managed output mode.
+//
+// TODO(A9.2): pd-ui PageList (from @concavetrillion/pd-ui/worklist) requires
+// {page_index, name, width, height} per item. PageRow here carries {page_idx,
+// page_name, state, text_preview} with no width/height. The shapes are
+// incompatible. Keeping the hand-rolled <table>.
 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -118,7 +123,7 @@ export default function ResultsPage() {
 
   if (loading) {
     return (
-      <div data-testid="results-page" className="results-page">
+      <div data-testid={APP_TEST_IDS.resultsPage} className="results-page">
         <p className="results-page__loading">Loading…</p>
       </div>
     );
@@ -126,7 +131,7 @@ export default function ResultsPage() {
 
   if (fetchError || !jobStatus) {
     return (
-      <div data-testid="results-page" className="results-page">
+      <div data-testid={APP_TEST_IDS.resultsPage} className="results-page">
         <p role="alert" className="results-page__error">
           {fetchError ?? "Job not found."}
         </p>
@@ -149,7 +154,7 @@ export default function ResultsPage() {
   const showDownload = state === "succeeded" && output_mode === "managed";
 
   return (
-    <div data-testid="results-page" className="results-page">
+    <div data-testid={APP_TEST_IDS.resultsPage} className="results-page">
       <header className="results-page__header">
         <h1 className="results-page__title">{name}</h1>
         <JobStatusPip state={state} />
@@ -219,7 +224,7 @@ export default function ResultsPage() {
                 style={{ cursor: "pointer" }}
                 tabIndex={0}
                 role="row"
-                data-testid="page-row"
+                data-testid={APP_TEST_IDS.pageRow}
                 onClick={() =>
                   navigate(`/jobs/${id ?? ""}/pages/${page.page_idx}`)
                 }

@@ -2,6 +2,16 @@
 // Screen 4: two-panel layout — image canvas + editable text
 // Migrated to PageSplitView — issue #254
 // A8: word overlay fetch wired to PageImageCanvas
+//
+// TODO(A9.3): stages/PageWorkbench does NOT export a single <PageWorkbench>
+// wrapper component. It exports sub-components: ArtifactViewer, PWHeader,
+// OcrTextPanel, WordBboxOverlay, EditModeSelector, LabelerCanvas etc.
+// ArtifactViewer is a canvas designed for annotation with split/rotate/illustrate
+// overlay modes. PWHeader requires EditMode + onModeChange which are irrelevant
+// for this read-only OCR review view. This page already uses pd-ui's PageSplitView
+// + PageImageCanvas (from prior milestones), so the "hand-rolled layout" described
+// in the plan has already been replaced. No PageWorkbench wrapper wrapping is
+// applicable without forcing a misfit.
 
 import { useEffect, useState, useRef, type ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -16,6 +26,7 @@ import {
   DropdownMenuTrigger,
   PageSplitView,
 } from "@concavetrillion/pd-ui/primitives";
+import { APP_TEST_IDS } from "../lib/testids";
 
 interface PageData {
   page_idx: number;
@@ -312,7 +323,10 @@ export default function PageViewPage() {
   // PageImageCanvas is a Konva canvas and does not propagate arbitrary
   // data-* props to the DOM — the wrapper is the observable element.
   const canvasContent = !loading ? (
-    <div data-testid="page-image-canvas" data-word-count={String(words.length)}>
+    <div
+      data-testid={APP_TEST_IDS.pageImageCanvas}
+      data-word-count={String(words.length)}
+    >
       <PageImageCanvas src={imageSrc} page={canvasPage} words={words} />
     </div>
   ) : null;
@@ -330,7 +344,10 @@ export default function PageViewPage() {
   );
 
   return (
-    <div data-testid="page-view-page" className="page-split-view-wrapper">
+    <div
+      data-testid={APP_TEST_IDS.pageViewPage}
+      className="page-split-view-wrapper"
+    >
       <PageSplitView
         toolbar={toolbarContent}
         canvas={canvasContent}
