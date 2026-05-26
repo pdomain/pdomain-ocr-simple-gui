@@ -11,8 +11,11 @@ Entry points:
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, TypeAlias, cast
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Mapping
@@ -218,7 +221,11 @@ async def run_project(
                 state="succeeded",
                 text_preview=text[:60],
             )
-        except Exception as exc:  # noqa: BLE001  # per-page OCR failure must not abort the whole batch
+        except Exception as exc:  # per-page OCR failure must not abort the whole batch
+            logger.exception(
+                "OCR failed for page; recording failure and continuing batch",
+                extra={"context": f"page_idx={idx}, image={img_path.name!r}"},
+            )
             page_done = PageResult(
                 page_idx=idx,
                 page_name=img_path.name,

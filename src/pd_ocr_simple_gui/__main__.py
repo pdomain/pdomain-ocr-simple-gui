@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from dataclasses import dataclass
 from typing import cast
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -83,8 +86,11 @@ def main() -> None:
 
             registry = LocalTomlSuiteRegistry()
             registry.unregister("pd-ocr-simple-gui")
-        except Exception:  # noqa: BLE001, S110  # best-effort suite unregister — never block shutdown
-            pass
+        except Exception:  # best-effort suite unregister — never block shutdown
+            logger.exception(
+                "Failed to unregister from suite registry; stale entry may remain",
+                extra={"context": "LocalTomlSuiteRegistry.unregister('pd-ocr-simple-gui')"},
+            )
         return
 
     if args.install_desktop_shortcut:

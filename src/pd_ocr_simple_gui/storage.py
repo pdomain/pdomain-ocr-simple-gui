@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import shutil
 from pathlib import Path
 from typing import TypeAlias, cast
 
 from pd_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
+
+logger = logging.getLogger(__name__)
 
 _PROJECTS_ROOT: Path = Path.home() / ".local" / "share" / "pd-suite" / "simple-gui" / "projects"
 
@@ -143,8 +146,11 @@ def list_projects() -> list[tuple[ProjectSpec, ProjectStatus]]:
             try:
                 spec, status = read_project(proj_dir.name)
                 results.append((spec, status))
-            except Exception:  # noqa: BLE001, S110  # skip unreadable project dirs; listing must not fail
-                pass
+            except Exception:  # skip unreadable project dirs; listing must not fail
+                logger.exception(
+                    "Skipping unreadable project directory during listing",
+                    extra={"context": f"read_project({proj_dir.name!r})"},
+                )
     return results
 
 

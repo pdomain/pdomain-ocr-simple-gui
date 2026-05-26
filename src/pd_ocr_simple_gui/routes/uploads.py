@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import tempfile
@@ -12,6 +13,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, UploadFile
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -81,6 +84,10 @@ async def post_upload(files: list[UploadFile]) -> UploadResponse:
         shutil.rmtree(staging, ignore_errors=True)
         raise
     except Exception:  # cleanup staging dir on unexpected error
+        logger.exception(
+            "Unexpected error during file upload; cleaning up staging directory",
+            extra={"context": f"upload_id={upload_id!r}, staging={staging!r}"},
+        )
         shutil.rmtree(staging, ignore_errors=True)
         raise
 
