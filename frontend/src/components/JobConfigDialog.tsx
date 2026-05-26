@@ -1,6 +1,7 @@
 // JobConfigDialog — M4 task #229
 // Screen 2: user configures project before running OCR
 // Migrated to BaseJobConfigDialog shell (issue #256)
+// A7.1: embed OutputConfigPanel; detect upload: sentinel; wire output field.
 
 import { useState, useEffect, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
@@ -10,25 +11,55 @@ import {
   Field,
 } from "@concavetrillion/pd-ui/primitives";
 import type { BaseJobConfig } from "@concavetrillion/pd-ui/primitives";
+import { OutputConfigPanel, type OutputConfigValue } from "./OutputConfigPanel";
 
 interface PrefsResponse {
   engine?: string;
   language?: string;
 }
 
+type ChosenSource =
+  | { kind: "path"; path: string }
+  | { kind: "upload"; uploadId: string };
+
 export interface JobConfigDialogProps {
   /** Whether the dialog is open. */
   open: boolean;
-  /** Source path selected in the DropZone. */
+  /** Source path selected in the DropZone (legacy sentinel or real path). */
   sourcePath: string;
   /** Called when the dialog should close (cancel or after successful submit). */
   onClose: () => void;
+  /** Structured source — preferred over sourcePath when provided. */
+  source?: ChosenSource;
+  /** Current runtime mode from ConfigContext. */
+  mode?: "local" | "managed";
+}
+
+/** Parse a ChosenSource from the legacy sourcePath sentinel string. */
+function parseSource(sourcePath: string, source?: ChosenSource): ChosenSource {
+  if (source) return source;
+  if (sourcePath.startsWith("upload:")) {
+    return { kind: "upload", uploadId: sourcePath.slice(7) };
+  }
+  return { kind: "path", path: sourcePath };
+}
+
+function defaultOutputMode(
+  source: ChosenSource,
+  mode: "local" | "managed",
+): OutputConfigValue {
+  if (source.kind === "path" && mode === "local") {
+    return { mode: "next_to_source" };
+  }
+  return { mode: "managed" };
 }
 
 export function JobConfigDialog({
   open,
   sourcePath,
   onClose,
+  source,
+  mode = "local",
 }: JobConfigDialogProps) {
   const navigate = useNavigate();
 
@@ -36,6 +67,19 @@ export function JobConfigDialog({
   const [language, setLanguage] = useState<string>("en");
   const [saveJson, setSaveJson] = useState<boolean>(true);
   const [combinedTxt, setCombinedTxt] = useState<boolean>(true);
+
+  const parsedSource = parseSource(sourcePath, source);
+  const sourceIsFolder = parsedSource.kind === "path";
+
+  const [outputConfig, setOutputConfig] = useState<OutputConfigValue>(() =>
+    defaultOutputMode(parsedSource, mode),
+  );
+
+  // Reset output config when source/mode changes
+  useEffect(() => {
+    setOutputConfig(defaultOutputMode(parsedSource, mode));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourcePath, mode, source?.kind]);
 
   // Load engine/language defaults from prefs on open
   useEffect(() => {
@@ -58,18 +102,27 @@ export function JobConfigDialog({
   }, [open]);
 
   async function handleSubmit({ projectName, outputDir }: BaseJobConfig) {
+    // Build the job body based on source type
+    const baseBody: Record<string, unknown> = {
+      name: projectName,
+      engine,
+      language,
+      output_dir: outputDir,
+      save_json: saveJson,
+      combined_txt: combinedTxt,
+      output: outputConfig,
+    };
+
+    if (parsedSource.kind === "upload") {
+      baseBody.upload_id = parsedSource.uploadId;
+    } else {
+      baseBody.source_path = parsedSource.path;
+    }
+
     const res = await fetch("/api/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: projectName,
-        source_path: sourcePath,
-        engine,
-        language,
-        output_dir: outputDir,
-        save_json: saveJson,
-        combined_txt: combinedTxt,
-      }),
+      body: JSON.stringify(baseBody),
     });
     if (!res.ok) {
       const text = await res.text();
@@ -143,6 +196,14 @@ export function JobConfigDialog({
           }
         />
       </Field>
+
+      {/* Output destination */}
+      <OutputConfigPanel
+        mode={mode}
+        sourceIsFolder={sourceIsFolder}
+        value={outputConfig}
+        onChange={setOutputConfig}
+      />
     </BaseJobConfigDialog>
   );
 }
