@@ -1,6 +1,6 @@
 """Playwright e2e test fixtures.
 
-Starts the pd-ocr-simple-gui server on a free ephemeral port before the
+Starts the pdomain-ocr-simple-gui server on a free ephemeral port before the
 session and tears it down afterwards.  Tests access the URL via the
 ``live_server_url`` fixture.
 
@@ -75,7 +75,7 @@ def live_server_url() -> Generator[str, None, None]:
             sys.executable,
             "-m",
             "uvicorn",
-            "pd_ocr_simple_gui.app:app",
+            "pdomain_ocr_simple_gui.app:app",
             "--host",
             "127.0.0.1",
             "--port",

@@ -1,1 +1,1 @@
-"""Tests for pd-ocr-simple-gui."""
+"""Tests for pdomain-ocr-simple-gui."""

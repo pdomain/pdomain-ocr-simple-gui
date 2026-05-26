@@ -28,14 +28,14 @@ define _pnpm
 	fi
 endef
 
-PEER_BOOK_TOOLS_PATH ?= ../pd-book-tools
+PEER_BOOK_TOOLS_PATH ?= ../pdomain-book-tools
 
 .PHONY: help setup install uninstall remove-venv reset lint format format-check typecheck \
         pre-commit-check test e2e-browser frontend-install frontend-build frontend-dev \
         frontend-test frontend-lint frontend-format frontend-format-check frontend-knip \
         openapi-export clean ci ci-full upgrade-deps dev-local \
         local-setup local-dev local-check local-upgrade-deps local-run \
-        update-pd-deps upgrade-pd-book-tools \
+        update-pd-deps upgrade-pdomain-book-tools \
         release-patch release-minor release-major _do-release
 
 help: ## Show this help message
@@ -51,9 +51,9 @@ setup: ## Sync deps + install pre-commit hooks
 
 install: setup ## Alias for setup
 
-uninstall: ## Remove the installed pd-ocr-simple-gui uv tool
-	@uv tool uninstall pd-ocr-simple-gui || true
-	@echo "✅ pd-ocr-simple-gui uninstalled."
+uninstall: ## Remove the installed pdomain-ocr-simple-gui uv tool
+	@uv tool uninstall pdomain-ocr-simple-gui || true
+	@echo "✅ pdomain-ocr-simple-gui uninstalled."
 
 remove-venv: ## Remove the virtual environment
 	rm -rf .venv
@@ -89,7 +89,7 @@ format-check: ## Check Python formatting with ruff (no writes)
 	uv run ruff check --select I
 
 typecheck: ## Run basedpyright at recommended mode
-	uv run basedpyright src/pd_ocr_simple_gui --level error
+	uv run basedpyright src/pdomain_ocr_simple_gui --level error
 
 pre-commit-check: ## Run pre-commit on all files
 	uv run pre-commit run --all-files
@@ -129,7 +129,7 @@ frontend-install: ## Install frontend dependencies
 frontend-test: frontend-install ## Run frontend vitest suite
 	cd frontend && $(call _pnpm,run test)
 
-frontend-build: frontend-install ## Build the React/Vite SPA to src/pd_ocr_simple_gui/frontend/
+frontend-build: frontend-install ## Build the React/Vite SPA to src/pdomain_ocr_simple_gui/frontend/
 	cd frontend && $(call _pnpm,run build)
 
 frontend-dev: frontend-install ## Run Vite dev server (frontend only, hot-reload)
@@ -176,9 +176,9 @@ ci-full: ci e2e-browser ## Full CI including Playwright browser tests (requires 
 # Run
 # ---------------------------------------------------------------------------
 
-run: ## Launch pd-ocr-simple-gui on :8004
-	@echo "🚀 Launching pd-ocr-simple-gui at http://127.0.0.1:8004 ..."
-	uv run pd-ocr-simple-gui $(ARGS)
+run: ## Launch pdomain-ocr-simple-gui on :8004
+	@echo "🚀 Launching pdomain-ocr-simple-gui at http://127.0.0.1:8004 ..."
+	uv run pdomain-ocr-simple-gui $(ARGS)
 
 # ---------------------------------------------------------------------------
 # Local dev (editable sibling deps)
@@ -206,8 +206,8 @@ local-run: ## Run the SPA against local-dev workspace
 update-pd-deps: ## Bump pd-* sibling deps to registry latest; leaves diff for review
 	@./scripts/update-pd-deps.sh
 
-upgrade-pd-book-tools: ## [DEPRECATED] Use 'make update-pd-deps' instead
-	@echo "⚠️  upgrade-pd-book-tools is deprecated. Use 'make update-pd-deps' for all sibling deps."
+upgrade-pdomain-book-tools: ## [DEPRECATED] Use 'make update-pd-deps' instead
+	@echo "⚠️  upgrade-pdomain-book-tools is deprecated. Use 'make update-pd-deps' for all sibling deps."
 	@$(MAKE) --no-print-directory update-pd-deps
 
 # ---------------------------------------------------------------------------

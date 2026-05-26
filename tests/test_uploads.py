@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from pd_ocr_simple_gui.app import create_app
+from pdomain_ocr_simple_gui.app import create_app
 
 
 def _client(tmp_path: Path, monkeypatch):

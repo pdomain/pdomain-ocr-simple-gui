@@ -1,4 +1,4 @@
-"""Pydantic models for pd-ocr-simple-gui."""
+"""Pydantic models for pdomain-ocr-simple-gui."""
 
 from __future__ import annotations
 
@@ -7,7 +7,9 @@ from __future__ import annotations
 from datetime import datetime  # noqa: TC003
 from typing import Literal
 
-from pd_ocr_ops.suite.types import CommonUIPrefs  # noqa: TC002  # pyright: ignore[reportMissingTypeStubs]
+from pdomain_ocr_ops.suite.types import (
+    CommonUIPrefs,  # noqa: TC002  # pyright: ignore[reportMissingTypeStubs]
+)
 from pydantic import BaseModel
 
 
@@ -61,7 +63,7 @@ class PageResponse(BaseModel):
 
 
 class AppPrefs(BaseModel):
-    """Application-level preferences for pd-ocr-simple-gui."""
+    """Application-level preferences for pdomain-ocr-simple-gui."""
 
     default_engine: str = "doctr"
     default_language: str = "en"

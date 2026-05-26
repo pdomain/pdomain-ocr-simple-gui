@@ -2,7 +2,7 @@
 // Drop zone + file picker + path input affordances.
 // Props control which affordances are active; all POST to /api/uploads.
 import { useRef, useState } from "react";
-import { Button, Field, Input } from "@concavetrillion/pd-ui/primitives";
+import { Button, Field, Input } from "@pdomain/pdomain-ui/primitives";
 import { APP_TEST_IDS } from "../lib/testids";
 
 export interface SourcePickerProps {

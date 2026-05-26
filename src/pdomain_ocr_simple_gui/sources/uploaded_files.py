@@ -1,11 +1,11 @@
-# src/pd_ocr_simple_gui/sources/uploaded_files.py
+# src/pdomain_ocr_simple_gui/sources/uploaded_files.py
 """Source implementation that resolves an upload_id to a staging directory."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pd_ocr_simple_gui.sources import Source, SourceNotFound
+from pdomain_ocr_simple_gui.sources import Source, SourceNotFound
 
 if TYPE_CHECKING:
     from pathlib import Path

@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from pd_ocr_simple_gui.sources import SourceInvalid, SourceNotFound, SourceTooLarge
-from pd_ocr_simple_gui.sources.local_path import LocalPathSource
+from pdomain_ocr_simple_gui.sources import SourceInvalid, SourceNotFound, SourceTooLarge
+from pdomain_ocr_simple_gui.sources.local_path import LocalPathSource
 
 
 def test_folder_happy_path(tmp_path: Path) -> None:
@@ -49,7 +49,7 @@ def test_zip_happy_path(tmp_path: Path) -> None:
 
 
 def test_zip_bomb_guard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("pd_ocr_simple_gui.sources.local_path._MAX_UNCOMPRESSED_BYTES", 16)
+    monkeypatch.setattr("pdomain_ocr_simple_gui.sources.local_path._MAX_UNCOMPRESSED_BYTES", 16)
     zpath = tmp_path / "bomb.zip"
     _make_zip(zpath, {"big.bin": b"A" * 1024})
     with pytest.raises(SourceTooLarge):

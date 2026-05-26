@@ -1,4 +1,4 @@
-# pd-ocr-simple-gui — Architecture Overview
+# pdomain-ocr-simple-gui — Architecture Overview
 
 **Status:** Shipped (M0–M8 complete, verification milestone complete)
 **Last updated:** 2026-05-22
@@ -9,10 +9,10 @@
 
 A minimal drag-and-drop OCR web app. The user drops a folder of scanned images,
 picks an OCR engine (DocTR or Tesseract), runs OCR, and gets `.txt` output files.
-Phase 3 reference consumer that validates `pd-ocr-ops`' `LocalStageDispatcher`
+Phase 3 reference consumer that validates `pdomain-ocr-ops`' `LocalStageDispatcher`
 and `register_default_stages()`.
 
-Ships as a single Python wheel: `uv tool install pd-ocr-simple-gui`.
+Ships as a single Python wheel: `uv tool install pdomain-ocr-simple-gui`.
 Default launch: `http://localhost:8004`.
 
 ---
@@ -22,10 +22,10 @@ Default launch: `http://localhost:8004`.
 | Layer | Technology |
 |-------|-----------|
 | Backend | FastAPI + uvicorn, Python 3.11+ |
-| Frontend | React 19 + Vite + TypeScript + `@concavetrillion/pd-ui` |
-| OCR | `pd-book-tools` (DocTR / Tesseract runners) |
-| Suite plumbing | `pd-ocr-ops` (`LocalStageDispatcher`, `PrefsAdapter`, `register_self`) |
-| Storage | JSON sidecar files in `~/.local/share/pd-suite/simple-gui/projects/` |
+| Frontend | React 19 + Vite + TypeScript + `@pdomain/pdomain-ui` |
+| OCR | `pdomain-book-tools` (DocTR / Tesseract runners) |
+| Suite plumbing | `pdomain-ocr-ops` (`LocalStageDispatcher`, `PrefsAdapter`, `register_self`) |
+| Storage | JSON sidecar files in `~/.local/share/pdomain-suite/simple-gui/projects/` |
 | Tests | pytest + pytest-asyncio + httpx; Playwright e2e; vitest for frontend |
 
 ---
@@ -33,9 +33,9 @@ Default launch: `http://localhost:8004`.
 ## 3. Repo layout
 
 ```text
-pd-ocr-simple-gui/
-  src/pd_ocr_simple_gui/
-    __main__.py        CLI entry: pd-ocr-simple-gui [--port N] [--host H]
+pdomain-ocr-simple-gui/
+  src/pdomain_ocr_simple_gui/
+    __main__.py        CLI entry: pdomain-ocr-simple-gui [--port N] [--host H]
     app.py             FastAPI app + lifespan (prefs, dispatcher, suite)
     models.py          Pydantic: ProjectSpec, ProjectStatus, PageResult, AppPrefs
     storage.py         Sidecar read/write helpers (project dirs, .txt output)
@@ -46,7 +46,7 @@ pd-ocr-simple-gui/
       pages.py         GET /api/pages/{id}/{idx}  GET .../image
                        PUT .../text  POST .../rerun
       prefs.py         GET /api/prefs  PUT /api/prefs
-    pd-suite.json      Suite registration fragment
+    pdomain-suite.json      Suite registration fragment
     icons/             PNG icons (16–256 px) + simple-gui.ico
     static/            Built React SPA (populated by `make frontend-build`)
   frontend/
@@ -95,7 +95,7 @@ pd-ocr-simple-gui/
 | `GET` | `/api/prefs` | Read app prefs (recent projects, defaults) |
 | `PUT` | `/api/prefs` | Update app prefs |
 | `GET` | `/api/health` | Health check (used by Playwright fixture) |
-| `GET` | `/api/suite/*` | Suite routes (mounted by pd-ocr-ops) |
+| `GET` | `/api/suite/*` | Suite routes (mounted by pdomain-ocr-ops) |
 | `GET` | `/api/icons/{size}` | Icon PNG by pixel size |
 | `GET` | `/{full_path:path}` | SPA catch-all (serves index.html) |
 
@@ -110,7 +110,7 @@ pd-ocr-simple-gui/
    `dispatcher.run_stage("ocr", ...)` per page; writes sidecar + `.txt` via storage
    helpers; calls `status_callback` for progress updates.
 
-`LocalStageDispatcher` (from `pd-ocr-ops`) is wired at app startup via the
+`LocalStageDispatcher` (from `pdomain-ocr-ops`) is wired at app startup via the
 FastAPI lifespan, with `register_default_stages()` registering DocTR and
 Tesseract runners.
 
@@ -119,7 +119,7 @@ Tesseract runners.
 ## 6. Storage layout
 
 ```text
-~/.local/share/pd-suite/simple-gui/projects/{project_id}/
+~/.local/share/pdomain-suite/simple-gui/projects/{project_id}/
   spec.json           ProjectSpec
   status.json         ProjectStatus (state, page counts, timestamps)
   page_{n:04d}.json   PageResult sidecar per page
@@ -131,12 +131,12 @@ Tesseract runners.
 
 ## 7. Suite integration
 
-On startup, `pd_ocr_ops.suite.register_self()` writes an entry into
-`~/.local/share/pd-suite/installed.toml` so sibling suite apps (pd-ocr-labeler-spa,
-pd-prep-for-pgdp) can show this app in their launcher. The launcher inside
-pd-ocr-simple-gui hides when no siblings are installed.
+On startup, `pdomain_ocr_ops.suite.register_self()` writes an entry into
+`~/.local/share/pdomain-suite/installed.toml` so sibling suite apps (pdomain-ocr-labeler-spa,
+pdomain-prep-for-pgdp) can show this app in their launcher. The launcher inside
+pdomain-ocr-simple-gui hides when no siblings are installed.
 
-The `pd-suite.json` fragment (inside the wheel package) provides the registration
+The `pdomain-suite.json` fragment (inside the wheel package) provides the registration
 metadata: `app_id`, `display_name`, `package`, `default_port`, `icon`, `description`.
 
 ---
@@ -151,7 +151,7 @@ metadata: `app_id`, `display_name`, `package`, `default_port`, `icon`, `descript
 | Page view | `/jobs/:id/pages/:idx` | `PageViewPage` — `PageImageCanvas` + editable textarea + save/rerun |
 
 All screens live inside `<AppShell deployMode="local" launcherSlot="header">`
-from `@concavetrillion/pd-ui`.
+from `@pdomain/pdomain-ui`.
 
 ---
 
@@ -172,8 +172,8 @@ from `@concavetrillion/pd-ui`.
 ## 10. Build + release
 
 ```sh
-make frontend-build   # vite build → src/pd_ocr_simple_gui/static/
+make frontend-build   # vite build → src/pdomain_ocr_simple_gui/static/
 uv build              # wheel (requires populated static/)
 ```
 
-Published to `pd-index-pip` (GitHub Pages PEP 503 index).
+Published to `pdomain-index-pip` (GitHub Pages PEP 503 index).

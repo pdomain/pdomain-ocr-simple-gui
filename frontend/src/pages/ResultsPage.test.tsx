@@ -6,8 +6,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import ResultsPage from "./ResultsPage";
 
-// Mock pd-ui/primitives
-vi.mock("@concavetrillion/pd-ui/primitives", async (importOriginal) => {
+// Mock pdomain-ui/primitives
+vi.mock("@pdomain/pdomain-ui/primitives", async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,

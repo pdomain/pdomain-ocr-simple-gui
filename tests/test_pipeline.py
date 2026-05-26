@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
-from pd_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
-from pd_ocr_simple_gui.pipeline import collect_images, run_project
+from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
+from pdomain_ocr_simple_gui.pipeline import collect_images, run_project
 
 
 def _make_spec(tmp_path: Path, source_path: str | None = None) -> ProjectSpec:
@@ -29,7 +29,7 @@ def _make_spec(tmp_path: Path, source_path: str | None = None) -> ProjectSpec:
 
 def _make_stub_stage_result(page_id: str, page_dict: dict[str, Any]):
     """Build a minimal StageResult with the given page dict as metadata."""
-    from pd_ocr_ops.gpu.types import StageResult
+    from pdomain_ocr_ops.gpu.types import StageResult
 
     return StageResult(
         stage_id="ocr",
@@ -162,7 +162,7 @@ class TestCollectImages:
 class TestRunProject:
     async def test_calls_run_stage_once_per_image(self, tmp_path: Path, monkeypatch) -> None:
         """run_project calls dispatcher.run_stage once per image file."""
-        import pd_ocr_simple_gui.storage as storage_mod
+        import pdomain_ocr_simple_gui.storage as storage_mod
 
         root = tmp_path / "projects"
         root.mkdir()
@@ -181,7 +181,7 @@ class TestRunProject:
             PageResult(page_idx=0, page_name="page0.png", state="queued"),
             PageResult(page_idx=1, page_name="page1.png", state="queued"),
         ]
-        from pd_ocr_simple_gui.storage import write_project
+        from pdomain_ocr_simple_gui.storage import write_project
 
         write_project(
             spec,
@@ -210,7 +210,7 @@ class TestRunProject:
         assert len(callbacks) == 2
 
     async def test_status_callback_receives_project_status(self, tmp_path: Path, monkeypatch) -> None:
-        import pd_ocr_simple_gui.storage as storage_mod
+        import pdomain_ocr_simple_gui.storage as storage_mod
 
         root = tmp_path / "projects"
         root.mkdir()
@@ -222,7 +222,7 @@ class TestRunProject:
 
         spec = _make_spec(tmp_path, source_path=str(src))
         pages = [PageResult(page_idx=0, page_name="page0.png", state="queued")]
-        from pd_ocr_simple_gui.storage import write_project
+        from pdomain_ocr_simple_gui.storage import write_project
 
         write_project(
             spec,
@@ -253,7 +253,7 @@ class TestRunProject:
 
     async def test_run_stage_kwargs(self, tmp_path: Path, monkeypatch) -> None:
         """run_project passes image_path, engine, language to run_stage."""
-        import pd_ocr_simple_gui.storage as storage_mod
+        import pdomain_ocr_simple_gui.storage as storage_mod
 
         root = tmp_path / "projects"
         root.mkdir()
@@ -266,7 +266,7 @@ class TestRunProject:
 
         spec = _make_spec(tmp_path, source_path=str(src))
         pages = [PageResult(page_idx=0, page_name="pg.png", state="queued")]
-        from pd_ocr_simple_gui.storage import write_project
+        from pdomain_ocr_simple_gui.storage import write_project
 
         write_project(
             spec,
@@ -293,7 +293,7 @@ class TestRunProject:
 
     async def test_extracts_text_from_page_dict(self, tmp_path: Path, monkeypatch) -> None:
         """run_project extracts text from the page dict and writes it."""
-        import pd_ocr_simple_gui.storage as storage_mod
+        import pdomain_ocr_simple_gui.storage as storage_mod
 
         root = tmp_path / "projects"
         root.mkdir()
@@ -305,7 +305,7 @@ class TestRunProject:
 
         spec = _make_spec(tmp_path, source_path=str(src))
         pages = [PageResult(page_idx=0, page_name="page0.png", state="queued")]
-        from pd_ocr_simple_gui.storage import write_project
+        from pdomain_ocr_simple_gui.storage import write_project
 
         write_project(
             spec,
@@ -326,7 +326,7 @@ class TestRunProject:
         await run_project(spec, mock_dispatcher, AsyncMock())
 
         # Verify txt was written with extracted text
-        from pd_ocr_simple_gui.storage import get_project_dir
+        from pdomain_ocr_simple_gui.storage import get_project_dir
 
         txt_path = get_project_dir(spec.project_id) / "pages" / "page0.png.txt"
         assert txt_path.exists()

@@ -1,7 +1,7 @@
 {
-  "app_id": "pd-ocr-simple-gui",
+  "app_id": "pdomain-ocr-simple-gui",
   "display_name": "Simple OCR",
-  "package": "pd-ocr-simple-gui",
+  "package": "pdomain-ocr-simple-gui",
   "default_port": 8004,
   "icon": "simple-gui",
   "description": "Drag-and-drop OCR for scanned images."

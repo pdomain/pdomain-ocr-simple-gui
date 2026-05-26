@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from pd_ocr_simple_gui.sources import SourceNotFound
-from pd_ocr_simple_gui.sources.uploaded_files import UploadedFilesSource
+from pdomain_ocr_simple_gui.sources import SourceNotFound
+from pdomain_ocr_simple_gui.sources.uploaded_files import UploadedFilesSource
 
 
 def test_happy_path(tmp_path: Path) -> None:

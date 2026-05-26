@@ -1,4 +1,4 @@
-"""FastAPI application for pd-ocr-simple-gui."""
+"""FastAPI application for pdomain-ocr-simple-gui."""
 
 from __future__ import annotations
 
@@ -16,8 +16,10 @@ from fastapi.staticfiles import StaticFiles
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 
-    from pd_ocr_ops.gpu.local_stage import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
-    from pd_ocr_ops.suite.prefs import PrefsAdapter  # pyright: ignore[reportMissingTypeStubs]
+    from pdomain_ocr_ops.gpu.local_stage import (
+        LocalStageDispatcher,  # pyright: ignore[reportMissingTypeStubs]
+    )
+    from pdomain_ocr_ops.suite.prefs import PrefsAdapter  # pyright: ignore[reportMissingTypeStubs]
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +45,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _ = app
     global _prefs_adapter, _dispatcher  # noqa: PLW0603  # module-level singletons for FastAPI lifespan
     try:
-        from pd_ocr_ops.suite.prefs import LocalFilePrefs  # pyright: ignore[reportMissingTypeStubs]
+        from pdomain_ocr_ops.suite.prefs import LocalFilePrefs  # pyright: ignore[reportMissingTypeStubs]
 
         _prefs_adapter = LocalFilePrefs()
     except Exception:  # optional prefs integration — app runs without it
@@ -53,7 +55,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         )
         _prefs_adapter = None
     try:
-        from pd_ocr_ops.gpu import (  # pyright: ignore[reportMissingTypeStubs]
+        from pdomain_ocr_ops.gpu import (  # pyright: ignore[reportMissingTypeStubs]
             LocalStageDispatcher,
             register_default_stages,
         )
@@ -65,18 +67,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             "register_default_stages() failed; falling back to bare LocalStageDispatcher",
             extra={"context": "register_default_stages(_dispatcher)"},
         )
-        from pd_ocr_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
+        from pdomain_ocr_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
 
         _dispatcher = LocalStageDispatcher()
     # Register this app with the suite registry (best-effort — never crash on failure)
     try:
-        from pd_ocr_ops.suite import register_self  # pyright: ignore[reportMissingTypeStubs]
+        from pdomain_ocr_ops.suite import register_self  # pyright: ignore[reportMissingTypeStubs]
 
-        register_self(_caller_package="pd_ocr_simple_gui")
+        register_self(_caller_package="pdomain_ocr_simple_gui")
     except Exception:  # suite self-registration is best-effort — never crash startup
         logger.exception(
             "Suite self-registration failed; app will run without launcher registry entry",
-            extra={"context": "register_self(caller_package='pd_ocr_simple_gui')"},
+            extra={"context": "register_self(caller_package='pdomain_ocr_simple_gui')"},
         )
     yield
     _prefs_adapter = None
@@ -90,7 +92,7 @@ _ALLOWED_SELF_ICON_SIZES = {16, 24, 32, 48, 64, 128, 256}
 def create_app() -> FastAPI:
     """Create and return a configured FastAPI application instance."""
     _app = FastAPI(
-        title="pd-ocr-simple-gui",
+        title="pdomain-ocr-simple-gui",
         description="Drag-and-drop OCR app",
         version="0.1.0a0",
         lifespan=lifespan,
@@ -106,13 +108,13 @@ def create_app() -> FastAPI:
 
     # Register routes.
     # Imported here (not at module level) to avoid circular imports at collection time.
-    from pd_ocr_simple_gui.routes.config import router as config_router
-    from pd_ocr_simple_gui.routes.downloads import router as downloads_router
-    from pd_ocr_simple_gui.routes.jobs import router as jobs_router
-    from pd_ocr_simple_gui.routes.pages import router as pages_router
-    from pd_ocr_simple_gui.routes.prefs import router as prefs_router
-    from pd_ocr_simple_gui.routes.uploads import router as uploads_router
-    from pd_ocr_simple_gui.routes.words import router as words_router
+    from pdomain_ocr_simple_gui.routes.config import router as config_router
+    from pdomain_ocr_simple_gui.routes.downloads import router as downloads_router
+    from pdomain_ocr_simple_gui.routes.jobs import router as jobs_router
+    from pdomain_ocr_simple_gui.routes.pages import router as pages_router
+    from pdomain_ocr_simple_gui.routes.prefs import router as prefs_router
+    from pdomain_ocr_simple_gui.routes.uploads import router as uploads_router
+    from pdomain_ocr_simple_gui.routes.words import router as words_router
 
     _app.include_router(jobs_router)
     _app.include_router(pages_router)
@@ -124,7 +126,7 @@ def create_app() -> FastAPI:
 
     # Mount suite plumbing routes (/api/suite/*, /api/icons/*, /healthz)
     try:
-        from pd_ocr_ops.suite.routes import (  # pyright: ignore[reportMissingTypeStubs]
+        from pdomain_ocr_ops.suite.routes import (  # pyright: ignore[reportMissingTypeStubs]
             mount_routes as _mount_suite_routes,
         )
 
@@ -148,7 +150,7 @@ def create_app() -> FastAPI:
                 status_code=400,
                 detail=f"Unsupported size {size}. Allowed: {sorted(_ALLOWED_SELF_ICON_SIZES)}",
             )
-        icons_pkg = importlib.resources.files("pd_ocr_simple_gui") / "icons"
+        icons_pkg = importlib.resources.files("pdomain_ocr_simple_gui") / "icons"
         icon_file = icons_pkg / f"{size}.png"
         try:
             # importlib.resources Traversable has .read_bytes() at runtime; not in the stub protocol

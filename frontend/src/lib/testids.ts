@@ -1,11 +1,11 @@
 // testids.ts — A6.2
-// Re-exports pd-ui testids and defines app-local testid constants.
+// Re-exports pdomain-ui testids and defines app-local testid constants.
 //
-// Note: @concavetrillion/pd-ui/testids exports individual named constants
+// Note: @pdomain/pdomain-ui/testids exports individual named constants
 // (e.g. APP_SHELL, JOB_ROW) — NOT a TEST_IDS object. We re-export the
 // entire namespace as PD_UI_TEST_IDS for callers who want the full catalog.
 // The APP_TEST_IDS object below defines constants local to this app.
-export * as PD_UI_TEST_IDS from "@concavetrillion/pd-ui/testids";
+export * as PD_UI_TEST_IDS from "@pdomain/pdomain-ui/testids";
 
 export const APP_TEST_IDS = {
   homePage: "home-page",

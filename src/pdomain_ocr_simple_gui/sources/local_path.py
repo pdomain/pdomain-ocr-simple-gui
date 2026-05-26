@@ -5,7 +5,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-from pd_ocr_simple_gui.sources import (
+from pdomain_ocr_simple_gui.sources import (
     Source,
     SourceInvalid,
     SourceNotFound,
@@ -38,7 +38,7 @@ class LocalPathSource(Source):
     def _wrap_single_image(self) -> Path:
         workdir = Path(
             tempfile.mkdtemp(
-                prefix="pd-ocr-simple-gui-single-",
+                prefix="pdomain-ocr-simple-gui-single-",
                 dir=self._extract_root,
             )
         )
@@ -48,7 +48,7 @@ class LocalPathSource(Source):
     def _extract_zip(self) -> Path:
         workdir = Path(
             tempfile.mkdtemp(
-                prefix="pd-ocr-simple-gui-zip-",
+                prefix="pdomain-ocr-simple-gui-zip-",
                 dir=self._extract_root,
             )
         )

@@ -7,10 +7,10 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import { JobConfigDialog } from "./JobConfigDialog";
 
-// Mock pd-ui/primitives — replace BaseJobConfigDialog with a testable shim
+// Mock pdomain-ui/primitives — replace BaseJobConfigDialog with a testable shim
 // that renders the form shell inline (no Radix portals) and exposes the same
 // testids the component tests rely on.
-vi.mock("@concavetrillion/pd-ui/primitives", async (importOriginal) => {
+vi.mock("@pdomain/pdomain-ui/primitives", async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
 
   const React = await import("react");

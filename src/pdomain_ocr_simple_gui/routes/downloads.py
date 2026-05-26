@@ -14,11 +14,11 @@ router = APIRouter()
 
 
 def _output_root() -> Path:
-    """Return the managed output root, defaulting to ~/.local/share/pd-ocr-simple-gui/outputs."""
+    """Return the managed output root, defaulting to ~/.local/share/pdomain-ocr-simple-gui/outputs."""
     raw = os.environ.get("PD_OCR_SIMPLE_GUI_OUTPUT_ROOT")
     if raw:
         return Path(raw)
-    return Path.home() / ".local/share/pd-ocr-simple-gui/outputs"
+    return Path.home() / ".local/share/pdomain-ocr-simple-gui/outputs"
 
 
 @router.get("/api/jobs/{job_id}/download")

@@ -1,16 +1,16 @@
 // RecentProjectsList — fetches GET /api/prefs and shows recent projects
 // Issue #228 — migrated to shared jobs-table CSS (issue #255)
 //
-// TODO(A9.2): pd-ui worklist exports (WordList, LineList, PageList) do not fit
+// TODO(A9.2): pdomain-ui worklist exports (WordList, LineList, PageList) do not fit
 // this use case. WordList/LineList expect OCR word/block items; PageList expects
 // {page_index, name, width, height}. RecentProject rows carry {project_id, name,
 // last_opened_at, page_count, engine, status}. No generic tabular Worklist exists
-// in pd-ui@0.2.1. Keeping the hand-rolled <table>.
+// in pdomain-ui@0.2.1. Keeping the hand-rolled <table>.
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { JobStatusPip } from "@concavetrillion/pd-ui/primitives";
-import type { JobState } from "@concavetrillion/pd-ui/types";
+import { JobStatusPip } from "@pdomain/pdomain-ui/primitives";
+import type { JobState } from "@pdomain/pdomain-ui/types";
 import { APP_TEST_IDS } from "../lib/testids";
 
 interface RecentProject {

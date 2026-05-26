@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from pd_ocr_simple_gui.runtime.mode import Mode
+from pdomain_ocr_simple_gui.runtime.mode import Mode
 
 
 class OutputConfigError(Exception):

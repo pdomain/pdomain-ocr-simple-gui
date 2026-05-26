@@ -9,8 +9,8 @@ import {
   BaseJobConfigDialog,
   Input,
   Field,
-} from "@concavetrillion/pd-ui/primitives";
-import type { BaseJobConfig } from "@concavetrillion/pd-ui/primitives";
+} from "@pdomain/pdomain-ui/primitives";
+import type { BaseJobConfig } from "@pdomain/pdomain-ui/primitives";
 import { OutputConfigPanel, type OutputConfigValue } from "./OutputConfigPanel";
 import { APP_TEST_IDS } from "../lib/testids";
 

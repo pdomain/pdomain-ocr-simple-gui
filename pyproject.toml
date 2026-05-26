@@ -3,9 +3,9 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
-name = "pd-ocr-simple-gui"
+name = "pdomain-ocr-simple-gui"
 version = "0.1.0a0"
-description = "Drag-and-drop OCR app — reference consumer of pd-ocr-ops LocalStageDispatcher"
+description = "Drag-and-drop OCR app — reference consumer of pdomain-ocr-ops LocalStageDispatcher"
 authors = [
     { name = "CT", email = "concavetrillion@gmail.com" }
 ]
@@ -13,8 +13,8 @@ readme = "README.md"
 license = { text = "Unlicense" }
 requires-python = ">=3.11"
 dependencies = [
-    "pd-book-tools>=0.14.1",
-    "pd-ocr-ops>=0.2.2",
+    "pdomain-book-tools>=0.14.1",
+    "pdomain-ocr-ops>=0.2.2",
     "fastapi>=0.111",
     "uvicorn[standard]>=0.29",
     "pydantic>=2.7",
@@ -24,11 +24,11 @@ dependencies = [
 ]
 
 [project.scripts]
-pd-ocr-simple-gui = "pd_ocr_simple_gui.__main__:main"
+pdomain-ocr-simple-gui = "pdomain_ocr_simple_gui.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/ConcaveTrillion/pd-ocr-simple-gui"
-Repository = "https://github.com/ConcaveTrillion/pd-ocr-simple-gui"
+Homepage = "https://github.com/pdomain/pdomain-ocr-simple-gui"
+Repository = "https://github.com/pdomain/pdomain-ocr-simple-gui"
 
 [dependency-groups]
 dev = [
@@ -48,16 +48,16 @@ e2e = [
 ]
 
 [[tool.uv.index]]
-name = "pd-index-pip"
-url = "https://concavetrillion.github.io/pd-index-pip/simple/"
+name = "pdomain-index-pip"
+url = "https://pdomain.github.io/pdomain-index-pip/simple/"
 explicit = true
 
 [tool.uv.sources]
-pd-book-tools = { index = "pd-index-pip" }
-pd-ocr-ops = { index = "pd-index-pip" }
+pdomain-book-tools = { path = "/workspaces/ocr-container/pd-book-tools/.claude/worktrees/rename-pdomain", editable = true }
+pdomain-ocr-ops = { path = "/workspaces/ocr-container/pd-ocr-ops/.claude/worktrees/rename-pdomain", editable = true }
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/pd_ocr_simple_gui"]
+packages = ["src/pdomain_ocr_simple_gui"]
 
 [tool.ruff]
 line-length = 110
@@ -121,7 +121,7 @@ convention = "google"
 "scripts/*.py" = ["T201", "D", "ANN", "S603", "S607", "PLW1510"]
 "**/__init__.py" = ["D104", "F401", "TC"]
 "**/_*.py" = ["D"]
-"src/pd_ocr_simple_gui/__main__.py" = ["ANN", "D", "T201"]
+"src/pdomain_ocr_simple_gui/__main__.py" = ["ANN", "D", "T201"]
 
 [tool.basedpyright]
 include = ["src", "tests"]
@@ -140,7 +140,7 @@ addopts = [
     "-ra",
     "--strict-markers",
     "--strict-config",
-    "--cov=pd_ocr_simple_gui",
+    "--cov=pdomain_ocr_simple_gui",
     "--cov-branch",
     "--cov-report=term-missing:skip-covered",
     "-m", "not slow",

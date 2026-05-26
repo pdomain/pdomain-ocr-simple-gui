@@ -1,4 +1,4 @@
-"""OCR pipeline orchestration for pd-ocr-simple-gui.
+"""OCR pipeline orchestration for pdomain-ocr-simple-gui.
 
 Entry points:
 
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Mapping
 
-    from pd_ocr_simple_gui.models import ProjectSpec, ProjectStatus
+    from pdomain_ocr_simple_gui.models import ProjectSpec, ProjectStatus
 
 # Image extensions we recognise (case-insensitive).
 _IMAGE_SUFFIXES: frozenset[str] = frozenset({".png", ".jpg", ".jpeg", ".tiff", ".tif"})
@@ -153,20 +153,20 @@ async def run_project(
     For each image:
 
     1. Calls ``dispatcher.run_stage("ocr", page_id, image_path=..., engine=...,
-       language=...)`` to get a :class:`~pd_ocr_ops.gpu.types.StageResult`.
+       language=...)`` to get a :class:`~pdomain_ocr_ops.gpu.types.StageResult`.
     2. Extracts the first page dict from ``result.metadata["pages"]``.
     3. Writes the page sidecar JSON and plain-text file via storage helpers.
-    4. Updates the per-page :class:`~pd_ocr_simple_gui.models.PageResult` and
+    4. Updates the per-page :class:`~pdomain_ocr_simple_gui.models.PageResult` and
        calls *status_callback* with the updated
-       :class:`~pd_ocr_simple_gui.models.ProjectStatus`.
+       :class:`~pdomain_ocr_simple_gui.models.ProjectStatus`.
 
     The project must already be written to storage with a ``pages`` list
     matching the discovered images (page names = image filenames) before
     ``run_project`` is called.  Callers are responsible for seeding the
     initial project state.
     """
-    from pd_ocr_simple_gui.models import PageResult, ProjectStatus
-    from pd_ocr_simple_gui.storage import (
+    from pdomain_ocr_simple_gui.models import PageResult, ProjectStatus
+    from pdomain_ocr_simple_gui.storage import (
         read_project,
         update_page_result,
         write_combined_txt,

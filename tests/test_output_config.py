@@ -3,12 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from pd_ocr_simple_gui.output.config import (
+from pdomain_ocr_simple_gui.output.config import (
     OutputConfig,
     OutputConfigError,
     resolve_output_dir,
 )
-from pd_ocr_simple_gui.runtime.mode import Mode
+from pdomain_ocr_simple_gui.runtime.mode import Mode
 
 
 def test_managed_default(tmp_path: Path) -> None:

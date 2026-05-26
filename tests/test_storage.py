@@ -1,4 +1,4 @@
-"""Tests for pd_ocr_simple_gui.storage — sidecar IO helpers."""
+"""Tests for pdomain_ocr_simple_gui.storage — sidecar IO helpers."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from pd_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
-from pd_ocr_simple_gui.storage import (
+from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
+from pdomain_ocr_simple_gui.storage import (
     delete_project,
     get_project_dir,
     list_projects,
@@ -52,7 +52,7 @@ def projects_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Redirect storage root to tmp_path."""
     root = tmp_path / "projects"
     root.mkdir()
-    import pd_ocr_simple_gui.storage as storage_mod
+    import pdomain_ocr_simple_gui.storage as storage_mod
 
     monkeypatch.setattr(storage_mod, "_PROJECTS_ROOT", root)
     return root

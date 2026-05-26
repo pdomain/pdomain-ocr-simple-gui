@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from pd_ocr_simple_gui.models import AppPrefs
+from pdomain_ocr_simple_gui.models import AppPrefs
 
 router = APIRouter(prefix="/api/prefs", tags=["prefs"])
 
-_APP_ID = "pd-ocr-simple-gui"
+_APP_ID = "pdomain-ocr-simple-gui"
 
 
 @router.get("", response_model=AppPrefs)
 async def get_prefs() -> AppPrefs:
     """Return the app prefs, or defaults if no adapter/data present."""
-    from pd_ocr_simple_gui.app import get_prefs_adapter
+    from pdomain_ocr_simple_gui.app import get_prefs_adapter
 
     adapter = get_prefs_adapter()
     if adapter is None:
@@ -28,7 +28,7 @@ async def get_prefs() -> AppPrefs:
 @router.put("", response_model=AppPrefs)
 async def put_prefs(body: AppPrefs) -> AppPrefs:
     """Persist app prefs via adapter (best-effort if no adapter)."""
-    from pd_ocr_simple_gui.app import get_prefs_adapter
+    from pdomain_ocr_simple_gui.app import get_prefs_adapter
 
     adapter = get_prefs_adapter()
     if adapter is not None:
