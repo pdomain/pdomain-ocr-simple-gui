@@ -42,6 +42,7 @@ class ProjectStatus(BaseModel):
     project_id: str
     name: str = ""
     output_dir: str = ""
+    output_mode: str | None = None
     state: Literal["queued", "running", "succeeded", "failed", "cancelled"]
     page_count: int
     pages_done: int

@@ -1,11 +1,12 @@
 // PageViewPage — M5 task #231, M6 task #232
 // Screen 4: two-panel layout — image canvas + editable text
 // Migrated to PageSplitView — issue #254
+// A8: word overlay fetch wired to PageImageCanvas
 
 import { useEffect, useState, useRef, type ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { PageImageCanvas } from "@concavetrillion/pd-ui/canvas";
-import type { CanvasPage } from "@concavetrillion/pd-ui/canvas";
+import type { CanvasPage, CanvasWord } from "@concavetrillion/pd-ui/canvas";
 import {
   Button,
   Textarea,
@@ -32,6 +33,43 @@ interface JobStatus {
   page_count: number;
 }
 
+/** Normalized word bbox from GET /api/pages/{id}/{idx}/words. */
+interface ApiWordBbox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+interface ApiWord {
+  text: string;
+  bbox: ApiWordBbox;
+  confidence: number;
+}
+
+/**
+ * Convert a normalized-coord bbox {x,y,w,h} (0–1 page-relative) into a
+ * CanvasWord with pixel-space bounding_box that PageImageCanvas expects.
+ */
+function apiWordToCanvasWord(
+  word: ApiWord,
+  pageWidth: number,
+  pageHeight: number,
+): CanvasWord {
+  const { x, y, w, h } = word.bbox;
+  return {
+    text: word.text,
+    ocr_confidence: word.confidence,
+    bounding_box: {
+      top_left: { x: x * pageWidth, y: y * pageHeight },
+      bottom_right: {
+        x: (x + w) * pageWidth,
+        y: (y + h) * pageHeight,
+      },
+    },
+  };
+}
+
 export default function PageViewPage() {
   const { id, idx } = useParams<{ id: string; idx: string }>();
   const navigate = useNavigate();
@@ -49,6 +87,7 @@ export default function PageViewPage() {
   const [rerunStatus, setRerunStatus] = useState<
     "idle" | "running" | "done" | "error"
   >("idle");
+  const [words, setWords] = useState<CanvasWord[]>([]);
 
   // Load job status to know total page count
   useEffect(() => {
@@ -91,6 +130,28 @@ export default function PageViewPage() {
       cancelled = true;
     };
   }, [id, pageIdx]);
+
+  // Load word overlays — A8
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/pages/${id ?? ""}/${pageIdx}/words`);
+        if (!res.ok || cancelled) return;
+        const body = (await res.json()) as { words: ApiWord[] };
+        if (!cancelled) {
+          const pw = pageData?.width ?? 800;
+          const ph = pageData?.height ?? 1200;
+          setWords(body.words.map((w) => apiWordToCanvasWord(w, pw, ph)));
+        }
+      } catch {
+        // words overlay is non-critical — silently degrade to empty
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, pageIdx, pageData]);
 
   async function handleSave() {
     if (!id) return;
@@ -247,8 +308,13 @@ export default function PageViewPage() {
     </>
   );
 
+  // Wrapper div carries data-testid and data-word-count for tests.
+  // PageImageCanvas is a Konva canvas and does not propagate arbitrary
+  // data-* props to the DOM — the wrapper is the observable element.
   const canvasContent = !loading ? (
-    <PageImageCanvas src={imageSrc} page={canvasPage} words={[]} />
+    <div data-testid="page-image-canvas" data-word-count={String(words.length)}>
+      <PageImageCanvas src={imageSrc} page={canvasPage} words={words} />
+    </div>
   ) : null;
 
   const editorContent = (
