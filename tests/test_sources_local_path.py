@@ -22,3 +22,12 @@ def test_unreadable_file(tmp_path: Path) -> None:
     target.write_text("not an image")
     with pytest.raises(SourceInvalid):
         LocalPathSource(target).materialize()
+
+
+def test_single_image_path(tmp_path: Path) -> None:
+    img = tmp_path / "scan.png"
+    img.write_bytes(b"\x89PNG\r\n")
+    src = LocalPathSource(img)
+    materialized = src.materialize()
+    assert materialized.is_dir()
+    assert (materialized / img.name).exists()
