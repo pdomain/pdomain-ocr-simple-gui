@@ -9,7 +9,7 @@ import type {
   LaunchResult,
 } from "@concavetrillion/pd-ui/shell";
 import { ConfigProvider } from "./runtime/ConfigContext";
-import HomePage from "./pages/HomePage";
+import { HomePage } from "./pages/HomePage";
 import ResultsPage from "./pages/ResultsPage";
 import PageViewPage from "./pages/PageViewPage";
 

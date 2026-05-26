@@ -28,20 +28,31 @@ vi.mock("@concavetrillion/pd-ui/canvas", () => ({
 // Suppress jsdom fetch warnings in tests
 beforeAll(() => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (globalThis as any).fetch = vi.fn().mockResolvedValue({
-    ok: false,
-    json: async () => ({}),
+  (globalThis as any).fetch = vi.fn().mockImplementation((url: string) => {
+    // ConfigProvider fetches /api/config on mount — return a valid config so
+    // HomePage renders rather than showing "Loading…".
+    if (typeof url === "string" && url.includes("/api/config")) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ mode: "local", is_containerized: false }),
+      });
+    }
+    return Promise.resolve({
+      ok: false,
+      json: async () => ({}),
+    });
   });
 });
 
 describe("App", () => {
-  it("renders without crashing and shows home page at /", () => {
+  it("renders without crashing and shows home page at /", async () => {
     render(<App />);
     // The AppShell mock renders its main slot which contains AppRoutes
     const shell = screen.getByTestId("app-shell-mock");
     expect(shell).toBeInTheDocument();
-    // At default path "/" we should see the home page
-    expect(screen.getByTestId("home-page")).toBeInTheDocument();
+    // At default path "/" we should see the home page — async because
+    // ConfigProvider fetches /api/config before HomePage renders content.
+    expect(await screen.findByTestId("home-page")).toBeInTheDocument();
   });
 
   it("AppShell mock receives a main prop", () => {

@@ -1,29 +1,86 @@
-// Home screen — DropZone + RecentProjectsList + JobConfigDialog (M3/M4)
-// Issues #227 (DropZone), #228 (RecentProjectsList), #229 (JobConfigDialog)
-
+// HomePage — A6.3
+// Renders input affordances based on mode/container matrix from /api/config.
+// Replaces legacy DropZone with SourcePicker.
 import { useState } from "react";
-import { DropZone } from "../components/DropZone";
+import { useConfig } from "../runtime/ConfigContext";
+import { SourcePicker } from "../components/SourcePicker";
 import { RecentProjectsList } from "../components/RecentProjectsList";
 import { JobConfigDialog } from "../components/JobConfigDialog";
+import { APP_TEST_IDS } from "../lib/testids";
 
-export default function HomePage() {
-  const [dialogSource, setDialogSource] = useState<string | null>(null);
+type ChosenSource =
+  | { kind: "path"; path: string }
+  | { kind: "upload"; uploadId: string };
 
-  function handleValidPath(path: string) {
-    setDialogSource(path);
-  }
+/** Derive a display path from the chosen source for the legacy JobConfigDialog. */
+function sourceToPath(source: ChosenSource): string {
+  if (source.kind === "path") return source.path;
+  // For uploads, use a sentinel so the jobs route knows to use upload_id.
+  // A7 will wire OutputConfig properly; for now pass upload_id as the path.
+  return `upload:${source.uploadId}`;
+}
+
+export function HomePage() {
+  const cfg = useConfig();
+  const [chosen, setChosen] = useState<ChosenSource | null>(null);
 
   function handleDialogClose() {
-    setDialogSource(null);
+    setChosen(null);
   }
 
+  if (!cfg) return <div>Loading…</div>;
+
+  const mode = cfg.mode;
+  const containerized = cfg.is_containerized;
+
   return (
-    <div data-testid="home-page" className="home-page">
-      <DropZone onValidPath={handleValidPath} />
+    <div data-testid={APP_TEST_IDS.homePage} className="home-page">
+      {mode === "managed" && (
+        <SourcePicker
+          allowDrop
+          allowFilePick
+          allowPathInput={false}
+          onUploadComplete={(id) => setChosen({ kind: "upload", uploadId: id })}
+          onPathChosen={() => {}}
+        />
+      )}
+      {mode === "local" && containerized && (
+        <>
+          <h3>Upload</h3>
+          <SourcePicker
+            allowDrop
+            allowFilePick
+            allowPathInput={false}
+            onUploadComplete={(id) =>
+              setChosen({ kind: "upload", uploadId: id })
+            }
+            onPathChosen={() => {}}
+          />
+          <h3>Existing folder or zip</h3>
+          <SourcePicker
+            allowDrop={false}
+            allowFilePick={false}
+            allowPathInput
+            pathHint="Paths refer to the container filesystem (bind-mount your scans dir if needed)."
+            onUploadComplete={() => {}}
+            onPathChosen={(p) => setChosen({ kind: "path", path: p })}
+          />
+        </>
+      )}
+      {mode === "local" && !containerized && (
+        <SourcePicker
+          allowDrop
+          allowFilePick
+          allowPathInput
+          pathHint="Folder, image, or zip path on this machine."
+          onUploadComplete={(id) => setChosen({ kind: "upload", uploadId: id })}
+          onPathChosen={(p) => setChosen({ kind: "path", path: p })}
+        />
+      )}
       <RecentProjectsList />
       <JobConfigDialog
-        open={dialogSource !== null}
-        sourcePath={dialogSource ?? ""}
+        open={chosen !== null}
+        sourcePath={chosen ? sourceToPath(chosen) : ""}
         onClose={handleDialogClose}
       />
     </div>
