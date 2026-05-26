@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pdomain-ocr-simple-gui"
-version = "0.0.1"
+dynamic = ["version"]
 description = "Drag-and-drop OCR app — reference consumer of pdomain-ocr-ops LocalStageDispatcher"
 authors = [
     { name = "CT", email = "concavetrillion@gmail.com" }
@@ -55,6 +55,9 @@ explicit = true
 [tool.uv.sources]
 pdomain-book-tools = { index = "pdomain-index-pip" }
 pdomain-ocr-ops = { index = "pdomain-index-pip" }
+
+[tool.hatch.version]
+source = "vcs"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pdomain_ocr_simple_gui"]
