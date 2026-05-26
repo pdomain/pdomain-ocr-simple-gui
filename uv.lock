@@ -1819,7 +1819,7 @@ wheels = [
 
 [[package]]
 name = "pdomain-ocr-simple-gui"
-version = "0.1.0a0"
+version = "0.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },

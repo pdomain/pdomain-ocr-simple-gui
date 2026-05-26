@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pdomain-ocr-simple-gui"
-version = "0.1.0a0"
+version = "0.0.1"
 description = "Drag-and-drop OCR app — reference consumer of pdomain-ocr-ops LocalStageDispatcher"
 authors = [
     { name = "CT", email = "concavetrillion@gmail.com" }
