@@ -8,6 +8,7 @@ import type {
   InstalledApp,
   LaunchResult,
 } from "@concavetrillion/pd-ui/shell";
+import { ConfigProvider } from "./runtime/ConfigContext";
 import HomePage from "./pages/HomePage";
 import ResultsPage from "./pages/ResultsPage";
 import PageViewPage from "./pages/PageViewPage";
@@ -103,17 +104,19 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <SuiteSiblingsProvider value={{ fetchInstalled, postLaunch }}>
-        <AppShell
-          appId="pd-ocr-simple-gui"
-          appDisplayName="OCR Simple GUI"
-          appIconUrl="/api/self/icons/32"
-          deployMode="local"
-          launcherSlot="header"
-          uiPrefsConfig={uiPrefsConfig}
-          main={<AppRoutes />}
-        />
-      </SuiteSiblingsProvider>
+      <ConfigProvider>
+        <SuiteSiblingsProvider value={{ fetchInstalled, postLaunch }}>
+          <AppShell
+            appId="pd-ocr-simple-gui"
+            appDisplayName="OCR Simple GUI"
+            appIconUrl="/api/self/icons/32"
+            deployMode="local"
+            launcherSlot="header"
+            uiPrefsConfig={uiPrefsConfig}
+            main={<AppRoutes />}
+          />
+        </SuiteSiblingsProvider>
+      </ConfigProvider>
     </BrowserRouter>
   );
 }
