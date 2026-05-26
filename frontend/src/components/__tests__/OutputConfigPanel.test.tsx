@@ -38,5 +38,8 @@ it("emits change when path is typed in specified mode", () => {
   );
   const input = screen.getByTestId("output-specified-path");
   fireEvent.change(input, { target: { value: "/out" } });
-  expect(onChange).toHaveBeenLastCalledWith({ mode: "specified", path: "/out" });
+  expect(onChange).toHaveBeenLastCalledWith({
+    mode: "specified",
+    path: "/out",
+  });
 });

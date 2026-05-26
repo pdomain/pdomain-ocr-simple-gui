@@ -57,6 +57,7 @@ function makeJobStatus(
   state: "queued" | "running" | "succeeded" | "failed" | "cancelled",
   pagesDone = 0,
   pageCount = 3,
+  outputMode?: "next_to_source" | "specified" | "managed",
 ) {
   return {
     project_id: "proj-abc",
@@ -65,6 +66,7 @@ function makeJobStatus(
     pages_done: pagesDone,
     page_count: pageCount,
     output_dir: "/tmp/out",
+    output_mode: outputMode,
     pages: [
       {
         page_idx: 0,
@@ -361,5 +363,66 @@ describe("ResultsPage", () => {
     await waitFor(() => {
       expect(fetchCount).toBeGreaterThan(countBeforeRerun);
     });
+  });
+
+  // A7.2: download button tests
+  it("shows download button when output_mode is managed and state is succeeded", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => makeJobStatus("succeeded", 3, 3, "managed"),
+    });
+    render(
+      <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
+        <Routes>
+          <Route path="/jobs/:id" element={<ResultsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("download-results-button")).toBeInTheDocument();
+    });
+  });
+
+  it("hides download button when output_mode is next_to_source", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => makeJobStatus("succeeded", 3, 3, "next_to_source"),
+    });
+    render(
+      <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
+        <Routes>
+          <Route path="/jobs/:id" element={<ResultsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("test-project")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByTestId("download-results-button"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides download button when state is not succeeded", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => makeJobStatus("running", 1, 3, "managed"),
+    });
+    render(
+      <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
+        <Routes>
+          <Route path="/jobs/:id" element={<ResultsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("progress-bar")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByTestId("download-results-button"),
+    ).not.toBeInTheDocument();
   });
 });

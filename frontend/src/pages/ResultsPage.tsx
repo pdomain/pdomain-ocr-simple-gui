@@ -1,5 +1,6 @@
 // Results page — M4 task #230, M6 task #233
 // Screen 3: live polling job status + page list
+// A7.2: download button for managed output mode.
 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -9,6 +10,7 @@ import {
   Button,
 } from "@concavetrillion/pd-ui/primitives";
 import type { JobState } from "@concavetrillion/pd-ui/types";
+import { APP_TEST_IDS } from "../lib/testids";
 
 interface PageRow {
   page_idx: number;
@@ -24,6 +26,8 @@ interface JobStatus {
   pages_done: number;
   page_count: number;
   output_dir?: string;
+  /** A7.2: output_mode returned by the backend when set at job creation. */
+  output_mode?: "next_to_source" | "specified" | "managed";
   pages?: PageRow[];
 }
 
@@ -130,10 +134,19 @@ export default function ResultsPage() {
     );
   }
 
-  const { name, state, pages_done, page_count, output_dir, pages } = jobStatus;
+  const {
+    name,
+    state,
+    pages_done,
+    page_count,
+    output_dir,
+    output_mode,
+    pages,
+  } = jobStatus;
   const progressValue =
     page_count > 0 ? Math.round((pages_done / page_count) * 100) : 0;
   const isRunning = state === "queued" || state === "running";
+  const showDownload = state === "succeeded" && output_mode === "managed";
 
   return (
     <div data-testid="results-page" className="results-page">
@@ -152,6 +165,19 @@ export default function ResultsPage() {
           <p className="results-page__progress-label">
             {pages_done} / {page_count} pages complete
           </p>
+        </div>
+      )}
+
+      {showDownload && (
+        <div className="results-page__download">
+          <Button
+            data-testid={APP_TEST_IDS.downloadResultsButton}
+            onClick={() => {
+              window.location.assign(`/api/jobs/${id ?? ""}/download`);
+            }}
+          >
+            Download results (.zip)
+          </Button>
         </div>
       )}
 

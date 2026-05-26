@@ -11,10 +11,7 @@ import {
   Field,
 } from "@concavetrillion/pd-ui/primitives";
 import type { BaseJobConfig } from "@concavetrillion/pd-ui/primitives";
-import {
-  OutputConfigPanel,
-  type OutputConfigValue,
-} from "./OutputConfigPanel";
+import { OutputConfigPanel, type OutputConfigValue } from "./OutputConfigPanel";
 
 interface PrefsResponse {
   engine?: string;
