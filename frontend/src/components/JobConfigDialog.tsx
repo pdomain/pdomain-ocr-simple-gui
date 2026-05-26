@@ -12,6 +12,7 @@ import {
 } from "@concavetrillion/pd-ui/primitives";
 import type { BaseJobConfig } from "@concavetrillion/pd-ui/primitives";
 import { OutputConfigPanel, type OutputConfigValue } from "./OutputConfigPanel";
+import { APP_TEST_IDS } from "../lib/testids";
 
 interface PrefsResponse {
   engine?: string;
@@ -153,7 +154,7 @@ export function JobConfigDialog({
           }
           className="input"
           aria-label="Engine"
-          data-testid="engine-select"
+          data-testid={APP_TEST_IDS.engineSelect}
         >
           <option value="doctr">DocTR</option>
           <option value="tesseract">Tesseract</option>
@@ -170,7 +171,7 @@ export function JobConfigDialog({
             setLanguage(e.target.value)
           }
           placeholder="en"
-          data-testid="language-input"
+          data-testid={APP_TEST_IDS.languageInput}
         />
       </Field>
 

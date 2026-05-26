@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { JobStatusPip } from "@concavetrillion/pd-ui/primitives";
 import type { JobState } from "@concavetrillion/pd-ui/types";
+import { APP_TEST_IDS } from "../lib/testids";
 
 interface RecentProject {
   project_id: string;
@@ -62,7 +63,7 @@ export function RecentProjectsList() {
 
   if (loading) {
     return (
-      <div data-testid="recent-projects-list" className="recent-projects">
+      <div data-testid={APP_TEST_IDS.recentProjectsList} className="recent-projects">
         <p className="recent-projects__loading">Loading…</p>
       </div>
     );
@@ -72,14 +73,14 @@ export function RecentProjectsList() {
 
   if (displayedProjects.length === 0) {
     return (
-      <div data-testid="recent-projects-list" className="recent-projects">
+      <div data-testid={APP_TEST_IDS.recentProjectsList} className="recent-projects">
         <p className="recent-projects__empty">No recent projects</p>
       </div>
     );
   }
 
   return (
-    <div data-testid="recent-projects-list" className="recent-projects">
+    <div data-testid={APP_TEST_IDS.recentProjectsList} className="recent-projects">
       <table className="jobs-table" aria-label="Recent projects">
         <thead>
           <tr>

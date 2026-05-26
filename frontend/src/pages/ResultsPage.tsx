@@ -118,7 +118,7 @@ export default function ResultsPage() {
 
   if (loading) {
     return (
-      <div data-testid="results-page" className="results-page">
+      <div data-testid={APP_TEST_IDS.resultsPage} className="results-page">
         <p className="results-page__loading">Loading…</p>
       </div>
     );
@@ -126,7 +126,7 @@ export default function ResultsPage() {
 
   if (fetchError || !jobStatus) {
     return (
-      <div data-testid="results-page" className="results-page">
+      <div data-testid={APP_TEST_IDS.resultsPage} className="results-page">
         <p role="alert" className="results-page__error">
           {fetchError ?? "Job not found."}
         </p>
@@ -149,7 +149,7 @@ export default function ResultsPage() {
   const showDownload = state === "succeeded" && output_mode === "managed";
 
   return (
-    <div data-testid="results-page" className="results-page">
+    <div data-testid={APP_TEST_IDS.resultsPage} className="results-page">
       <header className="results-page__header">
         <h1 className="results-page__title">{name}</h1>
         <JobStatusPip state={state} />
@@ -219,7 +219,7 @@ export default function ResultsPage() {
                 style={{ cursor: "pointer" }}
                 tabIndex={0}
                 role="row"
-                data-testid="page-row"
+                data-testid={APP_TEST_IDS.pageRow}
                 onClick={() =>
                   navigate(`/jobs/${id ?? ""}/pages/${page.page_idx}`)
                 }
