@@ -323,7 +323,10 @@ export default function PageViewPage() {
   // PageImageCanvas is a Konva canvas and does not propagate arbitrary
   // data-* props to the DOM — the wrapper is the observable element.
   const canvasContent = !loading ? (
-    <div data-testid={APP_TEST_IDS.pageImageCanvas} data-word-count={String(words.length)}>
+    <div
+      data-testid={APP_TEST_IDS.pageImageCanvas}
+      data-word-count={String(words.length)}
+    >
       <PageImageCanvas src={imageSrc} page={canvasPage} words={words} />
     </div>
   ) : null;
@@ -341,7 +344,10 @@ export default function PageViewPage() {
   );
 
   return (
-    <div data-testid={APP_TEST_IDS.pageViewPage} className="page-split-view-wrapper">
+    <div
+      data-testid={APP_TEST_IDS.pageViewPage}
+      className="page-split-view-wrapper"
+    >
       <PageSplitView
         toolbar={toolbarContent}
         canvas={canvasContent}

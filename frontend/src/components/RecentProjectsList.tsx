@@ -69,7 +69,10 @@ export function RecentProjectsList() {
 
   if (loading) {
     return (
-      <div data-testid={APP_TEST_IDS.recentProjectsList} className="recent-projects">
+      <div
+        data-testid={APP_TEST_IDS.recentProjectsList}
+        className="recent-projects"
+      >
         <p className="recent-projects__loading">Loading…</p>
       </div>
     );
@@ -79,14 +82,20 @@ export function RecentProjectsList() {
 
   if (displayedProjects.length === 0) {
     return (
-      <div data-testid={APP_TEST_IDS.recentProjectsList} className="recent-projects">
+      <div
+        data-testid={APP_TEST_IDS.recentProjectsList}
+        className="recent-projects"
+      >
         <p className="recent-projects__empty">No recent projects</p>
       </div>
     );
   }
 
   return (
-    <div data-testid={APP_TEST_IDS.recentProjectsList} className="recent-projects">
+    <div
+      data-testid={APP_TEST_IDS.recentProjectsList}
+      className="recent-projects"
+    >
       <table className="jobs-table" aria-label="Recent projects">
         <thead>
           <tr>
