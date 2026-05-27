@@ -185,12 +185,6 @@ export default function ResultsPage() {
 
       {state === "succeeded" && output_dir && (
         <div className="results-page__actions">
-          <a
-            href={`file://${output_dir}`}
-            className="results-page__open-folder"
-          >
-            Open folder
-          </a>
           <Button
             variant="ghost"
             data-testid={APP_TEST_IDS.copyPathButton}
