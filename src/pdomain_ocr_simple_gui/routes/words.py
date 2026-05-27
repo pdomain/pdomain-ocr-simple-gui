@@ -57,6 +57,54 @@ class WordsResponse(BaseModel):
     words: list[Word]
 
 
+def _read_prebaked_words(page_dict: JsonObject) -> list[dict[str, object]] | None:
+    """Return the flat ``words`` array baked into the sidecar by the pipeline.
+
+    The pipeline (``build_sidecar_payload``) now writes a normalized
+    ``words: [{text, bbox: {x, y, w, h}, confidence}]`` list at the top of
+    each sidecar.  When present and well-formed, prefer it over walking
+    the recursive tree.  Returns ``None`` when the key is absent or the
+    shape doesn't validate (older sidecars), so the caller can fall back.
+    """
+    raw = page_dict.get("words")
+    if not isinstance(raw, list):
+        return None
+    out: list[dict[str, object]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            return None
+        text = item.get("text")
+        bbox = item.get("bbox")
+        conf = item.get("confidence")
+        if not isinstance(text, str) or not isinstance(bbox, dict):
+            return None
+        bx = bbox.get("x")
+        by = bbox.get("y")
+        bw = bbox.get("w")
+        bh = bbox.get("h")
+        if not (
+            isinstance(bx, (int, float))
+            and isinstance(by, (int, float))
+            and isinstance(bw, (int, float))
+            and isinstance(bh, (int, float))
+        ):
+            return None
+        confidence = float(conf) if isinstance(conf, (int, float)) else 0.0
+        out.append(
+            {
+                "text": text,
+                "bbox": {
+                    "x": float(bx),
+                    "y": float(by),
+                    "w": float(bw),
+                    "h": float(bh),
+                },
+                "confidence": confidence,
+            }
+        )
+    return out
+
+
 def _extract_words_from_page_dict(page_dict: JsonObject) -> list[dict[str, object]]:
     """Walk a DocTR Page.export() dict and return a flat list of word dicts.
 
@@ -157,6 +205,12 @@ def load_page_words(job_id: str, idx: int) -> Iterable[dict[str, object]] | None
         sidecar = read_page_sidecar(spec, idx)
     except FileNotFoundError:
         return None
+    # Prefer the normalized flat ``words`` baked into the sidecar by the
+    # pipeline; fall back to the DocTR-shaped walker for older sidecars
+    # written before the build_sidecar_payload helper landed.
+    prebaked = _read_prebaked_words(sidecar)
+    if prebaked is not None:
+        return prebaked
     return _extract_words_from_page_dict(sidecar)
 
 

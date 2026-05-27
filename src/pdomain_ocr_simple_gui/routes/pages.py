@@ -12,7 +12,12 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from pdomain_ocr_simple_gui.models import PageResponse, PageResult, ProjectSpec
-from pdomain_ocr_simple_gui.pipeline import JsonObject, extract_text, first_page_dict
+from pdomain_ocr_simple_gui.pipeline import (
+    JsonObject,
+    build_sidecar_payload,
+    extract_text,
+    first_page_dict,
+)
 from pdomain_ocr_simple_gui.storage import (
     read_page_sidecar,
     read_project,
@@ -78,7 +83,16 @@ async def get_page(project_id: str, page_idx: int) -> PageResponse:
     # Read sidecar for text/dimensions (best-effort)
     sidecar = _read_sidecar(spec, page_idx)
 
-    text = _json_str(sidecar.get("edited_text")) or _json_str(sidecar.get("text")) or ""
+    text = (
+        _json_str(sidecar.get("edited_text"))
+        or _json_str(sidecar.get("text"))
+        # Older jobs (pre-build_sidecar_payload) wrote a DocTR Page.to_dict()
+        # tree without a top-level "text" key.  Fall back to the page
+        # text_preview baked into status.json so the editor pane isn't blank
+        # while the user re-runs to refresh the sidecar.
+        or page_entry.text_preview
+        or ""
+    )
     width = _json_int(sidecar.get("width"), default=800)
     height = _json_int(sidecar.get("height"), default=1200)
 
@@ -204,8 +218,9 @@ async def rerun_page(project_id: str, page_idx: int) -> PageResult:
         page_dict = first_page_dict(stage_result.metadata)
         text = extract_text(page_dict)
 
-        # Augment the sidecar with the extracted text so GET /api/pages can surface it
-        sidecar_data: JsonObject = {**page_dict, "text": text}
+        # Augment the sidecar with text + normalized words list so GET
+        # /api/pages and /words can surface them without re-walking the tree.
+        sidecar_data: JsonObject = build_sidecar_payload(page_dict, text)
         write_page_sidecar(spec, page_idx, sidecar_data)
         write_txt(spec, page_idx, text)
 

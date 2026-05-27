@@ -4,7 +4,7 @@
 // A8: word overlay fetch wired to ArtifactViewer with WordBbox overlays
 // feat/adopt-richer-primitives: replaced PageImageCanvas with ArtifactViewer
 
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArtifactViewer } from "@pdomain/pdomain-ui/stages/PageWorkbench";
@@ -19,6 +19,10 @@ import {
   PageSplitView,
 } from "@pdomain/pdomain-ui/primitives";
 import { APP_TEST_IDS } from "../lib/testids";
+import {
+  PageViewerWithZoom,
+  type ZoomHandle,
+} from "../components/PageViewerWithZoom";
 
 interface PageData {
   page_idx: number;
@@ -77,6 +81,7 @@ export default function PageViewPage() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving">("idle");
   const [rerunStatus, setRerunStatus] = useState<"idle" | "running">("idle");
   const [wordBboxes, setWordBboxes] = useState<WordBbox[]>([]);
+  const zoomRef = useRef<ZoomHandle | null>(null);
 
   // Load job status to know total page count
   useEffect(() => {
@@ -237,6 +242,41 @@ export default function PageViewPage() {
         {saveStatus === "saving" ? "Saving…" : "Save edits"}
       </Button>
 
+      <span aria-hidden="true" className="page-view-page__spacer" />
+
+      <Button
+        variant="ghost"
+        onClick={() => zoomRef.current?.zoomOut()}
+        aria-label="Zoom out"
+        data-testid={APP_TEST_IDS.pageZoomOut}
+      >
+        −
+      </Button>
+      <Button
+        variant="ghost"
+        onClick={() => zoomRef.current?.zoomIn()}
+        aria-label="Zoom in"
+        data-testid={APP_TEST_IDS.pageZoomIn}
+      >
+        +
+      </Button>
+      <Button
+        variant="ghost"
+        onClick={() => zoomRef.current?.fit()}
+        aria-label="Fit page to viewport"
+        data-testid={APP_TEST_IDS.pageZoomFit}
+      >
+        Fit
+      </Button>
+      <Button
+        variant="ghost"
+        onClick={() => zoomRef.current?.reset100()}
+        aria-label="Zoom to 100%"
+        data-testid={APP_TEST_IDS.pageZoom100}
+      >
+        100%
+      </Button>
+
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -274,14 +314,21 @@ export default function PageViewPage() {
     <div
       data-testid={APP_TEST_IDS.pageImageCanvas}
       data-word-count={String(wordBboxes.length)}
+      style={{ width: "100%", height: "100%" }}
     >
-      <ArtifactViewer
-        imageSrc={imageSrc}
+      <PageViewerWithZoom
+        ref={zoomRef}
         pageWidth={pageWidth}
         pageHeight={pageHeight}
-        overlayMode="words"
-        wordBboxes={wordBboxes}
-      />
+      >
+        <ArtifactViewer
+          imageSrc={imageSrc}
+          pageWidth={pageWidth}
+          pageHeight={pageHeight}
+          overlayMode="words"
+          wordBboxes={wordBboxes}
+        />
+      </PageViewerWithZoom>
     </div>
   ) : null;
 

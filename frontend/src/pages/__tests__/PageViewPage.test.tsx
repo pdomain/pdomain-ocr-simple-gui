@@ -1,5 +1,5 @@
 // Tests for PageViewPage A8 — word overlay wiring
-import { render, waitFor } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 // Mock @pdomain/pdomain-ui/stages/PageWorkbench — ArtifactViewer uses Konva
@@ -134,6 +134,73 @@ it("passes fetched words to PageImageCanvas", async () => {
     const canvas = container.querySelector('[data-testid="page-image-canvas"]');
     expect(canvas).not.toBeNull();
     expect(canvas?.getAttribute("data-word-count")).toBe("1");
+  });
+});
+
+function _stubFetch(words: unknown[] = []) {
+  globalThis.fetch = (async (url: string) => {
+    if ((url as string).endsWith("/words")) {
+      return { ok: true, json: async () => ({ words }) };
+    }
+    return {
+      ok: true,
+      json: async () => ({
+        page_idx: 0,
+        page_name: "page-001.png",
+        state: "succeeded",
+        text: "",
+        width: 800,
+        height: 1200,
+        project_id: "job-1",
+        name: "Test",
+        page_count: 1,
+      }),
+    };
+  }) as unknown as typeof fetch;
+}
+
+it("renders zoom toolbar with +/-/Fit/100% buttons", async () => {
+  _stubFetch();
+  const { findByTestId } = renderWithRoute("job-1", 0);
+  expect(await findByTestId("page-zoom-in")).toBeTruthy();
+  expect(await findByTestId("page-zoom-out")).toBeTruthy();
+  expect(await findByTestId("page-zoom-fit")).toBeTruthy();
+  expect(await findByTestId("page-zoom-100")).toBeTruthy();
+});
+
+it("Fit returns the viewer to auto-fit after zooming in", async () => {
+  _stubFetch();
+  const { findByTestId } = renderWithRoute("job-1", 0);
+  const zoomIn = await findByTestId("page-zoom-in");
+  const fit = await findByTestId("page-zoom-fit");
+  const viewport = await findByTestId("page-zoom-viewport");
+  // Zoom in twice → manual override, autoFit=false
+  await act(async () => {
+    zoomIn.click();
+    zoomIn.click();
+  });
+  await waitFor(() => {
+    expect(viewport.getAttribute("data-auto-fit")).toBe("false");
+  });
+  // Hit Fit → autoFit re-engaged
+  await act(async () => {
+    fit.click();
+  });
+  await waitFor(() => {
+    expect(viewport.getAttribute("data-auto-fit")).toBe("true");
+  });
+});
+
+it("100% sets zoom to native 1.0", async () => {
+  _stubFetch();
+  const { findByTestId } = renderWithRoute("job-1", 0);
+  const hundred = await findByTestId("page-zoom-100");
+  await act(async () => {
+    hundred.click();
+  });
+  const viewport = await findByTestId("page-zoom-viewport");
+  await waitFor(() => {
+    expect(viewport.getAttribute("data-zoom")).toBe("1.0000");
   });
 });
 
