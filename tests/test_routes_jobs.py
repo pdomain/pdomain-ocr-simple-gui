@@ -178,7 +178,7 @@ class TestPipelineIntegration:
 
     async def test_dispatcher_passed_to_run_project(self, client_with_source) -> None:
         """run_project receives a LocalStageDispatcher instance."""
-        from pdomain_ocr_ops.gpu import LocalStageDispatcher
+        from pdomain_ops.gpu import LocalStageDispatcher
 
         client, source_path = client_with_source
         received_dispatchers: list = []

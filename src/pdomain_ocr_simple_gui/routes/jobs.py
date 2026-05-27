@@ -141,7 +141,7 @@ def _build_source_and_flags(body: CreateJobRequest, mode: Mode) -> tuple[str, bo
 
 async def _pipeline_run_job(spec: ProjectSpec) -> None:
     """Background task: run OCR pipeline for the given project spec."""
-    from pdomain_ocr_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
+    from pdomain_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
 
     from pdomain_ocr_simple_gui.app import get_dispatcher
 

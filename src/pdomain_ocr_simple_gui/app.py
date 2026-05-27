@@ -16,10 +16,10 @@ from fastapi.staticfiles import StaticFiles
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 
-    from pdomain_ocr_ops.gpu.local_stage import (
+    from pdomain_ops.gpu.local_stage import (
         LocalStageDispatcher,  # pyright: ignore[reportMissingTypeStubs]
     )
-    from pdomain_ocr_ops.suite.prefs import PrefsAdapter  # pyright: ignore[reportMissingTypeStubs]
+    from pdomain_ops.suite.prefs import PrefsAdapter  # pyright: ignore[reportMissingTypeStubs]
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _ = app
     global _prefs_adapter, _dispatcher  # noqa: PLW0603  # module-level singletons for FastAPI lifespan
     try:
-        from pdomain_ocr_ops.suite.prefs import LocalFilePrefs  # pyright: ignore[reportMissingTypeStubs]
+        from pdomain_ops.suite.prefs import LocalFilePrefs  # pyright: ignore[reportMissingTypeStubs]
 
         _prefs_adapter = LocalFilePrefs()
     except Exception:  # optional prefs integration — app runs without it
@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         )
         _prefs_adapter = None
     try:
-        from pdomain_ocr_ops.gpu import (  # pyright: ignore[reportMissingTypeStubs]
+        from pdomain_ops.gpu import (  # pyright: ignore[reportMissingTypeStubs]
             LocalStageDispatcher,
             register_default_stages,
         )
@@ -69,12 +69,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             "register_default_stages() failed; falling back to bare LocalStageDispatcher",
             extra={"context": "register_default_stages(_dispatcher)"},
         )
-        from pdomain_ocr_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
+        from pdomain_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
 
         _dispatcher = LocalStageDispatcher()
     # Register this app with the suite registry (best-effort — never crash on failure)
     try:
-        from pdomain_ocr_ops.suite import register_self  # pyright: ignore[reportMissingTypeStubs]
+        from pdomain_ops.suite import register_self  # pyright: ignore[reportMissingTypeStubs]
 
         _port: int | None = _actual_port if _actual_port else None
         register_self(  # pyright: ignore[reportMissingTypeStubs]
@@ -132,7 +132,7 @@ def create_app() -> FastAPI:
 
     # Mount suite plumbing routes (/api/suite/*, /api/icons/*, /healthz)
     try:
-        from pdomain_ocr_ops.suite.routes import (  # pyright: ignore[reportMissingTypeStubs]
+        from pdomain_ops.suite.routes import (  # pyright: ignore[reportMissingTypeStubs]
             mount_routes as _mount_suite_routes,
         )
 

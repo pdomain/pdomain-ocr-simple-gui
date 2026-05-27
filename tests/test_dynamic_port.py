@@ -16,7 +16,7 @@ class TestDynamicPortCLI:
 
         mock_run = MagicMock()
         with (
-            patch("pdomain_ocr_ops.suite.find_available_port", return_value=8007),
+            patch("pdomain_ops.suite.find_available_port", return_value=8007),
             patch("uvicorn.run", mock_run),
             patch.object(sys, "argv", ["pdomain-ocr-simple-gui"]),
         ):
@@ -35,7 +35,7 @@ class TestDynamicPortCLI:
         def _fake_register(**kwargs: object) -> None:
             actual_calls.append(dict(kwargs))
 
-        with patch("pdomain_ocr_ops.suite.register_self", _fake_register):
+        with patch("pdomain_ops.suite.register_self", _fake_register):
             # Trigger lifespan by starting/stopping the app
             import asyncio
 
@@ -63,7 +63,7 @@ class TestDynamicPortCLI:
 
         mock_run = MagicMock()
         with (
-            patch("pdomain_ocr_ops.suite.find_available_port", _fake_find),
+            patch("pdomain_ops.suite.find_available_port", _fake_find),
             patch("uvicorn.run", mock_run),
             patch.dict(os.environ, {"PD_OCR_SIMPLE_GUI_PORT": "9001"}, clear=False),
             patch.object(sys, "argv", ["pdomain-ocr-simple-gui"]),
@@ -84,7 +84,7 @@ class TestDynamicPortCLI:
 
         mock_run = MagicMock()
         with (
-            patch("pdomain_ocr_ops.suite.find_available_port", _fake_find),
+            patch("pdomain_ops.suite.find_available_port", _fake_find),
             patch("uvicorn.run", mock_run),
             patch.object(sys, "argv", ["pdomain-ocr-simple-gui", "--port", "8010"]),
         ):
@@ -98,7 +98,7 @@ class TestDynamicPortCLI:
 
         mock_run = MagicMock()
         with (
-            patch("pdomain_ocr_ops.suite.find_available_port", return_value=8005),
+            patch("pdomain_ops.suite.find_available_port", return_value=8005),
             patch("uvicorn.run", mock_run),
             patch.object(sys, "argv", ["pdomain-ocr-simple-gui"]),
         ):
@@ -115,20 +115,20 @@ class TestRegisterSelfActualPort:
     """Verify register_self import path includes actual_port parameter."""
 
     def test_register_self_is_importable(self) -> None:
-        """register_self is importable from pdomain_ocr_ops.suite."""
-        from pdomain_ocr_ops.suite import register_self
+        """register_self is importable from pdomain_ops.suite."""
+        from pdomain_ops.suite import register_self
 
         assert callable(register_self)
 
     def test_find_available_port_is_importable(self) -> None:
-        """find_available_port is importable from pdomain_ocr_ops.suite."""
-        from pdomain_ocr_ops.suite import find_available_port
+        """find_available_port is importable from pdomain_ops.suite."""
+        from pdomain_ops.suite import find_available_port
 
         assert callable(find_available_port)
 
     def test_find_available_port_returns_int(self) -> None:
         """find_available_port(8004) returns an integer port."""
-        from pdomain_ocr_ops.suite import find_available_port
+        from pdomain_ops.suite import find_available_port
 
         port = find_available_port(8004)
         assert isinstance(port, int)

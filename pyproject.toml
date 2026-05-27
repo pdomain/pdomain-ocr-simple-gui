@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "pdomain-ocr-simple-gui"
 dynamic = ["version"]
-description = "Drag-and-drop OCR app — reference consumer of pdomain-ocr-ops LocalStageDispatcher"
+description = "Drag-and-drop OCR app — reference consumer of pdomain-ops LocalStageDispatcher"
 authors = [
     { name = "CT", email = "concavetrillion@gmail.com" }
 ]
@@ -14,7 +14,7 @@ license = { text = "Unlicense" }
 requires-python = ">=3.11"
 dependencies = [
     "pdomain-book-tools>=0.14.1",
-    "pdomain-ocr-ops>=0.2.4",
+    "pdomain-ops>=0.3.0",
     "fastapi>=0.111",
     "uvicorn[standard]>=0.29",
     "pydantic>=2.7",
@@ -54,7 +54,7 @@ explicit = true
 
 [tool.uv.sources]
 pdomain-book-tools = { index = "pdomain-index-pip" }
-pdomain-ocr-ops = { path = "/workspaces/ocr-container/pdomain-ocr-ops", editable = true }
+pdomain-ops = { path = "/workspaces/ocr-container/pdomain-ops", editable = true }
 
 [tool.hatch.version]
 source = "vcs"

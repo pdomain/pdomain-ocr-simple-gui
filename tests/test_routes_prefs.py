@@ -13,7 +13,7 @@ from pdomain_ocr_simple_gui.app import app
 
 def _make_mock_adapter(app_data: dict[str, Any] | None = None) -> MagicMock:
     """Build a mock PrefsAdapter that returns app_data for pdomain-ocr-simple-gui."""
-    from pdomain_ocr_ops.suite.types import UIPrefs
+    from pdomain_ops.suite.types import UIPrefs
 
     mock = MagicMock()
     ui_prefs = UIPrefs()

@@ -78,7 +78,7 @@ class TestRegisterSelf:
         def _fake_register_self(**kwargs: object) -> None:
             call_log.append(kwargs.get("_caller_package", "auto") or "auto")
 
-        with patch("pdomain_ocr_ops.suite.register_self", _fake_register_self):
+        with patch("pdomain_ops.suite.register_self", _fake_register_self):
             # Import the lifespan setup to verify the call would happen
             # (we check the app module sources the correct import path)
             import inspect
@@ -89,8 +89,8 @@ class TestRegisterSelf:
             assert "register_self" in src
 
     def test_register_self_is_importable(self) -> None:
-        """register_self is importable from pdomain_ocr_ops.suite."""
-        from pdomain_ocr_ops.suite import register_self
+        """register_self is importable from pdomain_ops.suite."""
+        from pdomain_ops.suite import register_self
 
         assert callable(register_self)
 
