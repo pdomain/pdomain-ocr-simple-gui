@@ -195,6 +195,35 @@ class TestPipelineIntegration:
         assert len(received_dispatchers) == 1
         assert isinstance(received_dispatchers[0], LocalStageDispatcher)
 
+    async def test_zero_supported_images_marks_job_failed(self, tmp_path, monkeypatch) -> None:
+        """A source with no supported image extensions must fail loudly.
+
+        Previously this silently wrote state='succeeded' with page_count=0,
+        which hid real bugs (e.g., dropped JPEG 2000 input) from the user.
+        """
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+
+        # Source dir with only unsupported file types
+        src = tmp_path / "empty-source"
+        src.mkdir()
+        (src / "readme.txt").write_text("nothing to see")
+        (src / "noise.bmp").write_bytes(b"BM")
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.post("/api/jobs", json={**JOB_PAYLOAD, "source_path": str(src)})
+            assert resp.status_code == 202
+            project_id = resp.json()["project_id"]
+            get_resp = await ac.get(f"/api/jobs/{project_id}")
+
+        data = get_resp.json()
+        assert data["state"] == "failed", f"expected failed, got {data['state']}: {data}"
+        assert data["page_count"] == 0
+        # Error message mentions supported types
+        err = data.get("error") or ""
+        assert "supported" in err.lower(), f"expected supported-types hint in error, got {err!r}"
+
 
 class TestCanonicalJobStates:
     """Verify that the API always emits pdomain-ops canonical state values.

@@ -23,7 +23,21 @@ if TYPE_CHECKING:
     from pdomain_ocr_simple_gui.models import ProjectSpec, ProjectStatus
 
 # Image extensions we recognise (case-insensitive).
-_IMAGE_SUFFIXES: frozenset[str] = frozenset({".png", ".jpg", ".jpeg", ".tiff", ".tif"})
+_IMAGE_SUFFIXES: frozenset[str] = frozenset(
+    {
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".tiff",
+        ".tif",
+        # JPEG 2000 family — Pillow handles via OpenJPEG.
+        ".jp2",
+        ".j2k",
+        ".jpf",
+        ".jpx",
+        ".jpm",
+    }
+)
 
 JsonPrimitive: TypeAlias = str | int | float | bool | None
 JsonValue: TypeAlias = JsonPrimitive | list["JsonValue"] | dict[str, "JsonValue"]
