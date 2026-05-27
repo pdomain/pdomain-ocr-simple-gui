@@ -27,4 +27,9 @@ export const APP_TEST_IDS = {
   recentProjectsList: "recent-projects-list",
   engineSelect: "engine-select",
   languageInput: "language-input",
+  pageZoomIn: "page-zoom-in",
+  pageZoomOut: "page-zoom-out",
+  pageZoomFit: "page-zoom-fit",
+  pageZoom100: "page-zoom-100",
+  pageZoomViewport: "page-zoom-viewport",
 } as const;

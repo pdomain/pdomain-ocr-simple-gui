@@ -149,6 +149,73 @@ def write_combined_txt(spec: ProjectSpec, status: ProjectStatus) -> None:
     _ = (get_project_dir(spec.project_id) / "combined.txt").write_text(combined)
 
 
+# Match anything that looks like a filesystem-unsafe character; collapsed to "_".
+_UNSAFE_FS_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def _safe_filename_stem(name: str, fallback: str) -> str:
+    """Return a filesystem-safe stem derived from *name*, or *fallback*.
+
+    Used to name the combined-text output file in ``spec.output_dir``.
+    """
+    cleaned = _UNSAFE_FS_CHARS.sub("_", name).strip("._-")
+    return cleaned or fallback
+
+
+def _output_dir(spec: ProjectSpec) -> Path | None:
+    """Return spec.output_dir as a Path, or None when not configured."""
+    if not spec.output_dir:
+        return None
+    return Path(spec.output_dir)
+
+
+def write_output_page_files(
+    spec: ProjectSpec,
+    idx: int,
+    page_name: str,
+    text: str,
+    sidecar_payload: JSONObject | None,
+) -> None:
+    """Mirror per-page outputs into ``spec.output_dir``.
+
+    Always writes ``<output_dir>/<page_stem>.txt``.  When
+    *sidecar_payload* is non-None (i.e. ``spec.save_json`` was set),
+    additionally writes ``<output_dir>/<page_stem>.json``.  No-op when
+    ``spec.output_dir`` is empty.
+    """
+    _ = idx  # kept for future per-index disambiguation; signature stays stable
+    out = _output_dir(spec)
+    if out is None:
+        return
+    out.mkdir(parents=True, exist_ok=True)
+    stem = Path(page_name).stem or page_name
+    (out / f"{stem}.txt").write_text(text, encoding="utf-8")
+    if sidecar_payload is not None:
+        (out / f"{stem}.json").write_text(json.dumps(sidecar_payload, indent=2), encoding="utf-8")
+
+
+def write_output_combined_txt(spec: ProjectSpec, status: ProjectStatus) -> None:
+    """Write the combined per-project ``.txt`` into ``spec.output_dir``.
+
+    Filename is derived from ``spec.name`` (filesystem-sanitised); falls back
+    to ``combined.txt`` when the spec name is empty or sanitises to empty.
+    No-op when ``spec.output_dir`` is empty.
+    """
+    out = _output_dir(spec)
+    if out is None:
+        return
+    out.mkdir(parents=True, exist_ok=True)
+    pages_dir = _pages_dir(spec)
+    parts: list[str] = []
+    for page in sorted(status.pages, key=lambda p: p.page_idx):
+        txt_path = pages_dir / f"{page.page_name}.txt"
+        if txt_path.exists():
+            parts.append(txt_path.read_text())
+    combined = "\n\n".join(parts)
+    stem = _safe_filename_stem(spec.name, "combined")
+    (out / f"{stem}.txt").write_text(combined, encoding="utf-8")
+
+
 def list_projects() -> list[tuple[ProjectSpec, ProjectStatus]]:
     """Return all known projects from the projects root."""
     root = _projects_root()

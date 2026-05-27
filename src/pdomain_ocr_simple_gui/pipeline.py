@@ -92,6 +92,117 @@ def first_page_dict(metadata: Mapping[str, object]) -> JsonObject:
     return pages_list[0] if pages_list else {}
 
 
+def _bbox_xywh_from_bounding_box(bb: object) -> JsonObject | None:
+    """Convert a pdomain-book-tools bounding_box dict to {x, y, w, h} normalized.
+
+    Source shape::
+
+        {
+            "top_left":     {"x": float, "y": float, "is_normalized": bool},
+            "bottom_right": {"x": float, "y": float, "is_normalized": bool},
+            "is_normalized": bool,
+        }
+
+    Returns ``None`` when the shape isn't recognisable.  ``is_normalized``
+    is treated as true by default — these come from DocTR which always
+    emits normalized geometry; we currently have no pixel-space fallback.
+    """
+    obj = _json_object_or_none(bb)
+    if obj is None:
+        return None
+    tl = _json_object_or_none(obj.get("top_left"))
+    br = _json_object_or_none(obj.get("bottom_right"))
+    if tl is None or br is None:
+        return None
+    tl_x = tl.get("x")
+    tl_y = tl.get("y")
+    br_x = br.get("x")
+    br_y = br.get("y")
+    if not (
+        isinstance(tl_x, (int, float))
+        and isinstance(tl_y, (int, float))
+        and isinstance(br_x, (int, float))
+        and isinstance(br_y, (int, float))
+    ):
+        return None
+    return {
+        "x": float(tl_x),
+        "y": float(tl_y),
+        "w": float(br_x) - float(tl_x),
+        "h": float(br_y) - float(tl_y),
+    }
+
+
+def extract_words(page_dict: JsonObject) -> list[JsonObject]:
+    """Flatten a pdomain-book-tools ``Page.to_dict()`` tree to word records.
+
+    Walks the recursive ``Page → Block → … → Word`` tree (where ``Word``
+    nodes carry ``type == "Word"``, a ``text`` string, a ``bounding_box``
+    dict and an ``ocr_confidence`` float) and returns a flat list of::
+
+        {"text": str, "bbox": {"x": float, "y": float, "w": float, "h": float},
+         "confidence": float}
+
+    Coordinates are page-relative (0..1, top-left origin), matching what
+    ``WordBboxOverlay`` and ``/api/pages/{id}/{idx}/words`` already expect.
+    Words missing geometry are skipped — they can't be rendered as overlays.
+    """
+    results: list[JsonObject] = []
+
+    def _walk(node: JsonObject) -> None:
+        node_type = node.get("type")
+        if node_type == "Word":
+            text_value = node.get("text")
+            if not isinstance(text_value, str) or not text_value:
+                return
+            bbox = _bbox_xywh_from_bounding_box(node.get("bounding_box"))
+            if bbox is None:
+                return
+            conf_value = node.get("ocr_confidence")
+            confidence = float(conf_value) if isinstance(conf_value, (int, float)) else 0.0
+            results.append({"text": text_value, "bbox": bbox, "confidence": confidence})
+            return
+        items_value = node.get("items")
+        if not isinstance(items_value, list):
+            return
+        for item in items_value:
+            child = _json_object_or_none(item)
+            if child is not None:
+                _walk(child)
+
+    _walk(page_dict)
+    return results
+
+
+def _page_dimensions(page_dict: JsonObject) -> tuple[int, int]:
+    """Return (width, height) from a page dict, defaulting to (0, 0)."""
+    width_raw = page_dict.get("width")
+    height_raw = page_dict.get("height")
+    width = int(width_raw) if isinstance(width_raw, (int, float)) else 0
+    height = int(height_raw) if isinstance(height_raw, (int, float)) else 0
+    return width, height
+
+
+def build_sidecar_payload(page_dict: JsonObject, text: str) -> JsonObject:
+    """Wrap a raw ``Page.to_dict()`` with normalized top-level keys.
+
+    Adds ``text``, ``width``, ``height``, and a flat ``words`` array so that
+    consumers (``GET /api/pages/{id}/{idx}`` and ``/words``) don't need to
+    re-walk the recursive tree.  The original tree is preserved under the
+    same keys it shipped with — ``items``, ``bounding_box``, etc. — so a
+    full sidecar is still self-describing.
+    """
+    width, height = _page_dimensions(page_dict)
+    payload: JsonObject = dict(page_dict)
+    payload["text"] = text
+    if width:
+        payload["width"] = width
+    if height:
+        payload["height"] = height
+    payload["words"] = cast("JsonValue", extract_words(page_dict))
+    return payload
+
+
 async def collect_images(source_path: str) -> list[Path]:
     """Return a sorted list of image paths from *source_path*.
 
@@ -184,6 +295,8 @@ async def run_project(
         read_project,
         update_page_result,
         write_combined_txt,
+        write_output_combined_txt,
+        write_output_page_files,
         write_page_sidecar,
         write_project,
         write_txt,
@@ -226,8 +339,21 @@ async def run_project(
             page_dict = first_page_dict(stage_result.metadata)
             text = extract_text(page_dict)
 
-            write_page_sidecar(spec, idx, page_dict)
+            sidecar_payload = build_sidecar_payload(page_dict, text)
+            write_page_sidecar(spec, idx, sidecar_payload)
             write_txt(spec, idx, text)
+
+            # Mirror per-page artifacts into spec.output_dir so the user can
+            # download / browse them from the configured output location.
+            # save_json controls whether the JSON sidecar is mirrored; the
+            # .txt is always written (it's the primary user-visible output).
+            write_output_page_files(
+                spec,
+                idx,
+                img_path.name,
+                text,
+                sidecar_payload if spec.save_json else None,
+            )
 
             page_done = PageResult(
                 page_idx=idx,
@@ -266,3 +392,4 @@ async def run_project(
 
     if spec.combined_txt:
         write_combined_txt(spec, terminal_status)
+        write_output_combined_txt(spec, terminal_status)

@@ -7,7 +7,12 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
-from pdomain_ocr_simple_gui.pipeline import collect_images, run_project
+from pdomain_ocr_simple_gui.pipeline import (
+    build_sidecar_payload,
+    collect_images,
+    extract_words,
+    run_project,
+)
 
 
 def _make_spec(tmp_path: Path, source_path: str | None = None) -> ProjectSpec:
@@ -106,6 +111,117 @@ SIMPLE_PAGE_DICT: dict[str, Any] = {
     ],
     "ocr_provenance": None,
 }
+
+
+def _word_node(text: str, x0: float, y0: float, x1: float, y1: float, conf: float = 0.9) -> dict[str, Any]:
+    return {
+        "type": "Word",
+        "text": text,
+        "bounding_box": {
+            "top_left": {"x": x0, "y": y0, "is_normalized": True},
+            "bottom_right": {"x": x1, "y": y1, "is_normalized": True},
+            "is_normalized": True,
+        },
+        "ocr_confidence": conf,
+        "word_labels": [],
+        "text_style_labels": [],
+        "text_style_label_scopes": [],
+        "word_components": [],
+        "baseline": None,
+        "ground_truth_text": None,
+        "ground_truth_bounding_box": None,
+        "ground_truth_match_keys": [],
+    }
+
+
+def _bboxed_page_dict() -> dict[str, Any]:
+    """Page with two real word boxes — matches what DocTR actually emits."""
+    return {
+        "type": "Page",
+        "width": 200,
+        "height": 300,
+        "page_index": 0,
+        "bounding_box": None,
+        "items": [
+            {
+                "type": "Block",
+                "child_type": "WORDS",
+                "block_category": None,
+                "block_labels": [],
+                "block_role_labels": [],
+                "block_position_labels": [],
+                "line_role_labels": [],
+                "line_position_labels": [],
+                "baseline": None,
+                "bounding_box": None,
+                "items": [
+                    _word_node("Hello", 0.1, 0.1, 0.3, 0.15, conf=0.95),
+                    _word_node("world", 0.35, 0.1, 0.55, 0.15, conf=0.80),
+                ],
+                "override_page_sort_order": None,
+                "unmatched_ground_truth_words": [],
+                "additional_block_attributes": {},
+                "base_ground_truth_text": "",
+            }
+        ],
+        "ocr_provenance": None,
+    }
+
+
+class TestExtractWords:
+    def test_flattens_word_tree(self) -> None:
+        page = _bboxed_page_dict()
+        words = extract_words(page)
+        assert [w["text"] for w in words] == ["Hello", "world"]
+
+    def test_bbox_is_xywh_normalized(self) -> None:
+        import pytest
+
+        page = _bboxed_page_dict()
+        words = extract_words(page)
+        bbox = words[0]["bbox"]
+        assert isinstance(bbox, dict)
+        assert bbox["x"] == pytest.approx(0.1)
+        assert bbox["y"] == pytest.approx(0.1)
+        assert bbox["w"] == pytest.approx(0.2)
+        assert bbox["h"] == pytest.approx(0.05)
+
+    def test_skips_words_without_geometry(self) -> None:
+        page = _bboxed_page_dict()
+        # Strip bounding_box from the second word
+        page["items"][0]["items"][1]["bounding_box"] = None
+        words = extract_words(page)
+        assert [w["text"] for w in words] == ["Hello"]
+
+    def test_empty_for_page_with_no_words(self) -> None:
+        page = {"type": "Page", "items": []}
+        assert extract_words(page) == []
+
+
+class TestBuildSidecarPayload:
+    def test_adds_text_width_height_words(self) -> None:
+        page = _bboxed_page_dict()
+        payload = build_sidecar_payload(page, "Hello world")
+        assert payload["text"] == "Hello world"
+        assert payload["width"] == 200
+        assert payload["height"] == 300
+        words = payload["words"]
+        assert isinstance(words, list)
+        assert len(words) == 2
+        # Each entry has the canonical shape consumed by /api/pages/.../words
+        first = words[0]
+        assert isinstance(first, dict)
+        assert set(first.keys()) == {"text", "bbox", "confidence"}
+        bbox = first["bbox"]
+        assert isinstance(bbox, dict)
+        assert set(bbox.keys()) == {"x", "y", "w", "h"}
+
+    def test_preserves_original_tree(self) -> None:
+        page = _bboxed_page_dict()
+        payload = build_sidecar_payload(page, "Hi")
+        # original recursive tree is still present
+        assert payload["type"] == "Page"
+        assert isinstance(payload["items"], list)
 
 
 class TestCollectImages:
@@ -347,3 +463,150 @@ class TestRunProject:
         text = txt_path.read_text()
         assert "Hello" in text
         assert "world" in text
+
+    async def test_sidecar_carries_text_dims_and_words(self, tmp_path: Path, monkeypatch) -> None:
+        """The sidecar JSON pipeline writes must expose normalized top-level keys."""
+        import json as _json
+
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+
+        src = tmp_path / "source"
+        src.mkdir()
+        (src / "p0.png").touch()
+
+        spec = _make_spec(tmp_path, source_path=str(src))
+        pages = [PageResult(page_idx=0, page_name="p0.png", state="queued")]
+        from pdomain_ocr_simple_gui.storage import write_project
+
+        write_project(
+            spec,
+            ProjectStatus(
+                project_id=spec.project_id,
+                state="queued",
+                page_count=1,
+                pages_done=0,
+                pages=pages,
+            ),
+        )
+
+        page_dict = _bboxed_page_dict()
+        mock_dispatcher = MagicMock()
+        mock_dispatcher.run_stage = AsyncMock(
+            return_value=_make_stub_stage_result("proj-test-001/0", page_dict)
+        )
+
+        await run_project(spec, mock_dispatcher, AsyncMock())
+
+        from pdomain_ocr_simple_gui.storage import get_project_dir
+
+        sidecar_path = get_project_dir(spec.project_id) / "pages" / "p0.png.json"
+        assert sidecar_path.exists()
+        data = _json.loads(sidecar_path.read_text())
+        assert isinstance(data["text"], str)
+        assert "Hello" in data["text"]
+        assert data["width"] == 200
+        assert data["height"] == 300
+        assert isinstance(data["words"], list)
+        assert len(data["words"]) == 2
+        w0 = data["words"][0]
+        assert w0["text"] == "Hello"
+        assert set(w0["bbox"].keys()) == {"x", "y", "w", "h"}
+        assert isinstance(w0["confidence"], float)
+
+    async def test_writes_outputs_into_output_dir(self, tmp_path: Path, monkeypatch) -> None:
+        """When save_json + combined_txt are set, output_dir gets json + txt + combined.txt."""
+        from datetime import UTC, datetime
+
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+
+        src = tmp_path / "source"
+        src.mkdir()
+        (src / "p0.png").touch()
+
+        out_dir = tmp_path / "user-outputs"
+        spec = ProjectSpec(
+            project_id="proj-out-001",
+            name="My Run",
+            source_path=str(src),
+            output_dir=str(out_dir),
+            engine="doctr",
+            language="en",
+            save_json=True,
+            combined_txt=True,
+            created_at=datetime.now(UTC),
+            last_opened_at=datetime.now(UTC),
+        )
+        from pdomain_ocr_simple_gui.storage import write_project
+
+        write_project(
+            spec,
+            ProjectStatus(
+                project_id=spec.project_id,
+                state="queued",
+                page_count=1,
+                pages_done=0,
+                pages=[PageResult(page_idx=0, page_name="p0.png", state="queued")],
+            ),
+        )
+
+        mock_dispatcher = MagicMock()
+        mock_dispatcher.run_stage = AsyncMock(
+            return_value=_make_stub_stage_result("proj-out-001/0", _bboxed_page_dict())
+        )
+
+        await run_project(spec, mock_dispatcher, AsyncMock())
+
+        assert (out_dir / "p0.txt").exists(), list(out_dir.iterdir())
+        assert "Hello" in (out_dir / "p0.txt").read_text()
+        assert (out_dir / "p0.json").exists()  # save_json=True
+        # Combined uses sanitised spec.name
+        assert (out_dir / "My_Run.txt").exists()
+
+    async def test_save_json_false_skips_json_in_output_dir(self, tmp_path: Path, monkeypatch) -> None:
+        """save_json=False → no .json file mirrored to output_dir (txt still written)."""
+        from datetime import UTC, datetime
+
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+        src = tmp_path / "source"
+        src.mkdir()
+        (src / "p0.png").touch()
+        out_dir = tmp_path / "out2"
+        spec = ProjectSpec(
+            project_id="proj-out-002",
+            name="run",
+            source_path=str(src),
+            output_dir=str(out_dir),
+            engine="doctr",
+            language="en",
+            save_json=False,
+            combined_txt=False,
+            created_at=datetime.now(UTC),
+            last_opened_at=datetime.now(UTC),
+        )
+        from pdomain_ocr_simple_gui.storage import write_project
+
+        write_project(
+            spec,
+            ProjectStatus(
+                project_id=spec.project_id,
+                state="queued",
+                page_count=1,
+                pages_done=0,
+                pages=[PageResult(page_idx=0, page_name="p0.png", state="queued")],
+            ),
+        )
+        mock_dispatcher = MagicMock()
+        mock_dispatcher.run_stage = AsyncMock(
+            return_value=_make_stub_stage_result("proj-out-002/0", _bboxed_page_dict())
+        )
+        await run_project(spec, mock_dispatcher, AsyncMock())
+        assert (out_dir / "p0.txt").exists()
+        assert not (out_dir / "p0.json").exists()
+        # combined_txt=False → no combined file
+        assert not any(p.suffix == ".txt" and p.name != "p0.txt" for p in out_dir.iterdir())

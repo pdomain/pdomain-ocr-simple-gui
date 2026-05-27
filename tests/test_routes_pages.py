@@ -100,6 +100,48 @@ class TestGetPage:
         assert resp.status_code == 404
 
 
+class TestGetPageTextFallback:
+    async def test_falls_back_to_text_preview_when_sidecar_missing(
+        self,
+        client: AsyncClient,
+        tmp_path: Path,
+    ) -> None:
+        """GET /api/pages returns status text_preview when no sidecar file exists."""
+        from datetime import UTC, datetime
+
+        project_id = "fallback-001"
+        spec = ProjectSpec(
+            project_id=project_id,
+            name="Fallback",
+            source_path=str(tmp_path / "src"),
+            output_dir=str(tmp_path / "out"),
+            engine="doctr",
+            language="en",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            last_opened_at=datetime(2026, 1, 2, tzinfo=UTC),
+        )
+        status = ProjectStatus(
+            project_id=project_id,
+            state="succeeded",
+            page_count=1,
+            pages_done=1,
+            pages=[
+                PageResult(
+                    page_idx=0,
+                    page_name="p.png",
+                    state="succeeded",
+                    text_preview="preview text from status",
+                )
+            ],
+        )
+        write_project(spec, status)
+        # Deliberately do NOT call write_page_sidecar.
+        resp = await client.get(f"/api/pages/{project_id}/0")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["text"] == "preview text from status"
+
+
 class TestGetPageImage:
     async def test_streams_transcoded_image(
         self,
