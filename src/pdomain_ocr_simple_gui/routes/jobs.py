@@ -108,6 +108,11 @@ class CreateJobRequest(BaseModel):
     language: str = "en"
     save_json: bool = False
     combined_txt: bool = True
+    # Post-OCR text normalization toggles (mirrors pd-ocr-cli flags)
+    straight_quotes: bool = True
+    em_dash_to_double_hyphen: bool = True
+    # Reorganize-page knob (illustration block emission)
+    emit_illustration_placeholders: bool = False
 
 
 def _build_source_and_flags(body: CreateJobRequest, mode: Mode) -> tuple[str, bool]:
@@ -254,6 +259,9 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
         language=body.language,
         save_json=body.save_json,
         combined_txt=body.combined_txt,
+        straight_quotes=body.straight_quotes,
+        em_dash_to_double_hyphen=body.em_dash_to_double_hyphen,
+        emit_illustration_placeholders=body.emit_illustration_placeholders,
         created_at=now,
         last_opened_at=now,
     )

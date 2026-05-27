@@ -24,6 +24,9 @@ class ProjectSpec(BaseModel):
     language: str
     save_json: bool = False
     combined_txt: bool = True
+    straight_quotes: bool = True
+    em_dash_to_double_hyphen: bool = True
+    emit_illustration_placeholders: bool = False
     created_at: datetime
     last_opened_at: datetime
 

@@ -350,7 +350,9 @@ async def run_project(
             reorganized_text = ""
             try:
                 page_obj = Page.from_dict(page_dict)
-                page_obj.reorganize_page()
+                page_obj.reorganize_page(
+                    emit_illustration_placeholders=spec.emit_illustration_placeholders,
+                )
                 reorganized_dict = cast("JsonObject", page_obj.to_dict())
                 reorganized_text = page_obj.text
             except Exception:
@@ -366,6 +368,27 @@ async def run_project(
                 text = reorganized_text
             else:
                 text = raw_text
+
+            # Apply post-OCR text normalizations (curly quotes, em-dashes)
+            # matching pd-ocr-cli's --straight-quotes / -ed flags. Soft-import
+            # so tests pass against the older registry pdomain-book-tools (the
+            # function lives in unreleased main); local-dev mode picks up the
+            # editable build and applies normalizations as expected.
+            try:
+                from pdomain_book_tools.ocr import (
+                    apply_text_normalizations,  # pyright: ignore[reportAttributeAccessIssue]
+                )
+
+                text = apply_text_normalizations(
+                    text,
+                    straight_quotes=spec.straight_quotes,
+                    em_dash_to_double_hyphen=spec.em_dash_to_double_hyphen,
+                )
+            except ImportError:
+                logger.debug(
+                    "apply_text_normalizations unavailable in pdomain-book-tools; "
+                    "skipping post-OCR text cleanup (release pending)",
+                )
 
             sidecar_payload = build_sidecar_payload(page_dict, text)
             write_page_sidecar(spec, idx, sidecar_payload)

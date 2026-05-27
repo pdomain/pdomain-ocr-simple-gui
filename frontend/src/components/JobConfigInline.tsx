@@ -9,6 +9,7 @@ import {
   Button,
   Input,
   Field,
+  Toggle,
 } from "@pdomain/pdomain-ui/primitives";
 import { OutputConfigPanel, type OutputConfigValue } from "./OutputConfigPanel";
 import { APP_TEST_IDS } from "../lib/testids";
@@ -67,6 +68,10 @@ export function JobConfigInline({
   );
   const [engine, setEngine] = useState<string>("doctr");
   const [language, setLanguage] = useState<string>("en");
+  const [straightQuotes, setStraightQuotes] = useState<boolean>(true);
+  const [emDashDoubleHyphen, setEmDashDoubleHyphen] = useState<boolean>(true);
+  const [emitIllustrationPlaceholders, setEmitIllustrationPlaceholders] =
+    useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
@@ -116,6 +121,9 @@ export function JobConfigInline({
         language,
         save_json: true,
         combined_txt: true,
+        straight_quotes: straightQuotes,
+        em_dash_to_double_hyphen: emDashDoubleHyphen,
+        emit_illustration_placeholders: emitIllustrationPlaceholders,
         output: outputConfig,
       };
 
@@ -218,6 +226,25 @@ export function JobConfigInline({
             data-testid={APP_TEST_IDS.languageInput}
           />
         </Field>
+
+        <Toggle
+          id="jci-straight-quotes"
+          label="Convert curly quotes to straight"
+          checked={straightQuotes}
+          onCheckedChange={setStraightQuotes}
+        />
+        <Toggle
+          id="jci-em-dash"
+          label="Convert em-dashes (—) to double hyphens (--)"
+          checked={emDashDoubleHyphen}
+          onCheckedChange={setEmDashDoubleHyphen}
+        />
+        <Toggle
+          id="jci-illustration-placeholders"
+          label="Emit [illustration] placeholders for figures"
+          checked={emitIllustrationPlaceholders}
+          onCheckedChange={setEmitIllustrationPlaceholders}
+        />
 
         <OutputConfigPanel
           mode={mode}
