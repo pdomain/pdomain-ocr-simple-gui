@@ -1,0 +1,146 @@
+/**
+ * useOcrJob — thin adapter wrapping useLongJob for simple-gui's backend.
+ *
+ * Strategy A: frontend adapter only (no backend changes).
+ *
+ * The backend emits the canonical pd-suite JobState enum:
+ *   queued | running | succeeded | failed | cancelled
+ *
+ * useLongJob (from @pdomain/pdomain-ui/stores) expects its own internal
+ * LongJobStatus enum:
+ *   idle | pending | running | done | error | cancelled
+ *
+ * This adapter:
+ *   1. Wraps fetch('/api/jobs/:id') in a pollFn passed to useLongJob.
+ *   2. Maps backend JobState → LongJobStatus inside the pollFn.
+ *   3. Stores the raw backend response in React state so callers can
+ *      access extra fields (pages, output_dir, output_mode, name, page_count).
+ *   4. Derives the progress fraction from pages_done / page_count.
+ *
+ * The hook returns a flat object combining useLongJob's state with the raw
+ * backend data. Callers never touch useLongJob directly.
+ */
+
+import * as React from "react";
+import { useLongJob } from "@pdomain/pdomain-ui/stores";
+import type { LongJobStatus } from "@pdomain/pdomain-ui/stores";
+import type { JobState } from "@pdomain/pdomain-ui/types";
+
+interface OcrJobPage {
+  page_idx: number;
+  page_name: string;
+  state: JobState;
+  text_preview: string;
+}
+
+export interface OcrJobData {
+  project_id: string;
+  name: string;
+  state: JobState;
+  pages_done: number;
+  page_count: number;
+  output_dir?: string;
+  output_mode?: "next_to_source" | "specified" | "managed";
+  pages: OcrJobPage[];
+}
+
+export interface UseOcrJobOptions {
+  /**
+   * Optional fetch function — defaults to window.fetch. Injected for tests.
+   * Receives jobId and returns the raw backend OcrJobData payload.
+   */
+  fetchFn?: (jobId: string) => Promise<OcrJobData>;
+  /** Polling interval in ms (default 1000). */
+  pollIntervalMs?: number;
+}
+
+export interface UseOcrJobResult {
+  /** Status in LongJobStatus terms (useLongJob's own enum). */
+  longJobStatus: LongJobStatus;
+  /** 0–1 progress fraction derived from pages_done/page_count, or null. */
+  progress: number | null;
+  /** Raw backend payload — null until first poll resolves. */
+  jobData: OcrJobData | null;
+  /** Call to request job cancellation (no-op — backend lacks cancel endpoint). */
+  cancel: () => void;
+}
+
+/** Map backend JobState → useLongJob's LongJobStatus. */
+function toHookStatus(state: JobState): LongJobStatus {
+  switch (state) {
+    case "queued":
+      return "pending";
+    case "running":
+      return "running";
+    case "succeeded":
+      return "done";
+    case "failed":
+      return "error";
+    case "cancelled":
+      return "cancelled";
+  }
+}
+
+/**
+ * Strip an optional ":N" rerun-key suffix that callers append to force a
+ * poll restart when useLongJob has already reached a terminal state.
+ * e.g. "proj-abc:1" → "proj-abc".
+ */
+function stripRerunKey(jobId: string): string {
+  const colonIdx = jobId.lastIndexOf(":");
+  if (colonIdx === -1) return jobId;
+  const suffix = jobId.slice(colonIdx + 1);
+  // Only strip if the suffix is a numeric rerun key (not a UUID segment)
+  return /^\d+$/.test(suffix) ? jobId.slice(0, colonIdx) : jobId;
+}
+
+async function defaultFetchFn(jobId: string): Promise<OcrJobData> {
+  const rawId = stripRerunKey(jobId);
+  const res = await fetch(`/api/jobs/${rawId}`);
+  if (!res.ok) {
+    throw new Error(`GET /api/jobs/${rawId} returned ${res.status}`);
+  }
+  return (await res.json()) as OcrJobData;
+}
+
+export function useOcrJob(
+  jobId: string | null,
+  options: UseOcrJobOptions = {},
+): UseOcrJobResult {
+  const { fetchFn = defaultFetchFn, pollIntervalMs = 1000 } = options;
+
+  const [jobData, setJobData] = React.useState<OcrJobData | null>(null);
+
+  // Stable pollFn reference — captures setJobData and the injectable fetchFn.
+  const pollFn = React.useCallback(
+    async (id: string) => {
+      const data = await fetchFn(stripRerunKey(id));
+      setJobData(data);
+      return {
+        status: toHookStatus(data.state),
+        progress:
+          data.page_count > 0 ? data.pages_done / data.page_count : null,
+      };
+    },
+    [fetchFn],
+  );
+
+  // Reset jobData when jobId changes (mirrors useLongJob's own reset on id change).
+  React.useEffect(() => {
+    if (!jobId) {
+      setJobData(null);
+    }
+  }, [jobId]);
+
+  const { status, progress, cancel } = useLongJob(jobId, {
+    pollFn,
+    pollIntervalMs,
+  });
+
+  return {
+    longJobStatus: status,
+    progress,
+    jobData,
+    cancel,
+  };
+}
