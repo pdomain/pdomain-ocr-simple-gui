@@ -120,6 +120,7 @@ export default function ResultsPage() {
       {showDownload && (
         <div className="results-page__download">
           <Button
+            variant="primary"
             data-testid={APP_TEST_IDS.downloadResultsButton}
             onClick={() => {
               window.location.assign(`/api/jobs/${id ?? ""}/download`);
