@@ -162,27 +162,33 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
         ]
         init_status = ProjectStatus(
             project_id=spec.project_id,
-            state="queued" if images else "succeeded",
+            state="queued" if images else "failed",
             page_count=len(images),
             pages_done=0,
             pages=init_pages,
+            error=(
+                None
+                if images
+                else (
+                    "No supported image files found in source; supported types are "
+                    "PNG, JPEG, TIFF, JPEG 2000, WebP."
+                )
+            ),
         )
         write_project(spec, init_status)
 
         if not images:
-            done_status = ProjectStatus(
-                project_id=spec.project_id,
-                state="succeeded",
-                page_count=0,
-                pages_done=0,
-                pages=[],
+            # Loud failure — silently writing "succeeded" with zero pages hid real bugs
+            # (e.g., dropped JPEG 2000 input) from the user.
+            logger.warning(
+                "Job has zero supported image files; marking failed",
+                extra={"context": f"project_id={spec.project_id!r}, source={spec.source_path!r}"},
             )
-            write_project(spec, done_status)
             return
 
         await run_project(spec, dispatcher, _status_callback)  # pyright: ignore[reportArgumentType]  # LocalStageDispatcher lacks stubs
 
-    except Exception:  # background job failure must be recorded, not propagated
+    except Exception as exc:  # background job failure must be recorded, not propagated
         logger.exception(
             "Background OCR job failed; attempting to record failed status",
             extra={"context": f"project_id={spec.project_id!r}"},
@@ -195,6 +201,7 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
                 page_count=current.page_count,
                 pages_done=current.pages_done,
                 pages=current.pages,
+                error=str(exc),
             )
             write_project(spec, err_status)
         except Exception:  # best-effort failed-status write; nothing left to do if it fails

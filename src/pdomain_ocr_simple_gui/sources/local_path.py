@@ -12,7 +12,20 @@ from pdomain_ocr_simple_gui.sources import (
     SourceTooLarge,
 )
 
-_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".webp"}
+_IMAGE_EXTS = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".tif",
+    ".tiff",
+    ".webp",
+    # JPEG 2000 family — Pillow handles via OpenJPEG.
+    ".jp2",
+    ".j2k",
+    ".jpf",
+    ".jpx",
+    ".jpm",
+}
 _MAX_UNCOMPRESSED_BYTES = 2 * 1024**3  # 2 GiB
 
 

@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 from typing import cast
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -92,9 +92,47 @@ async def get_page(project_id: str, page_idx: int) -> PageResponse:
     )
 
 
+def _transcode_for_browser(source: Path, fmt: str) -> Path:
+    """Transcode *source* to ``fmt`` (``"WEBP"`` or ``"PNG"``) next to it.
+
+    Cached by (basename, format); regenerated only when the source file is
+    newer than the cached output.  WebP uses lossy q=80 which is fine for
+    in-browser OCR viewing — the original image is preserved untouched and
+    is what ends up in the output zip.
+    """
+    from PIL import Image
+
+    suffix = ".webp" if fmt == "WEBP" else ".png"
+    cached = source.with_name(f"{source.name}.viewer{suffix}")
+    if cached.exists() and cached.stat().st_mtime >= source.stat().st_mtime:
+        return cached
+    with Image.open(source) as img:
+        # Drop alpha for JPEG-family sources to keep WebP small; PNG keeps mode as-is.
+        save_img = img
+        if fmt == "WEBP":
+            if save_img.mode not in ("RGB", "RGBA"):
+                save_img = save_img.convert("RGB")
+            save_img.save(cached, format="WEBP", quality=80)
+        else:
+            save_img.save(cached, format="PNG")
+    return cached
+
+
+def _client_accepts_webp(accept_header: str | None) -> bool:
+    if not accept_header:
+        return False
+    return "image/webp" in accept_header.lower()
+
+
 @router.get("/{project_id}/{page_idx}/image", response_class=FileResponse)
-async def get_page_image(project_id: str, page_idx: int) -> FileResponse:
-    """Stream the source image file for the given page."""
+async def get_page_image(project_id: str, page_idx: int, request: Request) -> FileResponse:
+    """Stream the page image, transcoded to WebP (preferred) or PNG.
+
+    Content negotiation: if the request's ``Accept`` header lists
+    ``image/webp``, the cached WebP transcode is served; otherwise PNG.
+    The original source file is preserved untouched on disk — only the
+    in-browser viewer sees the transcoded copy.
+    """
     try:
         validate_project_id(project_id)
     except ValueError as exc:
@@ -123,7 +161,27 @@ async def get_page_image(project_id: str, page_idx: int) -> FileResponse:
         image_path = source / page_name
     if not image_path.exists():
         raise HTTPException(status_code=404, detail="Image file not found")
-    return FileResponse(str(image_path))
+
+    accept_webp = _client_accepts_webp(request.headers.get("accept"))
+    fmt = "WEBP" if accept_webp else "PNG"
+    media_type = "image/webp" if accept_webp else "image/png"
+
+    # If the source is already in the target format, serve it directly —
+    # transcoding a PNG to PNG (or WebP to WebP) just wastes CPU and risks
+    # tripping over Pillow strictness on already-valid files.
+    src_suffix = image_path.suffix.lower()
+    if (fmt == "PNG" and src_suffix == ".png") or (fmt == "WEBP" and src_suffix == ".webp"):
+        return FileResponse(str(image_path), media_type=media_type)
+
+    try:
+        served = _transcode_for_browser(image_path, fmt)
+    except Exception as exc:  # malformed image / Pillow failure — surface as 500-ish 404
+        logger.exception(
+            "Failed to transcode page image for browser",
+            extra={"context": f"project_id={project_id!r}, page_idx={page_idx}, fmt={fmt}"},
+        )
+        raise HTTPException(status_code=500, detail="Image transcode failed") from exc
+    return FileResponse(str(served), media_type=media_type)
 
 
 @router.put("/{project_id}/{page_idx}/text", response_model=dict[str, str])

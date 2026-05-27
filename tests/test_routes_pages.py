@@ -31,14 +31,15 @@ def project_with_image(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple
     root.mkdir(exist_ok=True)
     monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
 
-    # Create a minimal 1x1 white PNG
+    # Create a minimal but valid 4x4 white PNG using Pillow so transcoding works.
     from datetime import UTC, datetime
+    from io import BytesIO
 
-    png_bytes = (
-        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
-        b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00"
-        b"\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
-    )
+    from PIL import Image
+
+    buf = BytesIO()
+    Image.new("RGB", (4, 4), color="white").save(buf, format="PNG")
+    png_bytes = buf.getvalue()
     source_dir = tmp_path / "source"
     source_dir.mkdir()
     img_path = source_dir / "page_001.png"
@@ -100,17 +101,51 @@ class TestGetPage:
 
 
 class TestGetPageImage:
-    async def test_streams_image_bytes(
+    async def test_streams_transcoded_image(
         self,
         client: AsyncClient,
         project_with_image: tuple[str, Path],
     ) -> None:
-        project_id, img_path = project_with_image
-        resp = await client.get(f"/api/pages/{project_id}/0/image")
+        """Default (no WebP in Accept) returns PNG transcode of the source."""
+        project_id, _img_path = project_with_image
+        resp = await client.get(
+            f"/api/pages/{project_id}/0/image",
+            headers={"Accept": "image/png"},
+        )
         assert resp.status_code == 200
-        assert len(resp.content) > 0
-        # Should be the same bytes as the source image
-        assert resp.content == img_path.read_bytes()
+        assert resp.headers["content-type"] == "image/png"
+        # PNG magic bytes
+        assert resp.content.startswith(b"\x89PNG\r\n\x1a\n")
+
+    async def test_serves_webp_when_accept_includes_webp(
+        self,
+        client: AsyncClient,
+        project_with_image: tuple[str, Path],
+    ) -> None:
+        """Browsers advertising image/webp get a WebP transcode."""
+        project_id, _ = project_with_image
+        resp = await client.get(
+            f"/api/pages/{project_id}/0/image",
+            headers={"Accept": "image/webp,image/png,image/*"},
+        )
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "image/webp"
+        # WebP magic: 'RIFF' .... 'WEBP'
+        assert resp.content[:4] == b"RIFF"
+        assert resp.content[8:12] == b"WEBP"
+
+    async def test_falls_back_to_png_without_webp_in_accept(
+        self,
+        client: AsyncClient,
+        project_with_image: tuple[str, Path],
+    ) -> None:
+        project_id, _ = project_with_image
+        resp = await client.get(
+            f"/api/pages/{project_id}/0/image",
+            headers={"Accept": "image/png,image/jpeg"},
+        )
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "image/png"
 
     async def test_404_when_image_file_missing(
         self,
@@ -205,10 +240,17 @@ class TestGetPageImageFilePath:
         write_project(spec, status)
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-            resp = await ac.get(f"/api/pages/{project_id}/0/image")
+            resp = await ac.get(
+                f"/api/pages/{project_id}/0/image",
+                headers={"Accept": "image/png"},
+            )
 
         assert resp.status_code == 200
-        assert resp.content == png_bytes
+        # Transcoded to PNG for the browser; original on disk is untouched.
+        assert resp.headers["content-type"] == "image/png"
+        assert resp.content.startswith(b"\x89PNG\r\n\x1a\n")
+        # Original file preserved (the source we wrote in this test).
+        assert img_path.read_bytes() == png_bytes
 
 
 class TestPostPageRerun:

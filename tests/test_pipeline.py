@@ -158,6 +158,24 @@ class TestCollectImages:
         result = await collect_images(str(tmp_path / "nonexistent"))
         assert result == []
 
+    async def test_accepts_jpeg2000_family(self, tmp_path: Path) -> None:
+        """JPEG 2000 extensions (.jp2, .j2k, .jpf, .jpx, .jpm) must be picked up."""
+        from pdomain_ocr_simple_gui.pipeline import _IMAGE_SUFFIXES
+
+        assert {".jp2", ".j2k", ".jpf", ".jpx", ".jpm"}.issubset(_IMAGE_SUFFIXES)
+
+        src = tmp_path / "imgs"
+        src.mkdir()
+        (src / "a.jp2").touch()
+        (src / "b.j2k").touch()
+        (src / "c.jpf").touch()
+        (src / "d.jpx").touch()
+        (src / "e.jpm").touch()
+        (src / "skip.txt").touch()
+        result = await collect_images(str(src))
+        names = sorted(p.name for p in result)
+        assert names == ["a.jp2", "b.j2k", "c.jpf", "d.jpx", "e.jpm"]
+
 
 class TestRunProject:
     async def test_calls_run_stage_once_per_image(self, tmp_path: Path, monkeypatch) -> None:
