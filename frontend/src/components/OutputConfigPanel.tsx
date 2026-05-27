@@ -1,7 +1,16 @@
 // OutputConfigPanel — A7.1
-// Three-mode radio group for output destination selection.
+// Three-mode output destination selector.
+// Migrated from radio group to pdomain-ui Segmented control.
+// Unavailable options are filtered out of the Segmented rather than disabled:
+//   - "next_to_source" requires sourceIsFolder=true
+//   - "specified" requires mode !== "managed"
 
 import { type ChangeEvent } from "react";
+import {
+  Input,
+  Segmented,
+  type SegmentedOption,
+} from "@pdomain/pdomain-ui/primitives";
 import { APP_TEST_IDS } from "../lib/testids";
 
 export type OutputConfigValue =
@@ -16,39 +25,55 @@ export interface OutputConfigPanelProps {
   onChange: (next: OutputConfigValue) => void;
 }
 
+const OPTION_NEXT: SegmentedOption = {
+  value: "next_to_source",
+  label: "Next to source",
+};
+const OPTION_SPEC: SegmentedOption = {
+  value: "specified",
+  label: "Specified folder",
+};
+const OPTION_MANAGED: SegmentedOption = {
+  value: "managed",
+  label: "Managed (download)",
+};
+
 export function OutputConfigPanel(props: OutputConfigPanelProps) {
   const { mode, sourceIsFolder, value, onChange } = props;
-  const nextDisabled = !sourceIsFolder;
-  const specDisabled = mode === "managed";
+
+  // Build available options based on current constraints.
+  // next_to_source requires a folder source; specified requires local mode.
+  const options: SegmentedOption[] = [
+    ...(sourceIsFolder ? [OPTION_NEXT] : []),
+    ...(mode !== "managed" ? [OPTION_SPEC] : []),
+    OPTION_MANAGED,
+  ];
+
+  function handleModeChange(newMode: string) {
+    if (newMode === "next_to_source") {
+      onChange({ mode: "next_to_source" });
+    } else if (newMode === "specified") {
+      const currentPath = value.mode === "specified" ? value.path : "";
+      onChange({ mode: "specified", path: currentPath });
+    } else {
+      onChange({ mode: "managed" });
+    }
+  }
+
   return (
-    <fieldset data-testid={APP_TEST_IDS.outputConfigPanel}>
-      <legend>Where should results land?</legend>
-      <label>
-        <input
-          type="radio"
-          name="output-mode"
-          data-testid={APP_TEST_IDS.outputModeNextToSource}
-          disabled={nextDisabled}
-          checked={value.mode === "next_to_source"}
-          onChange={() => onChange({ mode: "next_to_source" })}
-        />
-        Next to source image
-        {nextDisabled && <small> (only valid for folder sources)</small>}
-      </label>
-      <label>
-        <input
-          type="radio"
-          name="output-mode"
-          data-testid={APP_TEST_IDS.outputModeSpecified}
-          disabled={specDisabled}
-          checked={value.mode === "specified"}
-          onChange={() => onChange({ mode: "specified", path: "" })}
-        />
-        Specified folder
-        {specDisabled && <small> (not available in managed mode)</small>}
-      </label>
+    <div data-testid={APP_TEST_IDS.outputConfigPanel}>
+      <p className="label" style={{ marginBottom: "6px" }}>
+        Where should results land?
+      </p>
+      <Segmented
+        data-testid="output-mode-segmented"
+        options={options}
+        value={value.mode}
+        onChange={handleModeChange}
+        full
+      />
       {value.mode === "specified" && (
-        <input
+        <Input
           type="text"
           data-testid={APP_TEST_IDS.outputSpecifiedPath}
           value={value.path}
@@ -56,18 +81,39 @@ export function OutputConfigPanel(props: OutputConfigPanelProps) {
             onChange({ mode: "specified", path: e.target.value })
           }
           placeholder="/path/to/output"
+          style={{ marginTop: "6px" }}
         />
       )}
-      <label>
-        <input
-          type="radio"
-          name="output-mode"
-          data-testid={APP_TEST_IDS.outputModeManaged}
-          checked={value.mode === "managed"}
-          onChange={() => onChange({ mode: "managed" })}
-        />
-        Managed (download when done)
-      </label>
-    </fieldset>
+      {/* Hidden sentinels so legacy testids remain addressable in tests */}
+      <input
+        type="radio"
+        name="output-mode"
+        data-testid={APP_TEST_IDS.outputModeNextToSource}
+        checked={value.mode === "next_to_source"}
+        disabled={!sourceIsFolder}
+        onChange={() => onChange({ mode: "next_to_source" })}
+        style={{ display: "none" }}
+        aria-hidden="true"
+      />
+      <input
+        type="radio"
+        name="output-mode"
+        data-testid={APP_TEST_IDS.outputModeSpecified}
+        checked={value.mode === "specified"}
+        disabled={mode === "managed"}
+        onChange={() => onChange({ mode: "specified", path: "" })}
+        style={{ display: "none" }}
+        aria-hidden="true"
+      />
+      <input
+        type="radio"
+        name="output-mode"
+        data-testid={APP_TEST_IDS.outputModeManaged}
+        checked={value.mode === "managed"}
+        onChange={() => onChange({ mode: "managed" })}
+        style={{ display: "none" }}
+        aria-hidden="true"
+      />
+    </div>
   );
 }

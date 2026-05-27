@@ -16,9 +16,13 @@ vi.mock("sonner", () => ({
   },
 }));
 
-// Mock pdomain-ui canvas — PageImageCanvas needs a Konva/canvas environment we don't have in jsdom
-vi.mock("@pdomain/pdomain-ui/canvas", () => ({
-  PageImageCanvas: ({ src }: { src: string }) => <div data-canvas-src={src} />,
+// Mock pdomain-ui/stages/PageWorkbench — ArtifactViewer needs Konva/canvas
+// environment not available in jsdom. Shim renders a div with data-canvas-src
+// so existing selector tests (wrapper.querySelector("[data-canvas-src]")) pass.
+vi.mock("@pdomain/pdomain-ui/stages/PageWorkbench", () => ({
+  ArtifactViewer: ({ imageSrc }: { imageSrc: string }) => (
+    <div data-canvas-src={imageSrc} />
+  ),
 }));
 
 // Mock pdomain-ui/primitives

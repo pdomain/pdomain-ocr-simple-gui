@@ -18,9 +18,15 @@ vi.mock("@pdomain/pdomain-ui/shell", () => ({
   ),
 }));
 
-// Mock @pdomain/pdomain-ui/canvas — Konva requires a native 'canvas' module
-// not available in jsdom. PageViewPage is the consumer; we mock here to prevent
-// the module from loading in App-level tests.
+// Mock @pdomain/pdomain-ui/stages/PageWorkbench — ArtifactViewer uses Konva
+// which requires a native 'canvas' module not available in jsdom.
+vi.mock("@pdomain/pdomain-ui/stages/PageWorkbench", () => ({
+  ArtifactViewer: ({ imageSrc }: { imageSrc: string }) => (
+    <div data-testid="artifact-viewer-mock" data-src={imageSrc} />
+  ),
+}));
+
+// Keep canvas mock for any remaining direct canvas consumers.
 vi.mock("@pdomain/pdomain-ui/canvas", () => ({
   PageImageCanvas: ({ src }: { src: string }) => (
     <div data-testid="page-image-canvas-mock" data-src={src} />

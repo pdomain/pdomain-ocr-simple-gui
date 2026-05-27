@@ -1,23 +1,14 @@
 // PageViewPage — M5 task #231, M6 task #232
 // Screen 4: two-panel layout — image canvas + editable text
 // Migrated to PageSplitView — issue #254
-// A8: word overlay fetch wired to PageImageCanvas
-//
-// TODO(A9.3): stages/PageWorkbench does NOT export a single <PageWorkbench>
-// wrapper component. It exports sub-components: ArtifactViewer, PWHeader,
-// OcrTextPanel, WordBboxOverlay, EditModeSelector, LabelerCanvas etc.
-// ArtifactViewer is a canvas designed for annotation with split/rotate/illustrate
-// overlay modes. PWHeader requires EditMode + onModeChange which are irrelevant
-// for this read-only OCR review view. This page already uses pdomain-ui's PageSplitView
-// + PageImageCanvas (from prior milestones), so the "hand-rolled layout" described
-// in the plan has already been replaced. No PageWorkbench wrapper wrapping is
-// applicable without forcing a misfit.
+// A8: word overlay fetch wired to ArtifactViewer with WordBbox overlays
+// feat/adopt-richer-primitives: replaced PageImageCanvas with ArtifactViewer
 
 import { useEffect, useState, type ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { PageImageCanvas } from "@pdomain/pdomain-ui/canvas";
-import type { CanvasPage, CanvasWord } from "@pdomain/pdomain-ui/canvas";
+import { ArtifactViewer } from "@pdomain/pdomain-ui/stages/PageWorkbench";
+import type { WordBbox } from "@pdomain/pdomain-ui/stages/PageWorkbench";
 import {
   Button,
   Textarea,
@@ -61,24 +52,15 @@ interface ApiWord {
 
 /**
  * Convert a normalized-coord bbox {x,y,w,h} (0–1 page-relative) into a
- * CanvasWord with pixel-space bounding_box that PageImageCanvas expects.
+ * WordBbox that ArtifactViewer's WordBboxOverlay expects.
+ * bbox is [x, y, w, h] — same normalization, tuple form.
  */
-function apiWordToCanvasWord(
-  word: ApiWord,
-  pageWidth: number,
-  pageHeight: number,
-): CanvasWord {
+function apiWordToWordBbox(word: ApiWord, index: number): WordBbox {
   const { x, y, w, h } = word.bbox;
   return {
-    text: word.text,
-    ocr_confidence: word.confidence,
-    bounding_box: {
-      top_left: { x: x * pageWidth, y: y * pageHeight },
-      bottom_right: {
-        x: (x + w) * pageWidth,
-        y: (y + h) * pageHeight,
-      },
-    },
+    id: `w-${index}`,
+    bbox: [x, y, w, h],
+    confidence: word.confidence,
   };
 }
 
@@ -94,7 +76,7 @@ export default function PageViewPage() {
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving">("idle");
   const [rerunStatus, setRerunStatus] = useState<"idle" | "running">("idle");
-  const [words, setWords] = useState<CanvasWord[]>([]);
+  const [wordBboxes, setWordBboxes] = useState<WordBbox[]>([]);
 
   // Load job status to know total page count
   useEffect(() => {
@@ -147,9 +129,7 @@ export default function PageViewPage() {
         if (!res.ok || cancelled) return;
         const body = (await res.json()) as { words: ApiWord[] };
         if (!cancelled) {
-          const pw = pageData?.width ?? 800;
-          const ph = pageData?.height ?? 1200;
-          setWords(body.words.map((w) => apiWordToCanvasWord(w, pw, ph)));
+          setWordBboxes(body.words.map((w, i) => apiWordToWordBbox(w, i)));
         }
       } catch {
         // words overlay is non-critical — silently degrade to empty
@@ -158,7 +138,7 @@ export default function PageViewPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, pageIdx, pageData]);
+  }, [id, pageIdx]);
 
   async function handleSave() {
     if (!id) return;
@@ -218,12 +198,8 @@ export default function PageViewPage() {
   }
 
   const imageSrc = `/api/pages/${id ?? ""}/${pageIdx}/image`;
-
-  // Minimal CanvasPage for read-only display — width/height from page data
-  const canvasPage: CanvasPage = {
-    width: pageData?.width ?? 800,
-    height: pageData?.height ?? 1200,
-  };
+  const pageWidth = pageData?.width ?? 800;
+  const pageHeight = pageData?.height ?? 1200;
 
   const toolbarContent = (
     <>
@@ -292,14 +268,20 @@ export default function PageViewPage() {
   );
 
   // Wrapper div carries data-testid and data-word-count for tests.
-  // PageImageCanvas is a Konva canvas and does not propagate arbitrary
-  // data-* props to the DOM — the wrapper is the observable element.
+  // ArtifactViewer is Konva-backed and does not propagate data-* to the DOM —
+  // the wrapper is the observable element for Playwright / vitest selectors.
   const canvasContent = !loading ? (
     <div
       data-testid={APP_TEST_IDS.pageImageCanvas}
-      data-word-count={String(words.length)}
+      data-word-count={String(wordBboxes.length)}
     >
-      <PageImageCanvas src={imageSrc} page={canvasPage} words={words} />
+      <ArtifactViewer
+        imageSrc={imageSrc}
+        pageWidth={pageWidth}
+        pageHeight={pageHeight}
+        overlayMode="words"
+        wordBboxes={wordBboxes}
+      />
     </div>
   ) : null;
 
