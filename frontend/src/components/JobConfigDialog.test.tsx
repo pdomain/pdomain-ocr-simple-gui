@@ -126,7 +126,6 @@ vi.mock("@pdomain/pdomain-ui/primitives", async (importOriginal) => {
                 type: "submit",
                 disabled:
                   submitting || !projectName.trim() || !outputDir.trim(),
-                "data-testid": "run-ocr-button",
               },
               submitting
                 ? `${submitLabel ?? "Run →"}…`
@@ -236,8 +235,10 @@ describe("JobConfigDialog", () => {
     const user = userEvent.setup();
     renderDialog();
 
-    // Submit button disabled when outputDir empty
-    const submitBtn = screen.getByTestId("run-ocr-button");
+    // Submit button disabled when outputDir empty.
+    // Use getByRole to target the actual <button type="submit"> from the shim;
+    // getByTestId("run-ocr-button") targets the aria-hidden sentinel div.
+    const submitBtn = screen.getByRole("button", { name: /run ocr/i });
     expect(submitBtn).toBeDisabled();
 
     // Fill project name only — submit still disabled
@@ -279,7 +280,7 @@ describe("JobConfigDialog", () => {
     const outputInput = screen.getByLabelText(/output/i);
     await user.type(outputInput, "/tmp/out");
 
-    const submitBtn = screen.getByTestId("run-ocr-button");
+    const submitBtn = screen.getByRole("button", { name: /run ocr/i });
     await user.click(submitBtn);
 
     await waitFor(() => {
@@ -302,7 +303,7 @@ describe("JobConfigDialog", () => {
     const outputInput = screen.getByLabelText(/output/i);
     await user.type(outputInput, "/tmp/ocr-out");
 
-    const submitBtn = screen.getByTestId("run-ocr-button");
+    const submitBtn = screen.getByRole("button", { name: /run ocr/i });
     await user.click(submitBtn);
 
     await waitFor(() => {
@@ -323,7 +324,7 @@ describe("JobConfigDialog", () => {
     const outputInput = screen.getByLabelText(/output/i);
     await user.type(outputInput, "/tmp/ocr-out");
 
-    const submitBtn = screen.getByTestId("run-ocr-button");
+    const submitBtn = screen.getByRole("button", { name: /run ocr/i });
     await user.click(submitBtn);
 
     await waitFor(() => {

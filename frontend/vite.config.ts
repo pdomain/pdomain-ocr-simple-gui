@@ -12,6 +12,12 @@ export default defineConfig({
   // production bundles.  Remove once pdomain-ui is rebuilt with the production
   // jsx-runtime (jsx/jsxs instead of jsxDEV).
   resolve: {
+    // Deduplicate React across all modules in the bundle.  react-konva 19
+    // checks `React.version` at startup and throws if it sees anything other
+    // than 19.x.  Without dedupe, Vite can resolve a second React instance
+    // (e.g. from @pdomain/pdomain-ui's dist chunks) that doesn't share the
+    // same module object, causing the "only compatible with React 19" crash.
+    dedupe: ["react", "react-dom", "react-konva"],
     alias: {
       "react/jsx-dev-runtime": resolve(__dirname, "shims/jsx-dev-runtime.ts"),
     },
