@@ -190,10 +190,8 @@ body,
    pdomain-ui's .jobs-table/.jobs-table__* CSS classes (issue #255) */
 
 /* ------------------------------------------------------------------ */
-/* JobConfigDialog                                                      */
+/* JobConfigInline                                                      */
 /* ------------------------------------------------------------------ */
-
-/* .job-config-dialog__error removed — now provided by pdomain-ui (issue #256) */
 
 /* Form fields vertical rhythm */
 form > .field,
@@ -201,8 +199,32 @@ form > [class*="Field"] {
   margin-bottom: 12px;
 }
 
-/* Dialog content width */
-[data-testid="job-config-dialog-form"] {
+.job-config-inline {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-3, #e5e5e5);
+}
+
+.job-config-inline__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.job-config-inline__error {
+  color: var(--mismatch, #c33);
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+
+.job-config-inline__actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+[data-testid="job-config-inline-form"] {
   display: flex;
   flex-direction: column;
   gap: 12px;

@@ -1,30 +1,21 @@
-// HomePage — A6.3
-// Renders input affordances based on mode/container matrix from /api/config.
-// Replaces legacy DropZone with SourcePicker.
+// HomePage — renders input affordances based on mode/container matrix from /api/config.
+// After a source is chosen, an inline JobConfigInline form appears progressively
+// below the SourcePicker(s); no modal dialog.
 import { useState } from "react";
 import { useConfig } from "../runtime/ConfigContext";
 import { SourcePicker } from "../components/SourcePicker";
 import { RecentProjectsList } from "../components/RecentProjectsList";
-import { JobConfigDialog } from "../components/JobConfigDialog";
+import {
+  JobConfigInline,
+  type ChosenSource,
+} from "../components/JobConfigInline";
 import { APP_TEST_IDS } from "../lib/testids";
-
-type ChosenSource =
-  | { kind: "path"; path: string }
-  | { kind: "upload"; uploadId: string };
-
-/** Derive a display path from the chosen source for the legacy JobConfigDialog. */
-function sourceToPath(source: ChosenSource): string {
-  if (source.kind === "path") return source.path;
-  // For uploads, use a sentinel so the jobs route knows to use upload_id.
-  // A7 will wire OutputConfig properly; for now pass upload_id as the path.
-  return `upload:${source.uploadId}`;
-}
 
 export function HomePage() {
   const cfg = useConfig();
   const [chosen, setChosen] = useState<ChosenSource | null>(null);
 
-  function handleDialogClose() {
+  function handleCancel() {
     setChosen(null);
   }
 
@@ -77,12 +68,10 @@ export function HomePage() {
           onPathChosen={(p) => setChosen({ kind: "path", path: p })}
         />
       )}
+      {chosen !== null && (
+        <JobConfigInline source={chosen} mode={mode} onCancel={handleCancel} />
+      )}
       <RecentProjectsList />
-      <JobConfigDialog
-        open={chosen !== null}
-        sourcePath={chosen ? sourceToPath(chosen) : ""}
-        onClose={handleDialogClose}
-      />
     </div>
   );
 }
