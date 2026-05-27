@@ -1,17 +1,24 @@
 // SourcePicker — A6.2
-// Drop zone + file picker + path input affordances.
-// Props control which affordances are active; all POST to /api/uploads.
+// Drop zone (also click-to-browse) + path input affordances.
+// The dropzone IS the entire input affordance — there is no separate
+// "Choose files" button. Drop into it, or click it to open the file picker.
+// After a drop/select, the dropzone shows what was chosen plus a clear button.
 import { useRef, useState } from "react";
 import { Button, Field, Input } from "@pdomain/pdomain-ui/primitives";
 import { APP_TEST_IDS } from "../lib/testids";
 
 export interface SourcePickerProps {
   allowDrop: boolean;
-  allowFilePick: boolean;
   allowPathInput: boolean;
   pathHint?: string;
   onUploadComplete: (uploadId: string) => void;
   onPathChosen: (path: string) => void;
+  /**
+   * Called when the user clicks the dropzone's clear/cancel button.
+   * Lets the parent reset any chosen-source state (e.g. hide a config form
+   * that was revealed after onUploadComplete).
+   */
+  onClear?: () => void;
 }
 
 async function uploadFiles(files: File[]): Promise<string> {
@@ -23,64 +30,55 @@ async function uploadFiles(files: File[]): Promise<string> {
   return body.upload_id;
 }
 
-type UploadStatus = "idle" | "uploading" | "error";
-
-// Inline sr-only style — accessible-but-visually-hidden pattern.
-const SR_ONLY_STYLE: React.CSSProperties = {
-  position: "absolute",
-  width: 1,
-  height: 1,
-  padding: 0,
-  margin: -1,
-  overflow: "hidden",
-  clip: "rect(0, 0, 0, 0)",
-  whiteSpace: "nowrap",
-  border: 0,
-};
+function describeFiles(files: File[]): string {
+  if (files.length === 0) return "";
+  const first = files[0]?.name ?? "(file)";
+  if (files.length === 1) return first;
+  return `${first} (+${files.length - 1} more)`;
+}
 
 export function SourcePicker(props: SourcePickerProps) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [pathDraft, setPathDraft] = useState("");
-  const [uploadStatus, setUploadStatus] = useState<UploadStatus>("idle");
-  const [errorMessage, setErrorMessage] = useState<string>("");
+  const [chosenLabel, setChosenLabel] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
 
   const handleFiles = async (files: File[]) => {
     if (!files.length) return;
-    setUploadStatus("uploading");
-    setErrorMessage("");
-    try {
-      const id = await uploadFiles(files);
-      setUploadStatus("idle");
-      props.onUploadComplete(id);
-    } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Upload failed. Please try again.";
-      setUploadStatus("error");
-      setErrorMessage(msg);
-    }
+    setChosenLabel(describeFiles(files));
+    const id = await uploadFiles(files);
+    props.onUploadComplete(id);
   };
 
-  const uploading = uploadStatus === "uploading";
+  const openPicker = () => {
+    fileInput.current?.click();
+  };
 
-  const dropBackground = dragActive ? "var(--bg-raised)" : "transparent";
-  const dropBorderColor = dragActive ? "var(--accent)" : "var(--border-3)";
+  const handleClear = () => {
+    setChosenLabel(null);
+    if (fileInput.current) fileInput.current.value = "";
+    props.onClear?.();
+  };
 
   return (
     <div>
       {props.allowDrop && (
         <div
           data-testid={APP_TEST_IDS.sourcePickerDropZone}
-          data-drag-active={dragActive ? "true" : "false"}
-          onDragOver={(e) => e.preventDefault()}
-          onDragEnter={(e) => {
+          role="button"
+          tabIndex={0}
+          onClick={openPicker}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              openPicker();
+            }
+          }}
+          onDragOver={(e) => {
             e.preventDefault();
             setDragActive(true);
           }}
-          onDragLeave={(e) => {
-            e.preventDefault();
-            setDragActive(false);
-          }}
+          onDragLeave={() => setDragActive(false)}
           onDrop={(e) => {
             e.preventDefault();
             setDragActive(false);
@@ -88,68 +86,66 @@ export function SourcePicker(props: SourcePickerProps) {
           }}
           style={{
             padding: 24,
-            minHeight: 120,
+            border: `2px dashed ${dragActive ? "var(--accent-9)" : "var(--border-3)"}`,
+            background: dragActive ? "var(--surface-2)" : "transparent",
+            cursor: "pointer",
+            borderRadius: 8,
+            minHeight: 96,
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
+            gap: 8,
             textAlign: "center",
-            border: `2px dashed ${dropBorderColor}`,
-            borderRadius: 8,
-            background: dropBackground,
-            color: "var(--fg, inherit)",
-            transition: "background 120ms ease, border-color 120ms ease",
           }}
         >
-          {dragActive
-            ? "Release to upload."
-            : "Drop an image, multiple images, a folder, or a .zip here."}
-        </div>
-      )}
-      {props.allowFilePick && (
-        <div style={{ marginTop: 12 }}>
           <input
             ref={fileInput}
             data-testid={APP_TEST_IDS.sourcePickerFilePick}
-            className="sr-only"
             type="file"
             multiple
             accept="image/*,.zip"
-            disabled={uploading}
-            style={SR_ONLY_STYLE}
+            style={{
+              position: "absolute",
+              width: 1,
+              height: 1,
+              padding: 0,
+              margin: -1,
+              overflow: "hidden",
+              clip: "rect(0,0,0,0)",
+              whiteSpace: "nowrap",
+              border: 0,
+            }}
             onChange={(e) => {
               const files = Array.from(e.target.files ?? []);
               void handleFiles(files);
             }}
           />
-          <Button
-            type="button"
-            variant="primary"
-            disabled={uploading}
-            onClick={() => fileInput.current?.click()}
-          >
-            Choose files
-          </Button>
-          {uploading && (
-            <span style={{ marginLeft: 12 }} aria-live="polite">
-              Uploading…
-            </span>
+          {chosenLabel === null ? (
+            <>
+              <div>Drop an image, multiple images, a folder, or a .zip here.</div>
+              <div style={{ fontSize: 12, opacity: 0.7 }}>or click to browse</div>
+            </>
+          ) : (
+            <div
+              style={{ display: "flex", alignItems: "center", gap: 12 }}
+              data-testid="source-picker-chosen"
+            >
+              <span>{chosenLabel}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                data-testid="source-picker-clear"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClear();
+                }}
+                aria-label="Clear selection"
+              >
+                × Clear
+              </Button>
+            </div>
           )}
-        </div>
-      )}
-      {uploadStatus === "error" && (
-        <div
-          data-testid="source-picker-error"
-          role="alert"
-          style={{
-            marginTop: 12,
-            padding: "8px 12px",
-            borderRadius: 6,
-            border: "1px solid var(--mismatch)",
-            color: "var(--mismatch)",
-            background: "var(--bg-raised)",
-          }}
-        >
-          {errorMessage || "Upload failed. Please try again."}
         </div>
       )}
       {props.allowPathInput && (
