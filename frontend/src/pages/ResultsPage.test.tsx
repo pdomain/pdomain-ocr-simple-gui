@@ -1,9 +1,10 @@
 // Tests for ResultsPage — M4 task #230
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ResultsPage from "./ResultsPage";
 
 // Mock pdomain-ui/primitives
@@ -90,6 +91,18 @@ function makeJobStatus(
   };
 }
 
+function makeQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        // Disable garbage collection in tests so data stays available.
+        gcTime: Infinity,
+      },
+    },
+  });
+}
+
 function renderResultsPage(
   projectId = "proj-abc",
   makeFetch?: () => ReturnType<typeof vi.fn>,
@@ -103,18 +116,22 @@ function renderResultsPage(
 
   (globalThis as any).fetch = mockFetch;
 
+  const client = makeQueryClient();
+
   return {
     mockFetch,
     ...render(
-      <MemoryRouter initialEntries={[`/jobs/${projectId}`]}>
-        <Routes>
-          <Route path="/jobs/:id" element={<ResultsPage />} />
-          <Route
-            path="/jobs/:id/pages/:idx"
-            element={<div data-testid="page-view" />}
-          />
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={[`/jobs/${projectId}`]}>
+          <Routes>
+            <Route path="/jobs/:id" element={<ResultsPage />} />
+            <Route
+              path="/jobs/:id/pages/:idx"
+              element={<div data-testid="page-view" />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     ),
   };
 }
@@ -167,12 +184,16 @@ describe("ResultsPage", () => {
 
     (globalThis as any).fetch = mockFetch;
 
+    const client = makeQueryClient();
+
     render(
-      <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-        <Routes>
-          <Route path="/jobs/:id" element={<ResultsPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
+          <Routes>
+            <Route path="/jobs/:id" element={<ResultsPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
     // Let microtasks flush (fetch promise resolves)
@@ -206,12 +227,16 @@ describe("ResultsPage", () => {
 
     (globalThis as any).fetch = mockFetch;
 
+    const client = makeQueryClient();
+
     render(
-      <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-        <Routes>
-          <Route path="/jobs/:id" element={<ResultsPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
+          <Routes>
+            <Route path="/jobs/:id" element={<ResultsPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
     // Initial fetch
@@ -297,12 +322,16 @@ describe("ResultsPage", () => {
 
     (globalThis as any).fetch = mockFetch;
 
+    const client = makeQueryClient();
+
     render(
-      <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-        <Routes>
-          <Route path="/jobs/:id" element={<ResultsPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
+          <Routes>
+            <Route path="/jobs/:id" element={<ResultsPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
     await waitFor(() => {
@@ -340,12 +369,16 @@ describe("ResultsPage", () => {
 
     (globalThis as any).fetch = mockFetch;
 
+    const client = makeQueryClient();
+
     render(
-      <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-        <Routes>
-          <Route path="/jobs/:id" element={<ResultsPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
+          <Routes>
+            <Route path="/jobs/:id" element={<ResultsPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
     await waitFor(() => {
@@ -370,12 +403,15 @@ describe("ResultsPage", () => {
       ok: true,
       json: async () => makeJobStatus("succeeded", 3, 3, "managed"),
     });
+    const client = makeQueryClient();
     render(
-      <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-        <Routes>
-          <Route path="/jobs/:id" element={<ResultsPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
+          <Routes>
+            <Route path="/jobs/:id" element={<ResultsPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
     await waitFor(() => {
       expect(screen.getByTestId("download-results-button")).toBeInTheDocument();
@@ -387,12 +423,15 @@ describe("ResultsPage", () => {
       ok: true,
       json: async () => makeJobStatus("succeeded", 3, 3, "next_to_source"),
     });
+    const client = makeQueryClient();
     render(
-      <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-        <Routes>
-          <Route path="/jobs/:id" element={<ResultsPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
+          <Routes>
+            <Route path="/jobs/:id" element={<ResultsPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
     await waitFor(() => {
       expect(screen.getByText("test-project")).toBeInTheDocument();
@@ -407,12 +446,15 @@ describe("ResultsPage", () => {
       ok: true,
       json: async () => makeJobStatus("running", 1, 3, "managed"),
     });
+    const client = makeQueryClient();
     render(
-      <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-        <Routes>
-          <Route path="/jobs/:id" element={<ResultsPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
+          <Routes>
+            <Route path="/jobs/:id" element={<ResultsPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
     await waitFor(() => {
       expect(screen.getByTestId("progress-bar")).toBeInTheDocument();

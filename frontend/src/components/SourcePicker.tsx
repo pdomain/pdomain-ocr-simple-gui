@@ -43,7 +43,7 @@ export function SourcePicker(props: SourcePickerProps) {
             e.preventDefault();
             void handleFiles(Array.from(e.dataTransfer.files));
           }}
-          style={{ padding: 24, border: "2px dashed var(--pd-border)" }}
+          style={{ padding: 24, border: "2px dashed var(--border-3)" }}
         >
           Drop an image, multiple images, a folder, or a .zip here.
         </div>

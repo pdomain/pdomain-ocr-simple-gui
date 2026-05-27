@@ -20,13 +20,23 @@
 //   — not the full JobStatus with pages/page_count/output_dir. Keeping the
 //   hand-rolled fetch in ResultsPage. TODO(A9.4-polling): if backend gains a
 //   SSE/WebSocket endpoint, useLongJob could be retrofitted.
+//
+// Step 5 — AppHeader + useActiveJobs:
+// Polls GET /api/jobs every 5s, filters to state==="running", maps to
+// ActiveJob shape. No search affordance yet (simple-gui has no search feature).
 
+import { useQuery } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AppShell, SuiteSiblingsProvider } from "@pdomain/pdomain-ui/shell";
+import {
+  AppShell,
+  AppHeader,
+  SuiteSiblingsProvider,
+} from "@pdomain/pdomain-ui/shell";
 import type {
   UIPrefsConfig,
   InstalledApp,
   LaunchResult,
+  ActiveJob,
 } from "@pdomain/pdomain-ui/shell";
 import { ConfigProvider } from "./runtime/ConfigContext";
 import { HomePage } from "./pages/HomePage";
@@ -117,6 +127,48 @@ const postLaunch = async (id: string): Promise<LaunchResult> => {
   }
 };
 
+/** Raw job shape returned by GET /api/jobs. */
+interface RawJob {
+  project_id: string;
+  name?: string;
+  state: string;
+  page_count?: number;
+  pages?: { state: string }[];
+}
+
+/**
+ * Polls /api/jobs every 5s and maps running jobs to the ActiveJob shape
+ * expected by pdomain-ui AppHeader's JobsPill. Backend uses `state` field
+ * (not `status`). Returns count of running pages as pct where available.
+ */
+function useActiveJobs(): ActiveJob[] {
+  const { data } = useQuery<RawJob[]>({
+    queryKey: ["active-jobs"],
+    queryFn: async () => {
+      const res = await fetch("/api/jobs");
+      if (!res.ok) return [];
+      return (await res.json()) as RawJob[];
+    },
+    refetchInterval: 5_000,
+    // Treat errors as empty list — don't surface loading state in header.
+    throwOnError: false,
+  });
+  return (data ?? [])
+    .filter((j) => j.state === "running" || j.state === "queued")
+    .map((j) => {
+      const total = j.page_count ?? j.pages?.length ?? 0;
+      const done = j.pages?.filter((p) => p.state === "succeeded").length ?? 0;
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+      return {
+        id: j.project_id,
+        title: j.name ?? j.project_id,
+        phase: j.state,
+        pct,
+        project: j.project_id,
+      };
+    });
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -129,20 +181,31 @@ function AppRoutes() {
   );
 }
 
+function AppShellWithHeader() {
+  const activeJobs = useActiveJobs();
+  return (
+    <AppShell
+      appId="pdomain-ocr-simple-gui"
+      appDisplayName="OCR Simple GUI"
+      appIconUrl="/api/self/icons/32"
+      deployMode="local"
+      launcherSlot="header"
+      uiPrefsConfig={uiPrefsConfig}
+      header={
+        // No onSearchClick — simple-gui has no search affordance yet.
+        <AppHeader appName="OCR Simple GUI" activeJobs={activeJobs} />
+      }
+      main={<AppRoutes />}
+    />
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <ConfigProvider>
         <SuiteSiblingsProvider value={{ fetchInstalled, postLaunch }}>
-          <AppShell
-            appId="pdomain-ocr-simple-gui"
-            appDisplayName="OCR Simple GUI"
-            appIconUrl="/api/self/icons/32"
-            deployMode="local"
-            launcherSlot="header"
-            uiPrefsConfig={uiPrefsConfig}
-            main={<AppRoutes />}
-          />
+          <AppShellWithHeader />
         </SuiteSiblingsProvider>
       </ConfigProvider>
     </BrowserRouter>

@@ -7,8 +7,9 @@
 // page_name, state, text_preview} with no width/height. The shapes are
 // incompatible. Keeping the hand-rolled <table>.
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Progress, JobStatusPip, Button } from "@pdomain/pdomain-ui/primitives";
 import type { JobState } from "@pdomain/pdomain-ui/types";
 import { APP_TEST_IDS } from "../lib/testids";
@@ -41,51 +42,28 @@ function isTerminal(state: JobState): boolean {
 export default function ResultsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [rerunPending, setRerunPending] = useState(false);
   const [pathCopied, setPathCopied] = useState(false);
 
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cancelledRef = useRef(false);
-
-  function clearTimer() {
-    if (timerRef.current !== null) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  }
-
-  async function fetchStatus() {
-    if (cancelledRef.current) return;
-    try {
+  const {
+    data: jobStatus,
+    isLoading,
+    error: fetchError,
+  } = useQuery<JobStatus, Error>({
+    queryKey: ["job", id],
+    queryFn: async () => {
       const res = await fetch(`/api/jobs/${id ?? ""}`);
-      if (cancelledRef.current) return;
-      if (!res.ok) {
-        setFetchError(`Error fetching job status: ${res.status}`);
-        setLoading(false);
-        return;
-      }
-      const data = (await res.json()) as JobStatus;
-      if (cancelledRef.current) return;
-      setJobStatus(data);
-      setLoading(false);
-      setFetchError(null);
-
-      // Schedule next poll only if not terminal
-      if (!isTerminal(data.state)) {
-        timerRef.current = setTimeout(() => {
-          void fetchStatus();
-        }, POLL_INTERVAL_MS);
-      }
-    } catch {
-      if (!cancelledRef.current) {
-        setFetchError("Network error fetching job status.");
-        setLoading(false);
-      }
-    }
-  }
+      if (!res.ok) throw new Error(`Error fetching job status: ${res.status}`);
+      return (await res.json()) as JobStatus;
+    },
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data) return POLL_INTERVAL_MS;
+      return isTerminal(data.state) ? false : POLL_INTERVAL_MS;
+    },
+    refetchIntervalInBackground: false,
+  });
 
   async function handleRerunAll() {
     if (!id) return;
@@ -93,12 +71,8 @@ export default function ResultsPage() {
     try {
       const res = await fetch(`/api/jobs/${id}/rerun`, { method: "POST" });
       if (res.ok) {
-        // Reset local state to trigger re-polling
-        setJobStatus(null);
-        setLoading(true);
-        cancelledRef.current = false;
-        clearTimer();
-        void fetchStatus();
+        // Invalidate so React Query re-fetches immediately.
+        await queryClient.invalidateQueries({ queryKey: ["job", id] });
       }
     } catch {
       // ignore — user can retry
@@ -107,18 +81,7 @@ export default function ResultsPage() {
     }
   }
 
-  useEffect(() => {
-    cancelledRef.current = false;
-    void fetchStatus();
-    return () => {
-      cancelledRef.current = true;
-      clearTimer();
-    };
-    // polling effect intentionally keyed only on id; adding poll state would restart the interval
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div data-testid={APP_TEST_IDS.resultsPage} className="results-page">
         <p className="results-page__loading">Loading…</p>
@@ -126,11 +89,11 @@ export default function ResultsPage() {
     );
   }
 
-  if (fetchError || !jobStatus) {
+  if (fetchError ?? !jobStatus) {
     return (
       <div data-testid={APP_TEST_IDS.resultsPage} className="results-page">
         <p role="alert" className="results-page__error">
-          {fetchError ?? "Job not found."}
+          {fetchError?.message ?? "Job not found."}
         </p>
       </div>
     );
@@ -214,19 +177,25 @@ export default function ResultsPage() {
       )}
 
       {pages && pages.length > 0 && (
-        <table className="results-page__table" aria-label="Page results">
+        <table className="jobs-table" aria-label="Page results">
           <thead>
             <tr>
-              <th scope="col">Page</th>
-              <th scope="col">Status</th>
-              <th scope="col">Preview</th>
+              <th scope="col" className="jobs-table__th">
+                Page
+              </th>
+              <th scope="col" className="jobs-table__th">
+                Status
+              </th>
+              <th scope="col" className="jobs-table__th">
+                Preview
+              </th>
             </tr>
           </thead>
           <tbody>
             {pages.map((page) => (
               <tr
                 key={page.page_idx}
-                className="results-page__row"
+                className="jobs-table__row"
                 style={{ cursor: "pointer" }}
                 tabIndex={0}
                 role="row"

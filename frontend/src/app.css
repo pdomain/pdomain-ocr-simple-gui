@@ -47,14 +47,12 @@ body,
   min-height: 260px;
 }
 
-/* Results/recent tables row padding */
-[data-density="compact"] .jobs-table__row td,
-[data-density="compact"] .results-page__row td {
+/* Tables row padding — jobs-table__row covers both ResultsPage and RecentProjectsList */
+[data-density="compact"] .jobs-table__row td {
   padding: 4px 10px;
 }
 
-[data-density="comfortable"] .jobs-table__row td,
-[data-density="comfortable"] .results-page__row td {
+[data-density="comfortable"] .jobs-table__row td {
   padding: 14px 12px;
 }
 
@@ -282,58 +280,7 @@ form > [class*="Field"] {
   gap: 8px;
 }
 
-.results-page__open-folder {
-  display: inline-flex;
-  align-items: center;
-  height: 30px;
-  padding: 0 12px;
-  background: var(--bg-raised);
-  border: 1px solid var(--border-2);
-  border-radius: 6px;
-  color: var(--ink-1);
-  font-size: 12px;
-  font-weight: 500;
-  text-decoration: none;
-  transition: background 0.12s;
-}
-
-.results-page__open-folder:hover {
-  background: color-mix(in srgb, var(--bg-raised) 80%, var(--ink-1));
-}
-
-.results-page__table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.results-page__table thead tr {
-  border-bottom: 1px solid var(--border-2);
-}
-
-.results-page__table th {
-  padding: 8px 12px;
-  text-align: left;
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-}
-
-.results-page__row {
-  border-bottom: 1px solid var(--border-1);
-  transition: background 0.1s;
-}
-
-.results-page__row:hover {
-  background: var(--bg-raised);
-}
-
-.results-page__row td {
-  padding: 10px 12px;
-}
-
+/* Page-list cell types — table structure now uses .jobs-table/.jobs-table__row */
 .results-page__page-name {
   font-family: var(--mono-font);
   font-size: 11.5px;
@@ -378,23 +325,6 @@ form > [class*="Field"] {
   text-overflow: ellipsis;
 }
 
-/* Toast notifications (save / rerun feedback) */
-.page-toast {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 3px 8px;
-  border-radius: 4px;
-  white-space: nowrap;
-}
-
-.page-toast--success {
-  background: color-mix(in srgb, var(--exact) 14%, transparent);
-  color: var(--exact);
-  border: 1px solid color-mix(in srgb, var(--exact) 35%, transparent);
-}
-
-.page-toast--error {
-  background: color-mix(in srgb, var(--mismatch) 12%, transparent);
-  color: var(--mismatch);
-  border: 1px solid color-mix(in srgb, var(--mismatch) 35%, transparent);
-}
+/* .page-toast / .page-toast--success / .page-toast--error removed —
+   inline toast spans replaced with sonner toast.success/toast.error calls
+   (step 8 of pdomain-ui canonical pattern alignment). */

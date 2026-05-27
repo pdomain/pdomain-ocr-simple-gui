@@ -6,6 +6,16 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import PageViewPage from "./PageViewPage";
 
+// Mock sonner — toast calls don't render to jsdom DOM; assert calls instead.
+const mockToastSuccess = vi.fn();
+const mockToastError = vi.fn();
+vi.mock("sonner", () => ({
+  toast: {
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+    error: (...args: unknown[]) => mockToastError(...args),
+  },
+}));
+
 // Mock pdomain-ui canvas — PageImageCanvas needs a Konva/canvas environment we don't have in jsdom
 vi.mock("@pdomain/pdomain-ui/canvas", () => ({
   PageImageCanvas: ({ src }: { src: string }) => <div data-canvas-src={src} />,
@@ -221,7 +231,7 @@ describe("PageViewPage", () => {
     await user.click(saveBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/saved/i)).toBeInTheDocument();
+      expect(mockToastSuccess).toHaveBeenCalledWith("Saved");
     });
   });
 

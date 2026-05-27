@@ -13,8 +13,9 @@
 // in the plan has already been replaced. No PageWorkbench wrapper wrapping is
 // applicable without forcing a misfit.
 
-import { useEffect, useState, useRef, type ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "sonner";
 import { PageImageCanvas } from "@pdomain/pdomain-ui/canvas";
 import type { CanvasPage, CanvasWord } from "@pdomain/pdomain-ui/canvas";
 import {
@@ -91,13 +92,8 @@ export default function PageViewPage() {
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const [text, setText] = useState<string>("");
   const [loading, setLoading] = useState(true);
-  const [saveStatus, setSaveStatus] = useState<
-    "idle" | "saving" | "saved" | "error"
-  >("idle");
-  const saveToastRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [rerunStatus, setRerunStatus] = useState<
-    "idle" | "running" | "done" | "error"
-  >("idle");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving">("idle");
+  const [rerunStatus, setRerunStatus] = useState<"idle" | "running">("idle");
   const [words, setWords] = useState<CanvasWord[]>([]);
 
   // Load job status to know total page count
@@ -174,15 +170,14 @@ export default function PageViewPage() {
         body: JSON.stringify({ text }),
       });
       if (res.ok) {
-        setSaveStatus("saved");
-        // Clear any pending toast timer
-        if (saveToastRef.current) clearTimeout(saveToastRef.current);
-        saveToastRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
+        toast.success("Saved");
       } else {
-        setSaveStatus("error");
+        toast.error("Save failed");
       }
     } catch {
-      setSaveStatus("error");
+      toast.error("Save failed");
+    } finally {
+      setSaveStatus("idle");
     }
   }
 
@@ -196,7 +191,6 @@ export default function PageViewPage() {
         body: JSON.stringify({ engine }),
       });
       if (res.ok) {
-        setRerunStatus("done");
         // Refetch page data to update textarea
         const pageRes = await fetch(`/api/pages/${id}/${pageIdx}`);
         if (pageRes.ok) {
@@ -204,14 +198,14 @@ export default function PageViewPage() {
           setPageData(data);
           setText(data.text ?? "");
         }
-        setTimeout(() => setRerunStatus("idle"), 3000);
+        toast.success("Re-run complete");
       } else {
-        setRerunStatus("error");
-        setTimeout(() => setRerunStatus("idle"), 3000);
+        toast.error("Re-run failed");
       }
     } catch {
-      setRerunStatus("error");
-      setTimeout(() => setRerunStatus("idle"), 3000);
+      toast.error("Re-run failed");
+    } finally {
+      setRerunStatus("idle");
     }
   }
 
@@ -267,17 +261,6 @@ export default function PageViewPage() {
         {saveStatus === "saving" ? "Saving…" : "Save edits"}
       </Button>
 
-      {saveStatus === "saved" && (
-        <span role="status" className="page-toast page-toast--success">
-          Saved
-        </span>
-      )}
-      {saveStatus === "error" && (
-        <span role="alert" className="page-toast page-toast--error">
-          Save failed
-        </span>
-      )}
-
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -305,17 +288,6 @@ export default function PageViewPage() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      {rerunStatus === "done" && (
-        <span role="status" className="page-toast page-toast--success">
-          Re-run complete
-        </span>
-      )}
-      {rerunStatus === "error" && (
-        <span role="alert" className="page-toast page-toast--error">
-          Re-run failed
-        </span>
-      )}
     </>
   );
 

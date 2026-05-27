@@ -7,8 +7,8 @@
 // last_opened_at, page_count, engine, status}. No generic tabular Worklist exists
 // in pdomain-ui@0.2.1. Keeping the hand-rolled <table>.
 
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { JobStatusPip } from "@pdomain/pdomain-ui/primitives";
 import type { JobState } from "@pdomain/pdomain-ui/types";
 import { APP_TEST_IDS } from "../lib/testids";
@@ -41,33 +41,20 @@ function formatDate(iso: string): string {
 
 export function RecentProjectsList() {
   const navigate = useNavigate();
-  const [projects, setProjects] = useState<RecentProject[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
+  const { data, isLoading } = useQuery<RecentProject[]>({
+    queryKey: ["recent-projects"],
+    queryFn: async () => {
+      const res = await fetch("/api/prefs");
+      if (!res.ok) return [];
+      const body = (await res.json()) as PrefsResponse;
+      return body.recent_projects ?? [];
+    },
+    // Network error or unexpected shape → treat as empty list (non-fatal).
+    throwOnError: false,
+  });
 
-    fetch("/api/prefs")
-      .then(async (res) => {
-        if (!res.ok) return;
-        const data = (await res.json()) as PrefsResponse;
-        if (!cancelled) {
-          setProjects(data.recent_projects ?? []);
-        }
-      })
-      .catch(() => {
-        // Network error — show empty state
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div
         data-testid={APP_TEST_IDS.recentProjectsList}
@@ -78,7 +65,7 @@ export function RecentProjectsList() {
     );
   }
 
-  const displayedProjects = projects.slice(0, 10);
+  const displayedProjects = (data ?? []).slice(0, 10);
 
   if (displayedProjects.length === 0) {
     return (
