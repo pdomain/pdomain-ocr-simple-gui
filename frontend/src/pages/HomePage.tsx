@@ -46,7 +46,7 @@ export function HomePage() {
       )}
       {mode === "local" && containerized && (
         <>
-          <h3>Upload</h3>
+          <h3 className="heading-13">Upload</h3>
           <SourcePicker
             allowDrop
             allowFilePick
@@ -56,7 +56,7 @@ export function HomePage() {
             }
             onPathChosen={() => {}}
           />
-          <h3>Existing folder or zip</h3>
+          <h3 className="heading-13">Existing folder or zip</h3>
           <SourcePicker
             allowDrop={false}
             allowFilePick={false}
