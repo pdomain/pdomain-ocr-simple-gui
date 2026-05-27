@@ -1,6 +1,7 @@
 // Tests for HomePage layout matrix — A6.3
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConfigProvider } from "../../runtime/ConfigContext";
 import { HomePage } from "../HomePage";
 
@@ -9,17 +10,26 @@ vi.mock("../../components/JobConfigDialog", () => ({
   JobConfigDialog: () => null,
 }));
 
+function makeQueryClient() {
+  return new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+  });
+}
+
 function withConfig(cfg: { mode: string; is_containerized: boolean }) {
   globalThis.fetch = (async () => ({
     ok: true,
     json: async () => cfg,
   })) as unknown as typeof fetch;
+  const client = makeQueryClient();
   return (
-    <MemoryRouter>
-      <ConfigProvider>
-        <HomePage />
-      </ConfigProvider>
-    </MemoryRouter>
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <ConfigProvider>
+          <HomePage />
+        </ConfigProvider>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 

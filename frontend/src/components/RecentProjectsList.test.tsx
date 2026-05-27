@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RecentProjectsList } from "./RecentProjectsList";
 
 // Mock react-router navigate
@@ -49,6 +50,21 @@ const mockPrefsWithProjects = {
 
 const mockPrefsEmpty = { recent_projects: [] };
 
+function makeQueryClient() {
+  return new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+  });
+}
+
+function renderWithClient(ui: React.ReactElement) {
+  const client = makeQueryClient();
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>{ui}</MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockNavigate.mockClear();
@@ -61,11 +77,7 @@ describe("RecentProjectsList", () => {
       json: async () => mockPrefsEmpty,
     });
 
-    render(
-      <MemoryRouter>
-        <RecentProjectsList />
-      </MemoryRouter>,
-    );
+    renderWithClient(<RecentProjectsList />);
 
     await waitFor(() => {
       expect(screen.getByText(/no recent projects/i)).toBeInTheDocument();
@@ -78,11 +90,7 @@ describe("RecentProjectsList", () => {
       json: async () => mockPrefsWithProjects,
     });
 
-    render(
-      <MemoryRouter>
-        <RecentProjectsList />
-      </MemoryRouter>,
-    );
+    renderWithClient(<RecentProjectsList />);
 
     await waitFor(() => {
       expect(screen.getByText("My Book Scans")).toBeInTheDocument();
@@ -97,11 +105,7 @@ describe("RecentProjectsList", () => {
       json: async () => mockPrefsWithProjects,
     });
 
-    render(
-      <MemoryRouter>
-        <RecentProjectsList />
-      </MemoryRouter>,
-    );
+    renderWithClient(<RecentProjectsList />);
 
     await waitFor(() => {
       expect(screen.getByText("done")).toBeInTheDocument();
@@ -114,11 +118,7 @@ describe("RecentProjectsList", () => {
       json: async () => mockPrefsWithProjects,
     });
 
-    render(
-      <MemoryRouter>
-        <RecentProjectsList />
-      </MemoryRouter>,
-    );
+    renderWithClient(<RecentProjectsList />);
 
     await waitFor(() => {
       expect(screen.getByText("My Book Scans")).toBeInTheDocument();
@@ -133,11 +133,7 @@ describe("RecentProjectsList", () => {
       .fn()
       .mockRejectedValueOnce(new Error("network error"));
 
-    render(
-      <MemoryRouter>
-        <RecentProjectsList />
-      </MemoryRouter>,
-    );
+    renderWithClient(<RecentProjectsList />);
 
     await waitFor(() => {
       expect(screen.getByText(/no recent projects/i)).toBeInTheDocument();
@@ -159,11 +155,7 @@ describe("RecentProjectsList", () => {
       json: async () => ({ recent_projects: manyProjects }),
     });
 
-    render(
-      <MemoryRouter>
-        <RecentProjectsList />
-      </MemoryRouter>,
-    );
+    renderWithClient(<RecentProjectsList />);
 
     await waitFor(() => {
       // Only 10 rows should be shown
