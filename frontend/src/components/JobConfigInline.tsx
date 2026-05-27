@@ -9,7 +9,6 @@ import {
   Button,
   Input,
   Field,
-  Toggle,
 } from "@pdomain/pdomain-ui/primitives";
 import { OutputConfigPanel, type OutputConfigValue } from "./OutputConfigPanel";
 import { APP_TEST_IDS } from "../lib/testids";
@@ -68,8 +67,6 @@ export function JobConfigInline({
   );
   const [engine, setEngine] = useState<string>("doctr");
   const [language, setLanguage] = useState<string>("en");
-  const [saveJson, setSaveJson] = useState<boolean>(true);
-  const [combinedTxt, setCombinedTxt] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
@@ -117,8 +114,8 @@ export function JobConfigInline({
         name: projectName,
         engine,
         language,
-        save_json: saveJson,
-        combined_txt: combinedTxt,
+        save_json: true,
+        combined_txt: true,
         output: outputConfig,
       };
 
@@ -221,19 +218,6 @@ export function JobConfigInline({
             data-testid={APP_TEST_IDS.languageInput}
           />
         </Field>
-
-        <Toggle
-          id="jci-save-json"
-          label="Save JSON sidecar"
-          checked={saveJson}
-          onCheckedChange={setSaveJson}
-        />
-        <Toggle
-          id="jci-combined-txt"
-          label="Save combined .txt"
-          checked={combinedTxt}
-          onCheckedChange={setCombinedTxt}
-        />
 
         <OutputConfigPanel
           mode={mode}

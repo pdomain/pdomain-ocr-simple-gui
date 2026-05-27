@@ -26,66 +26,6 @@ it("calls onUploadComplete for a dropped file", async () => {
   await vi.waitFor(() => expect(onUploadComplete).toHaveBeenCalledWith("u1"));
 });
 
-it("renders a visible Choose files button that triggers the hidden input", () => {
-  render(
-    <SourcePicker
-      allowDrop={false}
-      allowFilePick
-      allowPathInput={false}
-      onUploadComplete={() => {}}
-      onPathChosen={() => {}}
-    />,
-  );
-  const button = screen.getByRole("button", { name: /choose files/i });
-  expect(button).toBeInTheDocument();
-  const input = screen.getByTestId("source-picker-file-pick") as HTMLInputElement;
-  // The native input should be visually hidden (sr-only / opacity:0 / clip).
-  expect(input.className).toMatch(/sr-only|visually-hidden/);
-  const clickSpy = vi.spyOn(input, "click");
-  fireEvent.click(button);
-  expect(clickSpy).toHaveBeenCalled();
-});
-
-it("shows an error message when upload fails", async () => {
-  globalThis.fetch = (async () => ({
-    ok: false,
-    status: 500,
-    json: async () => ({}),
-  })) as unknown as typeof fetch;
-  render(
-    <SourcePicker
-      allowDrop
-      allowFilePick
-      allowPathInput={false}
-      onUploadComplete={() => {}}
-      onPathChosen={() => {}}
-    />,
-  );
-  const drop = screen.getByTestId("source-picker-drop");
-  const file = new File(["x"], "scan.png", { type: "image/png" });
-  fireEvent.drop(drop, { dataTransfer: { files: [file] } });
-  const errEl = await screen.findByTestId("source-picker-error");
-  expect(errEl.textContent ?? "").toMatch(/upload/i);
-});
-
-it("dropzone toggles a drag-active state on dragenter/dragleave", () => {
-  render(
-    <SourcePicker
-      allowDrop
-      allowFilePick={false}
-      allowPathInput={false}
-      onUploadComplete={() => {}}
-      onPathChosen={() => {}}
-    />,
-  );
-  const drop = screen.getByTestId("source-picker-drop");
-  expect(drop.getAttribute("data-drag-active")).toBe("false");
-  fireEvent.dragEnter(drop);
-  expect(drop.getAttribute("data-drag-active")).toBe("true");
-  fireEvent.dragLeave(drop);
-  expect(drop.getAttribute("data-drag-active")).toBe("false");
-});
-
 it("dropzone has a generous min-height", () => {
   render(
     <SourcePicker

@@ -123,7 +123,9 @@ export default function ResultsPage() {
             variant="primary"
             data-testid={APP_TEST_IDS.downloadResultsButton}
             onClick={() => {
-              window.location.assign(`/api/jobs/${id ?? ""}/download`);
+              window.location.assign(
+                `/api/jobs/${id ?? ""}/download?include=text,json`,
+              );
             }}
           >
             Download results (.zip)

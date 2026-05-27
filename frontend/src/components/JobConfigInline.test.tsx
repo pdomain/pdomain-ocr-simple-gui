@@ -136,8 +136,6 @@ describe("JobConfigInline", () => {
       expect(screen.getByLabelText(/project name/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/engine/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/language/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/save json/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/combined \.txt/i)).toBeInTheDocument();
       expect(screen.getByTestId("output-config-panel")).toBeInTheDocument();
       expect(screen.getByTestId("run-ocr-button")).toBeInTheDocument();
     });

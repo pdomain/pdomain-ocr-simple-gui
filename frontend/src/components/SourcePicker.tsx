@@ -90,7 +90,7 @@ export function SourcePicker(props: SourcePickerProps) {
             background: dragActive ? "var(--surface-2)" : "transparent",
             cursor: "pointer",
             borderRadius: 8,
-            minHeight: 96,
+            minHeight: 120,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",

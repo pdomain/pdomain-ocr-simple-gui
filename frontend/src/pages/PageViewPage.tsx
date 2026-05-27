@@ -304,6 +304,45 @@ export default function PageViewPage() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            disabled={loading}
+            aria-label="Download"
+            data-testid={APP_TEST_IDS.pageDownloadMenu}
+          >
+            Download ▾
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem
+            data-testid={APP_TEST_IDS.pageDownloadText}
+            onSelect={() => {
+              window.location.href = `/api/jobs/${id ?? ""}/download?include=text`;
+            }}
+          >
+            Text (.txt only)
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            data-testid={APP_TEST_IDS.pageDownloadJson}
+            onSelect={() => {
+              window.location.href = `/api/jobs/${id ?? ""}/download?include=json`;
+            }}
+          >
+            JSON (sidecars only)
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            data-testid={APP_TEST_IDS.pageDownloadBoth}
+            onSelect={() => {
+              window.location.href = `/api/jobs/${id ?? ""}/download?include=text,json`;
+            }}
+          >
+            Text + JSON (recommended)
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </>
   );
 
