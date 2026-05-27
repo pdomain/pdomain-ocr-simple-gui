@@ -43,8 +43,8 @@ class TestSuiteJson:
         data = json.loads(raw)
 
         # NOTE: "description" is intentionally absent from pdomain-suite.json.
-        # pdomain-ocr-ops <= 0.2.3 InstalledApp rejects extra fields (extra_forbidden),
-        # so description was dropped (see commit 069409c). Restore when pdomain-ocr-ops
+        # pdomain-ops <= 0.2.3 InstalledApp rejects extra fields (extra_forbidden),
+        # so description was dropped (see commit 069409c). Restore when pdomain-ops
         # adds the description field (issue #80 upstream).
         required = {"app_id", "display_name", "package", "default_port", "icon"}
         assert required.issubset(data.keys())
