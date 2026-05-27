@@ -9,6 +9,7 @@ import {
   BaseJobConfigDialog,
   Input,
   Field,
+  Toggle,
 } from "@pdomain/pdomain-ui/primitives";
 import type { BaseJobConfig } from "@pdomain/pdomain-ui/primitives";
 import { OutputConfigPanel, type OutputConfigValue } from "./OutputConfigPanel";
@@ -175,28 +176,19 @@ export function JobConfigDialog({
         />
       </Field>
 
-      {/* Checkboxes */}
-      <Field htmlFor="jcd-save-json" label="Save JSON sidecar">
-        <input
-          id="jcd-save-json"
-          type="checkbox"
-          checked={saveJson}
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            setSaveJson(e.target.checked)
-          }
-        />
-      </Field>
-
-      <Field htmlFor="jcd-combined-txt" label="Save combined .txt">
-        <input
-          id="jcd-combined-txt"
-          type="checkbox"
-          checked={combinedTxt}
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            setCombinedTxt(e.target.checked)
-          }
-        />
-      </Field>
+      {/* Boolean toggles */}
+      <Toggle
+        id="jcd-save-json"
+        label="Save JSON sidecar"
+        checked={saveJson}
+        onCheckedChange={setSaveJson}
+      />
+      <Toggle
+        id="jcd-combined-txt"
+        label="Save combined .txt"
+        checked={combinedTxt}
+        onCheckedChange={setCombinedTxt}
+      />
 
       {/* Output destination */}
       <OutputConfigPanel
