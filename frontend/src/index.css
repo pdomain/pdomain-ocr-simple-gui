@@ -1,4 +1,5 @@
 @import "@pdomain/pdomain-ui/theme/tokens.css";
+@import "@pdomain/pdomain-ui/theme/primitives.css";
 
 @tailwind base;
 @tailwind components;
