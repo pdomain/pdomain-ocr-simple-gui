@@ -177,19 +177,25 @@ export default function ResultsPage() {
       )}
 
       {pages && pages.length > 0 && (
-        <table className="results-page__table" aria-label="Page results">
+        <table className="jobs-table" aria-label="Page results">
           <thead>
             <tr>
-              <th scope="col">Page</th>
-              <th scope="col">Status</th>
-              <th scope="col">Preview</th>
+              <th scope="col" className="jobs-table__th">
+                Page
+              </th>
+              <th scope="col" className="jobs-table__th">
+                Status
+              </th>
+              <th scope="col" className="jobs-table__th">
+                Preview
+              </th>
             </tr>
           </thead>
           <tbody>
             {pages.map((page) => (
               <tr
                 key={page.page_idx}
-                className="results-page__row"
+                className="jobs-table__row"
                 style={{ cursor: "pointer" }}
                 tabIndex={0}
                 role="row"
