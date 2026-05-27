@@ -6,8 +6,7 @@ import "@fontsource/jetbrains-mono/400.css";
 import "@fontsource/jetbrains-mono/500.css";
 import React from "react";
 import ReactDOM from "react-dom/client";
-import "@pdomain/pdomain-ui/theme/tokens.css";
-import "@pdomain/pdomain-ui/theme/primitives.css";
+import "./index.css";
 import "./app.css";
 import App from "./App";
 
