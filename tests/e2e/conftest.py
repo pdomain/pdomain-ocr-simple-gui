@@ -16,11 +16,13 @@ Usage::
 
 from __future__ import annotations
 
+import json
 import os
 import socket
 import subprocess
 import sys
 import time
+import uuid
 from collections.abc import Generator
 from pathlib import Path
 
@@ -61,27 +63,40 @@ def _wait_ready(base_url: str, timeout: float = 30.0) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Session-scoped data roots — shared between subprocess server and fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def e2e_data_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Session-scoped temporary directory for all e2e server data."""
+    root: Path = tmp_path_factory.mktemp("e2e_server_data")
+    for subdir in ("projects", "outputs", "jobs_meta", "uploads"):
+        (root / subdir).mkdir(parents=True, exist_ok=True)
+    return root
+
+
+# ---------------------------------------------------------------------------
 # Session-scoped server fixture
 # ---------------------------------------------------------------------------
 
 
 @pytest.fixture(scope="session")
-def live_server_url(tmp_path_factory: pytest.TempPathFactory) -> Generator[str, None, None]:
+def live_server_url(e2e_data_root: Path) -> Generator[str, None, None]:
     """Start the app on a free port; yield the base URL; shut down after session."""
     port = _free_port()
     base_url = f"http://127.0.0.1:{port}"
 
-    workdir = tmp_path_factory.mktemp("e2e_server")
-    env: dict[str, str] = {
+    env = {
         **os.environ,
-        "PD_OCR_SIMPLE_GUI_MODE": "local",
-        "PD_OCR_SIMPLE_GUI_UPLOAD_ROOT": str(workdir / "uploads"),
-        "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(workdir / "outputs"),
+        # Redirect all server data into the session-scoped tmpdir so tests
+        # can write fixtures into the same paths without racing against the
+        # real home-dir storage.
+        "PD_OCR_SIMPLE_GUI_PROJECTS_ROOT": str(e2e_data_root / "projects"),
+        "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(e2e_data_root / "outputs"),
+        "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(e2e_data_root / "jobs_meta"),
+        "PD_OCR_SIMPLE_GUI_UPLOAD_ROOT": str(e2e_data_root / "uploads"),
     }
-
-    # Ensure upload/output dirs exist so the server starts cleanly
-    Path(env["PD_OCR_SIMPLE_GUI_UPLOAD_ROOT"]).mkdir(parents=True, exist_ok=True)
-    Path(env["PD_OCR_SIMPLE_GUI_OUTPUT_ROOT"]).mkdir(parents=True, exist_ok=True)
 
     proc = subprocess.Popen(
         [
@@ -108,3 +123,132 @@ def live_server_url(tmp_path_factory: pytest.TempPathFactory) -> Generator[str, 
             proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
             proc.kill()
+
+
+# ---------------------------------------------------------------------------
+# Seeded-job fixtures (Option B — write artifacts directly to disk)
+# ---------------------------------------------------------------------------
+
+_SEEDED_PAGE_SIDECAR = {
+    "blocks": [
+        {
+            "lines": [
+                {
+                    "words": [
+                        {
+                            "value": "Hello",
+                            "confidence": 0.95,
+                            "geometry": [[0.1, 0.1], [0.3, 0.15]],
+                        },
+                        {
+                            "value": "World",
+                            "confidence": 0.93,
+                            "geometry": [[0.35, 0.1], [0.55, 0.15]],
+                        },
+                    ]
+                }
+            ]
+        }
+    ]
+}
+
+
+def _write_project_json(projects_root: Path, project_id: str, *, output_dir: str) -> None:
+    """Write a minimal project.json with succeeded state and one page."""
+    proj_dir = projects_root / project_id
+    proj_dir.mkdir(parents=True, exist_ok=True)
+
+    spec: dict[str, object] = {
+        "project_id": project_id,
+        "name": f"e2e-seeded-{project_id[:8]}",
+        "source_path": str(proj_dir),  # placeholder — not used for these tests
+        "output_dir": output_dir,
+        "engine": "doctr",
+        "language": "en",
+        "save_json": False,
+        "combined_txt": False,
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "last_opened_at": "2026-01-01T00:00:00+00:00",
+    }
+    status: dict[str, object] = {
+        "project_id": project_id,
+        "state": "succeeded",
+        "page_count": 1,
+        "pages_done": 1,
+        "pages": [
+            {
+                "page_idx": 0,
+                "page_name": "page-001",
+                "state": "succeeded",
+                "text_preview": "Hello World",
+            }
+        ],
+    }
+    data = {"spec": spec, "status": status}
+    (proj_dir / "project.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def _write_page_sidecar(projects_root: Path, project_id: str) -> None:
+    """Write the per-page JSON sidecar that /api/pages/.../words reads."""
+    pages_dir = projects_root / project_id / "pages"
+    pages_dir.mkdir(parents=True, exist_ok=True)
+    # Page name matches what was written in the status pages list.
+    (pages_dir / "page-001.json").write_text(json.dumps(_SEEDED_PAGE_SIDECAR, indent=2), encoding="utf-8")
+
+
+def _write_output_txt(outputs_root: Path, project_id: str) -> None:
+    """Write a placeholder .txt output so the download endpoint has content."""
+    out_dir = outputs_root / project_id
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "page-001.txt").write_text("Hello World\n", encoding="utf-8")
+
+
+def _write_job_meta(jobs_meta_root: Path, project_id: str, mode: str) -> None:
+    """Write the output_mode sidecar that GET /api/jobs/{id} reads."""
+    meta_dir = jobs_meta_root / project_id
+    meta_dir.mkdir(parents=True, exist_ok=True)
+    (meta_dir / "output_mode.json").write_text(json.dumps({"mode": mode}), encoding="utf-8")
+
+
+@pytest.fixture(scope="session")
+def seeded_job_id(e2e_data_root: Path) -> str:
+    """Yield a project_id for a completed (non-managed) job pre-seeded on disk.
+
+    The job has:
+    - status = succeeded, 1 page
+    - a page sidecar with 2 words (for word-overlay tests)
+    - output_mode = next_to_source (no download button)
+    """
+    project_id = "e2etestjob-" + uuid.uuid4().hex[:12]
+    projects_root = e2e_data_root / "projects"
+    outputs_root = e2e_data_root / "outputs"
+    jobs_meta_root = e2e_data_root / "jobs_meta"
+
+    out_dir = str(outputs_root / project_id)
+    _write_project_json(projects_root, project_id, output_dir=out_dir)
+    _write_page_sidecar(projects_root, project_id)
+    _write_output_txt(outputs_root, project_id)
+    _write_job_meta(jobs_meta_root, project_id, mode="next_to_source")
+    return project_id
+
+
+@pytest.fixture(scope="session")
+def seeded_managed_job_id(e2e_data_root: Path) -> str:
+    """Yield a project_id for a completed managed-mode job pre-seeded on disk.
+
+    The job has:
+    - status = succeeded, 1 page
+    - output_mode = managed  → ResultsPage shows the download button
+    - output artifacts in outputs_root/<id>/ so /api/jobs/{id}/download works
+    """
+    project_id = "e2etestmgd-" + uuid.uuid4().hex[:12]
+    projects_root = e2e_data_root / "projects"
+    outputs_root = e2e_data_root / "outputs"
+    jobs_meta_root = e2e_data_root / "jobs_meta"
+
+    out_dir = str(outputs_root / project_id)
+    _write_project_json(projects_root, project_id, output_dir=out_dir)
+    _write_page_sidecar(projects_root, project_id)
+    _write_output_txt(outputs_root, project_id)
+    _write_job_meta(jobs_meta_root, project_id, mode="managed")
+    return project_id
