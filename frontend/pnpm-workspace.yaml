@@ -5,3 +5,6 @@ allowBuilds:
 # window. Other packages still respect the 1440-minute default.
 minimumReleaseAgeExclude:
   - "@pdomain/*"
+overrides:
+  react: $react
+  react-dom: $react-dom
