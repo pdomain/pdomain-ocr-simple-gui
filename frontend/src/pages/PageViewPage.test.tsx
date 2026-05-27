@@ -402,4 +402,53 @@ describe("PageViewPage", () => {
       expect(textarea.value).toBe("new rerun text");
     });
   });
+
+  it("renders progress_message when job is mid-flight", async () => {
+    (globalThis as any).fetch = vi
+      .fn()
+      .mockImplementation((url: string) => {
+        if (url.includes("/api/jobs/") && !url.includes("/pages/")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              ...makeJobStatus(3, "running"),
+              progress_message:
+                "Loading OCR engine — first run may download ~200 MB to ~/.cache/huggingface",
+            }),
+          });
+        }
+        if (url.includes("/api/pages/") && !url.endsWith("/image")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => makePageData(0, "text"),
+          });
+        }
+        return Promise.resolve({ ok: false, json: async () => ({}) });
+      });
+
+    render(
+      <MemoryRouter initialEntries={["/jobs/proj-abc/pages/0"]}>
+        <Routes>
+          <Route path="/jobs/:id/pages/:idx" element={<PageViewPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("page-progress-message")).toHaveTextContent(
+        /Loading OCR engine/,
+      );
+    });
+  });
+
+  it("hides progress_message when missing/null", async () => {
+    renderPageView("proj-abc", 0);
+    // Wait for the page to load (default makeJobStatus has no progress_message).
+    await waitFor(() => {
+      expect(screen.getByRole("textbox")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByTestId("page-progress-message"),
+    ).not.toBeInTheDocument();
+  });
 });

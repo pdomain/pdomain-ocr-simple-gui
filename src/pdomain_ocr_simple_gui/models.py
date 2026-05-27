@@ -53,6 +53,7 @@ class ProjectStatus(BaseModel):
     pages_done: int
     pages: list[PageResult]
     error: str | None = None
+    progress_message: str | None = None
 
 
 class PageResponse(BaseModel):

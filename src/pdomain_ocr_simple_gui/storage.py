@@ -265,5 +265,9 @@ def update_page_result(spec: ProjectSpec, page_result: PageResult) -> None:
         page_count=status.page_count,
         pages_done=pages_done,
         pages=new_pages,
+        # Preserve the free-text progress message — pipeline.py stamps it
+        # outside the per-page state machine, so per-page updates must not
+        # silently drop it.
+        progress_message=status.progress_message,
     )
     write_project(s, new_status)
