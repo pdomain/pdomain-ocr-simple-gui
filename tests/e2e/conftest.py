@@ -22,6 +22,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Generator
+from pathlib import Path
 
 import httpx
 import pytest
@@ -45,12 +46,12 @@ def _free_port() -> int:
         return s.getsockname()[1]  # type: ignore[return-value]
 
 
-def _wait_ready(base_url: str, timeout: float = 20.0) -> None:
-    """Poll ``/api/health`` until the server responds or timeout expires."""
+def _wait_ready(base_url: str, timeout: float = 30.0) -> None:
+    """Poll ``/api/config`` until the server responds 200 or timeout expires."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         try:
-            resp = httpx.get(f"{base_url}/api/health", timeout=2.0)
+            resp = httpx.get(f"{base_url}/api/config", timeout=2.0)
             if resp.status_code == 200:
                 return
         except httpx.TransportError:
@@ -65,10 +66,22 @@ def _wait_ready(base_url: str, timeout: float = 20.0) -> None:
 
 
 @pytest.fixture(scope="session")
-def live_server_url() -> Generator[str, None, None]:
+def live_server_url(tmp_path_factory: pytest.TempPathFactory) -> Generator[str, None, None]:
     """Start the app on a free port; yield the base URL; shut down after session."""
     port = _free_port()
     base_url = f"http://127.0.0.1:{port}"
+
+    workdir = tmp_path_factory.mktemp("e2e_server")
+    env: dict[str, str] = {
+        **os.environ,
+        "PD_OCR_SIMPLE_GUI_MODE": "local",
+        "PD_OCR_SIMPLE_GUI_UPLOAD_ROOT": str(workdir / "uploads"),
+        "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(workdir / "outputs"),
+    }
+
+    # Ensure upload/output dirs exist so the server starts cleanly
+    Path(env["PD_OCR_SIMPLE_GUI_UPLOAD_ROOT"]).mkdir(parents=True, exist_ok=True)
+    Path(env["PD_OCR_SIMPLE_GUI_OUTPUT_ROOT"]).mkdir(parents=True, exist_ok=True)
 
     proc = subprocess.Popen(
         [
@@ -81,6 +94,7 @@ def live_server_url() -> Generator[str, None, None]:
             "--port",
             str(port),
         ],
+        env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
