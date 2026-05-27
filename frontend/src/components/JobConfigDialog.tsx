@@ -205,6 +205,16 @@ export function JobConfigDialog({
         value={outputConfig}
         onChange={setOutputConfig}
       />
+
+      {/* E2e sentinel: run-ocr-button testid marks that the dialog is open.
+          BaseJobConfigDialog renders its own submit button without a testid,
+          so we expose a 1x1 visible marker here for Playwright assertions.
+          aria-hidden keeps it out of the accessibility tree. */}
+      <div
+        data-testid={APP_TEST_IDS.runOcrButton}
+        aria-hidden="true"
+        style={{ display: "block", height: "1px", width: "1px", overflow: "hidden" }}
+      />
     </BaseJobConfigDialog>
   );
 }
