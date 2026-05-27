@@ -138,7 +138,6 @@ function renderPageView(projectId = "proj-abc", pageIdx = 0) {
       return Promise.resolve({ ok: false, json: async () => ({}) });
     });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (globalThis as any).fetch = mockFetch;
 
   return {
@@ -366,7 +365,6 @@ describe("PageViewPage", () => {
         return Promise.resolve({ ok: false, json: async () => ({}) });
       });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).fetch = mockFetch;
 
     render(

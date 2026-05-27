@@ -184,7 +184,7 @@ function renderDialog(
     });
 
   const mockFetch = fetchMock ?? defaultFetch;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   (globalThis as any).fetch = mockFetch;
 
   const result = render(
