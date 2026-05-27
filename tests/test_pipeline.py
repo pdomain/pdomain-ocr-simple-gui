@@ -162,11 +162,10 @@ class TestCollectImages:
 class TestRunProject:
     async def test_calls_run_stage_once_per_image(self, tmp_path: Path, monkeypatch) -> None:
         """run_project calls dispatcher.run_stage once per image file."""
-        import pdomain_ocr_simple_gui.storage as storage_mod
 
         root = tmp_path / "projects"
         root.mkdir()
-        monkeypatch.setattr(storage_mod, "_PROJECTS_ROOT", root)
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
 
         # Create two image files
         src = tmp_path / "source"
@@ -210,11 +209,10 @@ class TestRunProject:
         assert len(callbacks) == 2
 
     async def test_status_callback_receives_project_status(self, tmp_path: Path, monkeypatch) -> None:
-        import pdomain_ocr_simple_gui.storage as storage_mod
 
         root = tmp_path / "projects"
         root.mkdir()
-        monkeypatch.setattr(storage_mod, "_PROJECTS_ROOT", root)
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
 
         src = tmp_path / "source"
         src.mkdir()
@@ -253,11 +251,10 @@ class TestRunProject:
 
     async def test_run_stage_kwargs(self, tmp_path: Path, monkeypatch) -> None:
         """run_project passes image_path, engine, language to run_stage."""
-        import pdomain_ocr_simple_gui.storage as storage_mod
 
         root = tmp_path / "projects"
         root.mkdir()
-        monkeypatch.setattr(storage_mod, "_PROJECTS_ROOT", root)
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
 
         src = tmp_path / "source"
         src.mkdir()
@@ -293,11 +290,10 @@ class TestRunProject:
 
     async def test_extracts_text_from_page_dict(self, tmp_path: Path, monkeypatch) -> None:
         """run_project extracts text from the page dict and writes it."""
-        import pdomain_ocr_simple_gui.storage as storage_mod
 
         root = tmp_path / "projects"
         root.mkdir()
-        monkeypatch.setattr(storage_mod, "_PROJECTS_ROOT", root)
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
 
         src = tmp_path / "source"
         src.mkdir()

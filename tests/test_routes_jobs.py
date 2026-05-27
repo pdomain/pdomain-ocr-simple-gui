@@ -14,11 +14,10 @@ from pdomain_ocr_simple_gui.models import ProjectStatus
 @pytest.fixture
 async def client(tmp_path, monkeypatch):
     """Async HTTP client wired to the FastAPI app with tmp storage root."""
-    import pdomain_ocr_simple_gui.storage as storage_mod
 
     root = tmp_path / "projects"
     root.mkdir()
-    monkeypatch.setattr(storage_mod, "_PROJECTS_ROOT", root)
+    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 
@@ -26,11 +25,10 @@ async def client(tmp_path, monkeypatch):
 @pytest.fixture
 async def client_with_source(tmp_path, monkeypatch):
     """Client with a tmp storage root AND a real source directory with one image."""
-    import pdomain_ocr_simple_gui.storage as storage_mod
 
     root = tmp_path / "projects"
     root.mkdir()
-    monkeypatch.setattr(storage_mod, "_PROJECTS_ROOT", root)
+    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
 
     # Create a tiny source image
     src = tmp_path / "source"
@@ -361,11 +359,10 @@ class TestUploadIdSource:
 
     async def test_create_job_with_upload(self, tmp_path, monkeypatch) -> None:
         """POST /api/jobs with upload_id and output:managed returns 200 or 202."""
-        import pdomain_ocr_simple_gui.storage as storage_mod
 
         root = tmp_path / "projects"
         root.mkdir()
-        monkeypatch.setattr(storage_mod, "_PROJECTS_ROOT", root)
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
         monkeypatch.setenv("PD_OCR_SIMPLE_GUI_UPLOAD_ROOT", str(tmp_path))
         monkeypatch.setenv("PD_OCR_SIMPLE_GUI_OUTPUT_ROOT", str(tmp_path / "outputs"))
 
@@ -403,11 +400,10 @@ class TestOutputModeRoundTrip:
 
     async def test_output_mode_returned_on_get(self, tmp_path, monkeypatch) -> None:
         """Creating a job with output.mode='managed' surfaces output_mode on GET."""
-        import pdomain_ocr_simple_gui.storage as storage_mod
 
         root = tmp_path / "projects"
         root.mkdir()
-        monkeypatch.setattr(storage_mod, "_PROJECTS_ROOT", root)
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
 
         # Point jobs-meta sidecar to tmp
         meta_root = tmp_path / "jobs-meta"

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import shutil
 from pathlib import Path
@@ -13,7 +14,19 @@ from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
 
 logger = logging.getLogger(__name__)
 
-_PROJECTS_ROOT: Path = Path.home() / ".local" / "share" / "pdomain-suite" / "simple-gui" / "projects"
+_PROJECTS_ROOT_DEFAULT: Path = Path.home() / ".local" / "share" / "pdomain-suite" / "simple-gui" / "projects"
+
+
+def _projects_root() -> Path:
+    """Return the projects root directory.
+
+    Reads ``PD_OCR_SIMPLE_GUI_PROJECTS_ROOT`` from the environment so that the
+    test suite (and CI) can redirect storage without touching the real home
+    directory.  Falls back to the shipped default when the var is not set.
+    """
+    raw = os.environ.get("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT")
+    return Path(raw) if raw else _PROJECTS_ROOT_DEFAULT
+
 
 JSONValue: TypeAlias = str | int | float | bool | None | list["JSONValue"] | dict[str, "JSONValue"]
 JSONObject: TypeAlias = dict[str, JSONValue]
@@ -40,7 +53,7 @@ def validate_project_id(project_id: str) -> None:
     1. Allowlist check — only [A-Za-z0-9_-] permitted; bans dots, slashes,
        backslashes, null bytes, percent signs, etc.
     2. Path containment — the resolved path must be a direct child of
-       _PROJECTS_ROOT (not _PROJECTS_ROOT itself, not above it).
+       _projects_root() (not _projects_root() itself, not above it).
 
     Call this at the API boundary, before any filesystem operation.
     """
@@ -49,8 +62,9 @@ def validate_project_id(project_id: str) -> None:
             f"Invalid project_id {project_id!r}: only A-Za-z0-9, hyphens and underscores allowed"
         )
     # Containment check against the resolved root (handles symlinks on the root)
-    resolved_root = _PROJECTS_ROOT.resolve()
-    candidate = (_PROJECTS_ROOT / project_id).resolve()
+    _root = _projects_root()
+    resolved_root = _root.resolve()
+    candidate = (_root / project_id).resolve()
     # Must be strictly under the root, not equal to it
     if candidate == resolved_root or not str(candidate).startswith(str(resolved_root) + "/"):
         raise ValueError(f"project_id {project_id!r} resolves outside the project store")
@@ -58,7 +72,7 @@ def validate_project_id(project_id: str) -> None:
 
 def get_project_dir(project_id: str) -> Path:
     """Return the project directory for the given project_id."""
-    return _PROJECTS_ROOT / project_id
+    return _projects_root() / project_id
 
 
 def write_project(spec: ProjectSpec, status: ProjectStatus) -> None:
@@ -137,10 +151,11 @@ def write_combined_txt(spec: ProjectSpec, status: ProjectStatus) -> None:
 
 def list_projects() -> list[tuple[ProjectSpec, ProjectStatus]]:
     """Return all known projects from the projects root."""
-    if not _PROJECTS_ROOT.exists():
+    root = _projects_root()
+    if not root.exists():
         return []
     results: list[tuple[ProjectSpec, ProjectStatus]] = []
-    for proj_dir in sorted(_PROJECTS_ROOT.iterdir()):
+    for proj_dir in sorted(root.iterdir()):
         proj_file = proj_dir / "project.json"
         if proj_file.exists():
             try:
