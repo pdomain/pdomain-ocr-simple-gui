@@ -213,7 +213,12 @@ export function JobConfigDialog({
       <div
         data-testid={APP_TEST_IDS.runOcrButton}
         aria-hidden="true"
-        style={{ display: "block", height: "1px", width: "1px", overflow: "hidden" }}
+        style={{
+          display: "block",
+          height: "1px",
+          width: "1px",
+          overflow: "hidden",
+        }}
       />
     </BaseJobConfigDialog>
   );
