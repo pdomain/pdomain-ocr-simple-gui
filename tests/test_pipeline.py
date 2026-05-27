@@ -340,7 +340,9 @@ class TestRunProject:
         await run_project(spec, mock_dispatcher, _cb)
 
         assert mock_dispatcher.run_stage.call_count == 2
-        assert len(callbacks) == 2
+        # 5 callbacks: loading + (per-page-start + per-page-end) * 2 pages.
+        # combined_txt=False so the "Writing outputs" callback is skipped.
+        assert len(callbacks) == 5
 
     async def test_status_callback_receives_project_status(self, tmp_path: Path, monkeypatch) -> None:
 
@@ -379,7 +381,8 @@ class TestRunProject:
 
         await run_project(spec, mock_dispatcher, _cb)
 
-        assert len(received) == 1
+        # 1 page → loading + per-page-start + per-page-end = 3 callbacks.
+        assert len(received) == 3
         assert received[0].project_id == spec.project_id
         assert isinstance(received[0], ProjectStatus)
 
@@ -610,3 +613,70 @@ class TestRunProject:
         assert not (out_dir / "p0.json").exists()
         # combined_txt=False → no combined file
         assert not any(p.suffix == ".txt" and p.name != "p0.txt" for p in out_dir.iterdir())
+
+
+class TestProgressMessage:
+    async def test_progress_message_sequence(self, tmp_path: Path, monkeypatch) -> None:
+        """run_project emits the documented per-phase progress messages.
+
+        Sequence on a 2-page job with combined_txt=False:
+          1. "Loading OCR engine..." (once, before first dispatch).
+          2. "Processing page 1/2 — name0.png" (before page-0 dispatch).
+          3. (post-page-0 callback retains the same "Processing page 1/2" msg).
+          4. "Processing page 2/2 — name1.png" (before page-1 dispatch).
+          5. (post-page-1 callback retains "Processing page 2/2" msg).
+          6. Terminal callback is NOT emitted via status_callback, but the
+             persisted ProjectStatus clears progress_message to None.
+        """
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+
+        src = tmp_path / "source"
+        src.mkdir()
+        (src / "name0.png").touch()
+        (src / "name1.png").touch()
+
+        spec = _make_spec(tmp_path, source_path=str(src))
+        pages = [
+            PageResult(page_idx=0, page_name="name0.png", state="queued"),
+            PageResult(page_idx=1, page_name="name1.png", state="queued"),
+        ]
+        from pdomain_ocr_simple_gui.storage import read_project, write_project
+
+        write_project(
+            spec,
+            ProjectStatus(
+                project_id=spec.project_id,
+                state="queued",
+                page_count=2,
+                pages_done=0,
+                pages=pages,
+            ),
+        )
+
+        mock_dispatcher = MagicMock()
+        mock_dispatcher.run_stage = AsyncMock(
+            return_value=_make_stub_stage_result("proj-test-001/0", EMPTY_PAGE_DICT)
+        )
+
+        messages: list[str | None] = []
+
+        async def _cb(status: ProjectStatus) -> None:
+            messages.append(status.progress_message)
+
+        await run_project(spec, mock_dispatcher, _cb)
+
+        loading_msg = "Loading OCR engine — first run may download ~200 MB to ~/.cache/huggingface"
+        assert messages == [
+            loading_msg,
+            "Processing page 1/2 — name0.png",
+            "Processing page 1/2 — name0.png",
+            "Processing page 2/2 — name1.png",
+            "Processing page 2/2 — name1.png",
+        ]
+
+        # Terminal persisted status clears the message.
+        _, final_status = read_project(spec.project_id)
+        assert final_status.progress_message is None
+        assert final_status.state == "succeeded"

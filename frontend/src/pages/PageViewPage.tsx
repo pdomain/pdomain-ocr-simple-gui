@@ -38,6 +38,7 @@ interface JobStatus {
   name: string;
   state: string;
   page_count: number;
+  progress_message?: string | null;
 }
 
 /** Normalized word bbox from GET /api/pages/{id}/{idx}/words. */
@@ -206,8 +207,21 @@ export default function PageViewPage() {
   const pageWidth = pageData?.width ?? 800;
   const pageHeight = pageData?.height ?? 1200;
 
+  const jobInFlight =
+    jobStatus !== null &&
+    (jobStatus.state === "queued" || jobStatus.state === "running");
+  const showJobProgressMessage = jobInFlight && !!jobStatus.progress_message;
+
   const toolbarContent = (
     <>
+      {showJobProgressMessage && (
+        <span
+          className="page-view-page__progress-message"
+          data-testid={APP_TEST_IDS.pageProgressMessage}
+        >
+          {jobStatus.progress_message}
+        </span>
+      )}
       <Button
         variant="ghost"
         onClick={() => goToPage(pageIdx - 1)}

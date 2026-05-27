@@ -85,6 +85,7 @@ export default function ResultsPage() {
     output_dir,
     output_mode,
     pages,
+    progress_message,
   } = jobData;
 
   const progressValue =
@@ -103,6 +104,15 @@ export default function ResultsPage() {
         <h1 className="results-page__title">{name}</h1>
         <JobStatusPip state={state} />
       </header>
+
+      {progress_message && (
+        <p
+          className="results-page__progress-message"
+          data-testid={APP_TEST_IDS.jobProgressMessage}
+        >
+          {progress_message}
+        </p>
+      )}
 
       {isRunning && (
         <div className="results-page__progress">

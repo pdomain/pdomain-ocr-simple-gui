@@ -170,6 +170,40 @@ describe("ResultsPage", () => {
     expect(screen.queryByTestId("progress-bar")).not.toBeInTheDocument();
   });
 
+  it("renders progress_message when backend sets it", async () => {
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ...makeJobStatus("running", 0, 3),
+          progress_message:
+            "Loading OCR engine — first run may download ~200 MB to ~/.cache/huggingface",
+        }),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("job-progress-message")).toHaveTextContent(
+        /Loading OCR engine/,
+      );
+    });
+  });
+
+  it("hides progress_message row when missing/null", async () => {
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockResolvedValue({
+        ok: true,
+        // No progress_message field at all — testid must be absent.
+        json: async () => makeJobStatus("running", 0, 3),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("progress-bar")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("job-progress-message")).not.toBeInTheDocument();
+  });
+
   it("polling stops when state is done", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: false });
 

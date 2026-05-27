@@ -305,6 +305,19 @@ async def run_project(
     images = await collect_images(spec.source_path)
     total = len(images)
 
+    def _persist_message(message: str | None) -> ProjectStatus:
+        """Set ``progress_message`` on the stored status and persist it.
+
+        Returns the freshly-written status (which the caller may forward to
+        the status callback). The per-page state machine is owned by
+        :func:`update_page_result`; this helper just stamps the free-text
+        progress field on top of whatever the current status is.
+        """
+        _, prev = read_project(spec.project_id)
+        next_status = prev.model_copy(update={"progress_message": message})
+        write_project(spec, next_status)
+        return next_status
+
     # Mark project as running
     _, current_status = read_project(spec.project_id)
     running_status = ProjectStatus(
@@ -319,6 +332,16 @@ async def run_project(
     for idx, img_path in enumerate(images):
         page_id = f"{spec.project_id}/{idx}"
 
+        # On the first page, surface a non-empty status while the OCR engine
+        # is still warming up — DocTR's first run may pull ~200 MB of model
+        # weights from Hugging Face plus a GPU model load inside
+        # ``_ocr_local_impl``. Users see one message rather than dead air.
+        if idx == 0:
+            loading_status = _persist_message(
+                "Loading OCR engine — first run may download ~200 MB to ~/.cache/huggingface",
+            )
+            await status_callback(loading_status)
+
         # Mark page as running
         page_running = PageResult(
             page_idx=idx,
@@ -326,6 +349,13 @@ async def run_project(
             state="running",
         )
         update_page_result(spec, page_running)
+
+        # Stamp the per-page progress message just before dispatch. Kept in
+        # sync with the page's running state so the UI can render both.
+        per_page_status = _persist_message(
+            f"Processing page {idx + 1}/{total} — {img_path.name}",
+        )
+        await status_callback(per_page_status)
 
         try:
             stage_result = await dispatcher.run_stage(
@@ -428,7 +458,14 @@ async def run_project(
         _, updated_status = read_project(spec.project_id)
         await status_callback(updated_status)
 
-    # Final state
+    # Surface a "Writing outputs" message while we finalize: combined-txt
+    # mirror, etc. Skipped when there are no outputs to write.
+    if spec.combined_txt:
+        writing_status = _persist_message("Writing outputs")
+        await status_callback(writing_status)
+
+    # Final state — clear progress_message so stale text doesn't linger in
+    # the polled GET /api/jobs/{id} response.
     _, final_status = read_project(spec.project_id)
     all_done = all(p.state == "succeeded" for p in final_status.pages)
     final_state = "succeeded" if all_done else "failed"
@@ -438,6 +475,7 @@ async def run_project(
         page_count=total,
         pages_done=sum(1 for p in final_status.pages if p.state == "succeeded"),
         pages=final_status.pages,
+        progress_message=None,
     )
     write_project(spec, terminal_status)
 

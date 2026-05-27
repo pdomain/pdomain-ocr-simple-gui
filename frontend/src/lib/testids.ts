@@ -36,4 +36,6 @@ export const APP_TEST_IDS = {
   pageZoomFit: "page-zoom-fit",
   pageZoom100: "page-zoom-100",
   pageZoomViewport: "page-zoom-viewport",
+  jobProgressMessage: "job-progress-message",
+  pageProgressMessage: "page-progress-message",
 } as const;

@@ -42,6 +42,12 @@ export interface OcrJobData {
   output_dir?: string;
   output_mode?: "next_to_source" | "specified" | "managed";
   pages: OcrJobPage[];
+  /**
+   * Human-readable progress message stamped by the backend pipeline
+   * (e.g. "Processing page 2/5 — img.png"). Optional/nullable so older
+   * backends and post-terminal states omit it cleanly.
+   */
+  progress_message?: string | null;
 }
 
 export interface UseOcrJobOptions {
