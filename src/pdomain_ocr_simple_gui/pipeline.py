@@ -337,7 +337,35 @@ async def run_project(
             )
             # metadata["pages"] is a list; take the first page dict
             page_dict = first_page_dict(stage_result.metadata)
-            text = extract_text(page_dict)
+
+            # Round-trip through pdomain-book-tools Page so reorganize_page()
+            # clusters flat OCR words into lines/paragraphs/blocks. Without
+            # this, every word lands on its own line in the .txt output.
+            # Mirrors pd-ocr-cli's ocr_to_txt.py pattern (call reorganize_page
+            # then read page.text + page.to_dict()).
+            from pdomain_book_tools.ocr.page import Page
+
+            raw_text = extract_text(page_dict)
+            reorganized_dict: JsonObject = page_dict
+            reorganized_text = ""
+            try:
+                page_obj = Page.from_dict(page_dict)
+                page_obj.reorganize_page()
+                reorganized_dict = cast("JsonObject", page_obj.to_dict())
+                reorganized_text = page_obj.text
+            except Exception:
+                logger.exception(
+                    "reorganize_page() failed; falling back to raw OCR dict",
+                    extra={"context": f"page_idx={idx}, image={img_path.name!r}"},
+                )
+            # Reorganize needs bbox geometry; pages with no bboxes (e.g. test
+            # stubs) get empty text from page.text but still have words in the
+            # raw dict. Fall back to extract_text when reorganize produces less.
+            if reorganized_text.strip():
+                page_dict = reorganized_dict
+                text = reorganized_text
+            else:
+                text = raw_text
 
             sidecar_payload = build_sidecar_payload(page_dict, text)
             write_page_sidecar(spec, idx, sidecar_payload)
