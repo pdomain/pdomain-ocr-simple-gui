@@ -41,8 +41,18 @@ Architecture doc: `docs/architecture/00-overview.md`.
 | `make local-dev` | switch to local-dev mode (Python + npm siblings editable + marker) |
 | `make local-check` | print local-dev mode + per-sibling resolution |
 | `make local-upgrade-deps` | upgrade deps then restore editables (local-mode only) |
-| `make local-run` | run the SPA against local-dev workspace (local-mode only) |
+| `make local-setup-py` | re-apply editable Python siblings (idempotent; defensive against `uv sync`) |
+| `make local-frontend-install` | `pnpm install` + restore `pnpm link` overlays for npm siblings |
+| `make local-frontend-build` | Vite build using locally-linked npm siblings |
+| `make local-frontend-test` | vitest using locally-linked npm siblings |
+| `make local-frontend-dev` | Vite dev server using locally-linked npm siblings |
+| `make local-run` | run the SPA against local-dev workspace (local-mode only; uses `local-frontend-build` — local-link sticky) |
 | `make update-pd-deps` | bump pd-* sibling deps to registry latest; leaves diff for review |
+
+`frontend-*` and `run` are registry-resolved (canonical CI path).
+`local-frontend-*` and `local-run` are local-link-resolved (developer
+workflow); see [`docs/process/local-dev.md`](docs/process/local-dev.md)
+for why the two families are kept separate.
 
 See [workspace `docs/process/local-dev.md`](../docs/process/local-dev.md) for the canonical local-dev pattern (spec #362).
 

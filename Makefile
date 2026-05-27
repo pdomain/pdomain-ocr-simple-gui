@@ -35,6 +35,8 @@ PEER_BOOK_TOOLS_PATH ?= ../pdomain-book-tools
         frontend-test frontend-lint frontend-format frontend-format-check frontend-knip \
         openapi-export clean ci ci-full upgrade-deps dev-local \
         local-setup local-dev local-check local-upgrade-deps local-run \
+        local-setup-py local-frontend-install local-frontend-build \
+        local-frontend-test local-frontend-dev \
         update-pd-deps upgrade-pdomain-book-tools \
         release-patch release-minor release-major _do-release
 
@@ -197,6 +199,27 @@ local-upgrade-deps: ## Upgrade deps then restore editable siblings
 
 local-run: ## Run the SPA against local-dev workspace
 	@./scripts/local-run.sh
+
+# Parallel local-* family — like the frontend-* / setup targets, but
+# preserve `pnpm link` and `uv pip install -e` overlays after a fresh
+# `pnpm install` / `uv sync`. Normal frontend-*/setup targets remain
+# registry-resolved; only the local-* family is local-link-sticky.
+# Spec: workspace decision noted in docs/process/local-dev.md.
+
+local-setup-py: ## Re-apply editable Python siblings (idempotent)
+	@./scripts/local-setup-py.sh
+
+local-frontend-install: ## frontend-install + restore pnpm link overlays for npm siblings
+	@./scripts/local-frontend-install.sh
+
+local-frontend-build: local-frontend-install ## Vite build using local-linked siblings
+	cd frontend && $(call _pnpm,run build)
+
+local-frontend-test: local-frontend-install ## vitest using local-linked siblings
+	cd frontend && $(call _pnpm,run test)
+
+local-frontend-dev: local-frontend-install ## Vite dev server using local-linked siblings
+	cd frontend && $(call _pnpm,run dev)
 
 # ---------------------------------------------------------------------------
 # Sibling-dep refresh (spec #363)
