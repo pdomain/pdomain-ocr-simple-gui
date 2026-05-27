@@ -43,8 +43,8 @@ class TestSuiteJson:
         data = json.loads(raw)
 
         # NOTE: "description" is intentionally absent from pdomain-suite.json.
-        # pdomain-ocr-ops <= 0.2.3 InstalledApp rejects extra fields (extra_forbidden),
-        # so description was dropped (see commit 069409c). Restore when pdomain-ocr-ops
+        # pdomain-ops <= 0.2.3 InstalledApp rejects extra fields (extra_forbidden),
+        # so description was dropped (see commit 069409c). Restore when pdomain-ops
         # adds the description field (issue #80 upstream).
         required = {"app_id", "display_name", "package", "default_port", "icon"}
         assert required.issubset(data.keys())
@@ -78,7 +78,7 @@ class TestRegisterSelf:
         def _fake_register_self(**kwargs: object) -> None:
             call_log.append(kwargs.get("_caller_package", "auto") or "auto")
 
-        with patch("pdomain_ocr_ops.suite.register_self", _fake_register_self):
+        with patch("pdomain_ops.suite.register_self", _fake_register_self):
             # Import the lifespan setup to verify the call would happen
             # (we check the app module sources the correct import path)
             import inspect
@@ -89,8 +89,8 @@ class TestRegisterSelf:
             assert "register_self" in src
 
     def test_register_self_is_importable(self) -> None:
-        """register_self is importable from pdomain_ocr_ops.suite."""
-        from pdomain_ocr_ops.suite import register_self
+        """register_self is importable from pdomain_ops.suite."""
+        from pdomain_ops.suite import register_self
 
         assert callable(register_self)
 

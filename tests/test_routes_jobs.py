@@ -178,7 +178,7 @@ class TestPipelineIntegration:
 
     async def test_dispatcher_passed_to_run_project(self, client_with_source) -> None:
         """run_project receives a LocalStageDispatcher instance."""
-        from pdomain_ocr_ops.gpu import LocalStageDispatcher
+        from pdomain_ops.gpu import LocalStageDispatcher
 
         client, source_path = client_with_source
         received_dispatchers: list = []
@@ -197,7 +197,7 @@ class TestPipelineIntegration:
 
 
 class TestCanonicalJobStates:
-    """Verify that the API always emits pdomain-ocr-ops canonical state values.
+    """Verify that the API always emits pdomain-ops canonical state values.
 
     The canonical states are: queued | running | succeeded | failed | cancelled.
     Legacy values like 'done' or 'error' must never appear in API responses.
@@ -257,7 +257,7 @@ class TestCanonicalJobStates:
         assert state != "done", "Legacy 'done' state must not be returned by the API"
 
     async def test_state_is_always_a_canonical_value(self, client: AsyncClient) -> None:
-        """Every job state returned by the API must be a canonical pdomain-ocr-ops value."""
+        """Every job state returned by the API must be a canonical pdomain-ops value."""
         CANONICAL_STATES = {"queued", "running", "succeeded", "failed", "cancelled"}
         LEGACY_STATES = {"done", "error", "pending", "created", "complete"}
 
@@ -265,7 +265,7 @@ class TestCanonicalJobStates:
         project_id = resp.json()["project_id"]
         get_resp = await client.get(f"/api/jobs/{project_id}")
         state = get_resp.json()["state"]
-        assert state in CANONICAL_STATES, f"Job state {state!r} is not a canonical pdomain-ocr-ops state"
+        assert state in CANONICAL_STATES, f"Job state {state!r} is not a canonical pdomain-ops state"
         assert state not in LEGACY_STATES, f"Legacy state {state!r} must not be returned by the API"
 
 

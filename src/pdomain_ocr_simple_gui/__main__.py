@@ -85,7 +85,7 @@ def main() -> None:
 
     if args.unregister_suite:
         try:
-            from pdomain_ocr_ops.suite.registry import (  # pyright: ignore[reportMissingTypeStubs] pdomain_ocr_ops dependency may omit typing stubs
+            from pdomain_ops.suite.registry import (  # pyright: ignore[reportMissingTypeStubs] pdomain_ops dependency may omit typing stubs
                 LocalTomlSuiteRegistry,
             )
 
@@ -105,7 +105,7 @@ def main() -> None:
         raise NotImplementedError("--remove-desktop-shortcut is not implemented in Phase 1")
 
     import uvicorn
-    from pdomain_ocr_ops.suite import (  # pyright: ignore[reportMissingTypeStubs]
+    from pdomain_ops.suite import (  # pyright: ignore[reportMissingTypeStubs]
         find_available_port,
     )
 

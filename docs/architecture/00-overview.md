@@ -9,7 +9,7 @@
 
 A minimal drag-and-drop OCR web app. The user drops a folder of scanned images,
 picks an OCR engine (DocTR or Tesseract), runs OCR, and gets `.txt` output files.
-Phase 3 reference consumer that validates `pdomain-ocr-ops`' `LocalStageDispatcher`
+Phase 3 reference consumer that validates `pdomain-ops`' `LocalStageDispatcher`
 and `register_default_stages()`.
 
 Ships as a single Python wheel: `uv tool install pdomain-ocr-simple-gui`.
@@ -24,7 +24,7 @@ Default launch: `http://localhost:8004`.
 | Backend | FastAPI + uvicorn, Python 3.11+ |
 | Frontend | React 19 + Vite + TypeScript + `@pdomain/pdomain-ui` |
 | OCR | `pdomain-book-tools` (DocTR / Tesseract runners) |
-| Suite plumbing | `pdomain-ocr-ops` (`LocalStageDispatcher`, `PrefsAdapter`, `register_self`) |
+| Suite plumbing | `pdomain-ops` (`LocalStageDispatcher`, `PrefsAdapter`, `register_self`) |
 | Storage | JSON sidecar files in `~/.local/share/pdomain-suite/simple-gui/projects/` |
 | Tests | pytest + pytest-asyncio + httpx; Playwright e2e; vitest for frontend |
 
@@ -95,7 +95,7 @@ pdomain-ocr-simple-gui/
 | `GET` | `/api/prefs` | Read app prefs (recent projects, defaults) |
 | `PUT` | `/api/prefs` | Update app prefs |
 | `GET` | `/api/health` | Health check (used by Playwright fixture) |
-| `GET` | `/api/suite/*` | Suite routes (mounted by pdomain-ocr-ops) |
+| `GET` | `/api/suite/*` | Suite routes (mounted by pdomain-ops) |
 | `GET` | `/api/icons/{size}` | Icon PNG by pixel size |
 | `GET` | `/{full_path:path}` | SPA catch-all (serves index.html) |
 
@@ -110,7 +110,7 @@ pdomain-ocr-simple-gui/
    `dispatcher.run_stage("ocr", ...)` per page; writes sidecar + `.txt` via storage
    helpers; calls `status_callback` for progress updates.
 
-`LocalStageDispatcher` (from `pdomain-ocr-ops`) is wired at app startup via the
+`LocalStageDispatcher` (from `pdomain-ops`) is wired at app startup via the
 FastAPI lifespan, with `register_default_stages()` registering DocTR and
 Tesseract runners.
 
@@ -131,7 +131,7 @@ Tesseract runners.
 
 ## 7. Suite integration
 
-On startup, `pdomain_ocr_ops.suite.register_self()` writes an entry into
+On startup, `pdomain_ops.suite.register_self()` writes an entry into
 `~/.local/share/pdomain-suite/installed.toml` so sibling suite apps (pdomain-ocr-labeler-spa,
 pdomain-prep-for-pgdp) can show this app in their launcher. The launcher inside
 pdomain-ocr-simple-gui hides when no siblings are installed.

@@ -29,7 +29,7 @@ def _make_spec(tmp_path: Path, source_path: str | None = None) -> ProjectSpec:
 
 def _make_stub_stage_result(page_id: str, page_dict: dict[str, Any]):
     """Build a minimal StageResult with the given page dict as metadata."""
-    from pdomain_ocr_ops.gpu.types import StageResult
+    from pdomain_ops.gpu.types import StageResult
 
     return StageResult(
         stage_id="ocr",

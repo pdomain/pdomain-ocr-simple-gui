@@ -153,7 +153,7 @@ async def run_project(
     For each image:
 
     1. Calls ``dispatcher.run_stage("ocr", page_id, image_path=..., engine=...,
-       language=...)`` to get a :class:`~pdomain_ocr_ops.gpu.types.StageResult`.
+       language=...)`` to get a :class:`~pdomain_ops.gpu.types.StageResult`.
     2. Extracts the first page dict from ``result.metadata["pages"]``.
     3. Writes the page sidecar JSON and plain-text file via storage helpers.
     4. Updates the per-page :class:`~pdomain_ocr_simple_gui.models.PageResult` and

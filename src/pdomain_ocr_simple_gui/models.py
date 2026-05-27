@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import datetime  # noqa: TC003
 from typing import Literal
 
-from pdomain_ocr_ops.suite.types import (
+from pdomain_ops.suite.types import (
     CommonUIPrefs,  # noqa: TC002  # pyright: ignore[reportMissingTypeStubs]
 )
 from pydantic import BaseModel

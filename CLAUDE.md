@@ -2,7 +2,7 @@
 
 Minimal drag-and-drop OCR web app. User drops a folder of scanned images,
 picks an engine, runs OCR, gets `.txt` files. Phase 3 reference consumer
-that validates `pdomain-ocr-ops`' `LocalStageDispatcher` and the
+that validates `pdomain-ops`' `LocalStageDispatcher` and the
 `register_default_stages()` helper before `pdomain-prep-for-pgdp` migrates.
 
 **Architecture:** see workspace-level docs for historical plans/specs.
@@ -15,9 +15,9 @@ Architecture doc: `docs/architecture/00-overview.md`.
 
 - **Backend:** FastAPI + uvicorn, Python 3.11+. `src/pdomain_ocr_simple_gui/`.
 - **Frontend:** React + Vite + TS + `@pdomain/pdomain-ui`. `frontend/` (shipped M3+).
-- **OCR pipeline:** `pdomain-ocr-ops` `LocalStageDispatcher` +
+- **OCR pipeline:** `pdomain-ops` `LocalStageDispatcher` +
   `register_default_stages()`. `pdomain-book-tools` supplies the runners.
-- **Suite integration:** `pdomain-ocr-ops.suite.register_self()` wires the
+- **Suite integration:** `pdomain-ops.suite.register_self()` wires the
   app into the installed.toml launcher registry.
 - **Port:** 8004 (default).
 
@@ -85,7 +85,7 @@ After completing: `gh issue close <N> --repo ConcaveTrillion/ocr-container-meta`
 In `/workspaces/ocr-container/` (when present):
 
 - `pdomain-book-tools/` — OCR, layout, image primitives. Hard dependency.
-- `pdomain-ocr-ops/` — suite plumbing, GPU dispatch, prefs. Hard dependency.
+- `pdomain-ops/` — suite plumbing, GPU dispatch, prefs. Hard dependency.
 - `pdomain-prep-for-pgdp/` — sister FastAPI app; mirrors this repo's patterns.
 
 ## Out of scope
