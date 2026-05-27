@@ -4,10 +4,15 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 from dataclasses import dataclass
 from typing import cast
 
+import pdomain_ocr_simple_gui.app as _app_module
+
 logger = logging.getLogger(__name__)
+
+PREFERRED_PORT = 8004
 
 
 @dataclass(frozen=True)
@@ -32,8 +37,8 @@ def _parse_args() -> _CliArgs:
     _ = parser.add_argument(
         "--port",
         type=int,
-        default=8004,
-        help="Port to listen on (default: 8004)",
+        default=int(os.environ.get("PD_OCR_SIMPLE_GUI_PORT", PREFERRED_PORT)),
+        help="Port to listen on (default: 8004, or PD_OCR_SIMPLE_GUI_PORT env var)",
     )
     _ = parser.add_argument(
         "--reload",
@@ -100,11 +105,23 @@ def main() -> None:
         raise NotImplementedError("--remove-desktop-shortcut is not implemented in Phase 1")
 
     import uvicorn
+    from pdomain_ocr_ops.suite import (  # pyright: ignore[reportMissingTypeStubs]
+        find_available_port,
+    )
+
+    # Resolve the actual port to bind — walks upward from preferred until a free one is found.
+    preferred = args.port
+    port = find_available_port(preferred)
+
+    # Expose the actual port to the lifespan hook so register_self can record it.
+    _app_module._actual_port = port  # module-level state shared with lifespan
+
+    print(f"pdomain-ocr-simple-gui at http://{args.host}:{port}/")
 
     uvicorn.run(
         "pdomain_ocr_simple_gui.app:app",
         host=args.host,
-        port=args.port,
+        port=port,
         reload=args.reload,
     )
 

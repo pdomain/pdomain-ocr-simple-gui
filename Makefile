@@ -176,8 +176,7 @@ ci-full: ci e2e-browser ## Full CI including Playwright browser tests (requires 
 # Run
 # ---------------------------------------------------------------------------
 
-run: frontend-build ## Launch pdomain-ocr-simple-gui on :8004 (rebuilds SPA bundle first)
-	@echo "🚀 Launching pdomain-ocr-simple-gui at http://127.0.0.1:8004 ..."
+run: frontend-build ## Launch pdomain-ocr-simple-gui (port auto-picked, rebuilds SPA bundle first)
 	uv run pdomain-ocr-simple-gui $(ARGS)
 
 # ---------------------------------------------------------------------------

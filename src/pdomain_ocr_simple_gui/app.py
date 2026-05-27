@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 _prefs_adapter: PrefsAdapter | None = None
 # Module-level dispatcher — set during lifespan startup
 _dispatcher: LocalStageDispatcher | None = None
+# Actual bound port — set by __main__.main() before uvicorn.run(); 0 = unknown.
+_actual_port: int = 0
 
 
 def get_prefs_adapter() -> PrefsAdapter | None:
@@ -74,7 +76,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         from pdomain_ocr_ops.suite import register_self  # pyright: ignore[reportMissingTypeStubs]
 
-        register_self(_caller_package="pdomain_ocr_simple_gui")
+        _port: int | None = _actual_port if _actual_port else None
+        register_self(  # pyright: ignore[reportMissingTypeStubs]
+            _caller_package="pdomain_ocr_simple_gui",
+            actual_port=_port,
+        )
     except Exception:  # suite self-registration is best-effort — never crash startup
         logger.exception(
             "Suite self-registration failed; app will run without launcher registry entry",
