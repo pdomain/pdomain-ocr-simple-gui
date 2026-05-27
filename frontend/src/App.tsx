@@ -156,9 +156,8 @@ function useActiveJobs(): ActiveJob[] {
   return (data ?? [])
     .filter((j) => j.state === "running" || j.state === "queued")
     .map((j) => {
-      const total = j.page_count ?? (j.pages?.length ?? 0);
-      const done =
-        j.pages?.filter((p) => p.state === "succeeded").length ?? 0;
+      const total = j.page_count ?? j.pages?.length ?? 0;
+      const done = j.pages?.filter((p) => p.state === "succeeded").length ?? 0;
       const pct = total > 0 ? Math.round((done / total) * 100) : 0;
       return {
         id: j.project_id,
