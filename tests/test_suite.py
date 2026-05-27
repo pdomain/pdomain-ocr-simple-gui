@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -71,22 +70,14 @@ class TestSuiteRoutes:
 
 
 class TestRegisterSelf:
-    def test_register_self_called_with_correct_package(self, tmp_path: Path) -> None:
-        """register_self() is called on startup with pdomain_ocr_simple_gui package."""
-        call_log: list[str] = []
+    def test_bootstrap_spa_used_in_main(self) -> None:
+        """bootstrap_spa() is used in __main__ (handles port + register_self + print)."""
+        import inspect
 
-        def _fake_register_self(**kwargs: object) -> None:
-            call_log.append(kwargs.get("_caller_package", "auto") or "auto")
+        import pdomain_ocr_simple_gui.__main__ as main_mod
 
-        with patch("pdomain_ops.suite.register_self", _fake_register_self):
-            # Import the lifespan setup to verify the call would happen
-            # (we check the app module sources the correct import path)
-            import inspect
-
-            import pdomain_ocr_simple_gui.app as app_mod
-
-            src = inspect.getsource(app_mod)
-            assert "register_self" in src
+        src = inspect.getsource(main_mod)
+        assert "bootstrap_spa" in src
 
     def test_register_self_is_importable(self) -> None:
         """register_self is importable from pdomain_ops.suite."""
