@@ -3,6 +3,7 @@
 
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
 
 // Mock @pdomain/pdomain-ui/shell — we test App routing, not AppShell internals.
@@ -11,6 +12,7 @@ vi.mock("@pdomain/pdomain-ui/shell", () => ({
   AppShell: ({ main }: { main: React.ReactNode }) => (
     <div data-testid="app-shell-mock">{main}</div>
   ),
+  AppHeader: () => <div data-testid="app-header-mock" />,
   SuiteSiblingsProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
@@ -43,9 +45,18 @@ beforeAll(() => {
   });
 });
 
+function renderWithQueryClient(ui: React.ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
+  );
+}
+
 describe("App", () => {
   it("renders without crashing and shows home page at /", async () => {
-    render(<App />);
+    renderWithQueryClient(<App />);
     // The AppShell mock renders its main slot which contains AppRoutes
     const shell = screen.getByTestId("app-shell-mock");
     expect(shell).toBeInTheDocument();
@@ -55,7 +66,7 @@ describe("App", () => {
   });
 
   it("AppShell mock receives a main prop", () => {
-    render(<App />);
+    renderWithQueryClient(<App />);
     expect(screen.getByTestId("app-shell-mock")).toBeInTheDocument();
   });
 });
