@@ -47,11 +47,9 @@ async def secured_client(tmp_path, monkeypatch):
     """
     import json
 
-    import pdomain_ocr_simple_gui.storage as storage_mod
-
     root = tmp_path / "projects"
     root.mkdir()
-    monkeypatch.setattr(storage_mod, "_PROJECTS_ROOT", root)
+    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
 
     # Sentinel above the project root — its presence proves no upward escape
     sentinel = tmp_path / "sentinel.txt"

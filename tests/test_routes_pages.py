@@ -15,11 +15,10 @@ from pdomain_ocr_simple_gui.storage import write_page_sidecar, write_project
 @pytest.fixture
 async def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncClient:
     """Async HTTP client with tmp storage root."""
-    import pdomain_ocr_simple_gui.storage as storage_mod
 
     root = tmp_path / "projects"
     root.mkdir()
-    monkeypatch.setattr(storage_mod, "_PROJECTS_ROOT", root)
+    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac  # type: ignore[misc]
 
@@ -27,11 +26,10 @@ async def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncClient
 @pytest.fixture
 def project_with_image(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[str, Path]:
     """Create a project with one page and a real (tiny) image file."""
-    import pdomain_ocr_simple_gui.storage as storage_mod
 
     root = tmp_path / "projects"
     root.mkdir(exist_ok=True)
-    monkeypatch.setattr(storage_mod, "_PROJECTS_ROOT", root)
+    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
 
     # Create a minimal 1x1 white PNG
     from datetime import UTC, datetime
@@ -165,11 +163,9 @@ class TestGetPageImageFilePath:
         """get_page_image returns image bytes when source_path is a single file."""
         from datetime import UTC, datetime
 
-        import pdomain_ocr_simple_gui.storage as storage_mod
-
         root = tmp_path / "projects"
         root.mkdir()
-        monkeypatch.setattr(storage_mod, "_PROJECTS_ROOT", root)
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
 
         # source_path is the file itself (not the parent directory)
         png_bytes = (
@@ -250,11 +246,9 @@ class TestPostPageRerun:
         from datetime import UTC, datetime
         from unittest.mock import patch
 
-        import pdomain_ocr_simple_gui.storage as storage_mod
-
         root = tmp_path / "projects"
         root.mkdir()
-        monkeypatch.setattr(storage_mod, "_PROJECTS_ROOT", root)
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
 
         png_bytes = (
             b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"

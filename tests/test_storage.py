@@ -49,12 +49,10 @@ def _make_status() -> ProjectStatus:
 
 @pytest.fixture
 def projects_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Redirect storage root to tmp_path."""
+    """Redirect storage root to tmp_path via the env var _projects_root() reads."""
     root = tmp_path / "projects"
     root.mkdir()
-    import pdomain_ocr_simple_gui.storage as storage_mod
-
-    monkeypatch.setattr(storage_mod, "_PROJECTS_ROOT", root)
+    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
     return root
 
 
