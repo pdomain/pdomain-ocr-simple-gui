@@ -139,9 +139,39 @@ vi.mock("@pdomain/pdomain-ui/primitives", async (importOriginal) => {
 
   BaseJobConfigDialogShim.displayName = "BaseJobConfigDialog";
 
+  // Toggle shim: renders a visible checkbox so tests that need to assert
+  // boolean fields can still find them; avoids Radix Switch ResizeObserver dep.
+  function ToggleShim({
+    checked,
+    onCheckedChange,
+    label,
+    id,
+  }: {
+    checked: boolean;
+    onCheckedChange: (v: boolean) => void;
+    label?: string;
+    id?: string;
+    disabled?: boolean;
+  }) {
+    return React.createElement(
+      "label",
+      { htmlFor: id },
+      label,
+      React.createElement("input", {
+        id,
+        type: "checkbox",
+        checked,
+        onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+          onCheckedChange(e.target.checked),
+      }),
+    );
+  }
+  ToggleShim.displayName = "Toggle";
+
   return {
     ...actual,
     BaseJobConfigDialog: BaseJobConfigDialogShim,
+    Toggle: ToggleShim,
     // Keep Input and Field from actual so children render correctly
   };
 });
