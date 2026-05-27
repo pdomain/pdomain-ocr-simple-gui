@@ -1,6 +1,13 @@
 // App root — AppShell + React Router routing skeleton
 // Issues #225 (scaffold), #226 (shell)
 //
+// noopener note (issue #26):
+// The suite launcher opens sibling apps via window.open(url, "_blank") inside the
+// compiled @pdomain/pdomain-ui AppShell bundle. Our own <a> elements don't use
+// target="_blank". The upstream fix (add "noopener,noreferrer" to window.open call)
+// must land in pdomain-ui; once that is released, bump @pdomain/pdomain-ui here.
+// See: Cross-repo recommendation in docs/research/2026-05-22-deep-code-review-security-scan.md
+//
 // A9.4 stores swap notes:
 // - pdomain-ui createUIPrefsStore is already consumed via AppShell.uiPrefsConfig
 //   (AppShell instantiates it internally). The uiPrefsConfig below is the
