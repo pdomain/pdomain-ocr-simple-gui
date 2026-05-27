@@ -3,6 +3,5 @@
   "display_name": "Simple OCR",
   "package": "pdomain-ocr-simple-gui",
   "default_port": 8004,
-  "icon": "simple-gui",
-  "description": "Drag-and-drop OCR for scanned images."
+  "icon": "simple-gui"
 }
