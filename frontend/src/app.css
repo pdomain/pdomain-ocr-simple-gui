@@ -325,23 +325,6 @@ form > [class*="Field"] {
   text-overflow: ellipsis;
 }
 
-/* Toast notifications (save / rerun feedback) */
-.page-toast {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 3px 8px;
-  border-radius: 4px;
-  white-space: nowrap;
-}
-
-.page-toast--success {
-  background: color-mix(in srgb, var(--exact) 14%, transparent);
-  color: var(--exact);
-  border: 1px solid color-mix(in srgb, var(--exact) 35%, transparent);
-}
-
-.page-toast--error {
-  background: color-mix(in srgb, var(--mismatch) 12%, transparent);
-  color: var(--mismatch);
-  border: 1px solid color-mix(in srgb, var(--mismatch) 35%, transparent);
-}
+/* .page-toast / .page-toast--success / .page-toast--error removed —
+   inline toast spans replaced with sonner toast.success/toast.error calls
+   (step 8 of pdomain-ui canonical pattern alignment). */
