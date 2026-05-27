@@ -41,7 +41,7 @@ def _create_job_via_api(base_url: str, source_dir: str, output_dir: str) -> str:
         },
         timeout=10.0,
     )
-    assert resp.status_code == 200, f"POST /api/jobs failed: {resp.text}"
+    assert resp.status_code == 202, f"POST /api/jobs failed: {resp.text}"
     return resp.json()["project_id"]
 
 

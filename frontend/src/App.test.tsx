@@ -27,7 +27,6 @@ vi.mock("@pdomain/pdomain-ui/canvas", () => ({
 
 // Suppress jsdom fetch warnings in tests
 beforeAll(() => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (globalThis as any).fetch = vi.fn().mockImplementation((url: string) => {
     // ConfigProvider fetches /api/config on mount — return a valid config so
     // HomePage renders rather than showing "Loading…".

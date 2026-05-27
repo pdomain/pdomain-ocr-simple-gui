@@ -101,7 +101,6 @@ function renderResultsPage(
         json: async () => makeJobStatus("succeeded", 3, 3),
       });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (globalThis as any).fetch = mockFetch;
 
   return {
@@ -165,7 +164,7 @@ describe("ResultsPage", () => {
         json: async () => makeJobStatus("succeeded", 3, 3),
       };
     });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (globalThis as any).fetch = mockFetch;
 
     render(
@@ -204,7 +203,7 @@ describe("ResultsPage", () => {
         json: async () => makeJobStatus("running", callCount, 5),
       };
     });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (globalThis as any).fetch = mockFetch;
 
     render(
@@ -295,7 +294,7 @@ describe("ResultsPage", () => {
           json: async () => makeJobStatus("succeeded", 3, 3),
         };
       });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (globalThis as any).fetch = mockFetch;
 
     render(
@@ -338,7 +337,7 @@ describe("ResultsPage", () => {
           json: async () => makeJobStatus("succeeded", 3, 3),
         };
       });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (globalThis as any).fetch = mockFetch;
 
     render(
@@ -367,7 +366,6 @@ describe("ResultsPage", () => {
 
   // A7.2: download button tests
   it("shows download button when output_mode is managed and state is succeeded", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => makeJobStatus("succeeded", 3, 3, "managed"),
@@ -385,7 +383,6 @@ describe("ResultsPage", () => {
   });
 
   it("hides download button when output_mode is next_to_source", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => makeJobStatus("succeeded", 3, 3, "next_to_source"),
@@ -406,7 +403,6 @@ describe("ResultsPage", () => {
   });
 
   it("hides download button when state is not succeeded", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => makeJobStatus("running", 1, 3, "managed"),
