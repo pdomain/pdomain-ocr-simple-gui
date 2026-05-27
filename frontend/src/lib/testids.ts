@@ -17,6 +17,7 @@ export const APP_TEST_IDS = {
   outputModeSpecified: "output-mode-specified",
   outputModeManaged: "output-mode-managed",
   outputSpecifiedPath: "output-specified-path",
+  copyPathButton: "copy-path-button",
   downloadResultsButton: "download-results-button",
   runOcrButton: "run-ocr-button",
   pageRow: "page-row",

@@ -45,6 +45,7 @@ export default function ResultsPage() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [rerunPending, setRerunPending] = useState(false);
+  const [pathCopied, setPathCopied] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelledRef = useRef(false);
@@ -190,6 +191,21 @@ export default function ResultsPage() {
           >
             Open folder
           </a>
+          <Button
+            variant="ghost"
+            data-testid={APP_TEST_IDS.copyPathButton}
+            aria-label="Copy output path"
+            onClick={() => {
+              void navigator.clipboard.writeText(output_dir).then(() => {
+                setPathCopied(true);
+                setTimeout(() => {
+                  setPathCopied(false);
+                }, 1500);
+              });
+            }}
+          >
+            {pathCopied ? "Copied!" : "Copy path"}
+          </Button>
           <Button
             variant="ghost"
             disabled={rerunPending}

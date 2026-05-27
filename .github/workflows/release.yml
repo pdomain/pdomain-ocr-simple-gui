@@ -33,19 +33,19 @@ jobs:
       id-token: write       # required by attest-build-provenance for Sigstore
       attestations: write   # required by attest-build-provenance to upload the attestation
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
         with:
           fetch-depth: 0
 
-      - uses: astral-sh/setup-uv@v8.1.0
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b  # v8.1.0
         with:
-          version: latest
+          version: "0.11.16"
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1  # v4
         with:
           version: "11"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
         with:
           node-version: "24"
           cache: "pnpm"
@@ -67,12 +67,12 @@ jobs:
         run: ls -la dist/
 
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32  # v4
         with:
           subject-path: "dist/*"
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda  # v3
         with:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
