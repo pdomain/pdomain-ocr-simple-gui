@@ -2,6 +2,10 @@
 // Screen 3: live polling job status + page list
 // A7.2: download button for managed output mode.
 //
+// Polling is handled by useOcrJob (frontend/src/api/useOcrJob.ts), a thin
+// adapter that wraps useLongJob from @pdomain/pdomain-ui/stores. The
+// hand-rolled fetch loop is gone; useOcrJob owns all poll/stop/cleanup logic.
+//
 // TODO(A9.2): pdomain-ui PageList (from @pdomain/pdomain-ui/worklist) requires
 // {page_index, name, width, height} per item. PageRow here carries {page_idx,
 // page_name, state, text_preview} with no width/height. The shapes are
@@ -9,60 +13,27 @@
 
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Progress, JobStatusPip, Button } from "@pdomain/pdomain-ui/primitives";
-import type { JobState } from "@pdomain/pdomain-ui/types";
+import { useOcrJob } from "../api/useOcrJob";
 import { APP_TEST_IDS } from "../lib/testids";
 
-interface PageRow {
-  page_idx: number;
-  page_name: string;
-  state: JobState;
-  text_preview: string;
-}
-
-interface JobStatus {
-  project_id: string;
-  name: string;
-  state: JobState;
-  pages_done: number;
-  page_count: number;
-  output_dir?: string;
-  /** A7.2: output_mode returned by the backend when set at job creation. */
-  output_mode?: "next_to_source" | "specified" | "managed";
-  pages?: PageRow[];
-}
-
 const POLL_INTERVAL_MS = 1000;
-
-function isTerminal(state: JobState): boolean {
-  return state === "succeeded" || state === "failed" || state === "cancelled";
-}
 
 export default function ResultsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [rerunPending, setRerunPending] = useState(false);
   const [pathCopied, setPathCopied] = useState(false);
 
-  const {
-    data: jobStatus,
-    isLoading,
-    error: fetchError,
-  } = useQuery<JobStatus, Error>({
-    queryKey: ["job", id],
-    queryFn: async () => {
-      const res = await fetch(`/api/jobs/${id ?? ""}`);
-      if (!res.ok) throw new Error(`Error fetching job status: ${res.status}`);
-      return (await res.json()) as JobStatus;
-    },
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      if (!data) return POLL_INTERVAL_MS;
-      return isTerminal(data.state) ? false : POLL_INTERVAL_MS;
-    },
-    refetchIntervalInBackground: false,
+  // rerunKey is bumped after a successful rerun POST so useOcrJob sees a new
+  // jobId and restarts polling (useLongJob stops when state reaches done/error).
+  const [rerunKey, setRerunKey] = useState(0);
+
+  // Encode rerunKey in jobId to force useOcrJob/useLongJob reset after rerun.
+  const effectiveJobId = id ? `${id}:${rerunKey}` : null;
+
+  const { longJobStatus, progress, jobData } = useOcrJob(effectiveJobId, {
+    pollIntervalMs: POLL_INTERVAL_MS,
   });
 
   async function handleRerunAll() {
@@ -71,8 +42,9 @@ export default function ResultsPage() {
     try {
       const res = await fetch(`/api/jobs/${id}/rerun`, { method: "POST" });
       if (res.ok) {
-        // Invalidate so React Query re-fetches immediately.
-        await queryClient.invalidateQueries({ queryKey: ["job", id] });
+        // Bump rerunKey so effectiveJobId changes, forcing useLongJob to
+        // restart its polling loop (it stops when it reaches a terminal state).
+        setRerunKey((k) => k + 1);
       }
     } catch {
       // ignore — user can retry
@@ -80,6 +52,10 @@ export default function ResultsPage() {
       setRerunPending(false);
     }
   }
+
+  // Loading: jobId present but no data yet and not in error
+  const isLoading =
+    id !== undefined && jobData === null && longJobStatus !== "error";
 
   if (isLoading) {
     return (
@@ -89,11 +65,13 @@ export default function ResultsPage() {
     );
   }
 
-  if (fetchError ?? !jobStatus) {
+  if (longJobStatus === "error" || jobData === null) {
     return (
       <div data-testid={APP_TEST_IDS.resultsPage} className="results-page">
         <p role="alert" className="results-page__error">
-          {fetchError?.message ?? "Job not found."}
+          {longJobStatus === "error"
+            ? "Error fetching job status."
+            : "Job not found."}
         </p>
       </div>
     );
@@ -107,9 +85,15 @@ export default function ResultsPage() {
     output_dir,
     output_mode,
     pages,
-  } = jobStatus;
+  } = jobData;
+
   const progressValue =
-    page_count > 0 ? Math.round((pages_done / page_count) * 100) : 0;
+    progress !== null
+      ? Math.round(progress * 100)
+      : page_count > 0
+        ? Math.round((pages_done / page_count) * 100)
+        : 0;
+
   const isRunning = state === "queued" || state === "running";
   const showDownload = state === "succeeded" && output_mode === "managed";
 
