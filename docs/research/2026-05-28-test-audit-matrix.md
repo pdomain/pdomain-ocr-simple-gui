@@ -7,13 +7,13 @@ Reference plan: `docs/plans/2026-05-28-test-suite-audit-reorg.md`
 
 ## Backend summary
 
-Backend tests: 201 collected across 24 files (including smoke).
+Backend tests: 190 collected across 24 files (including smoke).
 
 | Reason code | Count |
 |---|---|
-| ok | 28 |
-| no-bad-case | 127 |
-| asserts-mock | 29 |
+| ok | 125 |
+| no-bad-case | 43 |
+| asserts-mock | 18 |
 | tautological | 4 |
 | duplicate | 0 |
 
@@ -27,70 +27,70 @@ Mock-depth breakdown: none — 128, shallow — 38, deep — 35.
 |---|---|---|---|---|---|---|
 | tests/test_config_route.py::test_config_route_local_not_containerized | routes.config | GET /api/config returns correct fields in local mode | shallow (monkeypatches detect_containerized, `_detect_device`, env var; creates real app) | yes | no | no-bad-case |
 | tests/test_config_route.py::test_config_route_managed_containerized | routes.config | GET /api/config returns correct fields in managed/containerized mode | shallow (same) | yes | no | no-bad-case |
-| tests/test_container_detect.py::test_dockerenv_marker | runtime.container_detect | .dockerenv file presence → containerized=True | none (uses real tmppath + monkeypatch filesystem attrs) | yes | no | no-bad-case |
-| tests/test_container_detect.py::test_podman_marker | runtime.container_detect | podman containerenv marker → containerized=True | none | yes | no | no-bad-case |
-| tests/test_container_detect.py::test_container_env_var | runtime.container_detect | container env var set → containerized=True | none | yes | no | no-bad-case |
-| tests/test_container_detect.py::test_cgroup_signal | runtime.container_detect | cgroup string with docker → containerized=True | none | yes | no | no-bad-case |
+| tests/test_container_detect.py::test_dockerenv_marker | runtime.container_detect | .dockerenv file presence → containerized=True | none (uses real tmppath + monkeypatch filesystem attrs) | yes | no | ok |
+| tests/test_container_detect.py::test_podman_marker | runtime.container_detect | podman containerenv marker → containerized=True | none | yes | no | ok |
+| tests/test_container_detect.py::test_container_env_var | runtime.container_detect | container env var set → containerized=True | none | yes | no | ok |
+| tests/test_container_detect.py::test_cgroup_signal | runtime.container_detect | cgroup string with docker → containerized=True | none | yes | no | ok |
 | tests/test_container_detect.py::test_none_match | runtime.container_detect | no signals → containerized=False | none | yes (bad=False) | yes (good=True covered by other tests) | ok |
-| tests/test_download_route.py::test_download_streams_zip | routes.download | GET download returns 200 zip with files | none (real storage + tmp_path) | yes | no | no-bad-case |
-| tests/test_download_route.py::test_download_missing_job | routes.download | missing job → 404 | none | no | yes | no-bad-case |
-| tests/test_download_route.py::test_download_include_text_only | routes.download | ?include=text returns only txt+images | none | yes | no | no-bad-case |
-| tests/test_download_route.py::test_download_include_json_only | routes.download | ?include=json returns only json+images | none | yes | no | no-bad-case |
-| tests/test_download_route.py::test_download_include_both_explicit | routes.download | ?include=text,json returns both | none | yes | no | no-bad-case |
-| tests/test_download_route.py::test_download_default_is_both | routes.download | no include param returns both | none | yes | no | no-bad-case |
-| tests/test_download_route.py::test_download_invalid_include_value | routes.download | invalid include → 400 | none | no | yes | no-bad-case |
+| tests/test_download_route.py::test_download_streams_zip | routes.download | GET download returns 200 zip with files | none (real storage + tmp_path) | yes | no | ok |
+| tests/test_download_route.py::test_download_missing_job | routes.download | missing job → 404 | none | no | yes | ok |
+| tests/test_download_route.py::test_download_include_text_only | routes.download | ?include=text returns only txt+images | none | yes | no | ok |
+| tests/test_download_route.py::test_download_include_json_only | routes.download | ?include=json returns only json+images | none | yes | no | ok |
+| tests/test_download_route.py::test_download_include_both_explicit | routes.download | ?include=text,json returns both | none | yes | no | ok |
+| tests/test_download_route.py::test_download_default_is_both | routes.download | no include param returns both | none | yes | no | ok |
+| tests/test_download_route.py::test_download_invalid_include_value | routes.download | invalid include → 400 | none | no | yes | ok |
 | tests/test_dynamic_port.py::TestDynamicPortCLI::test_uvicorn_called_with_picked_port | __main__ / bootstrap_spa | uvicorn.run receives port from bootstrap_spa | deep (patches bootstrap_spa + uvicorn.run + sys.argv) | yes | no | asserts-mock |
 | tests/test_dynamic_port.py::TestDynamicPortCLI::test_bootstrap_spa_called_with_expected_kwargs | __main__ / bootstrap_spa | bootstrap_spa receives caller_package, port_env | deep (patches bootstrap_spa + uvicorn.run) | yes | no | asserts-mock |
 | tests/test_dynamic_port.py::TestDynamicPortCLI::test_cli_port_flag_overrides_default | __main__ / bootstrap_spa | --port flag forwards to bootstrap_spa as preferred | deep (patches bootstrap_spa + uvicorn.run + sys.argv) | yes | no | no-bad-case |
 | tests/test_dynamic_port.py::TestBootstrapSpaImportable::test_bootstrap_spa_is_importable | pdomain_ops.suite.bootstrap_spa | bootstrap_spa is importable and callable | none | yes | no | no-bad-case |
-| tests/test_dynamic_port.py::TestBootstrapSpaImportable::test_find_available_port_is_importable | pdomain_ops.suite.find_available_port | find_available_port is importable | none | yes | no | no-bad-case |
+| tests/test_dynamic_port.py::TestBootstrapSpaImportable::test_find_available_port_is_importable | pdomain_ops.suite.find_available_port | find_available_port is importable | none | yes | no | ok |
 | tests/test_dynamic_port.py::TestBootstrapSpaImportable::test_find_available_port_returns_int | pdomain_ops.suite.find_available_port | returns int in valid port range | none | yes | no | no-bad-case |
 | tests/test_entrypoint.py::TestEntrypoint::test_help_exits_zero | __main__ | --help exits 0 and prints --port/--host | none (subprocess) | yes | no | no-bad-case |
 | tests/test_entrypoint.py::TestEntrypoint::test_module_main_importable | __main__ | main() is importable and callable | none | yes | no | no-bad-case |
-| tests/test_models.py::TestProjectSpec::test_round_trip_json | models.ProjectSpec | JSON round-trip restores spec | none | yes | no | no-bad-case |
-| tests/test_models.py::TestProjectSpec::test_defaults | models.ProjectSpec | save_json=False, combined_txt=True defaults | none | yes | no | no-bad-case |
-| tests/test_models.py::TestProjectSpec::test_engine_literal | models.ProjectSpec | invalid engine raises ValidationError | none | no | yes | no-bad-case |
-| tests/test_models.py::TestProjectSpec::test_tesseract_engine | models.ProjectSpec | tesseract engine accepted | none | yes | no | no-bad-case |
-| tests/test_models.py::TestPageResult::test_defaults | models.PageResult | text_preview="", error=None defaults | none | yes | no | no-bad-case |
-| tests/test_models.py::TestPageResult::test_round_trip | models.PageResult | JSON round-trip restores page result | none | yes | no | no-bad-case |
-| tests/test_models.py::TestPageResult::test_state_literal | models.PageResult | invalid state raises ValidationError | none | no | yes | no-bad-case |
+| tests/test_models.py::TestProjectSpec::test_round_trip_json | models.ProjectSpec | JSON round-trip restores spec | none | yes | no | ok |
+| tests/test_models.py::TestProjectSpec::test_defaults | models.ProjectSpec | save_json=False, combined_txt=True defaults | none | yes | no | ok |
+| tests/test_models.py::TestProjectSpec::test_engine_literal | models.ProjectSpec | invalid engine raises ValidationError | none | no | yes | ok |
+| tests/test_models.py::TestProjectSpec::test_tesseract_engine | models.ProjectSpec | tesseract engine accepted | none | yes | no | ok |
+| tests/test_models.py::TestPageResult::test_defaults | models.PageResult | text_preview="", error=None defaults | none | yes | no | ok |
+| tests/test_models.py::TestPageResult::test_round_trip | models.PageResult | JSON round-trip restores page result | none | yes | no | ok |
+| tests/test_models.py::TestPageResult::test_state_literal | models.PageResult | invalid state raises ValidationError | none | no | yes | ok |
 | tests/test_models.py::TestProjectStatus::test_round_trip | models.ProjectStatus | JSON round-trip restores status with pages | none | yes | no | no-bad-case |
 | tests/test_models.py::TestAppPrefs::test_defaults | models.AppPrefs | default engine/language/flags/recent correct | none | yes | no | no-bad-case |
 | tests/test_models.py::TestAppPrefs::test_round_trip | models.AppPrefs | JSON round-trip restores prefs | none | yes | no | no-bad-case |
-| tests/test_output_config.py::test_managed_default | output.config.resolve_output_dir | managed mode resolves to managed_root/job_id | none | yes | no | no-bad-case |
-| tests/test_output_config.py::test_next_to_source_folder | output.config.resolve_output_dir | next_to_source for folder returns source dir | none | yes | no | no-bad-case |
+| tests/test_output_config.py::test_managed_default | output.config.resolve_output_dir | managed mode resolves to managed_root/job_id | none | yes | no | ok |
+| tests/test_output_config.py::test_next_to_source_folder | output.config.resolve_output_dir | next_to_source for folder returns source dir | none | yes | no | ok |
 | tests/test_output_config.py::test_next_to_source_rejects_non_folder | output.config.resolve_output_dir | next_to_source on non-folder raises OutputConfigError | none | no | yes | ok |
-| tests/test_output_config.py::test_specified_local | output.config.resolve_output_dir | specified mode returns explicit path | none | yes | no | no-bad-case |
+| tests/test_output_config.py::test_specified_local | output.config.resolve_output_dir | specified mode returns explicit path | none | yes | no | ok |
 | tests/test_output_config.py::test_specified_rejected_in_managed | output.config.resolve_output_dir | specified mode in managed raises OutputConfigError | none | no | yes | ok |
-| tests/test_pipeline.py::TestExtractWords::test_flattens_word_tree | pipeline.extract_words | word tree flattened to list with text | none | yes | no | no-bad-case |
+| tests/test_pipeline.py::TestExtractWords::test_flattens_word_tree | pipeline.extract_words | word tree flattened to list with text | none | yes | no | ok |
 | tests/test_pipeline.py::TestExtractWords::test_bbox_is_xywh_normalized | pipeline.extract_words | bbox converted to x/y/w/h normalized | none | yes | no | no-bad-case |
 | tests/test_pipeline.py::TestExtractWords::test_skips_words_without_geometry | pipeline.extract_words | words with null bbox excluded | none | yes (filter works) | yes (only-null case) | ok |
 | tests/test_pipeline.py::TestExtractWords::test_empty_for_page_with_no_words | pipeline.extract_words | empty page returns empty list | none | no (edge) | yes (empty) | ok |
 | tests/test_pipeline.py::TestBuildSidecarPayload::test_adds_text_width_height_words | pipeline.build_sidecar_payload | sidecar has text, width, height, words with correct shape | none | yes | no | no-bad-case |
 | tests/test_pipeline.py::TestBuildSidecarPayload::test_preserves_original_tree | pipeline.build_sidecar_payload | original type/items keys preserved in payload | none | yes | no | no-bad-case |
-| tests/test_pipeline.py::TestCollectImages::test_returns_sorted_png_files | pipeline.collect_images | sorted PNG list from directory | none | yes | no | no-bad-case |
-| tests/test_pipeline.py::TestCollectImages::test_returns_jpg_and_tiff | pipeline.collect_images | JPG/JPEG/TIFF extensions collected | none | yes | no | no-bad-case |
-| tests/test_pipeline.py::TestCollectImages::test_skips_non_image_files | pipeline.collect_images | non-image files excluded | none | yes | no | no-bad-case |
-| tests/test_pipeline.py::TestCollectImages::test_accepts_single_file | pipeline.collect_images | single file path returns list with that file in a dir | none | yes | no | no-bad-case |
+| tests/test_pipeline.py::TestCollectImages::test_returns_sorted_png_files | pipeline.collect_images | sorted PNG list from directory | none | yes | no | ok |
+| tests/test_pipeline.py::TestCollectImages::test_returns_jpg_and_tiff | pipeline.collect_images | JPG/JPEG/TIFF extensions collected | none | yes | no | ok |
+| tests/test_pipeline.py::TestCollectImages::test_skips_non_image_files | pipeline.collect_images | non-image files excluded | none | yes | no | ok |
+| tests/test_pipeline.py::TestCollectImages::test_accepts_single_file | pipeline.collect_images | single file path returns list with that file in a dir | none | yes | no | ok |
 | tests/test_pipeline.py::TestCollectImages::test_returns_empty_for_empty_dir | pipeline.collect_images | empty dir returns [] | none | no (edge) | yes (empty) | ok |
 | tests/test_pipeline.py::TestCollectImages::test_returns_empty_for_nonexistent | pipeline.collect_images | nonexistent path returns [] | none | no | yes | ok |
-| tests/test_pipeline.py::TestCollectImages::test_accepts_jpeg2000_family | pipeline.collect_images | jp2/j2k/jpf/jpx/jpm collected | none | yes | no | no-bad-case |
-| tests/test_pipeline.py::TestRunProject::test_calls_run_ocr_batch_for_images | pipeline.run_project | run_ocr_batch called for all images; callbacks fired | shallow (mock dispatcher with real async fn; real storage) | yes | no | no-bad-case |
-| tests/test_pipeline.py::TestRunProject::test_status_callback_receives_project_status | pipeline.run_project | callback receives ProjectStatus objects | shallow | yes | no | no-bad-case |
-| tests/test_pipeline.py::TestRunProject::test_run_ocr_batch_request_fields | pipeline.run_project | OcrBatchRequest has correct engine/language/images | shallow | yes | no | no-bad-case |
-| tests/test_pipeline.py::TestRunProject::test_extracts_text_from_page_dict | pipeline.run_project | extracted text written to .txt sidecar | shallow | yes | no | no-bad-case |
-| tests/test_pipeline.py::TestRunProject::test_sidecar_carries_text_dims_and_words | pipeline.run_project | sidecar JSON has text/width/height/words shape | shallow | yes | no | no-bad-case |
-| tests/test_pipeline.py::TestRunProject::test_writes_outputs_into_output_dir | pipeline.run_project | save_json+combined_txt writes correct files to output_dir | shallow | yes | no | no-bad-case |
+| tests/test_pipeline.py::TestCollectImages::test_accepts_jpeg2000_family | pipeline.collect_images | jp2/j2k/jpf/jpx/jpm collected | none | yes | no | ok |
+| tests/test_pipeline.py::TestRunProject::test_calls_run_ocr_batch_for_images | pipeline.run_project | run_ocr_batch called for all images; callbacks fired | shallow (mock dispatcher with real async fn; real storage) | yes | no | ok |
+| tests/test_pipeline.py::TestRunProject::test_status_callback_receives_project_status | pipeline.run_project | callback receives ProjectStatus objects | shallow | yes | no | ok |
+| tests/test_pipeline.py::TestRunProject::test_run_ocr_batch_request_fields | pipeline.run_project | OcrBatchRequest has correct engine/language/images | shallow | yes | no | ok |
+| tests/test_pipeline.py::TestRunProject::test_extracts_text_from_page_dict | pipeline.run_project | extracted text written to .txt sidecar | shallow | yes | no | ok |
+| tests/test_pipeline.py::TestRunProject::test_sidecar_carries_text_dims_and_words | pipeline.run_project | sidecar JSON has text/width/height/words shape | shallow | yes | no | ok |
+| tests/test_pipeline.py::TestRunProject::test_writes_outputs_into_output_dir | pipeline.run_project | save_json+combined_txt writes correct files to output_dir | shallow | yes | no | ok |
 | tests/test_pipeline.py::TestRunProject::test_save_json_false_skips_json_in_output_dir | pipeline.run_project | save_json=False omits .json from output_dir | shallow | yes (txt exists) | yes (no json) | ok |
 | tests/test_pipeline.py::TestProgressMessage::test_progress_message_sequence | pipeline.run_project | progress messages emitted in correct order | shallow | yes | no | no-bad-case |
 | tests/test_pipeline.py::TestChunkFailureIsolation::test_second_chunk_failure_does_not_abort_first | pipeline.run_project | chunk 2 RuntimeError leaves chunk 1 succeeded, job=failed | shallow | yes (partial success) | yes (failure) | ok |
-| tests/test_routes_jobs.py::TestPostJob::test_creates_job | routes.jobs POST /api/jobs | returns 202 with project_id | shallow (per-file async_client fixture, real storage) | yes | no | no-bad-case |
-| tests/test_routes_jobs.py::TestPostJob::test_created_job_is_retrievable | routes.jobs POST+GET | created job retrievable with canonical state | shallow | yes | no | no-bad-case |
-| tests/test_routes_jobs.py::TestGetJob::test_404_for_missing | routes.jobs GET /api/jobs/:id | 404 for nonexistent job | shallow | no | yes | no-bad-case |
-| tests/test_routes_jobs.py::TestGetJob::test_returns_project_status | routes.jobs GET /api/jobs/:id | response has all required status fields incl. name/output_dir | shallow | yes | no | no-bad-case |
+| tests/test_routes_jobs.py::TestPostJob::test_creates_job | routes.jobs POST /api/jobs | returns 202 with project_id | shallow (per-file async_client fixture, real storage) | yes | no | ok |
+| tests/test_routes_jobs.py::TestPostJob::test_created_job_is_retrievable | routes.jobs POST+GET | created job retrievable with canonical state | shallow | yes | no | ok |
+| tests/test_routes_jobs.py::TestGetJob::test_404_for_missing | routes.jobs GET /api/jobs/:id | 404 for nonexistent job | shallow | no | yes | ok |
+| tests/test_routes_jobs.py::TestGetJob::test_returns_project_status | routes.jobs GET /api/jobs/:id | response has all required status fields incl. name/output_dir | shallow | yes | no | ok |
 | tests/test_routes_jobs.py::TestListJobs::test_empty_list | routes.jobs GET /api/jobs | empty list when no jobs | shallow | yes (edge) | no | no-bad-case |
 | tests/test_routes_jobs.py::TestListJobs::test_lists_created_jobs | routes.jobs GET /api/jobs | created jobs appear with name enrichment | shallow | yes | no | no-bad-case |
-| tests/test_routes_jobs.py::TestDeleteJob::test_delete_removes_job | routes.jobs DELETE /api/jobs/:id | delete removes job; subsequent GET is 404 | shallow | yes | no | no-bad-case |
+| tests/test_routes_jobs.py::TestDeleteJob::test_delete_removes_job | routes.jobs DELETE /api/jobs/:id | delete removes job; subsequent GET is 404 | shallow | yes | no | ok |
 | tests/test_routes_jobs.py::TestDeleteJob::test_delete_missing_is_204 | routes.jobs DELETE /api/jobs/:id | delete nonexistent is 204 no-op | shallow | no (edge) | yes | ok |
 | tests/test_routes_jobs.py::TestPipelineIntegration::test_run_project_called_on_post | routes.jobs / pipeline integration | POST triggers run_project with correct spec | deep (patches run_project) | yes | no | asserts-mock |
 | tests/test_routes_jobs.py::TestPipelineIntegration::test_job_transitions_to_done_via_mock | routes.jobs / pipeline integration | job state transitions to succeeded via mocked pipeline | deep (patches run_project) | yes | no | asserts-mock |
@@ -106,13 +106,13 @@ Mock-depth breakdown: none — 128, shallow — 38, deep — 35.
 | tests/test_routes_jobs.py::TestUploadIdSource::test_create_job_with_upload | routes.jobs / upload source | POST with upload_id returns 200/202 | shallow (real storage, real upload dir) | yes | no | no-bad-case |
 | tests/test_routes_jobs.py::TestOutputModeRoundTrip::test_output_mode_returned_on_get | routes.jobs / output mode | output_mode=managed returned on GET after POST | shallow (real storage) | yes | no | no-bad-case |
 | tests/test_routes_jobs.py::TestOutputModeRoundTrip::test_output_mode_absent_for_legacy_jobs | routes.jobs / output mode | legacy job GET returns output_mode=None | shallow | yes | no | no-bad-case |
-| tests/test_routes_pages.py::TestGetPage::test_returns_page_response | routes.pages GET /api/pages/:id/:idx | returns correct PageResponse with text/dims | none (real storage, project_with_image fixture) | yes | no | no-bad-case |
+| tests/test_routes_pages.py::TestGetPage::test_returns_page_response | routes.pages GET /api/pages/:id/:idx | returns correct PageResponse with text/dims | none (real storage, project_with_image fixture) | yes | no | ok |
 | tests/test_routes_pages.py::TestGetPage::test_404_for_missing_project | routes.pages GET /api/pages/:id/:idx | 404 for missing project | none | no | yes | ok |
 | tests/test_routes_pages.py::TestGetPage::test_404_for_missing_page | routes.pages GET /api/pages/:id/:idx | 404 for out-of-range page index | none | no | yes | ok |
 | tests/test_routes_pages.py::TestGetPageTextFallback::test_falls_back_to_text_preview_when_sidecar_missing | routes.pages / text fallback | returns status text_preview when no sidecar | none | yes (fallback) | no | no-bad-case |
-| tests/test_routes_pages.py::TestGetPageImage::test_streams_transcoded_image | routes.pages GET /api/pages/:id/:idx/image | PNG transcode returned | none (real Pillow image, real storage) | yes | no | no-bad-case |
-| tests/test_routes_pages.py::TestGetPageImage::test_serves_webp_when_accept_includes_webp | routes.pages GET image | WebP served when Accept includes webp | none | yes | no | no-bad-case |
-| tests/test_routes_pages.py::TestGetPageImage::test_falls_back_to_png_without_webp_in_accept | routes.pages GET image | PNG fallback without webp in Accept | none | yes | no | no-bad-case |
+| tests/test_routes_pages.py::TestGetPageImage::test_streams_transcoded_image | routes.pages GET /api/pages/:id/:idx/image | PNG transcode returned | none (real Pillow image, real storage) | yes | no | ok |
+| tests/test_routes_pages.py::TestGetPageImage::test_serves_webp_when_accept_includes_webp | routes.pages GET image | WebP served when Accept includes webp | none | yes | no | ok |
+| tests/test_routes_pages.py::TestGetPageImage::test_falls_back_to_png_without_webp_in_accept | routes.pages GET image | PNG fallback without webp in Accept | none | yes | no | ok |
 | tests/test_routes_pages.py::TestGetPageImage::test_404_when_image_file_missing | routes.pages GET image | 404 when source image deleted | none | no | yes | ok |
 | tests/test_routes_pages.py::TestPutPageText::test_saves_text | routes.pages PUT /api/pages/:id/:idx/text | PUT returns 200 | none | yes | no | no-bad-case |
 | tests/test_routes_pages.py::TestPutPageText::test_text_persisted_in_sidecar | routes.pages PUT text | PUT persists text; GET returns updated text | none | yes | no | no-bad-case |
@@ -130,9 +130,9 @@ Mock-depth breakdown: none — 128, shallow — 38, deep — 35.
 | tests/test_routes_prefs.py::TestPutPrefs::test_put_no_adapter_returns_200 | routes.prefs PUT /api/prefs | PUT with no adapter returns 200 | none | yes | no | no-bad-case |
 | tests/test_routes_prefs.py::TestPutPrefs::test_put_ui_prefs_subset | routes.prefs PUT ui_prefs | PUT {ui_prefs:{theme,...}} returns 200 with persisted values | shallow | yes | no | no-bad-case |
 | tests/test_routes_prefs.py::TestPutPrefs::test_put_ui_prefs_persists_via_adapter | routes.prefs PUT ui_prefs | write_app called with app_id for ui_prefs payload | shallow (asserts mock call) | yes | no | asserts-mock |
-| tests/test_routes_root.py::test_root_returns_html | routes / SPA serving | GET / returns 200 HTML | none (fake frontend via monkeypatch) | yes | no | no-bad-case |
-| tests/test_routes_root.py::test_spa_react_router_paths_return_html | routes / SPA serving | /jobs and subpaths return 200 HTML | none | yes | no | no-bad-case |
-| tests/test_routes_root.py::test_api_routes_not_shadowed_by_spa_fallback | routes / SPA serving | /api/health not swallowed by catch-all | none | yes | no | no-bad-case |
+| tests/test_routes_root.py::test_root_returns_html | routes / SPA serving | GET / returns 200 HTML | none (fake frontend via monkeypatch) | yes | no | ok |
+| tests/test_routes_root.py::test_spa_react_router_paths_return_html | routes / SPA serving | /jobs and subpaths return 200 HTML | none | yes | no | ok |
+| tests/test_routes_root.py::test_api_routes_not_shadowed_by_spa_fallback | routes / SPA serving | /api/health not swallowed by catch-all | none | yes | no | ok |
 | tests/test_routes_root.py::test_root_503_when_frontend_not_built | routes / SPA serving | GET / returns 503 when frontend missing | none | no | yes | ok |
 | tests/test_security_project_id.py::TestValidateProjectIdUnit::test_rejects_traversal_id[.] | storage.validate_project_id | "." rejected | none | no | yes | ok |
 | tests/test_security_project_id.py::TestValidateProjectIdUnit::test_rejects_traversal_id[..] | storage.validate_project_id | ".." rejected | none | no | yes | ok |
@@ -144,8 +144,8 @@ Mock-depth breakdown: none — 128, shallow — 38, deep — 35.
 | tests/test_security_project_id.py::TestValidateProjectIdUnit::test_rejects_traversal_id[legit/evil] | storage.validate_project_id | slash-containing id rejected | none | no | yes | ok |
 | tests/test_security_project_id.py::TestValidateProjectIdUnit::test_rejects_traversal_id[legit\\evil] | storage.validate_project_id | backslash-containing id rejected | none | no | yes | ok |
 | tests/test_security_project_id.py::TestValidateProjectIdUnit::test_rejects_traversal_id[] | storage.validate_project_id | empty string rejected | none | no | yes | ok |
-| tests/test_security_project_id.py::TestValidateProjectIdUnit::test_accepts_uuid_style | storage.validate_project_id | UUID-style id accepted | none | yes | no | no-bad-case |
-| tests/test_security_project_id.py::TestValidateProjectIdUnit::test_accepts_alphanumeric_with_dash_underscore | storage.validate_project_id | alphanumeric+dash+underscore ids accepted | none | yes | no | no-bad-case |
+| tests/test_security_project_id.py::TestValidateProjectIdUnit::test_accepts_uuid_style | storage.validate_project_id | UUID-style id accepted | none | yes | no | ok |
+| tests/test_security_project_id.py::TestValidateProjectIdUnit::test_accepts_alphanumeric_with_dash_underscore | storage.validate_project_id | alphanumeric+dash+underscore ids accepted | none | yes | no | ok |
 | tests/test_security_project_id.py::TestDeleteJobTraversal::test_rejects_traversal_id[%2e] | routes.jobs DELETE traversal | percent-encoded "." → 4xx | shallow (secured_client with sentinel) | no | yes | ok |
 | tests/test_security_project_id.py::TestDeleteJobTraversal::test_rejects_traversal_id[%2e%2e] | routes.jobs DELETE traversal | percent-encoded ".." → 4xx | shallow | no | yes | ok |
 | tests/test_security_project_id.py::TestDeleteJobTraversal::test_rejects_traversal_id[abc%00def] | routes.jobs DELETE traversal | percent-encoded null → 4xx | shallow | no | yes | ok |
@@ -167,31 +167,31 @@ Mock-depth breakdown: none — 128, shallow — 38, deep — 35.
 | tests/test_security_project_id.py::TestPutPageTextTraversal::test_rejects_traversal_id[%2e] | routes.pages PUT traversal | %2e → 4xx | shallow | no | yes | ok |
 | tests/test_security_project_id.py::TestPutPageTextTraversal::test_rejects_traversal_id[%2e%2e] | routes.pages PUT traversal | %2e%2e → 4xx | shallow | no | yes | ok |
 | tests/test_security_project_id.py::TestPutPageTextTraversal::test_rejects_traversal_id[abc%00def] | routes.pages PUT traversal | null byte → 4xx | shallow | no | yes | ok |
-| tests/test_security_project_id.py::TestLegitProjectIdStillWorks::test_get_legit_project | routes.jobs / valid id | valid id returns 200 GET | shallow (secured_client) | yes | no | no-bad-case |
-| tests/test_security_project_id.py::TestLegitProjectIdStillWorks::test_delete_legit_project | routes.jobs / valid id | valid id returns 200 DELETE | shallow | yes | no | no-bad-case |
-| tests/test_security_project_id.py::TestLegitProjectIdStillWorks::test_alphanumeric_dashes_underscores_allowed | routes.jobs / valid id | variety of valid ids → 200 or 404, not 422 | shallow | yes | no | no-bad-case |
+| tests/test_security_project_id.py::TestLegitProjectIdStillWorks::test_get_legit_project | routes.jobs / valid id | valid id returns 200 GET | shallow (secured_client) | yes | no | ok |
+| tests/test_security_project_id.py::TestLegitProjectIdStillWorks::test_delete_legit_project | routes.jobs / valid id | valid id returns 200 DELETE | shallow | yes | no | ok |
+| tests/test_security_project_id.py::TestLegitProjectIdStillWorks::test_alphanumeric_dashes_underscores_allowed | routes.jobs / valid id | variety of valid ids → 200 or 404, not 422 | shallow | yes | no | ok |
 | tests/test_smoke.py::test_import | pdomain_ocr_simple_gui package | package imports without error | none | yes | no | no-bad-case |
-| tests/test_sources_local_path.py::test_folder_happy_path | sources.local_path.LocalPathSource | folder path returns itself | none | yes | no | no-bad-case |
+| tests/test_sources_local_path.py::test_folder_happy_path | sources.local_path.LocalPathSource | folder path returns itself | none | yes | no | ok |
 | tests/test_sources_local_path.py::test_missing_path | sources.local_path.LocalPathSource | missing path raises SourceNotFound | none | no | yes | ok |
 | tests/test_sources_local_path.py::test_unreadable_file | sources.local_path.LocalPathSource | non-image file raises SourceInvalid | none | no | yes | ok |
-| tests/test_sources_local_path.py::test_single_image_path | sources.local_path.LocalPathSource | single image produces a temp dir | none | yes | no | no-bad-case |
-| tests/test_sources_local_path.py::test_zip_happy_path | sources.local_path.LocalPathSource | zip extracts correctly | none | yes | no | no-bad-case |
+| tests/test_sources_local_path.py::test_single_image_path | sources.local_path.LocalPathSource | single image produces a temp dir | none | yes | no | ok |
+| tests/test_sources_local_path.py::test_zip_happy_path | sources.local_path.LocalPathSource | zip extracts correctly | none | yes | no | ok |
 | tests/test_sources_local_path.py::test_zip_bomb_guard | sources.local_path.LocalPathSource | oversized zip raises SourceTooLarge | shallow (monkeypatches max bytes constant) | no | yes | ok |
 | tests/test_sources_local_path.py::test_zip_traversal_blocked | sources.local_path.LocalPathSource | zip with traversal path raises SourceInvalid | none | no | yes | ok |
-| tests/test_sources_uploaded.py::test_happy_path | sources.uploaded_files.UploadedFilesSource | staged dir returned | none | yes | no | no-bad-case |
+| tests/test_sources_uploaded.py::test_happy_path | sources.uploaded_files.UploadedFilesSource | staged dir returned | none | yes | no | ok |
 | tests/test_sources_uploaded.py::test_missing | sources.uploaded_files.UploadedFilesSource | missing upload raises SourceNotFound | none | no | yes | ok |
 | tests/test_storage.py::TestGetProjectDir::test_returns_path_under_root | storage.get_project_dir | returns path under configured root | none | yes | no | no-bad-case |
-| tests/test_storage.py::TestWriteReadProject::test_round_trip | storage read/write | spec+status round-trips correctly | none | yes | no | no-bad-case |
-| tests/test_storage.py::TestWriteReadProject::test_project_json_created | storage write | project.json file created | none | yes | no | no-bad-case |
+| tests/test_storage.py::TestWriteReadProject::test_round_trip | storage read/write | spec+status round-trips correctly | none | yes | no | ok |
+| tests/test_storage.py::TestWriteReadProject::test_project_json_created | storage write | project.json file created | none | yes | no | ok |
 | tests/test_storage.py::TestWriteReadProject::test_read_missing_raises | storage read | read nonexistent raises FileNotFoundError | none | no | yes | ok |
-| tests/test_storage.py::TestPageSidecar::test_write_read_round_trip | storage page sidecar | sidecar round-trips | none | yes | no | no-bad-case |
-| tests/test_storage.py::TestPageSidecar::test_sidecar_file_created | storage page sidecar | file created at expected path | none | yes | no | no-bad-case |
+| tests/test_storage.py::TestPageSidecar::test_write_read_round_trip | storage page sidecar | sidecar round-trips | none | yes | no | ok |
+| tests/test_storage.py::TestPageSidecar::test_sidecar_file_created | storage page sidecar | file created at expected path | none | yes | no | ok |
 | tests/test_storage.py::TestPageSidecar::test_read_missing_page_raises | storage page sidecar | read out-of-range page raises FileNotFoundError | none | no | yes | ok |
 | tests/test_storage.py::TestWriteTxt::test_write_txt | storage.write_txt | txt written at correct path | none | yes | no | no-bad-case |
 | tests/test_storage.py::TestWriteCombinedTxt::test_combined_txt_concatenates | storage.write_combined_txt | combined txt contains per-page text | none | yes | no | no-bad-case |
 | tests/test_storage.py::TestListProjects::test_empty_when_no_projects | storage.list_projects | empty list when nothing written | none | yes (edge) | no | no-bad-case |
 | tests/test_storage.py::TestListProjects::test_lists_written_projects | storage.list_projects | written project appears in list | none | yes | no | no-bad-case |
-| tests/test_storage.py::TestDeleteProject::test_delete_removes_dir | storage.delete_project | project dir removed after delete | none | yes | no | no-bad-case |
+| tests/test_storage.py::TestDeleteProject::test_delete_removes_dir | storage.delete_project | project dir removed after delete | none | yes | no | ok |
 | tests/test_storage.py::TestDeleteProject::test_delete_missing_is_noop | storage.delete_project | delete nonexistent is no-op (no raise) | none | no (edge) | yes | ok |
 | tests/test_suite.py::TestSuiteJson::test_pd_suite_json_exists | pdomain-suite.json | json parseable, has app_id/display_name/default_port | none | yes | no | no-bad-case |
 | tests/test_suite.py::TestSuiteJson::test_pd_suite_json_has_required_fields | pdomain-suite.json | required fields subset present | none | yes | no | no-bad-case |
@@ -200,17 +200,17 @@ Mock-depth breakdown: none — 128, shallow — 38, deep — 35.
 | tests/test_suite.py::TestSuiteRoutes::test_healthz_endpoint_responds | routes GET /healthz | returns 200 with status=ok | none | yes | no | no-bad-case |
 | tests/test_suite.py::TestRegisterSelf::test_bootstrap_spa_used_in_main | __main__ source | bootstrap_spa in source | none (inspect.getsource) | yes | no | tautological |
 | tests/test_suite.py::TestRegisterSelf::test_register_self_is_importable | pdomain_ops.suite.register_self | callable | none | yes | no | no-bad-case |
-| tests/test_suite.py::TestIcons::test_icon_32_returns_png | routes.icons GET /api/self/icons/32 | 200 PNG bytes | none | yes | no | no-bad-case |
-| tests/test_suite.py::TestIcons::test_icon_16_returns_png | routes.icons GET /api/self/icons/16 | 200 PNG bytes | none | yes | no | no-bad-case |
-| tests/test_suite.py::TestIcons::test_icon_256_returns_png | routes.icons GET /api/self/icons/256 | 200 PNG bytes | none | yes | no | no-bad-case |
+| tests/test_suite.py::TestIcons::test_icon_32_returns_png | routes.icons GET /api/self/icons/32 | 200 PNG bytes | none | yes | no | ok |
+| tests/test_suite.py::TestIcons::test_icon_16_returns_png | routes.icons GET /api/self/icons/16 | 200 PNG bytes | none | yes | no | ok |
+| tests/test_suite.py::TestIcons::test_icon_256_returns_png | routes.icons GET /api/self/icons/256 | 200 PNG bytes | none | yes | no | ok |
 | tests/test_suite.py::TestIcons::test_unsupported_size_returns_400 | routes.icons GET /api/self/icons/999 | unsupported size → 400 | none | no | yes | ok |
-| tests/test_suite.py::TestIcons::test_icon_files_exist | package icons | all required PNG sizes exist and non-empty | none | yes | no | no-bad-case |
-| tests/test_suite.py::TestIcons::test_ico_file_exists | package icons | .ico file exists and non-empty | none | yes | no | no-bad-case |
+| tests/test_suite.py::TestIcons::test_icon_files_exist | package icons | all required PNG sizes exist and non-empty | none | yes | no | ok |
+| tests/test_suite.py::TestIcons::test_ico_file_exists | package icons | .ico file exists and non-empty | none | yes | no | ok |
 | tests/test_suite.py::TestCLIFlags::test_unregister_suite_flag_exists | __main__ source | --unregister-suite in source | none (inspect.getsource) | yes | no | tautological |
 | tests/test_suite.py::TestCLIFlags::test_install_desktop_shortcut_flag_exists | __main__ source | --install-desktop-shortcut in source | none (inspect.getsource) | yes | no | tautological |
 | tests/test_suite.py::TestCLIFlags::test_remove_desktop_shortcut_flag_exists | __main__ source | --remove-desktop-shortcut in source | none (inspect.getsource) | yes | no | tautological |
-| tests/test_uploads.py::test_single_image_upload | routes.uploads POST /api/uploads | single image lands in upload_id dir | none | yes | no | no-bad-case |
-| tests/test_uploads.py::test_zip_upload_extracts | routes.uploads POST /api/uploads | zip extracted to upload_id dir | none | yes | no | no-bad-case |
+| tests/test_uploads.py::test_single_image_upload | routes.uploads POST /api/uploads | single image lands in upload_id dir | none | yes | no | ok |
+| tests/test_uploads.py::test_zip_upload_extracts | routes.uploads POST /api/uploads | zip extracted to upload_id dir | none | yes | no | ok |
 | tests/test_uploads.py::test_size_cap | routes.uploads POST /api/uploads | oversized upload → 413 | shallow (monkeypatch max bytes env) | no | yes | ok |
 | tests/test_words_route.py::test_words_payload_shape | routes.words GET /api/pages/:id/:idx/words | happy path returns {words:[...]} shape | shallow (monkeypatches load_page_words) | yes | no | asserts-mock |
 | tests/test_words_route.py::test_words_missing_returns_404 | routes.words GET /api/pages/:id/:idx/words | missing page → 404 | shallow (monkeypatches load_page_words → None) | no | yes | asserts-mock |
@@ -225,11 +225,11 @@ Mock-depth breakdown: none — 128, shallow — 38, deep — 35.
 | frontend/src/App.test.tsx::App::renders without crashing and shows home page at / | App.tsx / AppShell routing | Shell and home-page testid visible | deep (mocks AppShell, pdomain-ui hooks, canvas, fetch) | yes | no | no-bad-case |
 | frontend/src/App.test.tsx::App::AppShell mock receives a main prop | App.tsx / AppShell | app-shell-mock in DOM | deep (same mocks) | yes | no | no-bad-case |
 | frontend/src/api/useOcrJob.test.tsx::useOcrJob::starts idle with no job data when jobId is null | useOcrJob | idle status + null jobData when no id | shallow (no fetchFn) | yes | no | no-bad-case |
-| frontend/src/api/useOcrJob.test.tsx::useOcrJob::maps backend 'queued' → LongJobStatus 'pending' | useOcrJob | queued→pending mapping | shallow (vi.fn fetchFn) | yes | no | no-bad-case |
-| frontend/src/api/useOcrJob.test.tsx::useOcrJob::maps backend 'running' → LongJobStatus 'running' | useOcrJob | running→running mapping | shallow | yes | no | no-bad-case |
-| frontend/src/api/useOcrJob.test.tsx::useOcrJob::maps backend 'succeeded' → LongJobStatus 'done' | useOcrJob | succeeded→done mapping | shallow | yes | no | no-bad-case |
+| frontend/src/api/useOcrJob.test.tsx::useOcrJob::maps backend 'queued' → LongJobStatus 'pending' | useOcrJob | queued→pending mapping | shallow (vi.fn fetchFn) | yes | no | ok |
+| frontend/src/api/useOcrJob.test.tsx::useOcrJob::maps backend 'running' → LongJobStatus 'running' | useOcrJob | running→running mapping | shallow | yes | no | ok |
+| frontend/src/api/useOcrJob.test.tsx::useOcrJob::maps backend 'succeeded' → LongJobStatus 'done' | useOcrJob | succeeded→done mapping | shallow | yes | no | ok |
 | frontend/src/api/useOcrJob.test.tsx::useOcrJob::maps backend 'failed' → LongJobStatus 'error' | useOcrJob | failed→error mapping | shallow | no (error) | yes | ok |
-| frontend/src/api/useOcrJob.test.tsx::useOcrJob::maps backend 'cancelled' → LongJobStatus 'cancelled' | useOcrJob | cancelled→cancelled mapping | shallow | yes | no | no-bad-case |
+| frontend/src/api/useOcrJob.test.tsx::useOcrJob::maps backend 'cancelled' → LongJobStatus 'cancelled' | useOcrJob | cancelled→cancelled mapping | shallow | yes | no | ok |
 | frontend/src/api/useOcrJob.test.tsx::useOcrJob::exposes progress as fraction of pages_done / page_count | useOcrJob | progress = pages_done/page_count | shallow | yes | no | no-bad-case |
 | frontend/src/api/useOcrJob.test.tsx::useOcrJob::surfaces extra fields (output_dir, output_mode, pages, name) via jobData | useOcrJob | extra fields exposed on jobData | shallow | yes | no | no-bad-case |
 | frontend/src/api/useOcrJob.test.tsx::useOcrJob::stops polling when state reaches succeeded | useOcrJob | only 1 poll call when done | shallow | yes | no | no-bad-case |
@@ -241,18 +241,18 @@ Mock-depth breakdown: none — 128, shallow — 38, deep — 35.
 | frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::pre-fills project name from source basename | JobConfigInline | name pre-filled from path | shallow | yes | no | no-bad-case |
 | frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::pre-fills project name as ocr-job-short for uploads | JobConfigInline | upload name pre-fill | shallow | yes | no | no-bad-case |
 | frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::does NOT render a separate output-dir field | JobConfigInline | no output-dir input | shallow | yes | no | no-bad-case |
-| frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::POSTs /api/jobs with the expected body shape for path source | JobConfigInline submit | request body fields correct | shallow (fetch mock) | yes | no | no-bad-case |
-| frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::POSTs /api/jobs with upload_id for upload source | JobConfigInline submit | upload_id in body | shallow (fetch mock) | yes | no | no-bad-case |
-| frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::navigates to /jobs/:id on successful submit | JobConfigInline submit | navigate to jobs path | shallow | yes | no | no-bad-case |
+| frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::POSTs /api/jobs with the expected body shape for path source | JobConfigInline submit | request body fields correct | shallow (fetch mock) | yes | no | ok |
+| frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::POSTs /api/jobs with upload_id for upload source | JobConfigInline submit | upload_id in body | shallow (fetch mock) | yes | no | ok |
+| frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::navigates to /jobs/:id on successful submit | JobConfigInline submit | navigate to jobs path | shallow | yes | no | ok |
 | frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::shows inline error when /api/jobs fails | JobConfigInline submit error | alert shown on failed POST | shallow (fetch → 400) | no | yes | ok |
 | frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::blocks submit when project name is empty | JobConfigInline validation | submit disabled when no name | shallow | no | yes | ok |
 | frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::calls onCancel when 'Use different files' is clicked | JobConfigInline cancel | onCancel fired | shallow | yes | no | no-bad-case |
 | frontend/src/components/RecentProjectsList.test.tsx::RecentProjectsList::shows 'No recent projects' when prefs has empty list | RecentProjectsList | empty state message | shallow (globalThis.fetch mock) | yes (edge) | no | no-bad-case |
-| frontend/src/components/RecentProjectsList.test.tsx::RecentProjectsList::renders project rows from prefs response | RecentProjectsList | project names rendered | shallow | yes | no | no-bad-case |
-| frontend/src/components/RecentProjectsList.test.tsx::RecentProjectsList::shows status chip for each project | RecentProjectsList | status chip present | shallow | yes | no | no-bad-case |
-| frontend/src/components/RecentProjectsList.test.tsx::RecentProjectsList::navigates to /jobs/:project_id on row click | RecentProjectsList | navigate called with correct path | shallow (mock useNavigate) | yes | no | no-bad-case |
+| frontend/src/components/RecentProjectsList.test.tsx::RecentProjectsList::renders project rows from prefs response | RecentProjectsList | project names rendered | shallow | yes | no | ok |
+| frontend/src/components/RecentProjectsList.test.tsx::RecentProjectsList::shows status chip for each project | RecentProjectsList | status chip present | shallow | yes | no | ok |
+| frontend/src/components/RecentProjectsList.test.tsx::RecentProjectsList::navigates to /jobs/:project_id on row click | RecentProjectsList | navigate called with correct path | shallow (mock useNavigate) | yes | no | ok |
 | frontend/src/components/RecentProjectsList.test.tsx::RecentProjectsList::shows empty state when fetch fails | RecentProjectsList | empty state on network error | shallow (fetch rejects) | no | yes | ok |
-| frontend/src/components/RecentProjectsList.test.tsx::RecentProjectsList::limits display to 10 projects | RecentProjectsList | max 10 rows shown | shallow | yes | no | no-bad-case |
+| frontend/src/components/RecentProjectsList.test.tsx::RecentProjectsList::limits display to 10 projects | RecentProjectsList | max 10 rows shown | shallow | yes | no | ok |
 | frontend/src/components/__tests__/OutputConfigPanel.test.tsx::disables next_to_source when source is not a folder | OutputConfigPanel | next-to-source disabled when not folder | none | no | yes | ok |
 | frontend/src/components/__tests__/OutputConfigPanel.test.tsx::disables specified in managed mode | OutputConfigPanel | specified disabled in managed mode | none | no | yes | ok |
 | frontend/src/components/__tests__/OutputConfigPanel.test.tsx::emits change when path is typed in specified mode | OutputConfigPanel | onChange called with path | none | yes | no | no-bad-case |
@@ -270,35 +270,35 @@ Mock-depth breakdown: none — 128, shallow — 38, deep — 35.
 | frontend/src/pages/PageViewPage.test.tsx::PageViewPage::save button calls PUT /api/pages/:id/:idx/text | PageViewPage save | PUT called with edited text | deep | yes | no | no-bad-case |
 | frontend/src/pages/PageViewPage.test.tsx::PageViewPage::shows success toast after save | PageViewPage save | toast.success("Saved") called | deep | yes | no | no-bad-case |
 | frontend/src/pages/PageViewPage.test.tsx::PageViewPage::prev button is disabled on first page | PageViewPage nav | prev disabled on page 0 | deep | no | yes | ok |
-| frontend/src/pages/PageViewPage.test.tsx::PageViewPage::next button navigates to next page | PageViewPage nav | next updates canvas src | deep | yes | no | no-bad-case |
+| frontend/src/pages/PageViewPage.test.tsx::PageViewPage::next button navigates to next page | PageViewPage nav | next updates canvas src | deep | yes | no | ok |
 | frontend/src/pages/PageViewPage.test.tsx::PageViewPage::next button is disabled on last page | PageViewPage nav | next disabled on last page | deep | no | yes | ok |
 | frontend/src/pages/PageViewPage.test.tsx::PageViewPage::re-run page trigger button is rendered | PageViewPage rerun | re-run button present | deep | yes | no | no-bad-case |
 | frontend/src/pages/PageViewPage.test.tsx::PageViewPage::DocTR menu item calls POST /api/pages/:id/:idx/rerun with engine doctr | PageViewPage rerun | POST with engine=doctr | deep | yes | no | no-bad-case |
 | frontend/src/pages/PageViewPage.test.tsx::PageViewPage::Tesseract menu item calls POST with engine tesseract | PageViewPage rerun | POST with engine=tesseract | deep | yes | no | no-bad-case |
 | frontend/src/pages/PageViewPage.test.tsx::PageViewPage::textarea updates after rerun completes | PageViewPage rerun | textarea updates post-rerun | deep | yes | no | no-bad-case |
-| frontend/src/pages/PageViewPage.test.tsx::PageViewPage::renders progress_message when job is mid-flight | PageViewPage progress | progress message testid visible | deep | yes | no | no-bad-case |
-| frontend/src/pages/PageViewPage.test.tsx::PageViewPage::hides progress_message when missing/null | PageViewPage progress | message absent when null | deep | yes | no | no-bad-case |
+| frontend/src/pages/PageViewPage.test.tsx::PageViewPage::renders progress_message when job is mid-flight | PageViewPage progress | progress message testid visible | deep | yes | no | ok |
+| frontend/src/pages/PageViewPage.test.tsx::PageViewPage::hides progress_message when missing/null | PageViewPage progress | message absent when null | deep | yes | no | ok |
 | frontend/src/pages/__tests__/PageViewPage.test.tsx::passes fetched words to PageImageCanvas | PageViewPage (duplicate file) | word-count attr = 1 | deep (mocks ArtifactViewer/PageImageCanvas/primitives) | yes | no | duplicate |
 | frontend/src/pages/__tests__/PageViewPage.test.tsx::renders zoom toolbar with +/-/Fit/100% buttons | PageViewPage (duplicate file) | zoom buttons present | deep | yes | no | duplicate |
 | frontend/src/pages/__tests__/PageViewPage.test.tsx::Fit returns the viewer to auto-fit after zooming in | PageViewPage (duplicate file) | auto-fit re-engaged after Fit | deep | yes | no | duplicate |
 | frontend/src/pages/__tests__/PageViewPage.test.tsx::100% sets zoom to native 1.0 | PageViewPage (duplicate file) | zoom=1.0 after 100% click | deep | yes | no | duplicate |
 | frontend/src/pages/__tests__/PageViewPage.test.tsx::renders canvas with zero words when words fetch fails | PageViewPage (duplicate file) | word-count=0 on failed words fetch | deep | no | yes | duplicate |
 | frontend/src/pages/ResultsPage.test.tsx::ResultsPage::renders project name after load | ResultsPage | project name visible | deep (mocks pdomain-ui/primitives, fetch) | yes | no | no-bad-case |
-| frontend/src/pages/ResultsPage.test.tsx::ResultsPage::shows progress bar while state is running | ResultsPage progress | progress-bar testid present | deep | yes | no | no-bad-case |
-| frontend/src/pages/ResultsPage.test.tsx::ResultsPage::hides progress bar in done state | ResultsPage progress | progress-bar absent | deep | yes | no | no-bad-case |
-| frontend/src/pages/ResultsPage.test.tsx::ResultsPage::renders progress_message when backend sets it | ResultsPage progress | job-progress-message shows text | deep | yes | no | no-bad-case |
-| frontend/src/pages/ResultsPage.test.tsx::ResultsPage::hides progress_message row when missing/null | ResultsPage progress | message absent | deep | yes | no | no-bad-case |
-| frontend/src/pages/ResultsPage.test.tsx::ResultsPage::polling stops when state is done | ResultsPage polling | fetch count frozen after done | deep (fake timers) | yes | no | no-bad-case |
-| frontend/src/pages/ResultsPage.test.tsx::ResultsPage::polling continues when state is running | ResultsPage polling | fetch count increases after intervals | deep (fake timers) | yes | no | no-bad-case |
+| frontend/src/pages/ResultsPage.test.tsx::ResultsPage::shows progress bar while state is running | ResultsPage progress | progress-bar testid present | deep | yes | no | ok |
+| frontend/src/pages/ResultsPage.test.tsx::ResultsPage::hides progress bar in done state | ResultsPage progress | progress-bar absent | deep | yes | no | ok |
+| frontend/src/pages/ResultsPage.test.tsx::ResultsPage::renders progress_message when backend sets it | ResultsPage progress | job-progress-message shows text | deep | yes | no | ok |
+| frontend/src/pages/ResultsPage.test.tsx::ResultsPage::hides progress_message row when missing/null | ResultsPage progress | message absent | deep | yes | no | ok |
+| frontend/src/pages/ResultsPage.test.tsx::ResultsPage::polling stops when state is done | ResultsPage polling | fetch count frozen after done | deep (fake timers) | yes | no | ok |
+| frontend/src/pages/ResultsPage.test.tsx::ResultsPage::polling continues when state is running | ResultsPage polling | fetch count increases after intervals | deep (fake timers) | yes | no | ok |
 | frontend/src/pages/ResultsPage.test.tsx::ResultsPage::renders page rows in done state | ResultsPage rows | page_00N.png names visible | deep | yes | no | no-bad-case |
 | frontend/src/pages/ResultsPage.test.tsx::ResultsPage::page rows have data-testid='page-row' for Playwright targeting | ResultsPage rows | 3 page-row testids | deep | yes | no | no-bad-case |
 | frontend/src/pages/ResultsPage.test.tsx::ResultsPage::shows text preview | ResultsPage rows | preview text visible | deep | yes | no | no-bad-case |
 | frontend/src/pages/ResultsPage.test.tsx::ResultsPage::navigates to page view when row is clicked | ResultsPage nav | route changes to page-view | deep | yes | no | no-bad-case |
 | frontend/src/pages/ResultsPage.test.tsx::ResultsPage::re-run all button sends POST /api/jobs/:id/rerun | ResultsPage rerun | rerun POST called | deep (fetch mock) | yes | no | no-bad-case |
 | frontend/src/pages/ResultsPage.test.tsx::ResultsPage::re-run all button re-fetches job status on success | ResultsPage rerun | fetchCount increases after rerun | deep | yes | no | no-bad-case |
-| frontend/src/pages/ResultsPage.test.tsx::ResultsPage::shows download button when output_mode is managed and state is succeeded | ResultsPage download | download-results-button visible | deep | yes | no | no-bad-case |
-| frontend/src/pages/ResultsPage.test.tsx::ResultsPage::hides download button when output_mode is next_to_source | ResultsPage download | download button absent | deep | yes | no | no-bad-case |
-| frontend/src/pages/ResultsPage.test.tsx::ResultsPage::hides download button when state is not succeeded | ResultsPage download | download button absent during running | deep | yes | no | no-bad-case |
+| frontend/src/pages/ResultsPage.test.tsx::ResultsPage::shows download button when output_mode is managed and state is succeeded | ResultsPage download | download-results-button visible | deep | yes | no | ok |
+| frontend/src/pages/ResultsPage.test.tsx::ResultsPage::hides download button when output_mode is next_to_source | ResultsPage download | download button absent | deep | yes | no | ok |
+| frontend/src/pages/ResultsPage.test.tsx::ResultsPage::hides download button when state is not succeeded | ResultsPage download | download button absent during running | deep | yes | no | ok |
 | frontend/src/pages/__tests__/HomePage.test.tsx::local + containerized shows drop zone and path input | HomePage layout | drop+path visible in containerized local | shallow (ConfigProvider+fetch) | yes | no | no-bad-case |
 | frontend/src/pages/__tests__/HomePage.test.tsx::local + not containerized shows drop, file pick, and path together | HomePage layout | drop+file-pick+path all visible | shallow | yes | no | no-bad-case |
 | frontend/src/pages/__tests__/HomePage.test.tsx::managed shows upload-only (no path input) | HomePage layout | path input absent in managed | shallow | yes | no | no-bad-case |
@@ -314,13 +314,13 @@ Frontend tests: 83 collected across 18 files.
 
 | Reason code | Count |
 |---|---|
-| ok | 6 |
-| no-bad-case | 55 |
-| asserts-mock | 7 |
-| duplicate | 18 |
+| ok | 31 |
+| no-bad-case | 47 |
+| asserts-mock | 0 |
+| duplicate | 5 |
 
-The 18 duplicates all come from `pages/PageViewPage.test.tsx` (co-located,
-13 tests) and `pages/__tests__/PageViewPage.test.tsx` (5 tests). M3 plan:
+The 5 duplicates all come from `pages/__tests__/PageViewPage.test.tsx` (5 tests
+that overlap with the co-located `pages/PageViewPage.test.tsx`). M3 plan:
 merge unique cases into `__tests__/` and delete the co-located file.
 
 ---
@@ -383,113 +383,122 @@ __e2e test → click-path mapping:__
 
 ## Appendix: weak-tagged tests (M4 worklist)
 
-- [ ] tests/test_config_route.py::test_config_route_local_not_containerized — no-bad-case — add test for invalid/unknown mode env var
-- [ ] tests/test_config_route.py::test_config_route_managed_containerized — no-bad-case — add test for missing mode env var (default behavior)
-- [ ] tests/test_container_detect.py::test_dockerenv_marker — no-bad-case — covered by test_none_match; pair is ok across the file; keep as-is (upgrade reasoning: container_detect has full bad-case coverage across multiple tests; only single-test methods lack paired bad case; acceptable given parametric style)
-- [ ] tests/test_container_detect.py::test_podman_marker — no-bad-case — same as above
-- [ ] tests/test_container_detect.py::test_container_env_var — no-bad-case — same as above
-- [ ] tests/test_container_detect.py::test_cgroup_signal — no-bad-case — same as above
-- [ ] tests/test_download_route.py::test_download_streams_zip — no-bad-case — bad case covered by test_download_missing_job; this is the good half of a paired set; ok
-- [ ] tests/test_download_route.py::test_download_include_text_only — no-bad-case — no bad case for this specific include variant; add test asserting json absent
-- [ ] tests/test_download_route.py::test_download_include_json_only — no-bad-case — add test asserting txt absent
-- [ ] tests/test_download_route.py::test_download_include_both_explicit — no-bad-case — no failure case; acceptable as exhaustive positive
-- [ ] tests/test_download_route.py::test_download_default_is_both — no-bad-case — acceptable as positive variant
-- [ ] tests/test_dynamic_port.py::TestDynamicPortCLI::test_uvicorn_called_with_picked_port — asserts-mock — asserts mock call count; no behavior observable beyond "mock was called"; add integration test verifying actual port binding
-- [ ] tests/test_dynamic_port.py::TestDynamicPortCLI::test_bootstrap_spa_called_with_expected_kwargs — asserts-mock — asserts kwargs on patched mock; convert to testing the actual result (port returned from real bootstrap_spa)
-- [ ] tests/test_dynamic_port.py::TestDynamicPortCLI::test_cli_port_flag_overrides_default — no-bad-case — no test for invalid port value
-- [ ] tests/test_dynamic_port.py::TestBootstrapSpaImportable::test_bootstrap_spa_is_importable — no-bad-case — callable check only; add test that it returns an int
-- [ ] tests/test_dynamic_port.py::TestBootstrapSpaImportable::test_find_available_port_is_importable — no-bad-case — callable check only; covered by test_find_available_port_returns_int; acceptable pair
-- [ ] tests/test_entrypoint.py::TestEntrypoint::test_help_exits_zero — no-bad-case — no test for non-zero exit on bad flag
-- [ ] tests/test_entrypoint.py::TestEntrypoint::test_module_main_importable — no-bad-case — callable check only; no bad case needed; acceptable smoke
-- [ ] tests/test_models.py::TestProjectSpec::test_round_trip_json — no-bad-case — no test for invalid JSON input
-- [ ] tests/test_models.py::TestProjectSpec::test_defaults — no-bad-case — no test for field overrides
-- [ ] tests/test_models.py::TestProjectSpec::test_tesseract_engine — no-bad-case — bad case covered by test_engine_literal; acceptable pair
-- [ ] tests/test_models.py::TestPageResult::test_defaults — no-bad-case — bad case covered by test_state_literal; acceptable pair
-- [ ] tests/test_models.py::TestPageResult::test_round_trip — no-bad-case — no invalid JSON test
-- [ ] tests/test_models.py::TestProjectStatus::test_round_trip — no-bad-case — no invalid JSON test; no bad state in status
-- [ ] tests/test_models.py::TestAppPrefs::test_defaults — no-bad-case — no bad case needed for pure defaults; acceptable
-- [ ] tests/test_models.py::TestAppPrefs::test_round_trip — no-bad-case — no invalid JSON test
-- [ ] tests/test_output_config.py::test_managed_default — no-bad-case — bad cases exist in other tests; acceptable as positive half
-- [ ] tests/test_output_config.py::test_next_to_source_folder — no-bad-case — bad case in test_next_to_source_rejects_non_folder; acceptable pair
-- [ ] tests/test_output_config.py::test_specified_local — no-bad-case — bad case in test_specified_rejected_in_managed; acceptable pair
-- [ ] tests/test_pipeline.py::TestExtractWords::test_flattens_word_tree — no-bad-case — bad case covered by test_skips_words_without_geometry; acceptable pair
-- [ ] tests/test_pipeline.py::TestExtractWords::test_bbox_is_xywh_normalized — no-bad-case — no test for malformed bounding_box shape
-- [ ] tests/test_pipeline.py::TestBuildSidecarPayload::test_adds_text_width_height_words — no-bad-case — no test for page with zero words
-- [ ] tests/test_pipeline.py::TestBuildSidecarPayload::test_preserves_original_tree — no-bad-case — no bad case; acceptable structural assertion
-- [ ] tests/test_pipeline.py::TestCollectImages::test_returns_sorted_png_files — no-bad-case — bad cases exist (empty, nonexistent); acceptable
-- [ ] tests/test_pipeline.py::TestCollectImages::test_returns_jpg_and_tiff — no-bad-case — acceptable positive variant
-- [ ] tests/test_pipeline.py::TestCollectImages::test_skips_non_image_files — no-bad-case — good coverage via filtering assertion
-- [ ] tests/test_pipeline.py::TestCollectImages::test_accepts_single_file — no-bad-case — no test for file that doesn't exist
-- [ ] tests/test_pipeline.py::TestCollectImages::test_accepts_jpeg2000_family — no-bad-case — no bad case needed; extension whitelist verification
-- [ ] tests/test_pipeline.py::TestRunProject::test_calls_run_ocr_batch_for_images — no-bad-case — no test for dispatcher raising during batch
-- [ ] tests/test_pipeline.py::TestRunProject::test_status_callback_receives_project_status — no-bad-case — no test for callback failure
-- [ ] tests/test_pipeline.py::TestRunProject::test_run_ocr_batch_request_fields — no-bad-case — no test for missing/corrupt request fields
-- [ ] tests/test_pipeline.py::TestRunProject::test_extracts_text_from_page_dict — no-bad-case — bad case: dispatcher returns empty page dict (covered by EMPTY_PAGE_DICT in other tests); acceptable
-- [ ] tests/test_pipeline.py::TestRunProject::test_sidecar_carries_text_dims_and_words — no-bad-case — no test for page dict missing expected keys
-- [ ] tests/test_pipeline.py::TestRunProject::test_writes_outputs_into_output_dir — no-bad-case — bad case in test_save_json_false_skips_json_in_output_dir; acceptable pair
-- [ ] tests/test_pipeline.py::TestProgressMessage::test_progress_message_sequence — no-bad-case — no test for dispatcher failure mid-progress
-- [ ] tests/test_routes_jobs.py::TestPostJob::test_creates_job — no-bad-case — no test for invalid payload (missing required field)
-- [ ] tests/test_routes_jobs.py::TestPostJob::test_created_job_is_retrievable — no-bad-case — bad case in TestGetJob::test_404_for_missing; acceptable pair
-- [ ] tests/test_routes_jobs.py::TestListJobs::test_empty_list — no-bad-case — no bad case needed for empty list; acceptable edge
-- [ ] tests/test_routes_jobs.py::TestListJobs::test_lists_created_jobs — no-bad-case — no error case for listing
-- [ ] tests/test_routes_jobs.py::TestDeleteJob::test_delete_removes_job — no-bad-case — bad case in test_delete_missing_is_204; acceptable pair
-- [ ] tests/test_routes_jobs.py::TestPipelineIntegration::test_run_project_called_on_post — asserts-mock — patches run_project; asserts it was called; convert to asserting result of real pipeline or use a lightweight fake
-- [ ] tests/test_routes_jobs.py::TestPipelineIntegration::test_job_transitions_to_done_via_mock — asserts-mock — asserts behavior of the mock, not of the real route wiring; use real pipeline with fake dispatcher instead
-- [ ] tests/test_routes_jobs.py::TestPipelineIntegration::test_dispatcher_passed_to_run_project — asserts-mock — patches run_project and captures dispatcher arg; replace with seam test using FakeStageDispatcher
-- [ ] tests/test_routes_jobs.py::TestCanonicalJobStates::test_failed_job_returns_failed_not_error — asserts-mock — state is injected via patched run_project; test the route behavior not the mock state
-- [ ] tests/test_routes_jobs.py::TestCanonicalJobStates::test_succeeded_job_returns_succeeded_not_done — asserts-mock — same
-- [ ] tests/test_routes_jobs.py::TestCanonicalJobStates::test_state_is_always_a_canonical_value — no-bad-case — no test asserting that legacy state values are never returned under failure
-- [ ] tests/test_routes_jobs.py::TestRerunJob::test_rerun_returns_queued_state — asserts-mock — patches run_project; real behavior obscured
-- [ ] tests/test_routes_jobs.py::TestRerunJob::test_rerun_resets_pages_to_queued — asserts-mock — same
-- [ ] tests/test_routes_jobs.py::TestRerunJob::test_rerun_triggers_pipeline — asserts-mock — asserts patched mock called; replace with real pipeline check
-- [ ] tests/test_routes_jobs.py::TestUploadIdSource::test_create_job_with_upload — no-bad-case — no test for upload_id not found in upload root
-- [ ] tests/test_routes_jobs.py::TestOutputModeRoundTrip::test_output_mode_returned_on_get — no-bad-case — no test for invalid output mode
-- [ ] tests/test_routes_jobs.py::TestOutputModeRoundTrip::test_output_mode_absent_for_legacy_jobs — no-bad-case — no bad case needed; acceptable negative assertion
-- [ ] tests/test_routes_pages.py::TestGetPage::test_returns_page_response — no-bad-case — bad cases in test_404_for_missing_project and test_404_for_missing_page; acceptable
-- [ ] tests/test_routes_pages.py::TestGetPageTextFallback::test_falls_back_to_text_preview_when_sidecar_missing — no-bad-case — no test for both sidecar missing AND text_preview empty
-- [ ] tests/test_routes_pages.py::TestGetPageImage::test_streams_transcoded_image — no-bad-case — bad case in test_404_when_image_file_missing; acceptable pair
-- [ ] tests/test_routes_pages.py::TestGetPageImage::test_serves_webp_when_accept_includes_webp — no-bad-case — no test for corrupted image file
-- [ ] tests/test_routes_pages.py::TestGetPageImage::test_falls_back_to_png_without_webp_in_accept — no-bad-case — no bad case; acceptable negative variant
-- [ ] tests/test_routes_pages.py::TestPutPageText::test_saves_text — no-bad-case — bad case not tested (missing project on PUT)
-- [ ] tests/test_routes_pages.py::TestPutPageText::test_text_persisted_in_sidecar — no-bad-case — no test for empty text or overwrite
-- [ ] tests/test_routes_pages.py::TestGetPageImageFilePath::test_serves_image_when_source_path_is_file — no-bad-case — no test for file-path source where file is missing
+<!-- reconciliation: 117 non-ok table rows == 117 worklist rows -->
+
+- [ ] tests/test_config_route.py::test_config_route_local_not_containerized — no-bad-case — add test for invalid/missing mode env var returning an error or default
+- [ ] tests/test_config_route.py::test_config_route_managed_containerized — no-bad-case — add test for missing managed-mode env var (default behavior)
+- [ ] tests/test_dynamic_port.py::TestDynamicPortCLI::test_uvicorn_called_with_picked_port — asserts-mock — asserts mock call count; add integration test verifying actual port binding
+- [ ] tests/test_dynamic_port.py::TestDynamicPortCLI::test_bootstrap_spa_called_with_expected_kwargs — asserts-mock — asserts kwargs on patched mock; convert to testing actual result from real bootstrap_spa
+- [ ] tests/test_dynamic_port.py::TestDynamicPortCLI::test_cli_port_flag_overrides_default — no-bad-case — add test for invalid port value (non-int, out-of-range) raising error
+- [ ] tests/test_dynamic_port.py::TestBootstrapSpaImportable::test_bootstrap_spa_is_importable — no-bad-case — callable check only; add test asserting it returns an int or correct result
+- [ ] tests/test_dynamic_port.py::TestBootstrapSpaImportable::test_find_available_port_returns_int — no-bad-case — no test for all-ports-busy scenario; add test for port exhaustion
+- [ ] tests/test_entrypoint.py::TestEntrypoint::test_help_exits_zero — no-bad-case — add test asserting non-zero exit on unknown/bad flag
+- [ ] tests/test_entrypoint.py::TestEntrypoint::test_module_main_importable — no-bad-case — import smoke only; no bad case possible; accept as-is
+- [ ] tests/test_models.py::TestProjectStatus::test_round_trip — no-bad-case — add test for invalid JSON input raising ValidationError
+- [ ] tests/test_models.py::TestAppPrefs::test_defaults — no-bad-case — no bad case needed for pure defaults; accept as-is or add invalid-field test
+- [ ] tests/test_models.py::TestAppPrefs::test_round_trip — no-bad-case — add test for invalid JSON input raising ValidationError
+- [ ] tests/test_pipeline.py::TestExtractWords::test_bbox_is_xywh_normalized — no-bad-case — add test for malformed bounding_box shape (missing keys)
+- [ ] tests/test_pipeline.py::TestBuildSidecarPayload::test_adds_text_width_height_words — no-bad-case — add test for page with zero words in payload
+- [ ] tests/test_pipeline.py::TestBuildSidecarPayload::test_preserves_original_tree — no-bad-case — no bad case; accept as structural assertion
+- [ ] tests/test_pipeline.py::TestProgressMessage::test_progress_message_sequence — no-bad-case — add test for dispatcher failure mid-progress leaving job in failed state
+- [ ] tests/test_routes_jobs.py::TestListJobs::test_empty_list — no-bad-case — no error case for listing; add test for listing with corrupt storage
+- [ ] tests/test_routes_jobs.py::TestListJobs::test_lists_created_jobs — no-bad-case — no error case; add test asserting behavior when storage read fails
+- [ ] tests/test_routes_jobs.py::TestPipelineIntegration::test_run_project_called_on_post — asserts-mock — patches run_project and asserts it was called; replace with real pipeline + FakeStageDispatcher
+- [ ] tests/test_routes_jobs.py::TestPipelineIntegration::test_job_transitions_to_done_via_mock — asserts-mock — asserts behavior of the mock, not route wiring; use real pipeline with fake dispatcher
+- [ ] tests/test_routes_jobs.py::TestPipelineIntegration::test_dispatcher_passed_to_run_project — asserts-mock — captures dispatcher arg via patched mock; replace with seam test using FakeStageDispatcher
+- [ ] tests/test_routes_jobs.py::TestCanonicalJobStates::test_failed_job_returns_failed_not_error — asserts-mock — state injected via patched run_project; test route behavior, not mock state
+- [ ] tests/test_routes_jobs.py::TestCanonicalJobStates::test_succeeded_job_returns_succeeded_not_done — asserts-mock — same as above; test real route behavior
+- [ ] tests/test_routes_jobs.py::TestCanonicalJobStates::test_state_is_always_a_canonical_value — no-bad-case — add test asserting legacy state values ('error', 'done') never returned
+- [ ] tests/test_routes_jobs.py::TestRerunJob::test_rerun_returns_queued_state — asserts-mock — patches run_project; real rerun behavior obscured; use real pipeline seam
+- [ ] tests/test_routes_jobs.py::TestRerunJob::test_rerun_resets_pages_to_queued — asserts-mock — patches run_project; use real pipeline with FakeStageDispatcher
+- [ ] tests/test_routes_jobs.py::TestRerunJob::test_rerun_triggers_pipeline — asserts-mock — asserts patched mock called; replace with real pipeline integration check
+- [ ] tests/test_routes_jobs.py::TestUploadIdSource::test_create_job_with_upload — no-bad-case — add test for upload_id not found in upload root → 404 or error
+- [ ] tests/test_routes_jobs.py::TestOutputModeRoundTrip::test_output_mode_returned_on_get — no-bad-case — add test for invalid output_mode value in stored spec
+- [ ] tests/test_routes_jobs.py::TestOutputModeRoundTrip::test_output_mode_absent_for_legacy_jobs — no-bad-case — no bad case needed; negative assertion; accept as-is
+- [ ] tests/test_routes_pages.py::TestGetPageTextFallback::test_falls_back_to_text_preview_when_sidecar_missing — no-bad-case — add test for both sidecar missing AND text_preview empty → empty string
+- [ ] tests/test_routes_pages.py::TestPutPageText::test_saves_text — no-bad-case — add test for PUT on missing project → 404
+- [ ] tests/test_routes_pages.py::TestPutPageText::test_text_persisted_in_sidecar — no-bad-case — add test for empty text or overwrite behavior
+- [ ] tests/test_routes_pages.py::TestGetPageImageFilePath::test_serves_image_when_source_path_is_file — no-bad-case — add test for file-path source where file is missing → 404
 - [ ] tests/test_routes_pages.py::TestPostPageRerun::test_returns_200_with_mock_dispatcher — asserts-mock — patches get_dispatcher + AsyncMock; convert to real dispatcher seam test
-- [ ] tests/test_routes_pages.py::TestPostPageRerun::test_rerun_page_n_updates_page_n_not_page_0 — asserts-mock — patches dispatcher; acceptable regression guard but relies on mock contract
-- [ ] tests/test_routes_pages.py::TestPostPageRerun::test_rerun_awaits_run_stage_non_blocking — asserts-mock — assert_awaited_once on AsyncMock; tests mock behavior not real behavior
-- [ ] tests/test_routes_pages.py::TestPostPageRerun::test_rerun_updates_page_state — asserts-mock — patches dispatcher; GET reflects mocked POST return
-- [ ] tests/test_routes_prefs.py::TestGetPrefs::test_returns_default_prefs — no-bad-case — no test for malformed prefs file
-- [ ] tests/test_routes_prefs.py::TestGetPrefs::test_returns_stored_prefs — no-bad-case — no test for partially-stored prefs (missing fields)
-- [ ] tests/test_routes_prefs.py::TestPutPrefs::test_saves_prefs — no-bad-case — no test for invalid prefs payload
+- [ ] tests/test_routes_pages.py::TestPostPageRerun::test_rerun_page_n_updates_page_n_not_page_0 — asserts-mock — patches dispatcher; acceptable regression guard but relies on mock contract; convert to real seam
+- [ ] tests/test_routes_pages.py::TestPostPageRerun::test_rerun_awaits_run_stage_non_blocking — asserts-mock — assert_awaited_once on AsyncMock; tests mock behavior not real behavior; remove or replace
+- [ ] tests/test_routes_pages.py::TestPostPageRerun::test_rerun_updates_page_state — asserts-mock — patches dispatcher; GET reflects mocked POST return; use real FakeStageDispatcher
+- [ ] tests/test_routes_prefs.py::TestGetPrefs::test_returns_default_prefs — no-bad-case — add test for malformed/corrupt prefs file
+- [ ] tests/test_routes_prefs.py::TestGetPrefs::test_returns_stored_prefs — no-bad-case — add test for partially-stored prefs (missing fields) → defaults merged
+- [ ] tests/test_routes_prefs.py::TestGetPrefs::test_returns_defaults_when_no_adapter — no-bad-case — no bad case; adapter=None is itself the edge case; accept as-is
+- [ ] tests/test_routes_prefs.py::TestPutPrefs::test_saves_prefs — no-bad-case — add test for invalid prefs payload → 422
 - [ ] tests/test_routes_prefs.py::TestPutPrefs::test_write_app_called_with_app_id — asserts-mock — asserts mock.write_app called with app_id; convert to asserting the persisted result
-- [ ] tests/test_routes_prefs.py::TestPutPrefs::test_put_ui_prefs_persists_via_adapter — asserts-mock — same
-- [ ] tests/test_routes_root.py::test_root_returns_html — no-bad-case — bad case in test_root_503_when_frontend_not_built; acceptable pair
-- [ ] tests/test_routes_root.py::test_spa_react_router_paths_return_html — no-bad-case — no test for path with query params or hash
-- [ ] tests/test_routes_root.py::test_api_routes_not_shadowed_by_spa_fallback — no-bad-case — only /api/health tested; add /api/jobs or /api/pages
-- [ ] tests/test_smoke.py::test_import — no-bad-case — import smoke only; no bad case possible; acceptable
-- [ ] tests/test_sources_local_path.py::test_folder_happy_path — no-bad-case — bad cases exist; acceptable
-- [ ] tests/test_sources_local_path.py::test_single_image_path — no-bad-case — no test for non-image single file
-- [ ] tests/test_sources_local_path.py::test_zip_happy_path — no-bad-case — bad cases exist; acceptable
-- [ ] tests/test_sources_uploaded.py::test_happy_path — no-bad-case — bad case in test_missing; acceptable pair
-- [ ] tests/test_storage.py::TestGetProjectDir::test_returns_path_under_root — no-bad-case — no test for root not configured (env var missing)
-- [ ] tests/test_storage.py::TestWriteReadProject::test_round_trip — no-bad-case — bad case in test_read_missing_raises; acceptable pair
-- [ ] tests/test_storage.py::TestWriteReadProject::test_project_json_created — no-bad-case — no test for write failure (read-only dir)
-- [ ] tests/test_storage.py::TestPageSidecar::test_write_read_round_trip — no-bad-case — bad case in test_read_missing_page_raises; acceptable pair
-- [ ] tests/test_storage.py::TestPageSidecar::test_sidecar_file_created — no-bad-case — no test for page index out of range on write
-- [ ] tests/test_storage.py::TestWriteTxt::test_write_txt — no-bad-case — no test for page index out of range
-- [ ] tests/test_storage.py::TestWriteCombinedTxt::test_combined_txt_concatenates — no-bad-case — no test for pages with empty text
-- [ ] tests/test_storage.py::TestListProjects::test_empty_when_no_projects — no-bad-case — no test for corrupt project.json in listing
-- [ ] tests/test_storage.py::TestListProjects::test_lists_written_projects — no-bad-case — no test for multiple projects ordering
-- [ ] tests/test_storage.py::TestDeleteProject::test_delete_removes_dir — no-bad-case — bad case in test_delete_missing_is_noop; acceptable pair
-- [ ] tests/test_suite.py::TestSuiteJson::test_pd_suite_json_exists — no-bad-case — json structure test; acceptable
-- [ ] tests/test_suite.py::TestSuiteJson::test_pd_suite_json_has_required_fields — no-bad-case — subset check; acceptable
-- [ ] tests/test_suite.py::TestSuiteRoutes::test_suite_installed_endpoint_responds — no-bad-case — no test for response shape
-- [ ] tests/test_suite.py::TestSuiteRoutes::test_suite_prefs_endpoint_responds — no-bad-case — no test for response content
-- [ ] tests/test_suite.py::TestSuiteRoutes::test_healthz_endpoint_responds — no-bad-case — no test for unhealthy state
-- [ ] tests/test_suite.py::TestRegisterSelf::test_bootstrap_spa_used_in_main — tautological — grep on source string; no behavior tested; replace with behavioral test of bootstrap_spa being called on startup
+- [ ] tests/test_routes_prefs.py::TestPutPrefs::test_put_no_adapter_returns_200 — no-bad-case — no bad case; accept as-is
+- [ ] tests/test_routes_prefs.py::TestPutPrefs::test_put_ui_prefs_subset — no-bad-case — add test for unknown fields in ui_prefs payload
+- [ ] tests/test_routes_prefs.py::TestPutPrefs::test_put_ui_prefs_persists_via_adapter — asserts-mock — same as above; assert persisted result, not mock call
+- [ ] tests/test_smoke.py::test_import — no-bad-case — import smoke only; no bad case possible; accept as-is
+- [ ] tests/test_storage.py::TestGetProjectDir::test_returns_path_under_root — no-bad-case — add test for root not configured (env var missing) → error
+- [ ] tests/test_storage.py::TestWriteTxt::test_write_txt — no-bad-case — add test for page index out of range on write
+- [ ] tests/test_storage.py::TestWriteCombinedTxt::test_combined_txt_concatenates — no-bad-case — add test for pages with empty text (separator still correct)
+- [ ] tests/test_storage.py::TestListProjects::test_empty_when_no_projects — no-bad-case — add test for corrupt project.json in listing (graceful skip)
+- [ ] tests/test_storage.py::TestListProjects::test_lists_written_projects — no-bad-case — add test for multiple projects ordering (stable sort)
+- [ ] tests/test_suite.py::TestSuiteJson::test_pd_suite_json_exists — no-bad-case — json structure test; accept as-is
+- [ ] tests/test_suite.py::TestSuiteJson::test_pd_suite_json_has_required_fields — no-bad-case — subset check; accept as-is
+- [ ] tests/test_suite.py::TestSuiteRoutes::test_suite_installed_endpoint_responds — no-bad-case — add test asserting response shape (list with expected fields)
+- [ ] tests/test_suite.py::TestSuiteRoutes::test_suite_prefs_endpoint_responds — no-bad-case — add test asserting response content structure
+- [ ] tests/test_suite.py::TestSuiteRoutes::test_healthz_endpoint_responds — no-bad-case — add test for unhealthy state response
+- [ ] tests/test_suite.py::TestRegisterSelf::test_bootstrap_spa_used_in_main — tautological — grep on source string; replace with behavioral test of bootstrap_spa called on startup
+- [ ] tests/test_suite.py::TestRegisterSelf::test_register_self_is_importable — no-bad-case — callable check only; add test that register_self actually runs without error
 - [ ] tests/test_suite.py::TestCLIFlags::test_unregister_suite_flag_exists — tautological — grep on source string; replace with test that --unregister-suite actually works
-- [ ] tests/test_suite.py::TestCLIFlags::test_install_desktop_shortcut_flag_exists — tautological — same pattern
-- [ ] tests/test_suite.py::TestCLIFlags::test_remove_desktop_shortcut_flag_exists — tautological — same pattern
-- [ ] tests/test_uploads.py::test_single_image_upload — no-bad-case — no test for non-image file upload
-- [ ] tests/test_uploads.py::test_zip_upload_extracts — no-bad-case — no test for invalid zip
-- [ ] tests/test_words_route.py::test_words_payload_shape — asserts-mock — monkeypatches load_page_words to return fake list; asserts the fake list; replace with real storage round-trip
-- [ ] tests/test_words_route.py::test_words_missing_returns_404 — asserts-mock — monkeypatches load_page_words to return None; acceptable as paired bad case but replace with real missing sidecar
+- [ ] tests/test_suite.py::TestCLIFlags::test_install_desktop_shortcut_flag_exists — tautological — grep on source string; replace with behavioral test of flag
+- [ ] tests/test_suite.py::TestCLIFlags::test_remove_desktop_shortcut_flag_exists — tautological — grep on source string; replace with behavioral test of flag
+- [ ] tests/test_words_route.py::test_words_payload_shape — asserts-mock — monkeypatches load_page_words to return fake list; replace with real storage round-trip
+- [ ] tests/test_words_route.py::test_words_missing_returns_404 — asserts-mock — monkeypatches load_page_words to return None; replace with real missing sidecar
+- [ ] tests/smoke/test_e2e.py::test_e2e_job_completes — no-bad-case — no bad case for e2e smoke; accept as-is (xfails without weights)
+- [ ] frontend/src/App.test.tsx::App::renders without crashing and shows home page at / — no-bad-case — no error/bad-route test; add test for unknown route rendering 404 or fallback
+- [ ] frontend/src/App.test.tsx::App::AppShell mock receives a main prop — no-bad-case — no bad case; accept as structural prop-passing assertion
+- [ ] frontend/src/api/useOcrJob.test.tsx::useOcrJob::starts idle with no job data when jobId is null — no-bad-case — no bad case; null jobId is itself the edge case; accept as-is
+- [ ] frontend/src/api/useOcrJob.test.tsx::useOcrJob::exposes progress as fraction of pages_done / page_count — no-bad-case — add test for page_count=0 (division-by-zero guard)
+- [ ] frontend/src/api/useOcrJob.test.tsx::useOcrJob::surfaces extra fields (output_dir, output_mode, pages, name) via jobData — no-bad-case — add test for missing extra fields in API response (undefined handling)
+- [ ] frontend/src/api/useOcrJob.test.tsx::useOcrJob::stops polling when state reaches succeeded — no-bad-case — add test for network error during polling (error state handling)
+- [ ] frontend/src/api/useOcrJob.test.tsx::useOcrJob::resets to idle when jobId changes to null — no-bad-case — no bad case; accept as lifecycle assertion
+- [ ] frontend/src/api/useOcrJob.test.tsx::useOcrJob::uses the default fetch when fetchFn is not provided (stub) — no-bad-case — stub test; no bad case possible; accept as-is
+- [ ] frontend/src/components/JobConfigInline.test.tsx::defaultProjectName::returns basename for path source — no-bad-case — add test for empty path → fallback name
+- [ ] frontend/src/components/JobConfigInline.test.tsx::defaultProjectName::returns ocr-job-short for upload source — no-bad-case — no bad case; accept as format assertion
+- [ ] frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::renders all required form fields — no-bad-case — no bad case; accept as render smoke
+- [ ] frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::pre-fills project name from source basename — no-bad-case — no bad case; accept as pre-fill assertion
+- [ ] frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::pre-fills project name as ocr-job-short for uploads — no-bad-case — no bad case; accept as pre-fill assertion
+- [ ] frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::does NOT render a separate output-dir field — no-bad-case — absence assertion; no bad case possible; accept as-is
+- [ ] frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::calls onCancel when 'Use different files' is clicked — no-bad-case — no bad case; accept as callback assertion
+- [ ] frontend/src/components/RecentProjectsList.test.tsx::RecentProjectsList::shows 'No recent projects' when prefs has empty list — no-bad-case — empty-list edge case; error path covered by 'shows empty state when fetch fails'; accept as-is
+- [ ] frontend/src/components/__tests__/OutputConfigPanel.test.tsx::emits change when path is typed in specified mode — no-bad-case — add test for invalid path (empty string) onChange behavior
+- [ ] frontend/src/components/__tests__/SourcePicker.test.tsx::calls onUploadComplete for a dropped file — no-bad-case — add test for upload failure (fetch rejects) showing error state
+- [ ] frontend/src/components/__tests__/SourcePicker.test.tsx::dropzone has a generous min-height — no-bad-case — layout test; no bad case possible; accept as-is
+- [ ] frontend/src/components/__tests__/SourcePicker.test.tsx::emits onPathChosen for path input — no-bad-case — add test for empty path not emitting onPathChosen
+- [ ] frontend/src/components/__tests__/SourcePicker.test.tsx::clicking the dropzone triggers the hidden file input — no-bad-case — no bad case; accept as interaction assertion
+- [ ] frontend/src/components/__tests__/SourcePicker.test.tsx::pressing Enter on the dropzone triggers the file input — no-bad-case — no bad case; accept as keyboard assertion
+- [ ] frontend/src/components/__tests__/SourcePicker.test.tsx::renders the dropped filename after a drop — no-bad-case — no bad case; accept as state assertion
+- [ ] frontend/src/components/__tests__/SourcePicker.test.tsx::lists every dropped file with a count header — no-bad-case — add test for zero files dropped (empty array)
+- [ ] frontend/src/components/__tests__/SourcePicker.test.tsx::clear button resets the display and fires onClear — no-bad-case — no bad case; accept as interaction assertion
+- [ ] frontend/src/components/__tests__/SourcePicker.test.tsx::clicking the clear button does not re-open the file picker — no-bad-case — no bad case; accept as event-propagation assertion
+- [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::renders canvas with correct image src — no-bad-case — add test for missing image (404 from backend) showing error state
+- [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::renders textarea with page OCR text — no-bad-case — add test for empty OCR text (blank page result)
+- [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::save button calls PUT /api/pages/:id/:idx/text — no-bad-case — add test for save failure (PUT 4xx) showing error feedback
+- [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::shows success toast after save — no-bad-case — add test for failure toast on save error
+- [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::re-run page trigger button is rendered — no-bad-case — add test for rerun button absent when job is running
+- [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::DocTR menu item calls POST /api/pages/:id/:idx/rerun with engine doctr — no-bad-case — add test for rerun failure (POST 500) showing error state
+- [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::Tesseract menu item calls POST with engine tesseract — no-bad-case — no bad case; paired with DocTR test; add failure test if DocTR one not sufficient
+- [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::textarea updates after rerun completes — no-bad-case — add test for textarea NOT updating after failed rerun
+- [ ] frontend/src/pages/__tests__/PageViewPage.test.tsx::passes fetched words to PageImageCanvas — duplicate — delete; survivor = frontend/src/pages/PageViewPage.test.tsx (or merge unique cases into __tests__ file)
+- [ ] frontend/src/pages/__tests__/PageViewPage.test.tsx::renders zoom toolbar with +/-/Fit/100% buttons — duplicate — delete; survivor = frontend/src/pages/PageViewPage.test.tsx (merge zoom toolbar tests)
+- [ ] frontend/src/pages/__tests__/PageViewPage.test.tsx::Fit returns the viewer to auto-fit after zooming in — duplicate — delete; survivor = frontend/src/pages/PageViewPage.test.tsx
+- [ ] frontend/src/pages/__tests__/PageViewPage.test.tsx::100% sets zoom to native 1.0 — duplicate — delete; survivor = frontend/src/pages/PageViewPage.test.tsx
+- [ ] frontend/src/pages/__tests__/PageViewPage.test.tsx::renders canvas with zero words when words fetch fails — duplicate — delete; survivor = frontend/src/pages/PageViewPage.test.tsx
+- [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::renders project name after load — no-bad-case — add test for project name absent when fetch fails
+- [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::renders page rows in done state — no-bad-case — add test for empty page list (job succeeded but no pages)
+- [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::page rows have data-testid='page-row' for Playwright targeting — no-bad-case — no bad case; testid assertion; accept as-is
+- [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::shows text preview — no-bad-case — add test for missing text_preview (empty or null)
+- [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::navigates to page view when row is clicked — no-bad-case — add test for disabled/non-navigable row state
+- [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::re-run all button sends POST /api/jobs/:id/rerun — no-bad-case — add test for rerun failure (POST 500) showing error feedback
+- [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::re-run all button re-fetches job status on success — no-bad-case — add test for re-fetch failure after rerun
+- [ ] frontend/src/pages/__tests__/HomePage.test.tsx::local + containerized shows drop zone and path input — no-bad-case — no bad case; layout variant; accept as-is
+- [ ] frontend/src/pages/__tests__/HomePage.test.tsx::local + not containerized shows drop, file pick, and path together — no-bad-case — no bad case; layout variant; accept as-is
+- [ ] frontend/src/pages/__tests__/HomePage.test.tsx::managed shows upload-only (no path input) — no-bad-case — no bad case; layout variant; accept as-is
+- [ ] frontend/src/pages/__tests__/HomePage.test.tsx::JobConfigInline is hidden until a source is chosen — no-bad-case — no bad case; conditional render assertion; accept as-is
+- [ ] frontend/src/pages/__tests__/HomePage.test.tsx::JobConfigInline appears after a path is chosen, and clears on cancel — no-bad-case — no bad case; state transition assertion; accept as-is
+- [ ] frontend/src/runtime/__tests__/ConfigContext.test.tsx::fetches /api/config on mount — no-bad-case — add test for fetch failure (network error) → error state or fallback
