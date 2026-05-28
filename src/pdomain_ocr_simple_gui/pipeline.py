@@ -11,6 +11,7 @@ Entry points:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, TypeAlias, cast
@@ -110,6 +111,24 @@ def resolve_device(choice: str) -> str | None:
         except (ImportError, ValueError, RuntimeError):
             return None
     return None
+
+
+def resolve_concurrency(choice: str, override: int | None) -> int:
+    """Resolve how many pages to OCR in parallel.
+
+    *override* wins when a positive int is given (user "Parallel pages"
+    setting). Otherwise auto-size from hardware via pdomain-ops
+    pick_concurrency for the resolved device. Falls back to 1 if the helper
+    is unavailable.
+    """
+    if override is not None and override >= 1:
+        return override
+    try:
+        from pdomain_ops.gpu.device import pick_concurrency
+
+        return max(1, pick_concurrency(resolve_device(choice)))
+    except (ImportError, ValueError, RuntimeError):
+        return 1
 
 
 def _bbox_xywh_from_bounding_box(bb: object) -> JsonObject | None:
@@ -349,135 +368,131 @@ async def run_project(
     )
     write_project(spec, running_status)
 
-    for idx, img_path in enumerate(images):
+    # Auto-size (or honor the override of) how many pages OCR in parallel.
+    concurrency = resolve_concurrency(spec.device, spec.parallel_pages)
+    sem = asyncio.Semaphore(concurrency)
+    # All status.json mutations are read-modify-write (update_page_result,
+    # _persist_message), so serialize them while OCR itself runs concurrently.
+    status_lock = asyncio.Lock()
+    completed = 0
+
+    # Warm-up message before any page starts — DocTR's first run may pull
+    # ~200 MB of weights from Hugging Face plus a GPU model load.
+    warm_status = _persist_message(
+        "Loading OCR engine — first run may download ~200 MB to ~/.cache/huggingface",
+    )
+    await status_callback(warm_status)
+
+    async def _process_page(idx: int, img_path: Path) -> None:
+        nonlocal completed
         page_id = f"{spec.project_id}/{idx}"
-
-        # On the first page, surface a non-empty status while the OCR engine
-        # is still warming up — DocTR's first run may pull ~200 MB of model
-        # weights from Hugging Face plus a GPU model load inside
-        # ``_ocr_local_impl``. Users see one message rather than dead air.
-        if idx == 0:
-            loading_status = _persist_message(
-                "Loading OCR engine — first run may download ~200 MB to ~/.cache/huggingface",
-            )
-            await status_callback(loading_status)
-
-        # Mark page as running
-        page_running = PageResult(
-            page_idx=idx,
-            page_name=img_path.name,
-            state="running",
-        )
-        update_page_result(spec, page_running)
-
-        # Stamp the per-page progress message just before dispatch. Kept in
-        # sync with the page's running state so the UI can render both.
-        per_page_status = _persist_message(
-            f"Processing page {idx + 1}/{total} — {img_path.name}",
-        )
-        await status_callback(per_page_status)
-
-        try:
-            stage_result = await dispatcher.run_stage(
-                "ocr",
-                page_id,
-                image_path=str(img_path),
-                engine=spec.engine,
-                language=spec.language,
-                device=resolve_device(spec.device),
-            )
-            # metadata["pages"] is a list; take the first page dict
-            page_dict = first_page_dict(stage_result.metadata)
-
-            # Round-trip through pdomain-book-tools Page so reorganize_page()
-            # clusters flat OCR words into lines/paragraphs/blocks. Without
-            # this, every word lands on its own line in the .txt output.
-            # Mirrors pd-ocr-cli's ocr_to_txt.py pattern (call reorganize_page
-            # then read page.text + page.to_dict()).
-            from pdomain_book_tools.ocr.page import Page
-
-            raw_text = extract_text(page_dict)
-            reorganized_dict: JsonObject = page_dict
-            reorganized_text = ""
-            try:
-                page_obj = Page.from_dict(page_dict)
-                page_obj.reorganize_page(
-                    emit_illustration_placeholders=spec.emit_illustration_placeholders,
+        async with sem:
+            async with status_lock:
+                update_page_result(
+                    spec,
+                    PageResult(page_idx=idx, page_name=img_path.name, state="running"),
                 )
-                reorganized_dict = cast("JsonObject", page_obj.to_dict())
-                reorganized_text = page_obj.text
-            except Exception:
+
+            try:
+                stage_result = await dispatcher.run_stage(
+                    "ocr",
+                    page_id,
+                    image_path=str(img_path),
+                    engine=spec.engine,
+                    language=spec.language,
+                    device=resolve_device(spec.device),
+                )
+                page_dict = first_page_dict(stage_result.metadata)
+
+                # Round-trip through pdomain-book-tools Page so
+                # reorganize_page() clusters flat OCR words into
+                # lines/paragraphs/blocks. Without this, every word lands on
+                # its own line. Mirrors pd-ocr-cli's ocr_to_txt.py pattern.
+                from pdomain_book_tools.ocr.page import Page
+
+                raw_text = extract_text(page_dict)
+                reorganized_dict: JsonObject = page_dict
+                reorganized_text = ""
+                try:
+                    page_obj = Page.from_dict(page_dict)
+                    page_obj.reorganize_page(
+                        emit_illustration_placeholders=spec.emit_illustration_placeholders,
+                    )
+                    reorganized_dict = cast("JsonObject", page_obj.to_dict())
+                    reorganized_text = page_obj.text
+                except Exception:
+                    logger.exception(
+                        "reorganize_page() failed; falling back to raw OCR dict",
+                        extra={"context": f"page_idx={idx}, image={img_path.name!r}"},
+                    )
+                # Reorganize needs bbox geometry; pages with no bboxes (e.g.
+                # test stubs) get empty text from page.text but still have
+                # words in the raw dict. Fall back to extract_text then.
+                if reorganized_text.strip():
+                    page_dict = reorganized_dict
+                    text = reorganized_text
+                else:
+                    text = raw_text
+
+                # Apply post-OCR text normalizations (curly quotes, em-dashes)
+                # matching pd-ocr-cli flags. Soft-import so tests pass against
+                # the older registry pdomain-book-tools.
+                try:
+                    from pdomain_book_tools.ocr import (
+                        apply_text_normalizations,  # pyright: ignore[reportAttributeAccessIssue]
+                    )
+
+                    text = apply_text_normalizations(
+                        text,
+                        straight_quotes=spec.straight_quotes,
+                        em_dash_to_double_hyphen=spec.em_dash_to_double_hyphen,
+                    )
+                except ImportError:
+                    logger.debug(
+                        "apply_text_normalizations unavailable; skipping cleanup",
+                    )
+
+                sidecar_payload = build_sidecar_payload(page_dict, text)
+                write_page_sidecar(spec, idx, sidecar_payload)
+                write_txt(spec, idx, text)
+
+                # Mirror per-page artifacts into spec.output_dir for download.
+                write_output_page_files(
+                    spec,
+                    idx,
+                    img_path.name,
+                    text,
+                    sidecar_payload if spec.save_json else None,
+                )
+
+                page_done = PageResult(
+                    page_idx=idx,
+                    page_name=img_path.name,
+                    state="succeeded",
+                    text_preview=text[:60],
+                )
+            except Exception as exc:  # one page's failure must not abort the batch
                 logger.exception(
-                    "reorganize_page() failed; falling back to raw OCR dict",
+                    "OCR failed for page; recording failure and continuing batch",
                     extra={"context": f"page_idx={idx}, image={img_path.name!r}"},
                 )
-            # Reorganize needs bbox geometry; pages with no bboxes (e.g. test
-            # stubs) get empty text from page.text but still have words in the
-            # raw dict. Fall back to extract_text when reorganize produces less.
-            if reorganized_text.strip():
-                page_dict = reorganized_dict
-                text = reorganized_text
-            else:
-                text = raw_text
-
-            # Apply post-OCR text normalizations (curly quotes, em-dashes)
-            # matching pd-ocr-cli's --straight-quotes / -ed flags. Soft-import
-            # so tests pass against the older registry pdomain-book-tools (the
-            # function lives in unreleased main); local-dev mode picks up the
-            # editable build and applies normalizations as expected.
-            try:
-                from pdomain_book_tools.ocr import (
-                    apply_text_normalizations,  # pyright: ignore[reportAttributeAccessIssue]
+                page_done = PageResult(
+                    page_idx=idx,
+                    page_name=img_path.name,
+                    state="failed",
+                    error=str(exc),
                 )
 
-                text = apply_text_normalizations(
-                    text,
-                    straight_quotes=spec.straight_quotes,
-                    em_dash_to_double_hyphen=spec.em_dash_to_double_hyphen,
-                )
-            except ImportError:
-                logger.debug(
-                    "apply_text_normalizations unavailable in pdomain-book-tools; "
-                    "skipping post-OCR text cleanup (release pending)",
-                )
+            # Commit the result + progress under the lock so concurrent pages
+            # don't clobber each other's read-modify-write of status.json.
+            async with status_lock:
+                update_page_result(spec, page_done)
+                completed += 1
+                _persist_message(f"Processed {completed}/{total} pages")
+                _, updated_status = read_project(spec.project_id)
+                await status_callback(updated_status)
 
-            sidecar_payload = build_sidecar_payload(page_dict, text)
-            write_page_sidecar(spec, idx, sidecar_payload)
-            write_txt(spec, idx, text)
-
-            # Mirror per-page artifacts into spec.output_dir so the user can
-            # download / browse them from the configured output location.
-            # save_json controls whether the JSON sidecar is mirrored; the
-            # .txt is always written (it's the primary user-visible output).
-            write_output_page_files(
-                spec,
-                idx,
-                img_path.name,
-                text,
-                sidecar_payload if spec.save_json else None,
-            )
-
-            page_done = PageResult(
-                page_idx=idx,
-                page_name=img_path.name,
-                state="succeeded",
-                text_preview=text[:60],
-            )
-        except Exception as exc:  # per-page OCR failure must not abort the whole batch
-            logger.exception(
-                "OCR failed for page; recording failure and continuing batch",
-                extra={"context": f"page_idx={idx}, image={img_path.name!r}"},
-            )
-            page_done = PageResult(
-                page_idx=idx,
-                page_name=img_path.name,
-                state="failed",
-                error=str(exc),
-            )
-
-        update_page_result(spec, page_done)
-        _, updated_status = read_project(spec.project_id)
-        await status_callback(updated_status)
+    await asyncio.gather(*(_process_page(idx, img_path) for idx, img_path in enumerate(images)))
 
     # Surface a "Writing outputs" message while we finalize: combined-txt
     # mirror, etc. Skipped when there are no outputs to write.

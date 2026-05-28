@@ -20,6 +20,7 @@ export const APP_TEST_IDS = {
   copyPathButton: "copy-path-button",
   downloadResultsButton: "download-results-button",
   deviceChooser: "device-chooser",
+  parallelPagesInput: "parallel-pages-input",
   gpuHelpToggle: "gpu-help-toggle",
   gpuHelp: "gpu-help",
   pageDownloadMenu: "page-download-menu",

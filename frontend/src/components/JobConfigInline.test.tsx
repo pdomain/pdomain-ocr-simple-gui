@@ -191,6 +191,7 @@ describe("JobConfigInline", () => {
       expect(body.save_json).toBe(true);
       expect(body.combined_txt).toBe(true);
       expect(body.device).toBe("auto");
+      expect(body.parallel_pages).toBeNull();
       expect(body.output).toEqual({ mode: "next_to_source" });
     });
   });

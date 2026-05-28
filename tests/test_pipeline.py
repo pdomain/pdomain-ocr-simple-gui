@@ -340,9 +340,9 @@ class TestRunProject:
         await run_project(spec, mock_dispatcher, _cb)
 
         assert mock_dispatcher.run_stage.call_count == 2
-        # 5 callbacks: loading + (per-page-start + per-page-end) * 2 pages.
+        # Concurrent flow: 1 warm-up callback + 1 completion callback per page.
         # combined_txt=False so the "Writing outputs" callback is skipped.
-        assert len(callbacks) == 5
+        assert len(callbacks) == 3
 
     async def test_status_callback_receives_project_status(self, tmp_path: Path, monkeypatch) -> None:
 
@@ -381,8 +381,8 @@ class TestRunProject:
 
         await run_project(spec, mock_dispatcher, _cb)
 
-        # 1 page → loading + per-page-start + per-page-end = 3 callbacks.
-        assert len(received) == 3
+        # Concurrent flow: 1 warm-up + 1 completion callback for the single page.
+        assert len(received) == 2
         assert received[0].project_id == spec.project_id
         assert isinstance(received[0], ProjectStatus)
 
@@ -619,14 +619,14 @@ class TestProgressMessage:
     async def test_progress_message_sequence(self, tmp_path: Path, monkeypatch) -> None:
         """run_project emits the documented per-phase progress messages.
 
-        Sequence on a 2-page job with combined_txt=False:
-          1. "Loading OCR engine..." (once, before first dispatch).
-          2. "Processing page 1/2 — name0.png" (before page-0 dispatch).
-          3. (post-page-0 callback retains the same "Processing page 1/2" msg).
-          4. "Processing page 2/2 — name1.png" (before page-1 dispatch).
-          5. (post-page-1 callback retains "Processing page 2/2" msg).
-          6. Terminal callback is NOT emitted via status_callback, but the
-             persisted ProjectStatus clears progress_message to None.
+        Concurrent flow on a 2-page job with combined_txt=False:
+          1. "Loading OCR engine..." (once, before any page dispatch).
+          2. "Processed 1/2 pages" (first page to complete).
+          3. "Processed 2/2 pages" (second page to complete).
+          The completed counter increments under the status lock, so the
+          numbers are deterministic regardless of completion order.
+          Terminal callback is NOT emitted via status_callback, but the
+          persisted ProjectStatus clears progress_message to None.
         """
         root = tmp_path / "projects"
         root.mkdir()
@@ -670,10 +670,8 @@ class TestProgressMessage:
         loading_msg = "Loading OCR engine — first run may download ~200 MB to ~/.cache/huggingface"
         assert messages == [
             loading_msg,
-            "Processing page 1/2 — name0.png",
-            "Processing page 1/2 — name0.png",
-            "Processing page 2/2 — name1.png",
-            "Processing page 2/2 — name1.png",
+            "Processed 1/2 pages",
+            "Processed 2/2 pages",
         ]
 
         # Terminal persisted status clears the message.

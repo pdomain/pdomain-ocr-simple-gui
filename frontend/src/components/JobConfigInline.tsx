@@ -80,6 +80,8 @@ export function JobConfigInline({
   // GPU is available so the disabled GPU option is never the active value.
   const [device, setDevice] = useState<"auto" | "gpu" | "cpu">("auto");
   const [showGpuHelp, setShowGpuHelp] = useState<boolean>(false);
+  // Blank = auto-size from hardware (pick_concurrency); a positive int overrides.
+  const [parallelPages, setParallelPages] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
@@ -133,6 +135,10 @@ export function JobConfigInline({
         em_dash_to_double_hyphen: emDashDoubleHyphen,
         emit_illustration_placeholders: emitIllustrationPlaceholders,
         device: !gpuAvailable && device === "gpu" ? "cpu" : device,
+        parallel_pages:
+          parallelPages.trim() === ""
+            ? null
+            : Math.max(1, parseInt(parallelPages, 10) || 1),
         output: outputConfig,
       };
 
@@ -341,6 +347,23 @@ export function JobConfigInline({
               </div>
             )}
           </div>
+        </Field>
+
+        <Field
+          htmlFor="jci-parallel-pages"
+          label="Parallel pages (blank = auto)"
+        >
+          <Input
+            id="jci-parallel-pages"
+            type="number"
+            min={1}
+            value={parallelPages}
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setParallelPages(e.target.value)
+            }
+            placeholder="auto"
+            data-testid={APP_TEST_IDS.parallelPagesInput}
+          />
         </Field>
 
         <OutputConfigPanel
