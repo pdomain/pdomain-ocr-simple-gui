@@ -110,9 +110,9 @@ describe("defaultProjectName", () => {
     expect(defaultProjectName({ kind: "path", path: "/tmp/scans" })).toBe(
       "scans",
     );
-    expect(
-      defaultProjectName({ kind: "path", path: "/home/me/book-a/" }),
-    ).toBe("book-a");
+    expect(defaultProjectName({ kind: "path", path: "/home/me/book-a/" })).toBe(
+      "book-a",
+    );
     expect(
       defaultProjectName({ kind: "path", path: "C:\\Users\\me\\book" }),
     ).toBe("book");

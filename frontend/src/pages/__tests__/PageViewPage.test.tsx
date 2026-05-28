@@ -493,7 +493,9 @@ describe("PageViewPage", () => {
     });
 
     // Click the DocTR menu item (rendered inline by our DropdownMenuItem shim)
-    const doctrItem = screen.getByRole("button", { name: /re-run with doctr/i });
+    const doctrItem = screen.getByRole("button", {
+      name: /re-run with doctr/i,
+    });
     await user.click(doctrItem);
 
     await waitFor(() => {
@@ -519,7 +521,9 @@ describe("PageViewPage", () => {
       // Tesseract re-run is now a plain button in the editor toolbar.
     });
 
-    const tessItem = screen.getByRole("button", { name: /re-run with tesseract/i });
+    const tessItem = screen.getByRole("button", {
+      name: /re-run with tesseract/i,
+    });
     await user.click(tessItem);
 
     await waitFor(() => {
@@ -591,7 +595,9 @@ describe("PageViewPage", () => {
       expect(textarea.value).toBe("OCR text for page 0");
     });
 
-    const doctrItem = screen.getByRole("button", { name: /re-run with doctr/i });
+    const doctrItem = screen.getByRole("button", {
+      name: /re-run with doctr/i,
+    });
     await user.click(doctrItem);
 
     await waitFor(() => {
@@ -601,33 +607,31 @@ describe("PageViewPage", () => {
   });
 
   it("renders progress_message when job is mid-flight", async () => {
-    (globalThis as any).fetch = vi
-      .fn()
-      .mockImplementation((url: string) => {
-        if (url.includes("/api/jobs/") && !url.includes("/pages/")) {
-          return Promise.resolve({
-            ok: true,
-            json: async () => ({
-              ...makeJobStatus(3, "running"),
-              progress_message:
-                "Loading OCR engine — first run may download ~200 MB to ~/.cache/huggingface",
-            }),
-          });
-        }
-        if (url.endsWith("/words")) {
-          return Promise.resolve({
-            ok: true,
-            json: async () => ({ words: [] }),
-          });
-        }
-        if (url.includes("/api/pages/") && !url.endsWith("/image")) {
-          return Promise.resolve({
-            ok: true,
-            json: async () => makePageData(0, "text"),
-          });
-        }
-        return Promise.resolve({ ok: false, json: async () => ({}) });
-      });
+    (globalThis as any).fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/api/jobs/") && !url.includes("/pages/")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            ...makeJobStatus(3, "running"),
+            progress_message:
+              "Loading OCR engine — first run may download ~200 MB to ~/.cache/huggingface",
+          }),
+        });
+      }
+      if (url.endsWith("/words")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ words: [] }),
+        });
+      }
+      if (url.includes("/api/pages/") && !url.endsWith("/image")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => makePageData(0, "text"),
+        });
+      }
+      return Promise.resolve({ ok: false, json: async () => ({}) });
+    });
 
     renderWithRoute("proj-abc", 0);
 
@@ -664,7 +668,9 @@ describe("PageViewPage — word overlay wiring", () => {
     const { container } = renderWithRoute("job-1", 0);
 
     await waitFor(() => {
-      const canvas = container.querySelector('[data-testid="page-image-canvas"]');
+      const canvas = container.querySelector(
+        '[data-testid="page-image-canvas"]',
+      );
       expect(canvas).not.toBeNull();
       expect(canvas?.getAttribute("data-word-count")).toBe("1");
     });
@@ -739,7 +745,9 @@ describe("PageViewPage — word overlay wiring", () => {
     const { container } = renderWithRoute("job-1", 0);
 
     await waitFor(() => {
-      const canvas = container.querySelector('[data-testid="page-image-canvas"]');
+      const canvas = container.querySelector(
+        '[data-testid="page-image-canvas"]',
+      );
       expect(canvas).not.toBeNull();
       expect(canvas?.getAttribute("data-word-count")).toBe("0");
     });

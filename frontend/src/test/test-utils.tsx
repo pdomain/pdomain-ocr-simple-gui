@@ -42,11 +42,7 @@ export function makeTestQueryClient(): QueryClient {
  */
 export function renderWithProviders(
   ui: ReactElement,
-  {
-    route = "/",
-    queryClient,
-    ...options
-  }: RenderWithProvidersOptions = {},
+  { route = "/", queryClient, ...options }: RenderWithProvidersOptions = {},
 ) {
   const client = queryClient ?? makeTestQueryClient();
 
@@ -65,7 +61,10 @@ export function renderWithProviders(
 // Fetch mock helpers
 // ---------------------------------------------------------------------------
 
-type FetchImpl = (url: string, opts?: RequestInit) => Promise<{
+type FetchImpl = (
+  url: string,
+  opts?: RequestInit,
+) => Promise<{
   ok: boolean;
   json?: () => Promise<unknown>;
   text?: () => Promise<string>;
@@ -112,7 +111,12 @@ export function resetFetch(): void {
 // Fixture builders
 // ---------------------------------------------------------------------------
 
-export type JobState = "queued" | "running" | "succeeded" | "failed" | "cancelled";
+export type JobState =
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "cancelled";
 export type OutputMode = "next_to_source" | "specified" | "managed";
 
 export interface PageRow {
@@ -176,7 +180,9 @@ export const fixtures = {
     page_count: pageCount,
     output_dir: "/tmp/out",
     ...(outputMode !== undefined ? { output_mode: outputMode } : {}),
-    ...(progressMessage !== undefined ? { progress_message: progressMessage } : {}),
+    ...(progressMessage !== undefined
+      ? { progress_message: progressMessage }
+      : {}),
     pages: Array.from({ length: pageCount }, (_, i) => ({
       page_idx: i,
       page_name: `page_00${i + 1}.png`,
@@ -186,10 +192,7 @@ export const fixtures = {
   }),
 
   /** Build a single page data API response. */
-  pageData: (
-    idx = 0,
-    text = "Sample OCR text",
-  ): PageDataFixture => ({
+  pageData: (idx = 0, text = "Sample OCR text"): PageDataFixture => ({
     page_idx: idx,
     page_name: `page_00${idx + 1}.png`,
     state: "done",

@@ -135,8 +135,12 @@ export function SourcePicker(props: SourcePickerProps) {
           />
           {chosen === null ? (
             <>
-              <div>Drop an image, multiple images, a folder, or a .zip here.</div>
-              <div style={{ fontSize: 12, opacity: 0.7 }}>or click to browse</div>
+              <div>
+                Drop an image, multiple images, a folder, or a .zip here.
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.7 }}>
+                or click to browse
+              </div>
             </>
           ) : (
             <div

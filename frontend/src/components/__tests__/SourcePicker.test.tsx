@@ -107,9 +107,9 @@ it("renders the dropped filename after a drop", async () => {
   const drop = screen.getByTestId("source-picker-drop");
   const file = new File(["x"], "scan-007.png", { type: "image/png" });
   fireEvent.drop(drop, { dataTransfer: { files: [file] } });
-  expect(
-    await screen.findByTestId("source-picker-chosen"),
-  ).toHaveTextContent("scan-007.png");
+  expect(await screen.findByTestId("source-picker-chosen")).toHaveTextContent(
+    "scan-007.png",
+  );
 });
 
 it("lists every dropped file with a count header", async () => {

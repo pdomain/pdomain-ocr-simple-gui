@@ -5,10 +5,7 @@ import { screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Routes, Route } from "react-router-dom";
 import ResultsPage from "../ResultsPage";
-import {
-  renderWithProviders,
-  fixtures,
-} from "../../test/test-utils";
+import { renderWithProviders, fixtures } from "../../test/test-utils";
 
 // Mock pdomain-ui/primitives
 vi.mock("@pdomain/pdomain-ui/primitives", async (importOriginal) => {
@@ -150,7 +147,9 @@ describe("ResultsPage", () => {
     await waitFor(() => {
       expect(screen.getByTestId("progress-bar")).toBeInTheDocument();
     });
-    expect(screen.queryByTestId("job-progress-message")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("job-progress-message"),
+    ).not.toBeInTheDocument();
   });
 
   it("polling stops when state is done", async () => {
@@ -199,7 +198,8 @@ describe("ResultsPage", () => {
       callCount++;
       return {
         ok: true,
-        json: async () => fixtures.jobStatus("running", { pagesDone: callCount, pageCount: 5 }),
+        json: async () =>
+          fixtures.jobStatus("running", { pagesDone: callCount, pageCount: 5 }),
       };
     });
 
@@ -253,9 +253,7 @@ describe("ResultsPage", () => {
   it("shows text preview", async () => {
     renderResultsPage();
     await waitFor(() => {
-      expect(
-        screen.getByText("Preview page 1"),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Preview page 1")).toBeInTheDocument();
     });
   });
 
@@ -364,7 +362,8 @@ describe("ResultsPage", () => {
     renderResultsPage("proj-abc", () =>
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => fixtures.jobStatus("succeeded", { outputMode: "managed" }),
+        json: async () =>
+          fixtures.jobStatus("succeeded", { outputMode: "managed" }),
       }),
     );
     await waitFor(() => {
@@ -376,7 +375,8 @@ describe("ResultsPage", () => {
     renderResultsPage("proj-abc", () =>
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => fixtures.jobStatus("succeeded", { outputMode: "next_to_source" }),
+        json: async () =>
+          fixtures.jobStatus("succeeded", { outputMode: "next_to_source" }),
       }),
     );
     await waitFor(() => {
@@ -391,7 +391,11 @@ describe("ResultsPage", () => {
     renderResultsPage("proj-abc", () =>
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => fixtures.jobStatus("running", { pagesDone: 1, outputMode: "managed" }),
+        json: async () =>
+          fixtures.jobStatus("running", {
+            pagesDone: 1,
+            outputMode: "managed",
+          }),
       }),
     );
     await waitFor(() => {
