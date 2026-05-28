@@ -166,6 +166,7 @@ export const PageViewerWithZoom = forwardRef<
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "center",
+        position: "relative",
       }}
     >
       <div
@@ -186,6 +187,63 @@ export const PageViewerWithZoom = forwardRef<
         >
           {children}
         </div>
+      </div>
+      <div
+        className="page-zoom-toolbar"
+        style={{
+          position: "absolute",
+          top: 8,
+          left: 8,
+          display: "flex",
+          gap: 4,
+          padding: 4,
+          background: "var(--bg-surface)",
+          border: "1px solid var(--border-2)",
+          borderRadius: 6,
+          boxShadow: "var(--shadow-floating)",
+          zIndex: 2,
+        }}
+      >
+        <button
+          type="button"
+          data-testid="page-zoom-out"
+          aria-label="Zoom out"
+          onClick={zoomOut}
+          className="btn ghost"
+          style={{ padding: "2px 8px" }}
+        >
+          −
+        </button>
+        <button
+          type="button"
+          data-testid="page-zoom-in"
+          aria-label="Zoom in"
+          onClick={zoomIn}
+          className="btn ghost"
+          style={{ padding: "2px 8px" }}
+        >
+          +
+        </button>
+        <button
+          type="button"
+          data-testid="page-zoom-fit"
+          aria-label="Fit page to viewport"
+          onClick={fit}
+          className="btn ghost"
+          style={{ padding: "2px 8px" }}
+        >
+          Fit
+        </button>
+        <button
+          type="button"
+          data-testid="page-zoom-100"
+          aria-label="Zoom to 100%"
+          onClick={reset100}
+          className="btn ghost"
+          style={{ padding: "2px 8px" }}
+        >
+          100%
+        </button>
       </div>
     </div>
   );

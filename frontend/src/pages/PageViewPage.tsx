@@ -258,39 +258,6 @@ export default function PageViewPage() {
 
       <span aria-hidden="true" className="page-view-page__spacer" />
 
-      <Button
-        variant="ghost"
-        onClick={() => zoomRef.current?.zoomOut()}
-        aria-label="Zoom out"
-        data-testid={APP_TEST_IDS.pageZoomOut}
-      >
-        −
-      </Button>
-      <Button
-        variant="ghost"
-        onClick={() => zoomRef.current?.zoomIn()}
-        aria-label="Zoom in"
-        data-testid={APP_TEST_IDS.pageZoomIn}
-      >
-        +
-      </Button>
-      <Button
-        variant="ghost"
-        onClick={() => zoomRef.current?.fit()}
-        aria-label="Fit page to viewport"
-        data-testid={APP_TEST_IDS.pageZoomFit}
-      >
-        Fit
-      </Button>
-      <Button
-        variant="ghost"
-        onClick={() => zoomRef.current?.reset100()}
-        aria-label="Zoom to 100%"
-        data-testid={APP_TEST_IDS.pageZoom100}
-      >
-        100%
-      </Button>
-
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
