@@ -123,6 +123,12 @@ describe("defaultProjectName", () => {
       defaultProjectName({ kind: "upload", uploadId: "abc123def456ghi" }),
     ).toBe("ocr-job-abc123de");
   });
+
+  it("returns ocr-job fallback for empty path", () => {
+    expect(defaultProjectName({ kind: "path", path: "" })).toBe("ocr-job");
+    expect(defaultProjectName({ kind: "path", path: "/" })).toBe("ocr-job");
+    expect(defaultProjectName({ kind: "path", path: "\\" })).toBe("ocr-job");
+  });
 });
 
 describe("JobConfigInline", () => {
