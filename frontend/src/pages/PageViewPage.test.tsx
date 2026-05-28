@@ -280,7 +280,7 @@ describe("PageViewPage", () => {
     renderPageView("proj-abc", 0);
     await waitFor(() => {
       expect(
-        screen.getByRole("button", { name: /re.run/i }),
+        screen.getByRole("button", { name: /re-run with doctr/i }),
       ).toBeInTheDocument();
     });
   });
@@ -291,12 +291,12 @@ describe("PageViewPage", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole("button", { name: /re.run/i }),
+        screen.getByRole("button", { name: /re-run with doctr/i }),
       ).toBeInTheDocument();
     });
 
     // Click the DocTR menu item (rendered inline by our DropdownMenuItem shim)
-    const doctrItem = screen.getByRole("menuitem", { name: /doctr/i });
+    const doctrItem = screen.getByRole("button", { name: /re-run with doctr/i });
     await user.click(doctrItem);
 
     await waitFor(() => {
@@ -319,10 +319,10 @@ describe("PageViewPage", () => {
     const { mockFetch } = renderPageView("proj-abc", 0);
 
     await waitFor(() => {
-      expect(screen.getAllByRole("menuitem").length).toBeGreaterThanOrEqual(2);
+      // Tesseract re-run is now a plain button in the editor toolbar.
     });
 
-    const tessItem = screen.getByRole("menuitem", { name: /tesseract/i });
+    const tessItem = screen.getByRole("button", { name: /re-run with tesseract/i });
     await user.click(tessItem);
 
     await waitFor(() => {
@@ -394,7 +394,7 @@ describe("PageViewPage", () => {
       expect(textarea.value).toBe("OCR text for page 0");
     });
 
-    const doctrItem = screen.getByRole("menuitem", { name: /doctr/i });
+    const doctrItem = screen.getByRole("button", { name: /re-run with doctr/i });
     await user.click(doctrItem);
 
     await waitFor(() => {

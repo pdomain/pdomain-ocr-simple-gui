@@ -12,11 +12,8 @@ import type { WordBbox } from "@pdomain/pdomain-ui/stages/PageWorkbench";
 import {
   Button,
   Textarea,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
   PageSplitView,
+  StageToolbar,
 } from "@pdomain/pdomain-ui/primitives";
 import { APP_TEST_IDS } from "../lib/testids";
 import {
@@ -245,86 +242,87 @@ export default function PageViewPage() {
         Next →
       </Button>
 
-      <Button
-        variant="primary"
-        onClick={() => {
-          void handleSave();
-        }}
-        disabled={saveStatus === "saving" || loading}
-        aria-label="Save edits"
-      >
-        {saveStatus === "saving" ? "Saving…" : "Save edits"}
-      </Button>
+    </>
+  );
 
-      <span aria-hidden="true" className="page-view-page__spacer" />
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+  const editorToolbar = (
+    <StageToolbar
+      aria-label="Page actions"
+      data-testid="page-editor-toolbar"
+      leftSlot={
+        <Button
+          variant="primary"
+          onClick={() => {
+            void handleSave();
+          }}
+          disabled={saveStatus === "saving" || loading}
+          aria-label="Save edits"
+        >
+          {saveStatus === "saving" ? "Saving…" : "Save edits"}
+        </Button>
+      }
+      centerSlot={
+        <>
           <Button
             variant="ghost"
-            disabled={rerunStatus === "running" || loading}
-            aria-label="Re-run page"
-          >
-            {rerunStatus === "running" ? "Re-running…" : "Re-run page ▾"}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuItem
-            onSelect={() => {
+            onClick={() => {
               void handleRerun("doctr");
             }}
+            disabled={rerunStatus === "running" || loading}
+            aria-label="Re-run with DocTR"
           >
-            DocTR
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={() => {
-              void handleRerun("tesseract");
-            }}
-          >
-            Tesseract
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+            {rerunStatus === "running" ? "Re-running…" : "Re-run DocTR"}
+          </Button>
           <Button
             variant="ghost"
-            disabled={loading}
-            aria-label="Download"
-            data-testid={APP_TEST_IDS.pageDownloadMenu}
+            onClick={() => {
+              void handleRerun("tesseract");
+            }}
+            disabled={rerunStatus === "running" || loading}
+            aria-label="Re-run with Tesseract"
           >
-            Download ▾
+            Re-run Tesseract
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuItem
+        </>
+      }
+      rightSlot={
+        <>
+          <Button
+            variant="ghost"
             data-testid={APP_TEST_IDS.pageDownloadText}
-            onSelect={() => {
+            onClick={() => {
               window.location.href = `/api/jobs/${id ?? ""}/download?include=text`;
             }}
+            disabled={loading}
+            aria-label="Download text only"
           >
-            Text (.txt only)
-          </DropdownMenuItem>
-          <DropdownMenuItem
+            ⤓ .txt
+          </Button>
+          <Button
+            variant="ghost"
             data-testid={APP_TEST_IDS.pageDownloadJson}
-            onSelect={() => {
+            onClick={() => {
               window.location.href = `/api/jobs/${id ?? ""}/download?include=json`;
             }}
+            disabled={loading}
+            aria-label="Download JSON sidecars only"
           >
-            JSON (sidecars only)
-          </DropdownMenuItem>
-          <DropdownMenuItem
+            ⤓ .json
+          </Button>
+          <Button
+            variant="primary"
             data-testid={APP_TEST_IDS.pageDownloadBoth}
-            onSelect={() => {
+            onClick={() => {
               window.location.href = `/api/jobs/${id ?? ""}/download?include=text,json`;
             }}
+            disabled={loading}
+            aria-label="Download text and JSON zip"
           >
-            Text + JSON (recommended)
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </>
+            ⤓ .zip
+          </Button>
+        </>
+      }
+    />
   );
 
   // Wrapper div carries data-testid and data-word-count for tests.
@@ -353,15 +351,18 @@ export default function PageViewPage() {
   ) : null;
 
   const editorContent = (
-    <Textarea
-      value={text}
-      onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
-        setText(e.target.value)
-      }
-      disabled={loading}
-      aria-label="OCR text"
-      rows={40}
-    />
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      {editorToolbar}
+      <Textarea
+        value={text}
+        onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+          setText(e.target.value)
+        }
+        disabled={loading}
+        aria-label="OCR text"
+        rows={40}
+      />
+    </div>
   );
 
   return (
