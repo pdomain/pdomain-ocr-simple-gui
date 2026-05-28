@@ -452,12 +452,12 @@ __e2e test → click-path mapping:__
 - [x] tests/smoke/test_e2e.py::test_e2e_job_completes — no-bad-case — no bad case for e2e smoke; accepted as-is (xfails without weights; marker retained)
 - [ ] frontend/src/App.test.tsx::App::renders without crashing and shows home page at / — no-bad-case — no error/bad-route test; add test for unknown route rendering 404 or fallback
 - [ ] frontend/src/App.test.tsx::App::AppShell mock receives a main prop — no-bad-case — no bad case; accept as structural prop-passing assertion
-- [ ] frontend/src/api/useOcrJob.test.tsx::useOcrJob::starts idle with no job data when jobId is null — no-bad-case — no bad case; null jobId is itself the edge case; accept as-is
-- [ ] frontend/src/api/useOcrJob.test.tsx::useOcrJob::exposes progress as fraction of pages_done / page_count — no-bad-case — add test for page_count=0 (division-by-zero guard)
-- [ ] frontend/src/api/useOcrJob.test.tsx::useOcrJob::surfaces extra fields (output_dir, output_mode, pages, name) via jobData — no-bad-case — add test for missing extra fields in API response (undefined handling)
-- [ ] frontend/src/api/useOcrJob.test.tsx::useOcrJob::stops polling when state reaches succeeded — no-bad-case — add test for network error during polling (error state handling)
-- [ ] frontend/src/api/useOcrJob.test.tsx::useOcrJob::resets to idle when jobId changes to null — no-bad-case — no bad case; accept as lifecycle assertion
-- [ ] frontend/src/api/useOcrJob.test.tsx::useOcrJob::uses the default fetch when fetchFn is not provided (stub) — no-bad-case — stub test; no bad case possible; accept as-is
+- [x] frontend/src/api/useOcrJob.test.tsx::useOcrJob::starts idle with no job data when jobId is null — no-bad-case — null jobId is the edge case; accepted as-is
+- [x] frontend/src/api/useOcrJob.test.tsx::useOcrJob::exposes progress as fraction of pages_done / page_count — no-bad-case — bad case: page_count=0 → progress=null (division-by-zero guard) — sibling added
+- [x] frontend/src/api/useOcrJob.test.tsx::useOcrJob::surfaces extra fields (output_dir, output_mode, pages, name) via jobData — no-bad-case — bad case: API omits optional fields → jobData fields are undefined (no crash) — sibling added
+- [x] frontend/src/api/useOcrJob.test.tsx::useOcrJob::stops polling when state reaches succeeded — no-bad-case — bad case: network error during poll → status=error, jobData=null — sibling added
+- [x] frontend/src/api/useOcrJob.test.tsx::useOcrJob::resets to idle when jobId changes to null — no-bad-case — lifecycle assertion; accepted as-is
+- [x] frontend/src/api/useOcrJob.test.tsx::useOcrJob::uses the default fetch when fetchFn is not provided (stub) — no-bad-case — stub; accepted as-is (no meaningful bad case)
 - [x] frontend/src/components/JobConfigInline.test.tsx::defaultProjectName::returns basename for path source — no-bad-case — added test for empty path → returns "ocr-job" fallback
 - [x] frontend/src/components/JobConfigInline.test.tsx::defaultProjectName::returns ocr-job-short for upload source — no-bad-case — no bad case; accepted as format assertion
 - [x] frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::renders all required form fields — no-bad-case — no bad case; accepted as render smoke
