@@ -13,9 +13,6 @@ Two sub-tests:
 from __future__ import annotations
 
 import pytest
-
-pytest.importorskip("playwright", reason="playwright not installed; run: uv sync --group e2e")
-
 from playwright.sync_api import Page, expect
 
 

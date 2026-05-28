@@ -13,11 +13,8 @@ Seeds a recent-project entry via PUT /api/prefs, then:
 
 from __future__ import annotations
 
-import pytest
-
-pytest.importorskip("playwright", reason="playwright not installed; run: uv sync --group e2e")
-
 import httpx
+import pytest
 from playwright.sync_api import Page, expect
 
 

@@ -14,9 +14,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
-pytest.importorskip("playwright", reason="playwright not installed; run: uv sync --group e2e")
-
 from playwright.sync_api import Page, expect
 
 # Minimal valid 1x1 greyscale PNG

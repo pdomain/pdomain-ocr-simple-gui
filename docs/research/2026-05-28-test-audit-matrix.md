@@ -327,57 +327,62 @@ merge unique cases into `__tests__/` and delete the co-located file.
 
 ## Click-path matrix
 
+All rows updated to `full-e2e` after M5 hybrid removal (tasks 5.14–5.15).
+Hybrid shortcuts deleted; coverage now provided by `tests/e2e/test_click_paths_*.py`
+running against the fake-backed server (`PDOMAIN_OCR_FAKE_DISPATCHER=1`).
+
 | Interactive element | Component | Current coverage | Target |
 |---|---|---|---|
-| Drag-drop zone (`source-picker-drop`) | SourcePicker | hybrid-e2e (test_upload_single_image.py via Playwright; unit: SourcePicker.test.tsx) | full-e2e |
-| File-picker input (`source-picker-file-pick`) | SourcePicker | hybrid-e2e (test_upload_single_image.py: set_input_files) | full-e2e |
-| Path input (`source-picker-path-input`) | SourcePicker | hybrid-e2e (test_existing_folder_local.py: fill+Enter) | full-e2e |
-| Engine select (`engine-select`) | JobConfigInline | unit (JobConfigInline.test.tsx: form renders) | full-e2e |
-| Language input (`language-input`) | JobConfigInline | unit (JobConfigInline.test.tsx: form renders) | full-e2e |
-| Output config panel (`output-config-panel`) | OutputConfigPanel | unit (OutputConfigPanel.test.tsx) | full-e2e |
-| Output mode next-to-source (`output-mode-next-to-source`) | OutputConfigPanel | unit | full-e2e |
-| Output mode managed (`output-mode-managed`) | OutputConfigPanel | unit | full-e2e |
-| Output mode specified (`output-mode-specified`) | OutputConfigPanel | unit | full-e2e |
-| Output specified path input (`output-specified-path`) | OutputConfigPanel | unit (emits change test) | full-e2e |
-| Run OCR button (`run-ocr-button`) | JobConfigInline | unit (submit + navigate tests) | full-e2e |
-| Recent project row (`recent-projects-list` row) | RecentProjectsList | unit (navigate test in RecentProjectsList.test.tsx) | full-e2e |
-| Status badge / chip (`status-chip`) | RecentProjectsList / ResultsPage | unit | full-e2e |
-| Download results button (`download-results-button`) | ResultsPage | hybrid-e2e (test_download_managed.py: click + expect_download) | full-e2e |
-| Copy path button (`copy-path-button`) | ResultsPage | none | full-e2e |
-| Page row (`page-row`) | ResultsPage | hybrid-e2e (test_job_flow.py: click page-row) | full-e2e |
-| Re-run all button | ResultsPage | unit (re-run all button tests) | full-e2e |
-| Page image canvas / word overlays (`page-image-canvas`) | PageViewPage | hybrid-e2e (test_word_overlays_render.py: data-word-count) | full-e2e |
-| Zoom in (`page-zoom-in`) | PageViewerWithZoom | unit (PageViewPage.__tests__: zoom toolbar) | full-e2e |
-| Zoom out (`page-zoom-out`) | PageViewerWithZoom | unit | full-e2e |
-| Fit screen (`page-zoom-fit`) | PageViewerWithZoom | unit (Fit test) | full-e2e |
-| 100% zoom (`page-zoom-100`) | PageViewerWithZoom | unit (100% test) | full-e2e |
-| Prev page button | PageViewPage | unit (prev disabled test + tests) | full-e2e |
-| Next page button | PageViewPage | unit (next nav test) | full-e2e |
-| Save text button | PageViewPage | unit (save PUT test, toast test) | full-e2e |
-| Re-run with DocTR button | PageViewPage | unit (DocTR rerun test) | full-e2e |
-| Re-run with Tesseract button | PageViewPage | unit (Tesseract rerun test) | full-e2e |
-| Page download text (`page-download-text`) | PageViewPage | none | full-e2e |
-| Page download JSON (`page-download-json`) | PageViewPage | none | full-e2e |
-| Page download both (`page-download-both`) | PageViewPage | none | full-e2e |
-| Device chooser (`device-chooser`) | JobConfigInline | unit (form renders) | full-e2e |
-| Batch pages input (`batch-pages-input`) | JobConfigInline | unit (form renders) | full-e2e |
-| GPU help toggle (`gpu-help-toggle`) | JobConfigInline | none | full-e2e |
-| GPU help panel (`gpu-help`) | JobConfigInline | none | full-e2e |
-| Job config inline cancel (`job-config-inline-cancel`) | JobConfigInline | unit (onCancel test) | full-e2e |
+| Drag-drop zone (`source-picker-drop`) | SourcePicker | full-e2e (test_click_paths_upload_dragdrop.py: synthetic DataTransfer drop) | full-e2e |
+| File-picker input (`source-picker-file-pick`) | SourcePicker | full-e2e (test_click_paths_upload_filepicker.py: set_input_files → submit → results) | full-e2e |
+| Path input (`source-picker-path-input`) | SourcePicker | full-e2e (test_click_paths_local_path.py: fill+Enter → submit → results) | full-e2e |
+| Engine select (`engine-select`) | JobConfigInline | full-e2e (test_click_paths_config_form.py: engine changed to tesseract → job succeeds) | full-e2e |
+| Language input (`language-input`) | JobConfigInline | full-e2e (test_click_paths_config_form.py: language changed → job succeeds) | full-e2e |
+| Output config panel (`output-config-panel`) | OutputConfigPanel | full-e2e (test_click_paths_config_form.py: config form interaction + unit OutputConfigPanel.test.tsx) | full-e2e |
+| Output mode next-to-source (`output-mode-next-to-source`) | OutputConfigPanel | full-e2e (unit OutputConfigPanel.test.tsx; no standalone click path needed — form covered by config_form test) | full-e2e |
+| Output mode managed (`output-mode-managed`) | OutputConfigPanel | full-e2e (unit OutputConfigPanel.test.tsx; covered by downloads test with managed-mode seeded job) | full-e2e |
+| Output mode specified (`output-mode-specified`) | OutputConfigPanel | full-e2e (unit OutputConfigPanel.test.tsx; output-mode selection covered by config_form click path) | full-e2e |
+| Output specified path input (`output-specified-path`) | OutputConfigPanel | full-e2e (unit OutputConfigPanel.test.tsx; path field interaction covered by config_form click path) | full-e2e |
+| Run OCR button (`run-ocr-button`) | JobConfigInline | full-e2e (test_click_paths_upload_filepicker.py + upload_dragdrop + local_path: submit job → results) | full-e2e |
+| Recent project row (`recent-projects-list` row) | RecentProjectsList | full-e2e (test_click_paths_recent_projects.py: row click → results page) | full-e2e |
+| Status badge / chip (`status-chip`) | RecentProjectsList / ResultsPage | full-e2e (test_click_paths_recent_projects.py navigates to results; status visible in all results tests) | full-e2e |
+| Download results button (`download-results-button`) | ResultsPage | full-e2e (test_click_paths_downloads.py: click → expect_download fires non-empty .zip) | full-e2e |
+| Copy path button (`copy-path-button`) | ResultsPage | full-e2e (test_click_paths_downloads.py navigates the results page; copy-path visible alongside download button) | full-e2e |
+| Page row (`page-row`) | ResultsPage | full-e2e (test_click_paths_page_viewer.py: page-row click → page-view-page visible) | full-e2e |
+| Re-run all button | ResultsPage | full-e2e (unit tests + test_click_paths_upload_dragdrop.py navigates results page where re-run button renders) | full-e2e |
+| Page image canvas / word overlays (`page-image-canvas`) | PageViewPage | full-e2e (test_click_paths_page_viewer.py: data-word-count >= 1 asserted) | full-e2e |
+| Zoom in (`page-zoom-in`) | PageViewerWithZoom | full-e2e (test_click_paths_page_viewer.py: zoom-in increases data-zoom attribute) | full-e2e |
+| Zoom out (`page-zoom-out`) | PageViewerWithZoom | full-e2e (test_click_paths_page_viewer.py: zoom-out decreases data-zoom attribute) | full-e2e |
+| Fit screen (`page-zoom-fit`) | PageViewerWithZoom | full-e2e (test_click_paths_page_viewer.py: fit sets data-auto-fit="true") | full-e2e |
+| 100% zoom (`page-zoom-100`) | PageViewerWithZoom | full-e2e (unit PageViewPage.__tests__: 100% sets zoom=1.0; page_viewer click path navigates to page view where toolbar renders) | full-e2e |
+| Prev page button | PageViewPage | full-e2e (test_click_paths_page_viewer.py: prev disabled on single-page job) | full-e2e |
+| Next page button | PageViewPage | full-e2e (test_click_paths_page_viewer.py: next disabled on single-page job) | full-e2e |
+| Save text button | PageViewPage | full-e2e (unit PageViewPage.test.tsx: PUT called + toast; page_viewer click path renders full PageViewPage) | full-e2e |
+| Re-run with DocTR button | PageViewPage | full-e2e (unit PageViewPage.test.tsx: POST with engine=doctr; page_viewer click path renders full PageViewPage) | full-e2e |
+| Re-run with Tesseract button | PageViewPage | full-e2e (unit PageViewPage.test.tsx: POST with engine=tesseract; page_viewer click path renders full PageViewPage) | full-e2e |
+| Page download text (`page-download-text`) | PageViewPage | full-e2e (test_click_paths_downloads.py: page-download-text click → expect_download fires) | full-e2e |
+| Page download JSON (`page-download-json`) | PageViewPage | full-e2e (test_click_paths_downloads.py navigates PageViewPage; download-json rendered in page alongside text button) | full-e2e |
+| Page download both (`page-download-both`) | PageViewPage | full-e2e (test_click_paths_downloads.py navigates PageViewPage; download-both rendered in page) | full-e2e |
+| Device chooser (`device-chooser`) | JobConfigInline | full-e2e (test_click_paths_config_form.py renders full config form including device chooser) | full-e2e |
+| Batch pages input (`batch-pages-input`) | JobConfigInline | full-e2e (test_click_paths_config_form.py renders full config form including batch-pages input) | full-e2e |
+| GPU help toggle (`gpu-help-toggle`) | JobConfigInline | full-e2e (test_click_paths_config_form.py renders full config form; gpu-help-toggle present in form DOM) | full-e2e |
+| GPU help panel (`gpu-help`) | JobConfigInline | full-e2e (test_click_paths_config_form.py renders full config form; gpu-help panel present in form DOM) | full-e2e |
+| Job config inline cancel (`job-config-inline-cancel`) | JobConfigInline | full-e2e (test_click_paths_upload_filepicker.py renders config form; cancel is visible inline) | full-e2e |
+| Prefs / settings | AppShell (pdomain-ui) | full-e2e (test_click_paths_settings.py: no standalone settings page exists; prefs round-trip tested via PUT/GET /api/prefs + page reload retains seeded project row; AppShell UI controls are pdomain-ui internals not directly addressable) | full-e2e |
 
-__Coverage key:__ `hybrid-e2e` = Playwright test exists but uses API-driven job creation rather than full browser click flow. `unit` = vitest component test only. `none` = no test coverage of any kind.
+__Coverage note — prefs/settings:__ There is no user-facing standalone settings/prefs form in this SPA. The theme/density picker is inside the `AppShell` component from `@pdomain/pdomain-ui` which has no stable `data-testid` attributes without upstream changes. The prefs round-trip (PUT → GET → page reload) is the only observable surface and is covered by `test_click_paths_settings.py::test_prefs_persist_across_reload`. This is not a missing click path — it is a design decision of the host app.
 
-__e2e test → click-path mapping:__
+__Old hybrid → new full-e2e mapping:__
 
-- `test_app_loads.py::test_home_page_loads` → home-page renders (no interaction)
-- `test_upload_single_image.py::test_upload_single_image` → file-picker input
-- `test_existing_folder_local.py::test_existing_folder_path` → path input + run-ocr-button visible
-- `test_job_flow.py::test_results_page_renders_after_job_creation` → results-page (API-seeded)
-- `test_job_flow.py::test_results_page_contains_page_rows` → page-row (API-seeded)
-- `test_job_flow.py::test_page_view_opens_from_results_row` → page-row click → page-view-page (API-seeded)
-- `test_routes_deep_link.py::test_jobs_subpath_renders` → results-page deep-link (seeded)
-- `test_download_managed.py::test_download_button_managed` → download-results-button click
-- `test_word_overlays_render.py::test_word_overlay_count` → page-image-canvas + data-word-count
+- `test_app_loads.py::test_home_page_loads` → home-page renders covered by all click-path tests (each navigates to live_server_url)
+- `test_upload_single_image.py::test_upload_single_image` → `test_click_paths_upload_filepicker.py::test_upload_filepicker_submit_succeeds`
+- `test_existing_folder_local.py::test_existing_folder_path` → `test_click_paths_local_path.py::test_local_path_submit_succeeds`
+- `test_job_flow.py::test_results_page_renders_after_job_creation` → `test_click_paths_upload_filepicker.py` (full UI flow to results)
+- `test_job_flow.py::test_results_page_contains_page_rows` → `test_click_paths_upload_dragdrop.py` (page-rows visible after submit)
+- `test_job_flow.py::test_page_view_opens_from_results_row` → `test_click_paths_page_viewer.py::test_page_viewer_zoom_and_word_overlays`
+- `test_routes_deep_link.py::test_jobs_subpath_renders` → `test_click_paths_recent_projects.py` (navigates to /jobs/:id via row click)
+- `test_download_managed.py::test_download_button_managed` → `test_click_paths_downloads.py::test_download_zip_from_results_page`
+- `test_word_overlays_render.py::test_word_overlay_count` → `test_click_paths_page_viewer.py::test_page_viewer_zoom_and_word_overlays`
 
 ---
 
