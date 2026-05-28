@@ -54,12 +54,20 @@ export function SourcePicker(props: SourcePickerProps) {
   const [pathDraft, setPathDraft] = useState("");
   const [chosen, setChosen] = useState<ChosenDescription | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleFiles = async (files: File[]) => {
     if (!files.length) return;
+    setUploadError(null);
     setChosen(describeFiles(files));
-    const id = await uploadFiles(files);
-    props.onUploadComplete(id);
+    try {
+      const id = await uploadFiles(files);
+      props.onUploadComplete(id);
+    } catch (err) {
+      setUploadError(
+        err instanceof Error ? err.message : "Upload failed. Please try again.",
+      );
+    }
   };
 
   const openPicker = () => {
@@ -200,6 +208,19 @@ export function SourcePicker(props: SourcePickerProps) {
                   ))}
                 </ul>
               )}
+            </div>
+          )}
+          {uploadError !== null && (
+            <div
+              role="alert"
+              data-testid="source-picker-upload-error"
+              style={{
+                color: "var(--error-9, red)",
+                fontSize: 13,
+                marginTop: 8,
+              }}
+            >
+              {uploadError}
             </div>
           )}
         </div>

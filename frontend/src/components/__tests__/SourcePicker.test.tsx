@@ -177,3 +177,64 @@ it("clicking the clear button does not re-open the file picker", async () => {
   expect(clickSpy).not.toHaveBeenCalled();
   clickSpy.mockRestore();
 });
+
+it("shows upload error and does not call onUploadComplete when upload fails", async () => {
+  globalThis.fetch = (async () => ({
+    ok: false,
+    status: 500,
+    json: async () => ({}),
+  })) as unknown as typeof fetch;
+  const onUploadComplete = vi.fn();
+  render(
+    <SourcePicker
+      allowDrop
+      allowPathInput={false}
+      onUploadComplete={onUploadComplete}
+      onPathChosen={() => {}}
+    />,
+  );
+  const drop = screen.getByTestId("source-picker-drop");
+  const file = new File(["x"], "scan.png", { type: "image/png" });
+  fireEvent.drop(drop, { dataTransfer: { files: [file] } });
+  // Error message should appear and callback must not fire
+  await vi.waitFor(() => {
+    expect(
+      screen.getByTestId("source-picker-upload-error"),
+    ).toBeInTheDocument();
+  });
+  expect(onUploadComplete).not.toHaveBeenCalled();
+});
+
+it("does not emit onPathChosen for empty path", () => {
+  const onPathChosen = vi.fn();
+  render(
+    <SourcePicker
+      allowDrop={false}
+      allowPathInput
+      onUploadComplete={() => {}}
+      onPathChosen={onPathChosen}
+    />,
+  );
+  const input = screen.getByTestId("source-picker-path-input");
+  // Submit with blank value — should not fire
+  fireEvent.change(input, { target: { value: "" } });
+  fireEvent.submit(input.closest("form")!);
+  expect(onPathChosen).not.toHaveBeenCalled();
+});
+
+it("does not show chosen state when zero files are dropped", async () => {
+  mockUploadFetch();
+  render(
+    <SourcePicker
+      allowDrop
+      allowPathInput={false}
+      onUploadComplete={() => {}}
+      onPathChosen={() => {}}
+    />,
+  );
+  const drop = screen.getByTestId("source-picker-drop");
+  // Drop with empty file list
+  fireEvent.drop(drop, { dataTransfer: { files: [] } });
+  // chosen panel should NOT appear
+  expect(screen.queryByTestId("source-picker-chosen")).toBeNull();
+});
