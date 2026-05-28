@@ -84,15 +84,22 @@ async def get_page(project_id: str, page_idx: int) -> PageResponse:
     # Read sidecar for text/dimensions (best-effort)
     sidecar = _read_sidecar(spec, page_idx)
 
+    # edited_text takes priority when the key holds a string (including the
+    # empty string — the user may have intentionally cleared the field).
+    # When edited_text is absent or None, fall through to the OCR text.
+    edited = _json_str(sidecar.get("edited_text"))
     text = (
-        _json_str(sidecar.get("edited_text"))
-        or _json_str(sidecar.get("text"))
-        # Older jobs (pre-build_sidecar_payload) wrote a DocTR Page.to_dict()
-        # tree without a top-level "text" key.  Fall back to the page
-        # text_preview baked into status.json so the editor pane isn't blank
-        # while the user re-runs to refresh the sidecar.
-        or page_entry.text_preview
-        or ""
+        edited
+        if edited is not None
+        else (
+            _json_str(sidecar.get("text"))
+            # Older jobs (pre-build_sidecar_payload) wrote a DocTR Page.to_dict()
+            # tree without a top-level "text" key.  Fall back to the page
+            # text_preview baked into status.json so the editor pane isn't blank
+            # while the user re-runs to refresh the sidecar.
+            or page_entry.text_preview
+            or ""
+        )
     )
     width = _json_int(sidecar.get("width"), default=800)
     height = _json_int(sidecar.get("height"), default=1200)

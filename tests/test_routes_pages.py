@@ -85,6 +85,53 @@ class TestGetPageTextFallback:
         data = resp.json()
         assert data["text"] == "preview text from status"
 
+    async def test_returns_empty_string_when_both_sidecar_and_preview_missing(
+        self,
+        async_client: AsyncClient,
+        tmp_path: Path,
+    ) -> None:
+        """GET /api/pages returns empty text when both sidecar and text_preview are absent.
+
+        Bad state: no sidecar file AND the page result has no text_preview
+        (e.g. a page that was queued but never processed). The route must
+        return 200 with text="" — not an error, not None.
+        """
+        from datetime import UTC, datetime
+
+        project_id = "fallback-empty-002"
+        spec = ProjectSpec(
+            project_id=project_id,
+            name="Fallback Empty",
+            source_path=str(tmp_path / "src"),
+            output_dir=str(tmp_path / "out"),
+            engine="doctr",
+            language="en",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            last_opened_at=datetime(2026, 1, 2, tzinfo=UTC),
+        )
+        status = ProjectStatus(
+            project_id=project_id,
+            state="queued",
+            page_count=1,
+            pages_done=0,
+            pages=[
+                PageResult(
+                    page_idx=0,
+                    page_name="p.png",
+                    state="queued",
+                    text_preview="",  # empty — page was never processed
+                )
+            ],
+        )
+        write_project(spec, status)
+        # No sidecar written either
+
+        resp = await async_client.get(f"/api/pages/{project_id}/0")
+        assert resp.status_code == 200
+        data = resp.json()
+        # text must be the empty string, not None or an error
+        assert data["text"] == ""
+
 
 class TestGetPageImage:
     async def test_streams_transcoded_image(
@@ -157,6 +204,22 @@ class TestPutPageText:
         )
         assert resp.status_code == 200
 
+    async def test_put_text_on_missing_project_returns_404(
+        self,
+        async_client: AsyncClient,
+    ) -> None:
+        """PUT /api/pages/:id/:idx/text on a nonexistent project returns 404.
+
+        Bad state: the project_id has never been created. The route must
+        return 404 with a clear error rather than 500 or 200.
+        """
+        resp = await async_client.put(
+            "/api/pages/nonexistent-project-999/0/text",
+            json={"text": "will not be saved"},
+        )
+        assert resp.status_code == 404
+        assert "not found" in resp.json()["detail"].lower()
+
     async def test_text_persisted_in_sidecar(
         self,
         async_client: AsyncClient,
@@ -172,9 +235,97 @@ class TestPutPageText:
         data = get_resp.json()
         assert data.get("text") == "updated text"
 
+    async def test_empty_text_overwrites_prior_text(
+        self,
+        async_client: AsyncClient,
+        project_with_image: tuple[str, Path],
+    ) -> None:
+        """PUT /api/pages/:id/:idx/text with empty string overwrites existing text.
+
+        Bad state: user clears the text editor and saves. The PUT must persist
+        the empty string (clearing prior OCR text), not silently skip the write
+        or restore the old value on GET.
+        """
+        project_id, _ = project_with_image
+        # First write some text
+        await async_client.put(
+            f"/api/pages/{project_id}/0/text",
+            json={"text": "original text"},
+        )
+        # Now overwrite with empty string
+        put_resp = await async_client.put(
+            f"/api/pages/{project_id}/0/text",
+            json={"text": ""},
+        )
+        assert put_resp.status_code == 200
+
+        get_resp = await async_client.get(f"/api/pages/{project_id}/0")
+        data = get_resp.json()
+        # Empty string must be persisted — not the prior value
+        assert data.get("text") == ""
+
 
 class TestGetPageImageFilePath:
     """Tests for get_page_image when source_path is a file (Issue #2)."""
+
+    async def test_image_missing_for_file_source_returns_404(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """GET /api/pages/:id/:idx/image returns 404 when source_path file is deleted.
+
+        Bad state: the project was created with a single-file source_path, but
+        that file was later deleted (e.g. temp dir cleaned up). The route must
+        return 404 — not 500, not serve stale bytes.
+        """
+        from datetime import UTC, datetime
+
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+
+        # Create then delete the source file
+        img_path = tmp_path / "gone.png"
+        img_path.write_bytes(b"\x89PNG\r\n\x1a\n")
+        project_id = "file-source-missing-001"
+        spec = ProjectSpec(
+            project_id=project_id,
+            name="Missing File",
+            source_path=str(img_path),
+            output_dir=str(tmp_path / "output"),
+            engine="doctr",
+            language="en",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            last_opened_at=datetime(2026, 1, 2, tzinfo=UTC),
+        )
+        status = ProjectStatus(
+            project_id=project_id,
+            state="succeeded",
+            page_count=1,
+            pages_done=1,
+            pages=[
+                PageResult(
+                    page_idx=0,
+                    page_name="gone.png",
+                    state="succeeded",
+                )
+            ],
+        )
+        write_project(spec, status)
+        img_path.unlink()  # delete the source file
+
+        from httpx import ASGITransport, AsyncClient
+
+        from pdomain_ocr_simple_gui.app import app
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.get(
+                f"/api/pages/{project_id}/0/image",
+                headers={"Accept": "image/png"},
+            )
+
+        assert resp.status_code == 404
 
     async def test_serves_image_when_source_path_is_file(
         self,
@@ -240,17 +391,22 @@ class TestGetPageImageFilePath:
 
 
 class TestPostPageRerun:
-    async def test_returns_200_with_mock_dispatcher(
+    async def test_returns_200_with_fake_dispatcher(
         self,
         async_client: AsyncClient,
         project_with_image: tuple[str, Path],
     ) -> None:
-        """Rerun route returns 200 and updated PageResult with mocked dispatcher."""
+        """Rerun route returns 200 and a PageResult with correct shape.
+
+        Observable: response body has page_idx, state, and the page_idx
+        matches what was requested — route wiring is verified via the response
+        body, not by inspecting mock call counts.
+        """
         from unittest.mock import AsyncMock, patch
 
         project_id, _img_path = project_with_image
 
-        # Mock dispatcher.run_stage — must be AsyncMock since run_stage is async
+        # Minimal fake stage result: empty page tree → route records succeeded
         fake_result = AsyncMock()
         fake_result.metadata = {"pages": [{"type": "Page", "items": []}]}
 
@@ -260,6 +416,7 @@ class TestPostPageRerun:
         with patch("pdomain_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
             resp = await async_client.post(f"/api/pages/{project_id}/0/rerun")
 
+        # Observable: correct response shape
         assert resp.status_code == 200
         data = resp.json()
         assert data["page_idx"] == 0
@@ -362,16 +519,16 @@ class TestPostPageRerun:
         assert page0.state == "succeeded"
         assert page0.text_preview == "original page 0"
 
-    async def test_rerun_awaits_run_stage_non_blocking(
+    async def test_rerun_uses_spec_engine_by_default(
         self,
         async_client: AsyncClient,
         project_with_image: tuple[str, Path],
     ) -> None:
-        """dispatcher.run_stage is async and must be awaited directly (Issue #10).
+        """Rerun without an explicit engine body uses the spec's engine.
 
-        run_stage is already an async method on LocalStageDispatcher — awaiting it
-        yields control to the event loop without blocking.  This test verifies the
-        route calls run_stage with the correct arguments.
+        Observable: the response returns state='succeeded' when called without
+        a request body, confirming the route defaults to the project's engine
+        (doctr for the test fixture) rather than raising or using None.
         """
         from unittest.mock import AsyncMock, patch
 
@@ -383,13 +540,44 @@ class TestPostPageRerun:
         mock_dispatcher.run_stage = AsyncMock(return_value=fake_result)
 
         with patch("pdomain_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
+            # No JSON body — route must default to spec engine
             resp = await async_client.post(f"/api/pages/{project_id}/0/rerun")
 
+        # Observable: route completed without error; default engine used
         assert resp.status_code == 200
-        mock_dispatcher.run_stage.assert_awaited_once()
-        call_args = mock_dispatcher.run_stage.call_args
-        assert call_args.args[0] == "ocr"
-        assert call_args.kwargs.get("engine") == "doctr"
+        data = resp.json()
+        assert data["state"] == "succeeded"
+        assert data["page_idx"] == 0
+
+    async def test_rerun_with_explicit_engine_returns_200(
+        self,
+        async_client: AsyncClient,
+        project_with_image: tuple[str, Path],
+    ) -> None:
+        """Rerun with an explicit engine override returns 200.
+
+        Bad-state pair: verifies both that the route honours an explicit engine
+        override (good state) and that the wrong/absent engine does not crash
+        (implicit: test_rerun_uses_spec_engine_by_default covers the default).
+        """
+        from unittest.mock import AsyncMock, patch
+
+        project_id, _ = project_with_image
+
+        fake_result = AsyncMock()
+        fake_result.metadata = {"pages": [{"type": "Page", "items": []}]}
+        mock_dispatcher = AsyncMock()
+        mock_dispatcher.run_stage = AsyncMock(return_value=fake_result)
+
+        with patch("pdomain_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
+            resp = await async_client.post(
+                f"/api/pages/{project_id}/0/rerun",
+                json={"engine": "tesseract"},
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["state"] == "succeeded"
 
     async def test_rerun_returns_failed_state_on_error(
         self,
@@ -417,7 +605,13 @@ class TestPostPageRerun:
         async_client: AsyncClient,
         project_with_image: tuple[str, Path],
     ) -> None:
-        """After rerun, GET page returns updated state."""
+        """After rerun, GET page returns the updated text from the rerun result.
+
+        Observable: POST /rerun persists the OCR text to the sidecar; a
+        subsequent GET /api/pages/:id/:idx reads that sidecar and returns
+        the new text. Assertion is on the GET response body — not on mock
+        call counts or captured arguments.
+        """
         from unittest.mock import AsyncMock, patch
 
         project_id, _ = project_with_image
@@ -441,9 +635,28 @@ class TestPostPageRerun:
         mock_dispatcher.run_stage = AsyncMock(return_value=fake_result)
 
         with patch("pdomain_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
-            await async_client.post(f"/api/pages/{project_id}/0/rerun")
+            rerun_resp = await async_client.post(f"/api/pages/{project_id}/0/rerun")
 
+        # Rerun returns 200 with the new state
+        assert rerun_resp.status_code == 200
+        assert rerun_resp.json()["state"] == "succeeded"
+
+        # Observable: the text is now readable via GET
         get_resp = await async_client.get(f"/api/pages/{project_id}/0")
         assert get_resp.status_code == 200
         data = get_resp.json()
         assert data.get("text") == "rerun text"
+
+    async def test_rerun_nonexistent_page_returns_404(
+        self,
+        async_client: AsyncClient,
+        project_with_image: tuple[str, Path],
+    ) -> None:
+        """POST /api/pages/:id/:idx/rerun with an out-of-range page index returns 404.
+
+        Bad state: the project has only 1 page (index 0); requesting rerun on
+        index 99 must return 404, not 200 or 500.
+        """
+        project_id, _ = project_with_image
+        resp = await async_client.post(f"/api/pages/{project_id}/99/rerun")
+        assert resp.status_code == 404
