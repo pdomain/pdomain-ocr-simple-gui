@@ -402,6 +402,7 @@ async def run_project(
                 source_identifiers=source_ids,
                 engine=spec.engine,
                 language=spec.language,
+                device=resolve_device(spec.device),
             )
 
             page_dicts: list[dict[str, object]] = await dispatcher.run_ocr_batch(req)
