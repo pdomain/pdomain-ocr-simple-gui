@@ -584,13 +584,7 @@ describe("PageViewPage", () => {
 
     (globalThis as any).fetch = mockFetch;
 
-    render(
-      <MemoryRouter initialEntries={["/jobs/proj-abc/pages/0"]}>
-        <Routes>
-          <Route path="/jobs/:id/pages/:idx" element={<PageViewPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderWithRoute("proj-abc", 0);
 
     await waitFor(() => {
       const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
@@ -635,13 +629,7 @@ describe("PageViewPage", () => {
         return Promise.resolve({ ok: false, json: async () => ({}) });
       });
 
-    render(
-      <MemoryRouter initialEntries={["/jobs/proj-abc/pages/0"]}>
-        <Routes>
-          <Route path="/jobs/:id/pages/:idx" element={<PageViewPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderWithRoute("proj-abc", 0);
 
     await waitFor(() => {
       expect(screen.getByTestId("page-progress-message")).toHaveTextContent(
