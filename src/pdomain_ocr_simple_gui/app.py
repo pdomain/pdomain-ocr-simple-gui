@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.resources
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -54,22 +55,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             extra={"context": "LocalFilePrefs()"},
         )
         _prefs_adapter = None
-    try:
-        from pdomain_ops.gpu import (  # pyright: ignore[reportMissingTypeStubs]
-            LocalStageDispatcher,
-            register_default_stages,
-        )
+    if os.environ.get("PDOMAIN_OCR_FAKE_DISPATCHER"):
+        from pdomain_ocr_simple_gui.testing.fake_dispatcher import FakeStageDispatcher
 
-        _dispatcher = LocalStageDispatcher()
-        register_default_stages(_dispatcher)
-    except Exception:  # default stages optional — fall back to bare dispatcher
-        logger.exception(
-            "register_default_stages() failed; falling back to bare LocalStageDispatcher",
-            extra={"context": "register_default_stages(_dispatcher)"},
-        )
-        from pdomain_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
+        _dispatcher = FakeStageDispatcher()  # pyright: ignore[reportAssignmentType]
+    else:
+        try:
+            from pdomain_ops.gpu import (  # pyright: ignore[reportMissingTypeStubs]
+                LocalStageDispatcher,
+                register_default_stages,
+            )
 
-        _dispatcher = LocalStageDispatcher()
+            _dispatcher = LocalStageDispatcher()
+            register_default_stages(_dispatcher)
+        except Exception:  # default stages optional — fall back to bare dispatcher
+            logger.exception(
+                "register_default_stages() failed; falling back to bare LocalStageDispatcher",
+                extra={"context": "register_default_stages(_dispatcher)"},
+            )
+            from pdomain_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
+
+            _dispatcher = LocalStageDispatcher()
     # Suite registration is handled by bootstrap_spa() in __main__.py before uvicorn.run().
     yield
     _prefs_adapter = None
