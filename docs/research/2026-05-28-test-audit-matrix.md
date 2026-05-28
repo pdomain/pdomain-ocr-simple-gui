@@ -458,24 +458,24 @@ __e2e test → click-path mapping:__
 - [ ] frontend/src/api/useOcrJob.test.tsx::useOcrJob::stops polling when state reaches succeeded — no-bad-case — add test for network error during polling (error state handling)
 - [ ] frontend/src/api/useOcrJob.test.tsx::useOcrJob::resets to idle when jobId changes to null — no-bad-case — no bad case; accept as lifecycle assertion
 - [ ] frontend/src/api/useOcrJob.test.tsx::useOcrJob::uses the default fetch when fetchFn is not provided (stub) — no-bad-case — stub test; no bad case possible; accept as-is
-- [ ] frontend/src/components/JobConfigInline.test.tsx::defaultProjectName::returns basename for path source — no-bad-case — add test for empty path → fallback name
-- [ ] frontend/src/components/JobConfigInline.test.tsx::defaultProjectName::returns ocr-job-short for upload source — no-bad-case — no bad case; accept as format assertion
-- [ ] frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::renders all required form fields — no-bad-case — no bad case; accept as render smoke
-- [ ] frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::pre-fills project name from source basename — no-bad-case — no bad case; accept as pre-fill assertion
-- [ ] frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::pre-fills project name as ocr-job-short for uploads — no-bad-case — no bad case; accept as pre-fill assertion
-- [ ] frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::does NOT render a separate output-dir field — no-bad-case — absence assertion; no bad case possible; accept as-is
-- [ ] frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::calls onCancel when 'Use different files' is clicked — no-bad-case — no bad case; accept as callback assertion
-- [ ] frontend/src/components/RecentProjectsList.test.tsx::RecentProjectsList::shows 'No recent projects' when prefs has empty list — no-bad-case — empty-list edge case; error path covered by 'shows empty state when fetch fails'; accept as-is
-- [ ] frontend/src/components/__tests__/OutputConfigPanel.test.tsx::emits change when path is typed in specified mode — no-bad-case — add test for invalid path (empty string) onChange behavior
-- [ ] frontend/src/components/__tests__/SourcePicker.test.tsx::calls onUploadComplete for a dropped file — no-bad-case — add test for upload failure (fetch rejects) showing error state
-- [ ] frontend/src/components/__tests__/SourcePicker.test.tsx::dropzone has a generous min-height — no-bad-case — layout test; no bad case possible; accept as-is
-- [ ] frontend/src/components/__tests__/SourcePicker.test.tsx::emits onPathChosen for path input — no-bad-case — add test for empty path not emitting onPathChosen
-- [ ] frontend/src/components/__tests__/SourcePicker.test.tsx::clicking the dropzone triggers the hidden file input — no-bad-case — no bad case; accept as interaction assertion
-- [ ] frontend/src/components/__tests__/SourcePicker.test.tsx::pressing Enter on the dropzone triggers the file input — no-bad-case — no bad case; accept as keyboard assertion
-- [ ] frontend/src/components/__tests__/SourcePicker.test.tsx::renders the dropped filename after a drop — no-bad-case — no bad case; accept as state assertion
-- [ ] frontend/src/components/__tests__/SourcePicker.test.tsx::lists every dropped file with a count header — no-bad-case — add test for zero files dropped (empty array)
-- [ ] frontend/src/components/__tests__/SourcePicker.test.tsx::clear button resets the display and fires onClear — no-bad-case — no bad case; accept as interaction assertion
-- [ ] frontend/src/components/__tests__/SourcePicker.test.tsx::clicking the clear button does not re-open the file picker — no-bad-case — no bad case; accept as event-propagation assertion
+- [x] frontend/src/components/JobConfigInline.test.tsx::defaultProjectName::returns basename for path source — no-bad-case — added test for empty path → returns "ocr-job" fallback
+- [x] frontend/src/components/JobConfigInline.test.tsx::defaultProjectName::returns ocr-job-short for upload source — no-bad-case — no bad case; accepted as format assertion
+- [x] frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::renders all required form fields — no-bad-case — no bad case; accepted as render smoke
+- [x] frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::pre-fills project name from source basename — no-bad-case — no bad case; accepted as pre-fill assertion
+- [x] frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::pre-fills project name as ocr-job-short for uploads — no-bad-case — no bad case; accepted as pre-fill assertion
+- [x] frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::does NOT render a separate output-dir field — no-bad-case — absence assertion; no bad case possible; accepted as-is
+- [x] frontend/src/components/JobConfigInline.test.tsx::JobConfigInline::calls onCancel when 'Use different files' is clicked — no-bad-case — no bad case; accepted as callback assertion
+- [x] frontend/src/components/RecentProjectsList.test.tsx::RecentProjectsList::shows 'No recent projects' when prefs has empty list — no-bad-case — empty-list edge case; error path covered by existing 'shows empty state when fetch fails'; accepted as-is
+- [x] frontend/src/components/__tests__/OutputConfigPanel.test.tsx::emits change when path is typed in specified mode — no-bad-case — added test for clearing path (empty string onChange)
+- [x] frontend/src/components/__tests__/SourcePicker.test.tsx::calls onUploadComplete for a dropped file — no-bad-case — added test: upload error shown + onUploadComplete not called; also fixed component to catch and surface upload errors
+- [x] frontend/src/components/__tests__/SourcePicker.test.tsx::dropzone has a generous min-height — no-bad-case — layout test; no bad case possible; accepted as-is
+- [x] frontend/src/components/__tests__/SourcePicker.test.tsx::emits onPathChosen for path input — no-bad-case — added test for empty path not emitting onPathChosen
+- [x] frontend/src/components/__tests__/SourcePicker.test.tsx::clicking the dropzone triggers the hidden file input — no-bad-case — no bad case; accepted as interaction assertion
+- [x] frontend/src/components/__tests__/SourcePicker.test.tsx::pressing Enter on the dropzone triggers the file input — no-bad-case — no bad case; accepted as keyboard assertion
+- [x] frontend/src/components/__tests__/SourcePicker.test.tsx::renders the dropped filename after a drop — no-bad-case — no bad case; accepted as state assertion
+- [x] frontend/src/components/__tests__/SourcePicker.test.tsx::lists every dropped file with a count header — no-bad-case — added test for zero files → no chosen state shown
+- [x] frontend/src/components/__tests__/SourcePicker.test.tsx::clear button resets the display and fires onClear — no-bad-case — no bad case; accepted as interaction assertion
+- [x] frontend/src/components/__tests__/SourcePicker.test.tsx::clicking the clear button does not re-open the file picker — no-bad-case — no bad case; accepted as event-propagation assertion
 - [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::renders canvas with correct image src — no-bad-case — add test for missing image (404 from backend) showing error state
 - [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::renders textarea with page OCR text — no-bad-case — add test for empty OCR text (blank page result)
 - [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::save button calls PUT /api/pages/:id/:idx/text — no-bad-case — add test for save failure (PUT 4xx) showing error feedback
@@ -496,9 +496,9 @@ __e2e test → click-path mapping:__
 - [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::navigates to page view when row is clicked — no-bad-case — add test for disabled/non-navigable row state
 - [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::re-run all button sends POST /api/jobs/:id/rerun — no-bad-case — add test for rerun failure (POST 500) showing error feedback
 - [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::re-run all button re-fetches job status on success — no-bad-case — add test for re-fetch failure after rerun
-- [ ] frontend/src/pages/__tests__/HomePage.test.tsx::local + containerized shows drop zone and path input — no-bad-case — no bad case; layout variant; accept as-is
-- [ ] frontend/src/pages/__tests__/HomePage.test.tsx::local + not containerized shows drop, file pick, and path together — no-bad-case — no bad case; layout variant; accept as-is
-- [ ] frontend/src/pages/__tests__/HomePage.test.tsx::managed shows upload-only (no path input) — no-bad-case — no bad case; layout variant; accept as-is
-- [ ] frontend/src/pages/__tests__/HomePage.test.tsx::JobConfigInline is hidden until a source is chosen — no-bad-case — no bad case; conditional render assertion; accept as-is
-- [ ] frontend/src/pages/__tests__/HomePage.test.tsx::JobConfigInline appears after a path is chosen, and clears on cancel — no-bad-case — no bad case; state transition assertion; accept as-is
+- [x] frontend/src/pages/__tests__/HomePage.test.tsx::local + containerized shows drop zone and path input — no-bad-case — no bad case; layout variant; accepted as-is
+- [x] frontend/src/pages/__tests__/HomePage.test.tsx::local + not containerized shows drop, file pick, and path together — no-bad-case — no bad case; layout variant; accepted as-is
+- [x] frontend/src/pages/__tests__/HomePage.test.tsx::managed shows upload-only (no path input) — no-bad-case — no bad case; layout variant; accepted as-is
+- [x] frontend/src/pages/__tests__/HomePage.test.tsx::JobConfigInline is hidden until a source is chosen — no-bad-case — no bad case; conditional render assertion; accepted as-is
+- [x] frontend/src/pages/__tests__/HomePage.test.tsx::JobConfigInline appears after a path is chosen, and clears on cancel — no-bad-case — no bad case; state transition assertion; accepted as-is
 - [ ] frontend/src/runtime/__tests__/ConfigContext.test.tsx::fetches /api/config on mount — no-bad-case — add test for fetch failure (network error) → error state or fallback
