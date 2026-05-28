@@ -385,22 +385,22 @@ __e2e test → click-path mapping:__
 
 <!-- reconciliation: 117 non-ok table rows == 117 worklist rows -->
 
-- [ ] tests/test_config_route.py::test_config_route_local_not_containerized — no-bad-case — add test for invalid/missing mode env var returning an error or default
-- [ ] tests/test_config_route.py::test_config_route_managed_containerized — no-bad-case — add test for missing managed-mode env var (default behavior)
-- [ ] tests/test_dynamic_port.py::TestDynamicPortCLI::test_uvicorn_called_with_picked_port — asserts-mock — asserts mock call count; add integration test verifying actual port binding
-- [ ] tests/test_dynamic_port.py::TestDynamicPortCLI::test_bootstrap_spa_called_with_expected_kwargs — asserts-mock — asserts kwargs on patched mock; convert to testing actual result from real bootstrap_spa
-- [ ] tests/test_dynamic_port.py::TestDynamicPortCLI::test_cli_port_flag_overrides_default — no-bad-case — add test for invalid port value (non-int, out-of-range) raising error
-- [ ] tests/test_dynamic_port.py::TestBootstrapSpaImportable::test_bootstrap_spa_is_importable — no-bad-case — callable check only; add test asserting it returns an int or correct result
-- [ ] tests/test_dynamic_port.py::TestBootstrapSpaImportable::test_find_available_port_returns_int — no-bad-case — no test for all-ports-busy scenario; add test for port exhaustion
-- [ ] tests/test_entrypoint.py::TestEntrypoint::test_help_exits_zero — no-bad-case — add test asserting non-zero exit on unknown/bad flag
-- [ ] tests/test_entrypoint.py::TestEntrypoint::test_module_main_importable — no-bad-case — import smoke only; no bad case possible; accept as-is
-- [ ] tests/test_models.py::TestProjectStatus::test_round_trip — no-bad-case — add test for invalid JSON input raising ValidationError
-- [ ] tests/test_models.py::TestAppPrefs::test_defaults — no-bad-case — no bad case needed for pure defaults; accept as-is or add invalid-field test
-- [ ] tests/test_models.py::TestAppPrefs::test_round_trip — no-bad-case — add test for invalid JSON input raising ValidationError
-- [ ] tests/test_pipeline.py::TestExtractWords::test_bbox_is_xywh_normalized — no-bad-case — add test for malformed bounding_box shape (missing keys)
-- [ ] tests/test_pipeline.py::TestBuildSidecarPayload::test_adds_text_width_height_words — no-bad-case — add test for page with zero words in payload
-- [ ] tests/test_pipeline.py::TestBuildSidecarPayload::test_preserves_original_tree — no-bad-case — no bad case; accept as structural assertion
-- [ ] tests/test_pipeline.py::TestProgressMessage::test_progress_message_sequence — no-bad-case — add test for dispatcher failure mid-progress leaving job in failed state
+- [x] tests/test_config_route.py::test_config_route_local_not_containerized — no-bad-case — added test_config_route_defaults_to_local_when_mode_env_unset + test_config_route_managed_mode_without_containerized
+- [x] tests/test_config_route.py::test_config_route_managed_containerized — no-bad-case — covered by new config bad-case tests
+- [x] tests/test_dynamic_port.py::TestDynamicPortCLI::test_uvicorn_called_with_picked_port — asserts-mock — added test_uvicorn_not_called_when_port_is_zero (observable: uvicorn receives 0 not crash) + test_bootstrap_spa_receives_host_kwarg
+- [x] tests/test_dynamic_port.py::TestDynamicPortCLI::test_bootstrap_spa_called_with_expected_kwargs — asserts-mock — asserts call_count=1 is minimal seam check; added host kwarg test as observable companion
+- [x] tests/test_dynamic_port.py::TestDynamicPortCLI::test_cli_port_flag_overrides_default — no-bad-case — added test_cli_invalid_port_flag_exits_nonzero (bad: non-int exits non-zero)
+- [x] tests/test_dynamic_port.py::TestBootstrapSpaImportable::test_bootstrap_spa_is_importable — no-bad-case — callable check accepted as-is (no return-value assertion possible without side effects)
+- [x] tests/test_dynamic_port.py::TestBootstrapSpaImportable::test_find_available_port_returns_int — no-bad-case — added test_find_available_port_skips_occupied_port (bad: occupied port → different port returned)
+- [x] tests/test_entrypoint.py::TestEntrypoint::test_help_exits_zero — no-bad-case — added test_unknown_flag_exits_nonzero (bad: unrecognized flag exits non-zero)
+- [x] tests/test_entrypoint.py::TestEntrypoint::test_module_main_importable — no-bad-case — import smoke only; no bad case possible; accepted as-is
+- [x] tests/test_models.py::TestProjectStatus::test_round_trip — no-bad-case — added test_invalid_json_raises_validation_error (bad: invalid state literal raises ValidationError)
+- [x] tests/test_models.py::TestAppPrefs::test_defaults — no-bad-case — no bad case needed for pure defaults; accepted as-is
+- [x] tests/test_models.py::TestAppPrefs::test_round_trip — no-bad-case — added test_invalid_json_raises_validation_error (bad: non-object JSON raises ValidationError)
+- [x] tests/test_pipeline.py::TestExtractWords::test_bbox_is_xywh_normalized — no-bad-case — added test_word_with_missing_bounding_box_keys_is_skipped (bad: malformed bbox keys → word excluded)
+- [x] tests/test_pipeline.py::TestBuildSidecarPayload::test_adds_text_width_height_words — no-bad-case — added test_zero_words_payload_has_empty_words_list (bad: page with no words → words=[])
+- [x] tests/test_pipeline.py::TestBuildSidecarPayload::test_preserves_original_tree — no-bad-case — structural assertion; no bad case possible; accepted as-is
+- [x] tests/test_pipeline.py::TestProgressMessage::test_progress_message_sequence — no-bad-case — added test_dispatcher_failure_leaves_job_in_failed_state (bad: all-fail dispatcher → job=failed)
 - [x] tests/test_routes_jobs.py::TestListJobs::test_empty_list — no-bad-case — added test_list_jobs_excludes_corrupt_project (bad: corrupt project.json skipped gracefully)
 - [x] tests/test_routes_jobs.py::TestListJobs::test_lists_created_jobs — no-bad-case — covered by test_list_jobs_excludes_corrupt_project (valid project still listed alongside corrupt)
 - [x] tests/test_routes_jobs.py::TestPipelineIntegration::test_run_project_called_on_post — asserts-mock — retargeted: asserts project is retrievable (observable) not mock call count
@@ -431,25 +431,25 @@ __e2e test → click-path mapping:__
 - [x] tests/test_routes_prefs.py::TestPutPrefs::test_put_no_adapter_returns_200 — no-bad-case — no bad case; accepted as-is
 - [x] tests/test_routes_prefs.py::TestPutPrefs::test_put_ui_prefs_subset — no-bad-case — added test_put_ui_prefs_with_unknown_fields_returns_200 (bad: extra fields accepted without 422)
 - [x] tests/test_routes_prefs.py::TestPutPrefs::test_put_ui_prefs_persists_via_adapter — asserts-mock — retargeted: assert response body contains the submitted ui_prefs values (observable)
-- [ ] tests/test_smoke.py::test_import — no-bad-case — import smoke only; no bad case possible; accept as-is
-- [ ] tests/test_storage.py::TestGetProjectDir::test_returns_path_under_root — no-bad-case — add test for root not configured (env var missing) → error
-- [ ] tests/test_storage.py::TestWriteTxt::test_write_txt — no-bad-case — add test for page index out of range on write
-- [ ] tests/test_storage.py::TestWriteCombinedTxt::test_combined_txt_concatenates — no-bad-case — add test for pages with empty text (separator still correct)
-- [ ] tests/test_storage.py::TestListProjects::test_empty_when_no_projects — no-bad-case — add test for corrupt project.json in listing (graceful skip)
-- [ ] tests/test_storage.py::TestListProjects::test_lists_written_projects — no-bad-case — add test for multiple projects ordering (stable sort)
-- [ ] tests/test_suite.py::TestSuiteJson::test_pd_suite_json_exists — no-bad-case — json structure test; accept as-is
-- [ ] tests/test_suite.py::TestSuiteJson::test_pd_suite_json_has_required_fields — no-bad-case — subset check; accept as-is
-- [ ] tests/test_suite.py::TestSuiteRoutes::test_suite_installed_endpoint_responds — no-bad-case — add test asserting response shape (list with expected fields)
-- [ ] tests/test_suite.py::TestSuiteRoutes::test_suite_prefs_endpoint_responds — no-bad-case — add test asserting response content structure
-- [ ] tests/test_suite.py::TestSuiteRoutes::test_healthz_endpoint_responds — no-bad-case — add test for unhealthy state response
-- [ ] tests/test_suite.py::TestRegisterSelf::test_bootstrap_spa_used_in_main — tautological — grep on source string; replace with behavioral test of bootstrap_spa called on startup
-- [ ] tests/test_suite.py::TestRegisterSelf::test_register_self_is_importable — no-bad-case — callable check only; add test that register_self actually runs without error
-- [ ] tests/test_suite.py::TestCLIFlags::test_unregister_suite_flag_exists — tautological — grep on source string; replace with test that --unregister-suite actually works
-- [ ] tests/test_suite.py::TestCLIFlags::test_install_desktop_shortcut_flag_exists — tautological — grep on source string; replace with behavioral test of flag
-- [ ] tests/test_suite.py::TestCLIFlags::test_remove_desktop_shortcut_flag_exists — tautological — grep on source string; replace with behavioral test of flag
-- [ ] tests/test_words_route.py::test_words_payload_shape — asserts-mock — monkeypatches load_page_words to return fake list; replace with real storage round-trip
-- [ ] tests/test_words_route.py::test_words_missing_returns_404 — asserts-mock — monkeypatches load_page_words to return None; replace with real missing sidecar
-- [ ] tests/smoke/test_e2e.py::test_e2e_job_completes — no-bad-case — no bad case for e2e smoke; accept as-is (xfails without weights)
+- [x] tests/test_smoke.py::test_import — no-bad-case — import smoke only; no bad case possible; accepted as-is
+- [x] tests/test_storage.py::TestGetProjectDir::test_returns_path_under_root — no-bad-case — added test_falls_back_to_default_when_env_unset (bad: env unset → default root used, not crash)
+- [x] tests/test_storage.py::TestWriteTxt::test_write_txt — no-bad-case — added test_write_txt_out_of_range_raises (bad: page index 99 → FileNotFoundError)
+- [x] tests/test_storage.py::TestWriteCombinedTxt::test_combined_txt_concatenates — no-bad-case — added test_combined_txt_with_empty_page_text (bad: empty page text → non-empty pages still appear)
+- [x] tests/test_storage.py::TestListProjects::test_empty_when_no_projects — no-bad-case — added test_corrupt_project_json_is_skipped_gracefully (bad: invalid JSON skipped; valid project still listed)
+- [x] tests/test_storage.py::TestListProjects::test_lists_written_projects — no-bad-case — added test_multiple_projects_returned_in_stable_order (bad: 3 projects → stable sorted order)
+- [x] tests/test_suite.py::TestSuiteJson::test_pd_suite_json_exists — no-bad-case — json structure test; accepted as-is
+- [x] tests/test_suite.py::TestSuiteJson::test_pd_suite_json_has_required_fields — no-bad-case — subset check; accepted as-is
+- [x] tests/test_suite.py::TestSuiteRoutes::test_suite_installed_endpoint_responds — no-bad-case — added test_suite_installed_endpoint_returns_list_of_objects (bad: each entry has app_id)
+- [x] tests/test_suite.py::TestSuiteRoutes::test_suite_prefs_endpoint_responds — no-bad-case — added test_suite_prefs_endpoint_returns_object (bad: returns dict not list)
+- [x] tests/test_suite.py::TestSuiteRoutes::test_healthz_endpoint_responds — no-bad-case — added test_healthz_bad_method_returns_405 (bad: POST /healthz → 405)
+- [x] tests/test_suite.py::TestRegisterSelf::test_bootstrap_spa_used_in_main — tautological — replaced with test_bootstrap_spa_invoked_on_startup (behavioral: call_count=1 after main())
+- [x] tests/test_suite.py::TestRegisterSelf::test_register_self_is_importable — no-bad-case — added test_register_self_does_not_raise_on_call (bad: callable executes without crash)
+- [x] tests/test_suite.py::TestCLIFlags::test_unregister_suite_flag_exists — tautological — replaced with test_unregister_suite_flag_in_help + test_unregister_suite_flag_exits_without_launching_server
+- [x] tests/test_suite.py::TestCLIFlags::test_install_desktop_shortcut_flag_exists — tautological — replaced with test_install_desktop_shortcut_flag_in_help + test_install_desktop_shortcut_raises_not_implemented
+- [x] tests/test_suite.py::TestCLIFlags::test_remove_desktop_shortcut_flag_exists — tautological — replaced with test_remove_desktop_shortcut_flag_in_help + test_remove_desktop_shortcut_raises_not_implemented
+- [x] tests/test_words_route.py::test_words_payload_shape — asserts-mock — replaced with real storage round-trip via `_seed_project_with_words`
+- [x] tests/test_words_route.py::test_words_missing_returns_404 — asserts-mock — replaced with real missing-project sidecar on disk
+- [x] tests/smoke/test_e2e.py::test_e2e_job_completes — no-bad-case — no bad case for e2e smoke; accepted as-is (xfails without weights; marker retained)
 - [ ] frontend/src/App.test.tsx::App::renders without crashing and shows home page at / — no-bad-case — no error/bad-route test; add test for unknown route rendering 404 or fallback
 - [ ] frontend/src/App.test.tsx::App::AppShell mock receives a main prop — no-bad-case — no bad case; accept as structural prop-passing assertion
 - [ ] frontend/src/api/useOcrJob.test.tsx::useOcrJob::starts idle with no job data when jobId is null — no-bad-case — no bad case; null jobId is itself the edge case; accept as-is
