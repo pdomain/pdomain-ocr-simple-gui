@@ -10,10 +10,19 @@ def test_config_route_local_not_containerized(monkeypatch) -> None:
         "pdomain_ocr_simple_gui.routes.config.detect_containerized",
         lambda: False,
     )
+    monkeypatch.setattr(
+        "pdomain_ocr_simple_gui.routes.config._detect_device",
+        lambda: "cpu",
+    )
     client = TestClient(create_app())
     resp = client.get("/api/config")
     assert resp.status_code == 200
-    assert resp.json() == {"mode": "local", "is_containerized": False}
+    assert resp.json() == {
+        "mode": "local",
+        "is_containerized": False,
+        "detected_device": "cpu",
+        "gpu_available": False,
+    }
 
 
 def test_config_route_managed_containerized(monkeypatch) -> None:
@@ -22,7 +31,16 @@ def test_config_route_managed_containerized(monkeypatch) -> None:
         "pdomain_ocr_simple_gui.routes.config.detect_containerized",
         lambda: True,
     )
+    monkeypatch.setattr(
+        "pdomain_ocr_simple_gui.routes.config._detect_device",
+        lambda: "local",
+    )
     client = TestClient(create_app())
     resp = client.get("/api/config")
     assert resp.status_code == 200
-    assert resp.json() == {"mode": "managed", "is_containerized": True}
+    assert resp.json() == {
+        "mode": "managed",
+        "is_containerized": True,
+        "detected_device": "local",
+        "gpu_available": True,
+    }

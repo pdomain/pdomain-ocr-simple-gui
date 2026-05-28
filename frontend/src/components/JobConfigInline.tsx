@@ -10,8 +10,10 @@ import {
   Input,
   Field,
   Toggle,
+  Segmented,
 } from "@pdomain/pdomain-ui/primitives";
 import { OutputConfigPanel, type OutputConfigValue } from "./OutputConfigPanel";
+import { useConfig } from "../runtime/ConfigContext";
 import { APP_TEST_IDS } from "../lib/testids";
 
 interface PrefsResponse {
@@ -62,6 +64,8 @@ export function JobConfigInline({
   onCancel,
 }: JobConfigInlineProps) {
   const navigate = useNavigate();
+  const cfg = useConfig();
+  const gpuAvailable = cfg?.gpu_available ?? false;
 
   const [projectName, setProjectName] = useState<string>(() =>
     defaultProjectName(source),
@@ -72,6 +76,10 @@ export function JobConfigInline({
   const [emDashDoubleHyphen, setEmDashDoubleHyphen] = useState<boolean>(true);
   const [emitIllustrationPlaceholders, setEmitIllustrationPlaceholders] =
     useState<boolean>(false);
+  // Device choice: default to "auto" (follow detection). Force "cpu" when no
+  // GPU is available so the disabled GPU option is never the active value.
+  const [device, setDevice] = useState<"auto" | "gpu" | "cpu">("auto");
+  const [showGpuHelp, setShowGpuHelp] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
@@ -124,6 +132,7 @@ export function JobConfigInline({
         straight_quotes: straightQuotes,
         em_dash_to_double_hyphen: emDashDoubleHyphen,
         emit_illustration_placeholders: emitIllustrationPlaceholders,
+        device: !gpuAvailable && device === "gpu" ? "cpu" : device,
         output: outputConfig,
       };
 
@@ -245,6 +254,94 @@ export function JobConfigInline({
           checked={emitIllustrationPlaceholders}
           onCheckedChange={setEmitIllustrationPlaceholders}
         />
+
+        <Field label="Processing device">
+          <div data-testid={APP_TEST_IDS.deviceChooser}>
+            <Segmented
+              options={
+                gpuAvailable
+                  ? [
+                      { value: "auto", label: "Auto" },
+                      { value: "gpu", label: "GPU" },
+                      { value: "cpu", label: "CPU" },
+                    ]
+                  : [
+                      { value: "auto", label: "Auto" },
+                      { value: "cpu", label: "CPU" },
+                    ]
+              }
+              value={device}
+              onChange={(v) => setDevice(v as "auto" | "gpu" | "cpu")}
+            />
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: 12,
+                color: "var(--ink-3)",
+              }}
+            >
+              {gpuAvailable
+                ? `GPU detected (${cfg?.detected_device}). Auto uses it.`
+                : "No GPU detected — OCR will run on CPU (slower)."}
+              {!gpuAvailable && (
+                <>
+                  {" "}
+                  <button
+                    type="button"
+                    data-testid={APP_TEST_IDS.gpuHelpToggle}
+                    onClick={() => setShowGpuHelp((v) => !v)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      color: "var(--accent)",
+                      cursor: "pointer",
+                      font: "inherit",
+                      textDecoration: "underline",
+                    }}
+                  >
+                    Why is GPU unavailable?
+                  </button>
+                </>
+              )}
+            </p>
+            {!gpuAvailable && showGpuHelp && (
+              <div
+                data-testid={APP_TEST_IDS.gpuHelp}
+                style={{
+                  marginTop: 8,
+                  padding: "8px 12px",
+                  border: "1px solid var(--border-2)",
+                  borderRadius: 6,
+                  background: "var(--bg-sunk)",
+                  fontSize: 12,
+                  color: "var(--ink-2)",
+                }}
+              >
+                <strong>Enabling GPU acceleration</strong>
+                <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                  <li>
+                    Confirm an NVIDIA GPU + driver:{" "}
+                    <code>nvidia-smi</code> should list a device.
+                  </li>
+                  <li>
+                    Install a CUDA-enabled PyTorch build (the CPU-only wheel
+                    won&apos;t see the GPU).
+                  </li>
+                  <li>
+                    In a container, start it with <code>--gpus all</code> (or
+                    the Compose <code>deploy.resources</code> GPU
+                    reservation).
+                  </li>
+                  <li>
+                    Restart the app after changing drivers/toolkit so
+                    detection re-runs.
+                  </li>
+                </ul>
+              </div>
+            )}
+          </div>
+        </Field>
 
         <OutputConfigPanel
           mode={mode}

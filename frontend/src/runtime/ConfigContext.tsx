@@ -11,6 +11,8 @@ import {
 export interface RuntimeConfig {
   mode: "local" | "managed";
   is_containerized: boolean;
+  detected_device: string;
+  gpu_available: boolean;
 }
 
 const Ctx = createContext<RuntimeConfig | null>(null);

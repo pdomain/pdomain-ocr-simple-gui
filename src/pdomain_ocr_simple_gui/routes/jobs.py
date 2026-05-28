@@ -113,6 +113,8 @@ class CreateJobRequest(BaseModel):
     em_dash_to_double_hyphen: bool = True
     # Reorganize-page knob (illustration block emission)
     emit_illustration_placeholders: bool = False
+    # Device choice: "auto" (detection), "cpu", or "gpu".
+    device: Literal["auto", "cpu", "gpu"] = "auto"
 
 
 def _build_source_and_flags(body: CreateJobRequest, mode: Mode) -> tuple[str, bool]:
@@ -262,6 +264,7 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
         straight_quotes=body.straight_quotes,
         em_dash_to_double_hyphen=body.em_dash_to_double_hyphen,
         emit_illustration_placeholders=body.emit_illustration_placeholders,
+        device=body.device,
         created_at=now,
         last_opened_at=now,
     )

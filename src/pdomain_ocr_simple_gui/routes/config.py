@@ -15,12 +15,31 @@ class ConfigResponse(BaseModel):
 
     mode: str
     is_containerized: bool
+    detected_device: str
+    gpu_available: bool
+
+
+def _detect_device() -> str:
+    """Return the auto-detected dispatch device ("local"/"mps"/"cpu").
+
+    Best-effort: pdomain-ops owns detection. Defaults to "cpu" if the
+    helper is unavailable for any reason.
+    """
+    try:
+        from pdomain_ops.gpu.device import pick_device
+
+        return pick_device()
+    except (ImportError, ValueError, RuntimeError):
+        return "cpu"
 
 
 @router.get("/api/config", response_model=ConfigResponse)
 def get_config() -> ConfigResponse:
-    """Return runtime mode and container detection flag."""
+    """Return runtime mode, container flag, and detected GPU/CPU device."""
+    device = _detect_device()
     return ConfigResponse(
         mode=read_mode().value,
         is_containerized=detect_containerized(),
+        detected_device=device,
+        gpu_available=device != "cpu",
     )

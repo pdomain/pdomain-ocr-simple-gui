@@ -27,6 +27,8 @@ class ProjectSpec(BaseModel):
     straight_quotes: bool = True
     em_dash_to_double_hyphen: bool = True
     emit_illustration_placeholders: bool = False
+    # Device choice: "auto" (use detection), "cpu", or "gpu".
+    device: str = "auto"
     created_at: datetime
     last_opened_at: datetime
 

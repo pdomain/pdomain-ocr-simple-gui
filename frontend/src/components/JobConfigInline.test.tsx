@@ -190,6 +190,7 @@ describe("JobConfigInline", () => {
       expect(body).not.toHaveProperty("output_dir");
       expect(body.save_json).toBe(true);
       expect(body.combined_txt).toBe(true);
+      expect(body.device).toBe("auto");
       expect(body.output).toEqual({ mode: "next_to_source" });
     });
   });

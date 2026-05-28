@@ -17,6 +17,7 @@ from pdomain_ocr_simple_gui.pipeline import (
     build_sidecar_payload,
     extract_text,
     first_page_dict,
+    resolve_device,
 )
 from pdomain_ocr_simple_gui.storage import (
     read_page_sidecar,
@@ -283,6 +284,7 @@ async def rerun_page(
             image_path=str(image_path),
             engine=engine,
             language=spec.language,
+            device=resolve_device(spec.device),
         )
         page_dict = first_page_dict(stage_result.metadata)
 

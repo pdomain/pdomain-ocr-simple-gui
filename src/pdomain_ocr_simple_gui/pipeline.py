@@ -92,6 +92,26 @@ def first_page_dict(metadata: Mapping[str, object]) -> JsonObject:
     return pages_list[0] if pages_list else {}
 
 
+def resolve_device(choice: str) -> str | None:
+    """Translate a job's device choice into a run_stage override.
+
+    - "auto" -> None (dispatcher auto-detects via pick_device)
+    - "cpu"  -> "cpu"
+    - "gpu"  -> the detected accelerator ("local"/"mps"); falls back to the
+      detected device, which run_stage degrades to cpu when no GPU impl.
+    """
+    if choice == "cpu":
+        return "cpu"
+    if choice == "gpu":
+        try:
+            from pdomain_ops.gpu.device import pick_device
+
+            return pick_device()
+        except (ImportError, ValueError, RuntimeError):
+            return None
+    return None
+
+
 def _bbox_xywh_from_bounding_box(bb: object) -> JsonObject | None:
     """Convert a pdomain-book-tools bounding_box dict to {x, y, w, h} normalized.
 
@@ -364,6 +384,7 @@ async def run_project(
                 image_path=str(img_path),
                 engine=spec.engine,
                 language=spec.language,
+                device=resolve_device(spec.device),
             )
             # metadata["pages"] is a list; take the first page dict
             page_dict = first_page_dict(stage_result.metadata)
