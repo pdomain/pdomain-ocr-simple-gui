@@ -3,9 +3,15 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import ResultsPage from "./ResultsPage";
+import { Routes, Route } from "react-router-dom";
+import ResultsPage from "../ResultsPage";
+import {
+  renderWithProviders,
+  makeTestQueryClient,
+  fixtures,
+} from "../../test/test-utils";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 
 // Mock pdomain-ui/primitives
 vi.mock("@pdomain/pdomain-ui/primitives", async (importOriginal) => {
@@ -54,55 +60,6 @@ vi.mock("@pdomain/pdomain-ui/primitives", async (importOriginal) => {
   };
 });
 
-function makeJobStatus(
-  state: "queued" | "running" | "succeeded" | "failed" | "cancelled",
-  pagesDone = 0,
-  pageCount = 3,
-  outputMode?: "next_to_source" | "specified" | "managed",
-) {
-  return {
-    project_id: "proj-abc",
-    name: "test-project",
-    state,
-    pages_done: pagesDone,
-    page_count: pageCount,
-    output_dir: "/tmp/out",
-    output_mode: outputMode,
-    pages: [
-      {
-        page_idx: 0,
-        page_name: "page_001.png",
-        state: "succeeded",
-        text_preview: "Hello world first page text that is long",
-      },
-      {
-        page_idx: 1,
-        page_name: "page_002.png",
-        state: "running",
-        text_preview: "Second page content here",
-      },
-      {
-        page_idx: 2,
-        page_name: "page_003.png",
-        state: "queued",
-        text_preview: "",
-      },
-    ].slice(0, pageCount),
-  };
-}
-
-function makeQueryClient() {
-  return new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-        // Disable garbage collection in tests so data stays available.
-        gcTime: Infinity,
-      },
-    },
-  });
-}
-
 function renderResultsPage(
   projectId = "proj-abc",
   makeFetch?: () => ReturnType<typeof vi.fn>,
@@ -111,27 +68,22 @@ function renderResultsPage(
     ? makeFetch()
     : vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => makeJobStatus("succeeded", 3, 3),
+        json: async () => fixtures.jobStatus("succeeded"),
       });
 
   (globalThis as any).fetch = mockFetch;
 
-  const client = makeQueryClient();
-
   return {
     mockFetch,
-    ...render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={[`/jobs/${projectId}`]}>
-          <Routes>
-            <Route path="/jobs/:id" element={<ResultsPage />} />
-            <Route
-              path="/jobs/:id/pages/:idx"
-              element={<div data-testid="page-view" />}
-            />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+    ...renderWithProviders(
+      <Routes>
+        <Route path="/jobs/:id" element={<ResultsPage />} />
+        <Route
+          path="/jobs/:id/pages/:idx"
+          element={<div data-testid="page-view" />}
+        />
+      </Routes>,
+      { route: `/jobs/${projectId}` },
     ),
   };
 }
@@ -153,7 +105,7 @@ describe("ResultsPage", () => {
     renderResultsPage("proj-abc", () =>
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => makeJobStatus("running", 1, 3),
+        json: async () => fixtures.jobStatus("running", { pagesDone: 1 }),
       }),
     );
 
@@ -174,11 +126,12 @@ describe("ResultsPage", () => {
     renderResultsPage("proj-abc", () =>
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({
-          ...makeJobStatus("running", 0, 3),
-          progress_message:
-            "Loading OCR engine — first run may download ~200 MB to ~/.cache/huggingface",
-        }),
+        json: async () =>
+          fixtures.jobStatus("running", {
+            pagesDone: 0,
+            progressMessage:
+              "Loading OCR engine — first run may download ~200 MB to ~/.cache/huggingface",
+          }),
       }),
     );
 
@@ -193,8 +146,7 @@ describe("ResultsPage", () => {
     renderResultsPage("proj-abc", () =>
       vi.fn().mockResolvedValue({
         ok: true,
-        // No progress_message field at all — testid must be absent.
-        json: async () => makeJobStatus("running", 0, 3),
+        json: async () => fixtures.jobStatus("running", { pagesDone: 0 }),
       }),
     );
 
@@ -212,13 +164,13 @@ describe("ResultsPage", () => {
       callCount++;
       return {
         ok: true,
-        json: async () => makeJobStatus("succeeded", 3, 3),
+        json: async () => fixtures.jobStatus("succeeded"),
       };
     });
 
     (globalThis as any).fetch = mockFetch;
 
-    const client = makeQueryClient();
+    const client = makeTestQueryClient();
 
     render(
       <QueryClientProvider client={client}>
@@ -255,13 +207,13 @@ describe("ResultsPage", () => {
       callCount++;
       return {
         ok: true,
-        json: async () => makeJobStatus("running", callCount, 5),
+        json: async () => fixtures.jobStatus("running", { pagesDone: callCount, pageCount: 5 }),
       };
     });
 
     (globalThis as any).fetch = mockFetch;
 
-    const client = makeQueryClient();
+    const client = makeTestQueryClient();
 
     render(
       <QueryClientProvider client={client}>
@@ -315,7 +267,7 @@ describe("ResultsPage", () => {
     renderResultsPage();
     await waitFor(() => {
       expect(
-        screen.getByText("Hello world first page text that is long"),
+        screen.getByText("Preview page 1"),
       ).toBeInTheDocument();
     });
   });
@@ -350,13 +302,13 @@ describe("ResultsPage", () => {
         }
         return {
           ok: true,
-          json: async () => makeJobStatus("succeeded", 3, 3),
+          json: async () => fixtures.jobStatus("succeeded"),
         };
       });
 
     (globalThis as any).fetch = mockFetch;
 
-    const client = makeQueryClient();
+    const client = makeTestQueryClient();
 
     render(
       <QueryClientProvider client={client}>
@@ -394,16 +346,15 @@ describe("ResultsPage", () => {
           };
         }
         fetchCount++;
-        // Always return done so button stays visible and polling stops
         return {
           ok: true,
-          json: async () => makeJobStatus("succeeded", 3, 3),
+          json: async () => fixtures.jobStatus("succeeded"),
         };
       });
 
     (globalThis as any).fetch = mockFetch;
 
-    const client = makeQueryClient();
+    const client = makeTestQueryClient();
 
     render(
       <QueryClientProvider client={client}>
@@ -435,9 +386,9 @@ describe("ResultsPage", () => {
   it("shows download button when output_mode is managed and state is succeeded", async () => {
     (globalThis as any).fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => makeJobStatus("succeeded", 3, 3, "managed"),
+      json: async () => fixtures.jobStatus("succeeded", { outputMode: "managed" }),
     });
-    const client = makeQueryClient();
+    const client = makeTestQueryClient();
     render(
       <QueryClientProvider client={client}>
         <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
@@ -455,9 +406,9 @@ describe("ResultsPage", () => {
   it("hides download button when output_mode is next_to_source", async () => {
     (globalThis as any).fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => makeJobStatus("succeeded", 3, 3, "next_to_source"),
+      json: async () => fixtures.jobStatus("succeeded", { outputMode: "next_to_source" }),
     });
-    const client = makeQueryClient();
+    const client = makeTestQueryClient();
     render(
       <QueryClientProvider client={client}>
         <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
@@ -478,9 +429,9 @@ describe("ResultsPage", () => {
   it("hides download button when state is not succeeded", async () => {
     (globalThis as any).fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => makeJobStatus("running", 1, 3, "managed"),
+      json: async () => fixtures.jobStatus("running", { pagesDone: 1, outputMode: "managed" }),
     });
-    const client = makeQueryClient();
+    const client = makeTestQueryClient();
     render(
       <QueryClientProvider client={client}>
         <MemoryRouter initialEntries={["/jobs/proj-abc"]}>

@@ -128,7 +128,7 @@ export interface JobStatusFixture {
   state: JobState;
   pages_done: number;
   page_count: number;
-  output_dir?: string;
+  output_dir: string;
   output_mode?: OutputMode;
   pages: PageRow[];
   progress_message?: string;
@@ -174,7 +174,8 @@ export const fixtures = {
     state,
     pages_done: pagesDone,
     page_count: pageCount,
-    ...(outputMode !== undefined ? { output_dir: "/tmp/out", output_mode: outputMode } : {}),
+    output_dir: "/tmp/out",
+    ...(outputMode !== undefined ? { output_mode: outputMode } : {}),
     ...(progressMessage !== undefined ? { progress_message: progressMessage } : {}),
     pages: Array.from({ length: pageCount }, (_, i) => ({
       page_idx: i,
