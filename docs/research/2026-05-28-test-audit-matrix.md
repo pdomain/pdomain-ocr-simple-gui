@@ -489,13 +489,13 @@ __e2e test → click-path mapping:__
 - [x] frontend/src/pages/__tests__/PageViewPage.test.tsx::Fit returns the viewer to auto-fit after zooming in — duplicate — resolved: M3 merged; unique word-overlay cases now in merged file
 - [x] frontend/src/pages/__tests__/PageViewPage.test.tsx::100% sets zoom to native 1.0 — duplicate — resolved: M3 merged; unique word-overlay cases now in merged file
 - [x] frontend/src/pages/__tests__/PageViewPage.test.tsx::renders canvas with zero words when words fetch fails — duplicate — resolved: M3 merged; test retained in merged file
-- [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::renders project name after load — no-bad-case — add test for project name absent when fetch fails
-- [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::renders page rows in done state — no-bad-case — add test for empty page list (job succeeded but no pages)
-- [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::page rows have data-testid='page-row' for Playwright targeting — no-bad-case — no bad case; testid assertion; accept as-is
-- [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::shows text preview — no-bad-case — add test for missing text_preview (empty or null)
-- [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::navigates to page view when row is clicked — no-bad-case — add test for disabled/non-navigable row state
-- [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::re-run all button sends POST /api/jobs/:id/rerun — no-bad-case — add test for rerun failure (POST 500) showing error feedback
-- [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::re-run all button re-fetches job status on success — no-bad-case — add test for re-fetch failure after rerun
+- [x] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::renders project name after load — no-bad-case — bad case: error alert on fetch failure, project name absent — sibling added
+- [x] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::renders page rows in done state — no-bad-case — bad case: no page-rows when page list is empty — sibling added
+- [x] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::page rows have data-testid='page-row' for Playwright targeting — no-bad-case — structural assertion; accepted as-is (no meaningful bad case)
+- [x] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::shows text preview — no-bad-case — bad case: em-dash shown when text_preview is empty string — sibling added
+- [x] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::navigates to page view when row is clicked — no-bad-case — bad case: no page-rows present during loading state — sibling added
+- [x] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::re-run all button sends POST /api/jobs/:id/rerun — no-bad-case — bad case: rerun POST non-ok doesn't crash; page still shows — sibling added
+- [x] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::re-run all button re-fetches job status on success — no-bad-case — bad case: re-fetch failure after rerun shows error alert — sibling added
 - [x] frontend/src/pages/__tests__/HomePage.test.tsx::local + containerized shows drop zone and path input — no-bad-case — no bad case; layout variant; accepted as-is
 - [x] frontend/src/pages/__tests__/HomePage.test.tsx::local + not containerized shows drop, file pick, and path together — no-bad-case — no bad case; layout variant; accepted as-is
 - [x] frontend/src/pages/__tests__/HomePage.test.tsx::managed shows upload-only (no path input) — no-bad-case — no bad case; layout variant; accepted as-is

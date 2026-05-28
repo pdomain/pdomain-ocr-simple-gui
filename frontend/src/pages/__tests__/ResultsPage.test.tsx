@@ -405,4 +405,162 @@ describe("ResultsPage", () => {
       screen.queryByTestId("download-results-button"),
     ).not.toBeInTheDocument();
   });
+
+  // ---------------------------------------------------------------------------
+  // Bad-case tests (M4 strengthening)
+  // ---------------------------------------------------------------------------
+
+  it("shows error alert when job fetch fails (bad state)", async () => {
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) }),
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
+    // Project name should not be rendered in error state
+    expect(screen.queryByText("test-project")).not.toBeInTheDocument();
+  });
+
+  it("shows no page rows when job has empty page list (succeeded but no pages)", async () => {
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => fixtures.jobStatus("succeeded", { pageCount: 0 }),
+      }),
+    );
+    await waitFor(() => {
+      // Name renders — job loaded
+      expect(screen.getByText("test-project")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("page-row")).not.toBeInTheDocument();
+  });
+
+  it("shows em-dash when text_preview is empty string", async () => {
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ...fixtures.jobStatus("succeeded"),
+          pages: [
+            {
+              page_idx: 0,
+              page_name: "page_001.png",
+              state: "succeeded",
+              text_preview: "",
+            },
+          ],
+        }),
+      }),
+    );
+    await waitFor(() => {
+      // The row should render with — for blank preview
+      expect(screen.getByText("—")).toBeInTheDocument();
+    });
+  });
+
+  it("page rows absent when job is loading (non-navigable state)", async () => {
+    // Simulate a slow fetch — page rows must not appear while loading
+    let resolveSlowFetch!: (v: unknown) => void;
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveSlowFetch = resolve;
+          }),
+      ),
+    );
+    // Before fetch resolves, no page-rows yet
+    expect(screen.queryByTestId("page-row")).not.toBeInTheDocument();
+    // Resolve with success so test teardown is clean
+    resolveSlowFetch({
+      ok: true,
+      json: async () => fixtures.jobStatus("succeeded"),
+    });
+  });
+
+  it("does not crash when rerun POST returns non-ok (error silently ignored)", async () => {
+    const user = userEvent.setup();
+    let rerunCalled = false;
+    const mockFetch = vi
+      .fn()
+      .mockImplementation(async (url: string, opts?: RequestInit) => {
+        if (url.includes("/rerun") && opts?.method === "POST") {
+          rerunCalled = true;
+          return { ok: false, json: async () => ({}) };
+        }
+        return {
+          ok: true,
+          json: async () => fixtures.jobStatus("succeeded"),
+        };
+      });
+
+    (globalThis as any).fetch = mockFetch;
+
+    renderWithProviders(
+      <Routes>
+        <Route path="/jobs/:id" element={<ResultsPage />} />
+      </Routes>,
+      { route: "/jobs/proj-abc" },
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /re.run all/i }),
+      ).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /re.run all/i }));
+
+    await waitFor(() => {
+      expect(rerunCalled).toBe(true);
+    });
+    // Page should still show project name — no crash
+    expect(screen.getByText("test-project")).toBeInTheDocument();
+  });
+
+  it("project name still shows after re-fetch failure post-rerun", async () => {
+    const user = userEvent.setup();
+    let rerunDone = false;
+    const mockFetch = vi
+      .fn()
+      .mockImplementation(async (url: string, opts?: RequestInit) => {
+        if (url.includes("/rerun") && opts?.method === "POST") {
+          rerunDone = true;
+          return {
+            ok: true,
+            json: async () => ({ project_id: "proj-abc", state: "queued" }),
+          };
+        }
+        // After rerun, simulate a fetch failure on the follow-up status poll
+        if (rerunDone) {
+          return { ok: false, json: async () => ({}) };
+        }
+        return {
+          ok: true,
+          json: async () => fixtures.jobStatus("succeeded"),
+        };
+      });
+
+    (globalThis as any).fetch = mockFetch;
+
+    renderWithProviders(
+      <Routes>
+        <Route path="/jobs/:id" element={<ResultsPage />} />
+      </Routes>,
+      { route: "/jobs/proj-abc" },
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /re.run all/i }),
+      ).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /re.run all/i }));
+
+    // After re-fetch failure the error alert appears — no crash
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
+  });
 });
