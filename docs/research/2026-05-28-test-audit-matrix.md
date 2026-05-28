@@ -501,4 +501,4 @@ __e2e test → click-path mapping:__
 - [x] frontend/src/pages/__tests__/HomePage.test.tsx::managed shows upload-only (no path input) — no-bad-case — no bad case; layout variant; accepted as-is
 - [x] frontend/src/pages/__tests__/HomePage.test.tsx::JobConfigInline is hidden until a source is chosen — no-bad-case — no bad case; conditional render assertion; accepted as-is
 - [x] frontend/src/pages/__tests__/HomePage.test.tsx::JobConfigInline appears after a path is chosen, and clears on cancel — no-bad-case — no bad case; state transition assertion; accepted as-is
-- [ ] frontend/src/runtime/__tests__/ConfigContext.test.tsx::fetches /api/config on mount — no-bad-case — add test for fetch failure (network error) → error state or fallback
+- [x] frontend/src/runtime/__tests__/ConfigContext.test.tsx::fetches /api/config on mount — no-bad-case — bad cases: non-ok response + network error both keep cfg=null (loading state); no crash — siblings added
