@@ -9,73 +9,17 @@ from httpx import ASGITransport, AsyncClient
 
 from pdomain_ocr_simple_gui.app import app
 from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
-from pdomain_ocr_simple_gui.storage import write_page_sidecar, write_project
-
-
-@pytest.fixture
-async def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncClient:
-    """Async HTTP client with tmp storage root."""
-
-    root = tmp_path / "projects"
-    root.mkdir()
-    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac  # type: ignore[misc]
-
-
-@pytest.fixture
-def project_with_image(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[str, Path]:
-    """Create a project with one page and a real (tiny) image file."""
-
-    root = tmp_path / "projects"
-    root.mkdir(exist_ok=True)
-    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
-
-    # Create a minimal but valid 4x4 white PNG using Pillow so transcoding works.
-    from datetime import UTC, datetime
-    from io import BytesIO
-
-    from PIL import Image
-
-    buf = BytesIO()
-    Image.new("RGB", (4, 4), color="white").save(buf, format="PNG")
-    png_bytes = buf.getvalue()
-    source_dir = tmp_path / "source"
-    source_dir.mkdir()
-    img_path = source_dir / "page_001.png"
-    img_path.write_bytes(png_bytes)
-
-    project_id = "pages-test-001"
-    spec = ProjectSpec(
-        project_id=project_id,
-        name="Pages Test",
-        source_path=str(source_dir),
-        output_dir=str(tmp_path / "output"),
-        engine="doctr",
-        language="en",
-        created_at=datetime(2026, 1, 1, tzinfo=UTC),
-        last_opened_at=datetime(2026, 1, 2, tzinfo=UTC),
-    )
-    status = ProjectStatus(
-        project_id=project_id,
-        state="succeeded",
-        page_count=1,
-        pages_done=1,
-        pages=[PageResult(page_idx=0, page_name="page_001.png", state="succeeded", text_preview="Hello")],
-    )
-    write_project(spec, status)
-    write_page_sidecar(spec, 0, {"page_idx": 0, "text": "Hello world", "edited_text": None})
-    return project_id, img_path
+from pdomain_ocr_simple_gui.storage import write_project
 
 
 class TestGetPage:
     async def test_returns_page_response(
         self,
-        client: AsyncClient,
+        async_client: AsyncClient,
         project_with_image: tuple[str, Path],
     ) -> None:
         project_id, _ = project_with_image
-        resp = await client.get(f"/api/pages/{project_id}/0")
+        resp = await async_client.get(f"/api/pages/{project_id}/0")
         assert resp.status_code == 200
         data = resp.json()
         # Issue #5: must return PageResponse shape
@@ -86,24 +30,24 @@ class TestGetPage:
         assert data["width"] == 800
         assert data["height"] == 1200
 
-    async def test_404_for_missing_project(self, client: AsyncClient) -> None:
-        resp = await client.get("/api/pages/nonexistent/0")
+    async def test_404_for_missing_project(self, async_client: AsyncClient) -> None:
+        resp = await async_client.get("/api/pages/nonexistent/0")
         assert resp.status_code == 404
 
     async def test_404_for_missing_page(
         self,
-        client: AsyncClient,
+        async_client: AsyncClient,
         project_with_image: tuple[str, Path],
     ) -> None:
         project_id, _ = project_with_image
-        resp = await client.get(f"/api/pages/{project_id}/99")
+        resp = await async_client.get(f"/api/pages/{project_id}/99")
         assert resp.status_code == 404
 
 
 class TestGetPageTextFallback:
     async def test_falls_back_to_text_preview_when_sidecar_missing(
         self,
-        client: AsyncClient,
+        async_client: AsyncClient,
         tmp_path: Path,
     ) -> None:
         """GET /api/pages returns status text_preview when no sidecar file exists."""
@@ -136,7 +80,7 @@ class TestGetPageTextFallback:
         )
         write_project(spec, status)
         # Deliberately do NOT call write_page_sidecar.
-        resp = await client.get(f"/api/pages/{project_id}/0")
+        resp = await async_client.get(f"/api/pages/{project_id}/0")
         assert resp.status_code == 200
         data = resp.json()
         assert data["text"] == "preview text from status"
@@ -145,12 +89,12 @@ class TestGetPageTextFallback:
 class TestGetPageImage:
     async def test_streams_transcoded_image(
         self,
-        client: AsyncClient,
+        async_client: AsyncClient,
         project_with_image: tuple[str, Path],
     ) -> None:
         """Default (no WebP in Accept) returns PNG transcode of the source."""
         project_id, _img_path = project_with_image
-        resp = await client.get(
+        resp = await async_client.get(
             f"/api/pages/{project_id}/0/image",
             headers={"Accept": "image/png"},
         )
@@ -161,12 +105,12 @@ class TestGetPageImage:
 
     async def test_serves_webp_when_accept_includes_webp(
         self,
-        client: AsyncClient,
+        async_client: AsyncClient,
         project_with_image: tuple[str, Path],
     ) -> None:
         """Browsers advertising image/webp get a WebP transcode."""
         project_id, _ = project_with_image
-        resp = await client.get(
+        resp = await async_client.get(
             f"/api/pages/{project_id}/0/image",
             headers={"Accept": "image/webp,image/png,image/*"},
         )
@@ -178,11 +122,11 @@ class TestGetPageImage:
 
     async def test_falls_back_to_png_without_webp_in_accept(
         self,
-        client: AsyncClient,
+        async_client: AsyncClient,
         project_with_image: tuple[str, Path],
     ) -> None:
         project_id, _ = project_with_image
-        resp = await client.get(
+        resp = await async_client.get(
             f"/api/pages/{project_id}/0/image",
             headers={"Accept": "image/png,image/jpeg"},
         )
@@ -191,23 +135,23 @@ class TestGetPageImage:
 
     async def test_404_when_image_file_missing(
         self,
-        client: AsyncClient,
+        async_client: AsyncClient,
         project_with_image: tuple[str, Path],
     ) -> None:
         project_id, img_path = project_with_image
         img_path.unlink()
-        resp = await client.get(f"/api/pages/{project_id}/0/image")
+        resp = await async_client.get(f"/api/pages/{project_id}/0/image")
         assert resp.status_code == 404
 
 
 class TestPutPageText:
     async def test_saves_text(
         self,
-        client: AsyncClient,
+        async_client: AsyncClient,
         project_with_image: tuple[str, Path],
     ) -> None:
         project_id, _ = project_with_image
-        resp = await client.put(
+        resp = await async_client.put(
             f"/api/pages/{project_id}/0/text",
             json={"text": "edited text here"},
         )
@@ -215,16 +159,16 @@ class TestPutPageText:
 
     async def test_text_persisted_in_sidecar(
         self,
-        client: AsyncClient,
+        async_client: AsyncClient,
         project_with_image: tuple[str, Path],
     ) -> None:
         project_id, _ = project_with_image
-        await client.put(
+        await async_client.put(
             f"/api/pages/{project_id}/0/text",
             json={"text": "updated text"},
         )
         # Issue #5: GET now returns PageResponse; edited_text is surfaced as "text"
-        get_resp = await client.get(f"/api/pages/{project_id}/0")
+        get_resp = await async_client.get(f"/api/pages/{project_id}/0")
         data = get_resp.json()
         assert data.get("text") == "updated text"
 
@@ -298,7 +242,7 @@ class TestGetPageImageFilePath:
 class TestPostPageRerun:
     async def test_returns_200_with_mock_dispatcher(
         self,
-        client: AsyncClient,
+        async_client: AsyncClient,
         project_with_image: tuple[str, Path],
     ) -> None:
         """Rerun route returns 200 and updated PageResult with mocked dispatcher."""
@@ -314,7 +258,7 @@ class TestPostPageRerun:
         mock_dispatcher.run_stage = AsyncMock(return_value=fake_result)
 
         with patch("pdomain_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
-            resp = await client.post(f"/api/pages/{project_id}/0/rerun")
+            resp = await async_client.post(f"/api/pages/{project_id}/0/rerun")
 
         assert resp.status_code == 200
         data = resp.json()
@@ -420,7 +364,7 @@ class TestPostPageRerun:
 
     async def test_rerun_awaits_run_stage_non_blocking(
         self,
-        client: AsyncClient,
+        async_client: AsyncClient,
         project_with_image: tuple[str, Path],
     ) -> None:
         """dispatcher.run_stage is async and must be awaited directly (Issue #10).
@@ -439,7 +383,7 @@ class TestPostPageRerun:
         mock_dispatcher.run_stage = AsyncMock(return_value=fake_result)
 
         with patch("pdomain_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
-            resp = await client.post(f"/api/pages/{project_id}/0/rerun")
+            resp = await async_client.post(f"/api/pages/{project_id}/0/rerun")
 
         assert resp.status_code == 200
         mock_dispatcher.run_stage.assert_awaited_once()
@@ -449,7 +393,7 @@ class TestPostPageRerun:
 
     async def test_rerun_returns_failed_state_on_error(
         self,
-        client: AsyncClient,
+        async_client: AsyncClient,
         project_with_image: tuple[str, Path],
     ) -> None:
         """Rerun returns failed state when dispatcher raises."""
@@ -461,7 +405,7 @@ class TestPostPageRerun:
         mock_dispatcher.run_stage = AsyncMock(side_effect=RuntimeError("OCR failed"))
 
         with patch("pdomain_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
-            resp = await client.post(f"/api/pages/{project_id}/0/rerun")
+            resp = await async_client.post(f"/api/pages/{project_id}/0/rerun")
 
         assert resp.status_code == 200
         data = resp.json()
@@ -470,7 +414,7 @@ class TestPostPageRerun:
 
     async def test_rerun_updates_page_state(
         self,
-        client: AsyncClient,
+        async_client: AsyncClient,
         project_with_image: tuple[str, Path],
     ) -> None:
         """After rerun, GET page returns updated state."""
@@ -497,9 +441,9 @@ class TestPostPageRerun:
         mock_dispatcher.run_stage = AsyncMock(return_value=fake_result)
 
         with patch("pdomain_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
-            await client.post(f"/api/pages/{project_id}/0/rerun")
+            await async_client.post(f"/api/pages/{project_id}/0/rerun")
 
-        get_resp = await client.get(f"/api/pages/{project_id}/0")
+        get_resp = await async_client.get(f"/api/pages/{project_id}/0")
         assert get_resp.status_code == 200
         data = get_resp.json()
         assert data.get("text") == "rerun text"
