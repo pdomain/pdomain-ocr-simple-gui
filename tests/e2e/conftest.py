@@ -96,6 +96,8 @@ def live_server_url(e2e_data_root: Path) -> Generator[str, None, None]:
         "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(e2e_data_root / "outputs"),
         "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(e2e_data_root / "jobs_meta"),
         "PD_OCR_SIMPLE_GUI_UPLOAD_ROOT": str(e2e_data_root / "uploads"),
+        # Use FakeStageDispatcher so browser e2e tests run fast without model weights.
+        "PDOMAIN_OCR_FAKE_DISPATCHER": "1",
     }
 
     proc = subprocess.Popen(
