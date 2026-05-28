@@ -11,6 +11,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from pdomain_ocr_simple_gui.app import app
+from pdomain_ocr_simple_gui.testing.fake_dispatcher import FakeStageDispatcher
 
 # ---------------------------------------------------------------------------
 # Storage root
@@ -202,3 +203,32 @@ async def client_no_prefs(monkeypatch: pytest.MonkeyPatch) -> AsyncClient:
     monkeypatch.setattr(app_mod, "_prefs_adapter", None)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# Fake OCR dispatcher seam
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def use_fake_dispatcher(monkeypatch: pytest.MonkeyPatch) -> FakeStageDispatcher:
+    """Replace the module-level OCR dispatcher with a deterministic fake.
+
+    Patches ``pdomain_ocr_simple_gui.app._dispatcher`` so that any call to
+    ``get_dispatcher()`` — including from ``_pipeline_run_job`` — returns the
+    fake instead of a real ``LocalStageDispatcher``.  No model weights are
+    loaded; the pipeline completes synchronously and deterministically.
+
+    Returns the ``FakeStageDispatcher`` instance so tests can inspect or
+    reconfigure it (e.g. change ``._text`` before the POST).
+
+    Example::
+
+        async def test_my_job(tmp_path, monkeypatch, use_fake_dispatcher):
+            ...  # POST /api/jobs → pipeline uses fake OCR
+    """
+    import pdomain_ocr_simple_gui.app as app_mod
+
+    fake = FakeStageDispatcher()
+    monkeypatch.setattr(app_mod, "_dispatcher", fake)
+    return fake

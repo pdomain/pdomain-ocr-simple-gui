@@ -543,6 +543,105 @@ class TestUploadIdSource:
         assert "source" in resp.json()["detail"].lower()
 
 
+class TestFakeDispatcherEndToEnd:
+    """End-to-end job run using the FakeStageDispatcher seam — no model weights."""
+
+    async def test_job_runs_with_fake_dispatcher(
+        self,
+        tmp_path,
+        monkeypatch,
+        use_fake_dispatcher,
+    ) -> None:
+        """POST /api/jobs → pipeline completes with fake OCR → state=succeeded.
+
+        Good state: with the fake dispatcher wired in, a job with a real
+        image file on disk completes without loading any OCR model weights.
+        The fake text is persisted to storage and the job reaches 'succeeded'.
+        """
+        from io import BytesIO
+
+        from PIL import Image
+
+        # Isolate storage
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+
+        # Create a real tiny PNG so collect_images finds it
+        src = tmp_path / "source"
+        src.mkdir()
+        buf = BytesIO()
+        Image.new("RGB", (4, 4), color="white").save(buf, format="PNG")
+        (src / "page001.png").write_bytes(buf.getvalue())
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.post(
+                "/api/jobs",
+                json={
+                    "name": "fake-e2e",
+                    "source_path": str(src),
+                    "output_dir": str(tmp_path / "output"),
+                    "engine": "doctr",
+                    "language": "en",
+                },
+            )
+        assert resp.status_code == 202
+        project_id = resp.json()["project_id"]
+
+        # Background task has already run (ASGITransport executes it inline)
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            status_resp = await ac.get(f"/api/jobs/{project_id}")
+        assert status_resp.status_code == 200
+        data = status_resp.json()
+        assert data["state"] == "succeeded", f"expected succeeded, got {data['state']}: {data}"
+
+    async def test_pages_contain_fake_text_after_run(
+        self,
+        tmp_path,
+        monkeypatch,
+        use_fake_dispatcher,
+    ) -> None:
+        """After a fake-dispatcher run, GET /api/pages/{id}/0 returns the fake text.
+
+        Good state: the fake text written to sidecar is readable via the
+        pages route without any model weights.
+        """
+        from io import BytesIO
+
+        from PIL import Image
+
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+
+        src = tmp_path / "source"
+        src.mkdir()
+        buf = BytesIO()
+        Image.new("RGB", (4, 4), color="white").save(buf, format="PNG")
+        (src / "page001.png").write_bytes(buf.getvalue())
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.post(
+                "/api/jobs",
+                json={
+                    "source_path": str(src),
+                    "output_dir": str(tmp_path / "output"),
+                    "engine": "doctr",
+                    "language": "en",
+                },
+            )
+        project_id = resp.json()["project_id"]
+
+        # Fetch page 0 from the pages route (pages use /{project_id}/{page_idx})
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            page_resp = await ac.get(f"/api/pages/{project_id}/0")
+        assert page_resp.status_code == 200
+        page_data = page_resp.json()
+        text = page_data.get("text", "")
+        # The sidecar text must contain the fake OCR text (default "fake OCR output")
+        assert "fake" in text.lower(), f"Expected fake OCR text in page, got: {text!r}"
+
+
 class TestOutputModeRoundTrip:
     """output_mode written on create, returned on GET /api/jobs/{id}."""
 
