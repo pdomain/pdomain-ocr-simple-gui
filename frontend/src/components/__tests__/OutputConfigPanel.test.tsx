@@ -43,3 +43,21 @@ it("emits change when path is typed in specified mode", () => {
     path: "/out",
   });
 });
+
+it("emits change with empty path when path input is cleared", () => {
+  const onChange = vi.fn();
+  render(
+    <OutputConfigPanel
+      mode="local"
+      sourceIsFolder
+      value={{ mode: "specified", path: "/existing" }}
+      onChange={onChange}
+    />,
+  );
+  const input = screen.getByTestId("output-specified-path");
+  fireEvent.change(input, { target: { value: "" } });
+  expect(onChange).toHaveBeenLastCalledWith({
+    mode: "specified",
+    path: "",
+  });
+});
