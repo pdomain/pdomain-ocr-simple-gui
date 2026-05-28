@@ -308,6 +308,23 @@ Mock-depth breakdown: none — 128, shallow — 38, deep — 35.
 
 ---
 
+## Frontend summary
+
+Frontend tests: 83 collected across 18 files.
+
+| Reason code | Count |
+|---|---|
+| ok | 6 |
+| no-bad-case | 55 |
+| asserts-mock | 7 |
+| duplicate | 18 |
+
+The 18 duplicates all come from `pages/PageViewPage.test.tsx` (co-located,
+13 tests) and `pages/__tests__/PageViewPage.test.tsx` (5 tests). M3 plan:
+merge unique cases into `__tests__/` and delete the co-located file.
+
+---
+
 ## Click-path matrix
 
 | Interactive element | Component | Current coverage | Target |
