@@ -9,8 +9,8 @@
 
 import { renderHook, act } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { useOcrJob } from "./useOcrJob";
-import type { OcrJobData } from "./useOcrJob";
+import { useOcrJob } from "../useOcrJob";
+import type { OcrJobData } from "../useOcrJob";
 
 function makeBackendResponse(
   state: "queued" | "running" | "succeeded" | "failed" | "cancelled",
