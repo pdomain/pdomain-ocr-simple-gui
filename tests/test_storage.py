@@ -52,6 +52,14 @@ class TestGetProjectDir:
         p = get_project_dir("my-id")
         assert p == projects_root / "my-id"
 
+    def test_falls_back_to_default_when_env_unset(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When env var is unset, get_project_dir returns a path under the default root."""
+        monkeypatch.delenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", raising=False)
+        p = get_project_dir("some-id")
+        # Must be a valid path under some root (not empty, ends with the id)
+        assert p.name == "some-id"
+        assert p.parent.name  # parent is non-empty (the default root stem)
+
 
 class TestWriteReadProject:
     def test_round_trip(self, projects_root: Path, tmp_path: Path) -> None:
@@ -111,6 +119,13 @@ class TestWriteTxt:
         assert txt_path.exists()
         assert txt_path.read_text() == "Hello page 0"
 
+    def test_write_txt_out_of_range_raises(self, projects_root: Path, tmp_path: Path) -> None:
+        """write_txt for an out-of-range page index raises FileNotFoundError."""
+        spec = _make_spec(tmp_path)
+        write_project(spec, _make_status())
+        with pytest.raises(FileNotFoundError):
+            write_txt(spec, 99, "should not be written")
+
 
 class TestWriteCombinedTxt:
     def test_combined_txt_concatenates(self, projects_root: Path, tmp_path: Path) -> None:
@@ -124,6 +139,18 @@ class TestWriteCombinedTxt:
         assert "Page one text" in combined
         assert "Page two text" in combined
 
+    def test_combined_txt_with_empty_page_text(self, projects_root: Path, tmp_path: Path) -> None:
+        """Pages with empty text are included — separator is still correct."""
+        spec = _make_spec(tmp_path)
+        status = _make_status()
+        write_project(spec, status)
+        write_txt(spec, 0, "")
+        write_txt(spec, 1, "Page two text")
+        write_combined_txt(spec, status)
+        combined = (projects_root / "test-proj-id-001" / "combined.txt").read_text()
+        # The non-empty page must appear; the empty page contributes an empty string
+        assert "Page two text" in combined
+
 
 class TestListProjects:
     def test_empty_when_no_projects(self, projects_root: Path) -> None:
@@ -135,6 +162,56 @@ class TestListProjects:
         results = list_projects()
         assert len(results) == 1
         assert results[0][0].project_id == "test-proj-id-001"
+
+    def test_corrupt_project_json_is_skipped_gracefully(self, projects_root: Path, tmp_path: Path) -> None:
+        """A project.json with invalid JSON is skipped; listing must not raise."""
+        # Write a valid project first
+        spec = _make_spec(tmp_path)
+        write_project(spec, _make_status())
+
+        # Add a corrupt sibling directory
+        corrupt_dir = projects_root / "corrupt-proj-zzz"
+        corrupt_dir.mkdir()
+        (corrupt_dir / "project.json").write_text("this is not json {{{")
+
+        results = list_projects()
+        # The valid project is still returned; the corrupt one is silently skipped
+        ids = [s.project_id for s, _ in results]
+        assert "test-proj-id-001" in ids
+        assert "corrupt-proj-zzz" not in ids
+
+    def test_multiple_projects_returned_in_stable_order(self, projects_root: Path, tmp_path: Path) -> None:
+        """Multiple projects are returned in a stable (sorted) order."""
+        from datetime import UTC, datetime
+
+        specs = [
+            ProjectSpec(
+                project_id=pid,
+                name=f"Project {pid}",
+                source_path=str(tmp_path / "source"),
+                output_dir=str(tmp_path / "output"),
+                engine="doctr",
+                language="en",
+                created_at=datetime(2026, 1, 1, tzinfo=UTC),
+                last_opened_at=datetime(2026, 1, 1, tzinfo=UTC),
+            )
+            for pid in ["proj-aaa", "proj-bbb", "proj-ccc"]
+        ]
+        status_base = ProjectStatus(
+            project_id="placeholder",
+            state="succeeded",
+            page_count=0,
+            pages_done=0,
+            pages=[],
+        )
+        for sp in specs:
+            write_project(sp, ProjectStatus(**{**status_base.model_dump(), "project_id": sp.project_id}))
+
+        results = list_projects()
+        returned_ids = [s.project_id for s, _ in results]
+        # All three appear in sorted order
+        assert returned_ids == sorted(returned_ids)
+        assert set(returned_ids) == {"proj-aaa", "proj-bbb", "proj-ccc"}
 
 
 class TestDeleteProject:
