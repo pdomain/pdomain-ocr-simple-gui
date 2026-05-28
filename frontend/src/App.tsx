@@ -31,7 +31,9 @@ import {
   AppShell,
   AppHeader,
   SuiteSiblingsProvider,
+  ShortcutsHelpButton,
 } from "@pdomain/pdomain-ui/shell";
+import { ShortcutsProvider } from "@pdomain/pdomain-ui/hooks";
 import type {
   UIPrefsConfig,
   InstalledApp,
@@ -193,7 +195,11 @@ function AppShellWithHeader() {
       uiPrefsConfig={uiPrefsConfig}
       header={
         // No onSearchClick — simple-gui has no search affordance yet.
-        <AppHeader appName="OCR Simple GUI" activeJobs={activeJobs} />
+        <AppHeader
+          appName="OCR Simple GUI"
+          activeJobs={activeJobs}
+          actions={<ShortcutsHelpButton />}
+        />
       }
       main={<AppRoutes />}
     />
@@ -205,7 +211,9 @@ export default function App() {
     <BrowserRouter>
       <ConfigProvider>
         <SuiteSiblingsProvider value={{ fetchInstalled, postLaunch }}>
-          <AppShellWithHeader />
+          <ShortcutsProvider>
+            <AppShellWithHeader />
+          </ShortcutsProvider>
         </SuiteSiblingsProvider>
       </ConfigProvider>
     </BrowserRouter>

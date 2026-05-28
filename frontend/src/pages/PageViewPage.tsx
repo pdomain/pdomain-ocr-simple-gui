@@ -3,6 +3,7 @@
 // Migrated to PageSplitView — issue #254
 // A8: word overlay fetch wired to ArtifactViewer with WordBbox overlays
 // feat/adopt-richer-primitives: replaced PageImageCanvas with ArtifactViewer
+// feat(viewer): keyboard shortcuts + hover tooltips + ? cheatsheet
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -14,7 +15,10 @@ import {
   Textarea,
   PageSplitView,
   StageToolbar,
+  KeyCap,
 } from "@pdomain/pdomain-ui/primitives";
+import { useShortcuts, formatShortcut } from "@pdomain/pdomain-ui/hooks";
+import type { ShortcutBinding } from "@pdomain/pdomain-ui/hooks";
 import { APP_TEST_IDS } from "../lib/testids";
 import {
   PageViewerWithZoom,
@@ -64,6 +68,35 @@ function apiWordToWordBbox(word: ApiWord, index: number): WordBbox {
     bbox: [x, y, w, h],
     confidence: word.confidence,
   };
+}
+
+/**
+ * KeyButton — Button with an always-visible inline keycap pill after the
+ * label, showing the OS-aware shortcut (⌘S on Mac, Ctrl S elsewhere via
+ * formatShortcut). Spreads all props (data-testid, aria-label) to the inner
+ * Button so existing test selectors are unaffected.
+ */
+function KeyButton({
+  shortcutKeys,
+  children,
+  variant,
+  onClick,
+  disabled,
+  ...rest
+}: {
+  shortcutKeys: string;
+  children: React.ReactNode;
+  variant?: "primary" | "ghost";
+  onClick?: () => void;
+  disabled?: boolean;
+  [k: string]: unknown;
+}) {
+  return (
+    <Button variant={variant} onClick={onClick} disabled={disabled} {...rest}>
+      <span className="key-button__label">{children}</span>
+      <KeyCap keys={formatShortcut(shortcutKeys)} className="key-button__cap" />
+    </Button>
+  );
 }
 
 export default function PageViewPage() {
@@ -209,6 +242,102 @@ export default function PageViewPage() {
     (jobStatus.state === "queued" || jobStatus.state === "running");
   const showJobProgressMessage = jobInFlight && !!jobStatus.progress_message;
 
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+
+  const bindings: ShortcutBinding[] = [
+    // Navigation
+    {
+      keys: "arrowleft",
+      label: "Previous page",
+      group: "Navigation",
+      handler: () => goToPage(pageIdx - 1),
+      when: () => hasPrev,
+    },
+    {
+      keys: "k",
+      label: "Previous page (alt)",
+      group: "Navigation",
+      handler: () => goToPage(pageIdx - 1),
+      when: () => hasPrev,
+    },
+    {
+      keys: "arrowright",
+      label: "Next page",
+      group: "Navigation",
+      handler: () => goToPage(pageIdx + 1),
+      when: () => hasNext,
+    },
+    {
+      keys: "j",
+      label: "Next page (alt)",
+      group: "Navigation",
+      handler: () => goToPage(pageIdx + 1),
+      when: () => hasNext,
+    },
+    // Editing
+    {
+      keys: "mod+s",
+      label: "Save edits",
+      group: "Editing",
+      handler: () => {
+        void handleSave();
+      },
+      when: () => !loading && saveStatus === "idle",
+    },
+    // OCR
+    {
+      keys: "mod+r",
+      label: "Re-run DocTR",
+      group: "OCR",
+      handler: () => {
+        void handleRerun("doctr");
+      },
+      when: () => !loading && rerunStatus === "idle",
+    },
+    {
+      keys: "mod+shift+r",
+      label: "Re-run Tesseract",
+      group: "OCR",
+      handler: () => {
+        void handleRerun("tesseract");
+      },
+      when: () => !loading && rerunStatus === "idle",
+    },
+    // Export
+    {
+      keys: "mod+shift+t",
+      label: "Download .txt",
+      group: "Export",
+      handler: () => {
+        window.location.href = `/api/jobs/${id ?? ""}/download?include=text`;
+      },
+      when: () => !loading,
+    },
+    {
+      keys: "mod+shift+j",
+      label: "Download .json",
+      group: "Export",
+      handler: () => {
+        window.location.href = `/api/jobs/${id ?? ""}/download?include=json`;
+      },
+      when: () => !loading,
+    },
+    {
+      keys: "mod+d",
+      label: "Download .zip",
+      group: "Export",
+      handler: () => {
+        window.location.href = `/api/jobs/${id ?? ""}/download?include=text,json`;
+      },
+      when: () => !loading,
+    },
+  ];
+
+  // Registers these bindings into the app-level ShortcutsProvider, so the
+  // header ? button's cheatsheet is screen-aware. The provider owns the ?
+  // key + cheatsheet rendering globally.
+  useShortcuts(bindings);
+
   const toolbarContent = (
     <>
       {showJobProgressMessage && (
@@ -219,29 +348,30 @@ export default function PageViewPage() {
           {jobStatus.progress_message}
         </span>
       )}
-      <Button
+      <KeyButton
+        shortcutKeys="arrowleft"
         variant="ghost"
         onClick={() => goToPage(pageIdx - 1)}
         disabled={!hasPrev}
         aria-label="Prev page"
       >
         ← Prev
-      </Button>
+      </KeyButton>
 
       <span className="page-view-page__page-indicator">
         {pageData?.page_name ?? `Page ${pageIdx + 1}`}
         {totalPages > 0 ? ` (${pageIdx + 1} / ${totalPages})` : ""}
       </span>
 
-      <Button
+      <KeyButton
+        shortcutKeys="arrowright"
         variant="ghost"
         onClick={() => goToPage(pageIdx + 1)}
         disabled={!hasNext}
         aria-label="Next page"
       >
         Next →
-      </Button>
-
+      </KeyButton>
     </>
   );
 
@@ -251,7 +381,8 @@ export default function PageViewPage() {
       data-testid="page-editor-toolbar"
       leftSlot={
         <>
-          <Button
+          <KeyButton
+            shortcutKeys="mod+s"
             variant="primary"
             onClick={() => {
               void handleSave();
@@ -260,8 +391,9 @@ export default function PageViewPage() {
             aria-label="Save edits"
           >
             {saveStatus === "saving" ? "Saving…" : "Save edits"}
-          </Button>
-          <Button
+          </KeyButton>
+          <KeyButton
+            shortcutKeys="mod+r"
             variant="primary"
             onClick={() => {
               void handleRerun("doctr");
@@ -270,8 +402,9 @@ export default function PageViewPage() {
             aria-label="Re-run with DocTR"
           >
             {rerunStatus === "running" ? "Re-running…" : "Re-run DocTR"}
-          </Button>
-          <Button
+          </KeyButton>
+          <KeyButton
+            shortcutKeys="mod+shift+r"
             variant="primary"
             onClick={() => {
               void handleRerun("tesseract");
@@ -280,8 +413,9 @@ export default function PageViewPage() {
             aria-label="Re-run with Tesseract"
           >
             Re-run Tesseract
-          </Button>
-          <Button
+          </KeyButton>
+          <KeyButton
+            shortcutKeys="mod+shift+t"
             variant="primary"
             data-testid={APP_TEST_IDS.pageDownloadText}
             onClick={() => {
@@ -291,8 +425,9 @@ export default function PageViewPage() {
             aria-label="Download text only"
           >
             ⤓ .txt
-          </Button>
-          <Button
+          </KeyButton>
+          <KeyButton
+            shortcutKeys="mod+shift+j"
             variant="primary"
             data-testid={APP_TEST_IDS.pageDownloadJson}
             onClick={() => {
@@ -302,8 +437,9 @@ export default function PageViewPage() {
             aria-label="Download JSON sidecars only"
           >
             ⤓ .json
-          </Button>
-          <Button
+          </KeyButton>
+          <KeyButton
+            shortcutKeys="mod+d"
             variant="primary"
             data-testid={APP_TEST_IDS.pageDownloadBoth}
             onClick={() => {
@@ -313,7 +449,7 @@ export default function PageViewPage() {
             aria-label="Download text and JSON zip"
           >
             ⤓ .zip
-          </Button>
+          </KeyButton>
         </>
       }
     />

@@ -16,6 +16,15 @@ vi.mock("@pdomain/pdomain-ui/shell", () => ({
   SuiteSiblingsProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
+  ShortcutsHelpButton: () => <div data-testid="shortcuts-help-button-mock" />,
+}));
+
+vi.mock("@pdomain/pdomain-ui/hooks", () => ({
+  ShortcutsProvider: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+  useShortcuts: () => undefined,
+  formatShortcut: (keys: string) => [keys],
 }));
 
 // Mock @pdomain/pdomain-ui/stages/PageWorkbench — ArtifactViewer uses Konva

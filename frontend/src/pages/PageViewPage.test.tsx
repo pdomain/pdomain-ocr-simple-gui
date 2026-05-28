@@ -1,6 +1,7 @@
 // Tests for PageViewPage — M5 task #231
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
@@ -25,6 +26,78 @@ vi.mock("@pdomain/pdomain-ui/stages/PageWorkbench", () => ({
   ),
 }));
 
+// Mock hooks — prevents dual-React issue from pdomain-ui's own node_modules
+// (pdomain-ui links to React 18; app uses React 19; hooks that call useRef
+// from the wrong copy trigger "Cannot read properties of null (reading 'useRef')").
+vi.mock("@pdomain/pdomain-ui/hooks", () => ({
+  useShortcuts: () => undefined,
+  formatShortcut: (keys: string) => [keys],
+}));
+
+// Mock PageViewerWithZoom — avoids Konva/ResizeObserver in jsdom.
+vi.mock("../components/PageViewerWithZoom", () => ({
+  PageViewerWithZoom: React.forwardRef(function PageViewerWithZoomMock(
+    {
+      children,
+      pageWidth,
+      pageHeight,
+    }: {
+      children?: React.ReactNode;
+      pageWidth: number;
+      pageHeight: number;
+    },
+    _ref: React.Ref<unknown>,
+  ) {
+    const [zoom, setZoom] = React.useState(1.0);
+    const [autoFit, setAutoFit] = React.useState(true);
+    return (
+      <div
+        data-testid="page-zoom-viewport"
+        data-zoom={zoom.toFixed(4)}
+        data-auto-fit={String(autoFit)}
+        style={{ width: pageWidth, height: pageHeight }}
+      >
+        <button
+          data-testid="page-zoom-in"
+          onClick={() => {
+            setAutoFit(false);
+            setZoom((z) => z + 0.1);
+          }}
+        >
+          +
+        </button>
+        <button
+          data-testid="page-zoom-out"
+          onClick={() => {
+            setAutoFit(false);
+            setZoom((z) => Math.max(0.1, z - 0.1));
+          }}
+        >
+          -
+        </button>
+        <button
+          data-testid="page-zoom-fit"
+          onClick={() => {
+            setAutoFit(true);
+          }}
+        >
+          Fit
+        </button>
+        <button
+          data-testid="page-zoom-100"
+          onClick={() => {
+            setAutoFit(false);
+            setZoom(1.0);
+          }}
+        >
+          100%
+        </button>
+        {children}
+      </div>
+    );
+  }),
+}));
+
 // Mock pdomain-ui/primitives
 vi.mock("@pdomain/pdomain-ui/primitives", async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -44,6 +117,31 @@ vi.mock("@pdomain/pdomain-ui/primitives", async (importOriginal) => {
         {children}
       </button>
     ),
+    // Tooltip shims — pass-through; testid/aria-label land on inner button.
+    Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    TooltipTrigger: ({
+      children,
+    }: {
+      children: React.ReactNode;
+      asChild?: boolean;
+    }) => <>{children}</>,
+    TooltipContent: ({ children }: { children: React.ReactNode }) => (
+      <div>{children}</div>
+    ),
+    TooltipProvider: ({ children }: { children: React.ReactNode }) => (
+      <>{children}</>
+    ),
+    KeyCap: ({ keys }: { keys: string | string[] }) => (
+      <span>{Array.isArray(keys) ? keys.join("+") : keys}</span>
+    ),
+    ShortcutsCheatsheet: () => null,
+    StageToolbar: ({
+      leftSlot,
+      ...rest
+    }: {
+      leftSlot?: React.ReactNode;
+      [k: string]: unknown;
+    }) => <div {...rest}>{leftSlot}</div>,
     // Minimal DropdownMenu shim: renders trigger + items inline
     DropdownMenu: ({ children }: { children: React.ReactNode }) => (
       <div>{children}</div>

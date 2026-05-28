@@ -349,3 +349,20 @@ form > [class*="Field"] {
 /* .page-toast / .page-toast--success / .page-toast--error removed —
    inline toast spans replaced with sonner toast.success/toast.error calls
    (step 8 of pdomain-ui canonical pattern alignment). */
+
+/* Inline keycap pill inside toolbar buttons (KeyButton). The KeyCap sits
+   after the label, dimmed, so each action advertises its shortcut. */
+.key-button__label {
+  margin-right: 6px;
+}
+.key-button__cap {
+  opacity: 0.75;
+  font-size: 10.5px;
+}
+.key-button__cap .key {
+  border: 1px solid var(--border-2);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-family: var(--mono-font);
+  line-height: 1.5;
+}
