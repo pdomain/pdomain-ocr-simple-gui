@@ -15,6 +15,10 @@ Asserts:
     engine/language config — no 422).
   - At least one page-row populates (job ran and produced output).
 
+Also covers gpu-help-toggle + gpu-help panel (via live_server_url_cpu which
+forces PDOMAIN_GPU_BACKEND=cpu so gpu_available=False and the toggle is
+rendered in the form).
+
 The fake dispatcher ignores engine/language and always returns deterministic
 output, so correctness of OCR output is not asserted here — only that the
 front-end correctly transmits the chosen config to the backend.
@@ -83,3 +87,43 @@ def test_config_form_engine_language_choice_accepted(
         timeout=15_000,
     )
     expect(page.get_by_test_id("page-row").first).to_be_visible(timeout=5_000)
+
+
+@pytest.mark.slow
+@pytest.mark.e2e
+def test_gpu_help_toggle_and_panel(page: Page, live_server_url_cpu: str, tmp_path: Path) -> None:
+    """Click gpu-help-toggle; assert gpu-help panel becomes visible.
+
+    Requires live_server_url_cpu which forces PDOMAIN_GPU_BACKEND=cpu so
+    the /api/config route returns gpu_available=False and the toggle is
+    rendered in the config form.
+
+    Steps:
+    1. Pick a file → inline config form appears.
+    2. Verify gpu-help-toggle is present (cpu mode → no GPU).
+    3. Click gpu-help-toggle.
+    4. Assert gpu-help panel is now visible in the DOM.
+    """
+    img = tmp_path / "scan_cpu.png"
+    img.write_bytes(_PNG_1X1)
+
+    page.goto(live_server_url_cpu)
+    expect(page.get_by_test_id("home-page")).to_be_visible(timeout=10_000)
+
+    # Pick a file to reveal the inline config form
+    page.get_by_test_id("source-picker-file-pick").set_input_files(str(img))
+    expect(page.get_by_test_id("job-config-inline")).to_be_visible(timeout=10_000)
+
+    # gpu-help-toggle must be present (only rendered when gpu_available=False)
+    toggle = page.get_by_test_id("gpu-help-toggle")
+    expect(toggle).to_be_visible(timeout=10_000)
+
+    # gpu-help panel must be hidden before the click
+    gpu_help_panel = page.get_by_test_id("gpu-help")
+    expect(gpu_help_panel).to_be_hidden()
+
+    # Click the toggle
+    toggle.click()
+
+    # Assert the gpu-help panel is now visible
+    expect(gpu_help_panel).to_be_visible(timeout=5_000)

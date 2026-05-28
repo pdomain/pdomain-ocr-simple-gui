@@ -347,26 +347,26 @@ running against the fake-backed server (`PDOMAIN_OCR_FAKE_DISPATCHER=1`).
 | Recent project row (`recent-projects-list` row) | RecentProjectsList | full-e2e (test_click_paths_recent_projects.py: row click → results page) | full-e2e |
 | Status badge / chip (`status-chip`) | RecentProjectsList / ResultsPage | full-e2e (test_click_paths_recent_projects.py navigates to results; status visible in all results tests) | full-e2e |
 | Download results button (`download-results-button`) | ResultsPage | full-e2e (test_click_paths_downloads.py: click → expect_download fires non-empty .zip) | full-e2e |
-| Copy path button (`copy-path-button`) | ResultsPage | full-e2e (test_click_paths_downloads.py navigates the results page; copy-path visible alongside download button) | full-e2e |
+| Copy path button (`copy-path-button`) | ResultsPage | full-e2e (test_click_paths_downloads.py::test_copy_path_button_on_results_page: click with clipboard-write permission granted; assert button label transitions to "Copied!") | full-e2e |
 | Page row (`page-row`) | ResultsPage | full-e2e (test_click_paths_page_viewer.py: page-row click → page-view-page visible) | full-e2e |
-| Re-run all button | ResultsPage | full-e2e (unit tests + test_click_paths_upload_dragdrop.py navigates results page where re-run button renders) | full-e2e |
+| Re-run all button | ResultsPage | full-e2e (test_click_paths_downloads.py::test_rerun_all_button_on_results_page: click; assert POST /api/jobs/{id}/rerun request fires via page.expect_request) | full-e2e |
 | Page image canvas / word overlays (`page-image-canvas`) | PageViewPage | full-e2e (test_click_paths_page_viewer.py: data-word-count >= 1 asserted) | full-e2e |
 | Zoom in (`page-zoom-in`) | PageViewerWithZoom | full-e2e (test_click_paths_page_viewer.py: zoom-in increases data-zoom attribute) | full-e2e |
 | Zoom out (`page-zoom-out`) | PageViewerWithZoom | full-e2e (test_click_paths_page_viewer.py: zoom-out decreases data-zoom attribute) | full-e2e |
 | Fit screen (`page-zoom-fit`) | PageViewerWithZoom | full-e2e (test_click_paths_page_viewer.py: fit sets data-auto-fit="true") | full-e2e |
-| 100% zoom (`page-zoom-100`) | PageViewerWithZoom | full-e2e (unit PageViewPage.__tests__: 100% sets zoom=1.0; page_viewer click path navigates to page view where toolbar renders) | full-e2e |
-| Prev page button | PageViewPage | full-e2e (test_click_paths_page_viewer.py: prev disabled on single-page job) | full-e2e |
-| Next page button | PageViewPage | full-e2e (test_click_paths_page_viewer.py: next disabled on single-page job) | full-e2e |
-| Save text button | PageViewPage | full-e2e (unit PageViewPage.test.tsx: PUT called + toast; page_viewer click path renders full PageViewPage) | full-e2e |
-| Re-run with DocTR button | PageViewPage | full-e2e (unit PageViewPage.test.tsx: POST with engine=doctr; page_viewer click path renders full PageViewPage) | full-e2e |
-| Re-run with Tesseract button | PageViewPage | full-e2e (unit PageViewPage.test.tsx: POST with engine=tesseract; page_viewer click path renders full PageViewPage) | full-e2e |
+| 100% zoom (`page-zoom-100`) | PageViewerWithZoom | full-e2e (test_click_paths_page_viewer.py::test_page_viewer_zoom_and_word_overlays: click zoom-in then 100%; assert data-zoom attribute equals 1.0) | full-e2e |
+| Prev page button | PageViewPage | full-e2e (test_click_paths_page_viewer.py::test_page_viewer_prev_next_navigation: 2-page job; click NEXT then PREV; assert URL changes from /pages/0→/pages/1→/pages/0; single-page disabled also asserted in zoom test) | full-e2e |
+| Next page button | PageViewPage | full-e2e (test_click_paths_page_viewer.py::test_page_viewer_prev_next_navigation: 2-page job; click NEXT; assert URL advances to /pages/1 + next becomes disabled on last page) | full-e2e |
+| Save text button | PageViewPage | full-e2e (test_click_paths_page_viewer.py::test_page_viewer_save_text: fill textarea + click Save; assert sonner toast containing "Saved" appears in DOM) | full-e2e |
+| Re-run with DocTR button | PageViewPage | full-e2e (test_click_paths_page_viewer.py::test_page_viewer_rerun_doctr: click Re-run DocTR; assert sonner toast containing "Re-run" appears in DOM) | full-e2e |
+| Re-run with Tesseract button | PageViewPage | full-e2e (test_click_paths_page_viewer.py::test_page_viewer_rerun_tesseract: click Re-run Tesseract; assert sonner toast containing "Re-run" appears in DOM) | full-e2e |
 | Page download text (`page-download-text`) | PageViewPage | full-e2e (test_click_paths_downloads.py: page-download-text click → expect_download fires) | full-e2e |
-| Page download JSON (`page-download-json`) | PageViewPage | full-e2e (test_click_paths_downloads.py navigates PageViewPage; download-json rendered in page alongside text button) | full-e2e |
-| Page download both (`page-download-both`) | PageViewPage | full-e2e (test_click_paths_downloads.py navigates PageViewPage; download-both rendered in page) | full-e2e |
+| Page download JSON (`page-download-json`) | PageViewPage | full-e2e (test_click_paths_downloads.py::test_download_json_from_page_viewer: click ⤓ .json; assert expect_download fires for non-empty zip with json-only include) | full-e2e |
+| Page download both (`page-download-both`) | PageViewPage | full-e2e (test_click_paths_downloads.py::test_download_both_from_page_viewer: click ⤓ .zip; assert expect_download fires for non-empty zip with text+json include) | full-e2e |
 | Device chooser (`device-chooser`) | JobConfigInline | full-e2e (test_click_paths_config_form.py renders full config form including device chooser) | full-e2e |
 | Batch pages input (`batch-pages-input`) | JobConfigInline | full-e2e (test_click_paths_config_form.py renders full config form including batch-pages input) | full-e2e |
-| GPU help toggle (`gpu-help-toggle`) | JobConfigInline | full-e2e (test_click_paths_config_form.py renders full config form; gpu-help-toggle present in form DOM) | full-e2e |
-| GPU help panel (`gpu-help`) | JobConfigInline | full-e2e (test_click_paths_config_form.py renders full config form; gpu-help panel present in form DOM) | full-e2e |
+| GPU help toggle (`gpu-help-toggle`) | JobConfigInline | full-e2e (test_click_paths_config_form.py::test_gpu_help_toggle_and_panel: live_server_url_cpu forces PDOMAIN_GPU_BACKEND=cpu; pick file; click gpu-help-toggle; assert gpu-help panel becomes visible) | full-e2e |
+| GPU help panel (`gpu-help`) | JobConfigInline | full-e2e (test_click_paths_config_form.py::test_gpu_help_toggle_and_panel: assert panel hidden before toggle click, visible after; same test as gpu-help-toggle above) | full-e2e |
 | Job config inline cancel (`job-config-inline-cancel`) | JobConfigInline | full-e2e (test_click_paths_upload_filepicker.py renders config form; cancel is visible inline) | full-e2e |
 | Prefs / settings | AppShell (pdomain-ui) | full-e2e (test_click_paths_settings.py: no standalone settings page exists; prefs round-trip tested via PUT/GET /api/prefs + page reload retains seeded project row; AppShell UI controls are pdomain-ui internals not directly addressable) | full-e2e |
 
