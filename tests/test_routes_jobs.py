@@ -4,40 +4,10 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
 from httpx import ASGITransport, AsyncClient
 
 from pdomain_ocr_simple_gui.app import app
 from pdomain_ocr_simple_gui.models import ProjectStatus
-
-
-@pytest.fixture
-async def client(tmp_path, monkeypatch):
-    """Async HTTP client wired to the FastAPI app with tmp storage root."""
-
-    root = tmp_path / "projects"
-    root.mkdir()
-    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac
-
-
-@pytest.fixture
-async def client_with_source(tmp_path, monkeypatch):
-    """Client with a tmp storage root AND a real source directory with one image."""
-
-    root = tmp_path / "projects"
-    root.mkdir()
-    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
-
-    # Create a tiny source image
-    src = tmp_path / "source"
-    src.mkdir()
-    (src / "page0.png").touch()
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac, str(src)
-
 
 JOB_PAYLOAD = {
     "name": "Test Job",
@@ -71,17 +41,17 @@ def _make_done_status_callback(project_id: str):
 
 
 class TestPostJob:
-    async def test_creates_job(self, client: AsyncClient) -> None:
-        resp = await client.post("/api/jobs", json=JOB_PAYLOAD)
+    async def test_creates_job(self, async_client: AsyncClient) -> None:
+        resp = await async_client.post("/api/jobs", json=JOB_PAYLOAD)
         assert resp.status_code == 202
         data = resp.json()
         assert "project_id" in data
         assert len(data["project_id"]) > 0
 
-    async def test_created_job_is_retrievable(self, client: AsyncClient) -> None:
-        resp = await client.post("/api/jobs", json=JOB_PAYLOAD)
+    async def test_created_job_is_retrievable(self, async_client: AsyncClient) -> None:
+        resp = await async_client.post("/api/jobs", json=JOB_PAYLOAD)
         project_id = resp.json()["project_id"]
-        get_resp = await client.get(f"/api/jobs/{project_id}")
+        get_resp = await async_client.get(f"/api/jobs/{project_id}")
         assert get_resp.status_code == 200
         status = get_resp.json()
         assert status["project_id"] == project_id
@@ -89,14 +59,14 @@ class TestPostJob:
 
 
 class TestGetJob:
-    async def test_404_for_missing(self, client: AsyncClient) -> None:
-        resp = await client.get("/api/jobs/nonexistent-id")
+    async def test_404_for_missing(self, async_client: AsyncClient) -> None:
+        resp = await async_client.get("/api/jobs/nonexistent-id")
         assert resp.status_code == 404
 
-    async def test_returns_project_status(self, client: AsyncClient) -> None:
-        post_resp = await client.post("/api/jobs", json=JOB_PAYLOAD)
+    async def test_returns_project_status(self, async_client: AsyncClient) -> None:
+        post_resp = await async_client.post("/api/jobs", json=JOB_PAYLOAD)
         project_id = post_resp.json()["project_id"]
-        get_resp = await client.get(f"/api/jobs/{project_id}")
+        get_resp = await async_client.get(f"/api/jobs/{project_id}")
         status = get_resp.json()
         assert status["project_id"] == project_id
         assert "state" in status
@@ -109,15 +79,15 @@ class TestGetJob:
 
 
 class TestListJobs:
-    async def test_empty_list(self, client: AsyncClient) -> None:
-        resp = await client.get("/api/jobs")
+    async def test_empty_list(self, async_client: AsyncClient) -> None:
+        resp = await async_client.get("/api/jobs")
         assert resp.status_code == 200
         assert resp.json() == []
 
-    async def test_lists_created_jobs(self, client: AsyncClient) -> None:
-        await client.post("/api/jobs", json=JOB_PAYLOAD)
-        await client.post("/api/jobs", json={**JOB_PAYLOAD, "name": "Job 2"})
-        resp = await client.get("/api/jobs")
+    async def test_lists_created_jobs(self, async_client: AsyncClient) -> None:
+        await async_client.post("/api/jobs", json=JOB_PAYLOAD)
+        await async_client.post("/api/jobs", json={**JOB_PAYLOAD, "name": "Job 2"})
+        resp = await async_client.get("/api/jobs")
         assert resp.status_code == 200
         items = resp.json()
         assert len(items) == 2
@@ -126,16 +96,16 @@ class TestListJobs:
 
 
 class TestDeleteJob:
-    async def test_delete_removes_job(self, client: AsyncClient) -> None:
-        post_resp = await client.post("/api/jobs", json=JOB_PAYLOAD)
+    async def test_delete_removes_job(self, async_client: AsyncClient) -> None:
+        post_resp = await async_client.post("/api/jobs", json=JOB_PAYLOAD)
         project_id = post_resp.json()["project_id"]
-        del_resp = await client.delete(f"/api/jobs/{project_id}")
+        del_resp = await async_client.delete(f"/api/jobs/{project_id}")
         assert del_resp.status_code == 200
-        get_resp = await client.get(f"/api/jobs/{project_id}")
+        get_resp = await async_client.get(f"/api/jobs/{project_id}")
         assert get_resp.status_code == 404
 
-    async def test_delete_missing_is_204(self, client: AsyncClient) -> None:
-        resp = await client.delete("/api/jobs/does-not-exist")
+    async def test_delete_missing_is_204(self, async_client: AsyncClient) -> None:
+        resp = await async_client.delete("/api/jobs/does-not-exist")
         assert resp.status_code == 204
 
 
@@ -285,14 +255,14 @@ class TestCanonicalJobStates:
         assert state == "succeeded", f"Expected 'succeeded' but got {state!r}"
         assert state != "done", "Legacy 'done' state must not be returned by the API"
 
-    async def test_state_is_always_a_canonical_value(self, client: AsyncClient) -> None:
+    async def test_state_is_always_a_canonical_value(self, async_client: AsyncClient) -> None:
         """Every job state returned by the API must be a canonical pdomain-ops value."""
         CANONICAL_STATES = {"queued", "running", "succeeded", "failed", "cancelled"}
         LEGACY_STATES = {"done", "error", "pending", "created", "complete"}
 
-        resp = await client.post("/api/jobs", json=JOB_PAYLOAD)
+        resp = await async_client.post("/api/jobs", json=JOB_PAYLOAD)
         project_id = resp.json()["project_id"]
-        get_resp = await client.get(f"/api/jobs/{project_id}")
+        get_resp = await async_client.get(f"/api/jobs/{project_id}")
         state = get_resp.json()["state"]
         assert state in CANONICAL_STATES, f"Job state {state!r} is not a canonical pdomain-ops state"
         assert state not in LEGACY_STATES, f"Legacy state {state!r} must not be returned by the API"
@@ -356,9 +326,9 @@ class TestRerunJob:
         for page in status["pages"]:
             assert page["state"] == "queued"
 
-    async def test_rerun_404_for_missing(self, client: AsyncClient) -> None:
+    async def test_rerun_404_for_missing(self, async_client: AsyncClient) -> None:
         """Reruns a non-existent project → 404."""
-        resp = await client.post("/api/jobs/no-such-project/rerun")
+        resp = await async_client.post("/api/jobs/no-such-project/rerun")
         assert resp.status_code == 404
 
     async def test_rerun_triggers_pipeline(self, client_with_source) -> None:
@@ -461,11 +431,11 @@ class TestOutputModeRoundTrip:
         assert get_resp.status_code == 200
         assert get_resp.json()["output_mode"] == "managed"
 
-    async def test_output_mode_absent_for_legacy_jobs(self, client: AsyncClient) -> None:
+    async def test_output_mode_absent_for_legacy_jobs(self, async_client: AsyncClient) -> None:
         """Legacy jobs (no output field) return output_mode=None or absent key."""
-        post_resp = await client.post("/api/jobs", json=JOB_PAYLOAD)
+        post_resp = await async_client.post("/api/jobs", json=JOB_PAYLOAD)
         project_id = post_resp.json()["project_id"]
-        get_resp = await client.get(f"/api/jobs/{project_id}")
+        get_resp = await async_client.get(f"/api/jobs/{project_id}")
         assert get_resp.status_code == 200
         body = get_resp.json()
         # output_mode either absent or None — not a hard value
