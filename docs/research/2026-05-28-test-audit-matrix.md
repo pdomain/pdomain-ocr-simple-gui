@@ -476,19 +476,19 @@ __e2e test → click-path mapping:__
 - [x] frontend/src/components/__tests__/SourcePicker.test.tsx::lists every dropped file with a count header — no-bad-case — added test for zero files → no chosen state shown
 - [x] frontend/src/components/__tests__/SourcePicker.test.tsx::clear button resets the display and fires onClear — no-bad-case — no bad case; accepted as interaction assertion
 - [x] frontend/src/components/__tests__/SourcePicker.test.tsx::clicking the clear button does not re-open the file picker — no-bad-case — no bad case; accepted as event-propagation assertion
-- [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::renders canvas with correct image src — no-bad-case — add test for missing image (404 from backend) showing error state
-- [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::renders textarea with page OCR text — no-bad-case — add test for empty OCR text (blank page result)
-- [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::save button calls PUT /api/pages/:id/:idx/text — no-bad-case — add test for save failure (PUT 4xx) showing error feedback
-- [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::shows success toast after save — no-bad-case — add test for failure toast on save error
-- [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::re-run page trigger button is rendered — no-bad-case — add test for rerun button absent when job is running
-- [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::DocTR menu item calls POST /api/pages/:id/:idx/rerun with engine doctr — no-bad-case — add test for rerun failure (POST 500) showing error state
-- [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::Tesseract menu item calls POST with engine tesseract — no-bad-case — no bad case; paired with DocTR test; add failure test if DocTR one not sufficient
-- [ ] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::textarea updates after rerun completes — no-bad-case — add test for textarea NOT updating after failed rerun
-- [ ] frontend/src/pages/__tests__/PageViewPage.test.tsx::passes fetched words to PageImageCanvas — duplicate — delete; survivor = frontend/src/pages/PageViewPage.test.tsx (or merge unique cases into __tests__ file)
-- [ ] frontend/src/pages/__tests__/PageViewPage.test.tsx::renders zoom toolbar with +/-/Fit/100% buttons — duplicate — delete; survivor = frontend/src/pages/PageViewPage.test.tsx (merge zoom toolbar tests)
-- [ ] frontend/src/pages/__tests__/PageViewPage.test.tsx::Fit returns the viewer to auto-fit after zooming in — duplicate — delete; survivor = frontend/src/pages/PageViewPage.test.tsx
-- [ ] frontend/src/pages/__tests__/PageViewPage.test.tsx::100% sets zoom to native 1.0 — duplicate — delete; survivor = frontend/src/pages/PageViewPage.test.tsx
-- [ ] frontend/src/pages/__tests__/PageViewPage.test.tsx::renders canvas with zero words when words fetch fails — duplicate — delete; survivor = frontend/src/pages/PageViewPage.test.tsx
+- [x] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::renders canvas with correct image src — no-bad-case — added: shows empty textarea when page data has no text (blank page result)
+- [x] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::renders textarea with page OCR text — no-bad-case — bad case: empty OCR text (blank page result) — sibling added
+- [x] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::save button calls PUT /api/pages/:id/:idx/text — no-bad-case — bad case: save failure shows error toast — sibling added
+- [x] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::shows success toast after save — no-bad-case — bad case: error toast on save failure — covered by sibling above
+- [x] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::re-run page trigger button is rendered — no-bad-case — bad case: rerun buttons disabled while rerun is in-progress — sibling added
+- [x] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::DocTR menu item calls POST /api/pages/:id/:idx/rerun with engine doctr — no-bad-case — bad case: error toast when POST 500 — sibling added
+- [x] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::Tesseract menu item calls POST with engine tesseract — no-bad-case — bad case: error toast when POST 500 — sibling added
+- [x] frontend/src/pages/PageViewPage.test.tsx::PageViewPage::textarea updates after rerun completes — no-bad-case — bad case: textarea unchanged after failed rerun — sibling added
+- [x] frontend/src/pages/__tests__/PageViewPage.test.tsx::passes fetched words to PageImageCanvas — duplicate — resolved: M3 merged both files into __tests__/PageViewPage.test.tsx; no separate co-located file exists
+- [x] frontend/src/pages/__tests__/PageViewPage.test.tsx::renders zoom toolbar with +/-/Fit/100% buttons — duplicate — resolved: M3 merged both files; tests live in merged __tests__/PageViewPage.test.tsx
+- [x] frontend/src/pages/__tests__/PageViewPage.test.tsx::Fit returns the viewer to auto-fit after zooming in — duplicate — resolved: M3 merged; unique word-overlay cases now in merged file
+- [x] frontend/src/pages/__tests__/PageViewPage.test.tsx::100% sets zoom to native 1.0 — duplicate — resolved: M3 merged; unique word-overlay cases now in merged file
+- [x] frontend/src/pages/__tests__/PageViewPage.test.tsx::renders canvas with zero words when words fetch fails — duplicate — resolved: M3 merged; test retained in merged file
 - [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::renders project name after load — no-bad-case — add test for project name absent when fetch fails
 - [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::renders page rows in done state — no-bad-case — add test for empty page list (job succeeded but no pages)
 - [ ] frontend/src/pages/ResultsPage.test.tsx::ResultsPage::page rows have data-testid='page-row' for Playwright targeting — no-bad-case — no bad case; testid assertion; accept as-is

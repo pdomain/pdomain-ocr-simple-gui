@@ -652,6 +652,282 @@ describe("PageViewPage", () => {
       screen.queryByTestId("page-progress-message"),
     ).not.toBeInTheDocument();
   });
+
+  // ---------------------------------------------------------------------------
+  // Bad-case tests (M4 strengthening)
+  // ---------------------------------------------------------------------------
+
+  it("shows empty textarea when page data has no text (blank page result)", async () => {
+    (globalThis as any).fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/api/jobs/")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => makeJobStatus(1),
+        });
+      }
+      if (url.endsWith("/words")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ words: [] }),
+        });
+      }
+      if (url.includes("/api/pages/")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => makePageData(0, ""),
+        });
+      }
+      return Promise.resolve({ ok: false, json: async () => ({}) });
+    });
+    renderWithRoute("proj-abc", 0);
+    await waitFor(() => {
+      const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+      expect(textarea.value).toBe("");
+    });
+  });
+
+  it("shows error toast when save fails (PUT returns non-ok)", async () => {
+    const user = userEvent.setup();
+    (globalThis as any).fetch = vi
+      .fn()
+      .mockImplementation((url: string, opts?: RequestInit) => {
+        if (url.includes("/api/jobs/")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => makeJobStatus(3),
+          });
+        }
+        if (url.endsWith("/words")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ words: [] }),
+          });
+        }
+        if (
+          url.includes("/api/pages/") &&
+          url.endsWith("/text") &&
+          opts?.method === "PUT"
+        ) {
+          return Promise.resolve({ ok: false, json: async () => ({}) });
+        }
+        if (url.includes("/api/pages/") && !url.endsWith("/image")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => makePageData(0, "OCR text"),
+          });
+        }
+        return Promise.resolve({ ok: false, json: async () => ({}) });
+      });
+    renderWithRoute("proj-abc", 0);
+    await waitFor(() => {
+      expect(screen.getByRole("textbox")).toBeInTheDocument();
+    });
+    const saveBtn = screen.getByRole("button", { name: /save/i });
+    await user.click(saveBtn);
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith("Save failed");
+    });
+    expect(mockToastSuccess).not.toHaveBeenCalled();
+  });
+
+  it("re-run buttons are disabled while a rerun is in-progress", async () => {
+    const user = userEvent.setup();
+    // Make rerun slow so we can assert the disabled state mid-flight.
+    let resolveRerun!: () => void;
+    (globalThis as any).fetch = vi
+      .fn()
+      .mockImplementation((url: string, opts?: RequestInit) => {
+        if (url.includes("/api/jobs/")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => makeJobStatus(3),
+          });
+        }
+        if (url.endsWith("/words")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ words: [] }),
+          });
+        }
+        if (
+          url.includes("/api/pages/") &&
+          url.endsWith("/rerun") &&
+          opts?.method === "POST"
+        ) {
+          return new Promise((resolve) => {
+            resolveRerun = () =>
+              resolve({
+                ok: true,
+                json: async () => ({ page_idx: 0, state: "done" }),
+              });
+          });
+        }
+        if (url.includes("/api/pages/") && !url.endsWith("/image")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => makePageData(0, "text"),
+          });
+        }
+        return Promise.resolve({ ok: false, json: async () => ({}) });
+      });
+    renderWithRoute("proj-abc", 0);
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /re-run with doctr/i }),
+      ).toBeInTheDocument();
+    });
+    const doctrBtn = screen.getByRole("button", { name: /re-run with doctr/i });
+    await user.click(doctrBtn);
+    // While in-progress the DocTR button (aria-label="Re-run with DocTR") is disabled
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Re-run with DocTR" }),
+      ).toBeDisabled();
+    });
+    // Resolve so the test can clean up
+    resolveRerun();
+  });
+
+  it("shows error toast when DocTR rerun fails (POST returns non-ok)", async () => {
+    const user = userEvent.setup();
+    (globalThis as any).fetch = vi
+      .fn()
+      .mockImplementation((url: string, opts?: RequestInit) => {
+        if (url.includes("/api/jobs/")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => makeJobStatus(3),
+          });
+        }
+        if (url.endsWith("/words")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ words: [] }),
+          });
+        }
+        if (
+          url.includes("/api/pages/") &&
+          url.endsWith("/rerun") &&
+          opts?.method === "POST"
+        ) {
+          return Promise.resolve({ ok: false, json: async () => ({}) });
+        }
+        if (url.includes("/api/pages/") && !url.endsWith("/image")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => makePageData(0, "text"),
+          });
+        }
+        return Promise.resolve({ ok: false, json: async () => ({}) });
+      });
+    renderWithRoute("proj-abc", 0);
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /re-run with doctr/i }),
+      ).toBeInTheDocument();
+    });
+    await user.click(
+      screen.getByRole("button", { name: /re-run with doctr/i }),
+    );
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith("Re-run failed");
+    });
+  });
+
+  it("shows error toast when Tesseract rerun fails (POST returns non-ok)", async () => {
+    const user = userEvent.setup();
+    (globalThis as any).fetch = vi
+      .fn()
+      .mockImplementation((url: string, opts?: RequestInit) => {
+        if (url.includes("/api/jobs/")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => makeJobStatus(3),
+          });
+        }
+        if (url.endsWith("/words")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ words: [] }),
+          });
+        }
+        if (
+          url.includes("/api/pages/") &&
+          url.endsWith("/rerun") &&
+          opts?.method === "POST"
+        ) {
+          return Promise.resolve({ ok: false, json: async () => ({}) });
+        }
+        if (url.includes("/api/pages/") && !url.endsWith("/image")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => makePageData(0, "text"),
+          });
+        }
+        return Promise.resolve({ ok: false, json: async () => ({}) });
+      });
+    renderWithRoute("proj-abc", 0);
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /re-run with tesseract/i }),
+      ).toBeInTheDocument();
+    });
+    await user.click(
+      screen.getByRole("button", { name: /re-run with tesseract/i }),
+    );
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith("Re-run failed");
+    });
+  });
+
+  it("textarea does not update after a failed rerun", async () => {
+    const user = userEvent.setup();
+    const originalText = "OCR text for page 0";
+    (globalThis as any).fetch = vi
+      .fn()
+      .mockImplementation((url: string, opts?: RequestInit) => {
+        if (url.includes("/api/jobs/")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => makeJobStatus(3),
+          });
+        }
+        if (url.endsWith("/words")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ words: [] }),
+          });
+        }
+        if (
+          url.includes("/api/pages/") &&
+          url.endsWith("/rerun") &&
+          opts?.method === "POST"
+        ) {
+          return Promise.resolve({ ok: false, json: async () => ({}) });
+        }
+        if (url.includes("/api/pages/") && !url.endsWith("/image")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => makePageData(0, originalText),
+          });
+        }
+        return Promise.resolve({ ok: false, json: async () => ({}) });
+      });
+    renderWithRoute("proj-abc", 0);
+    await waitFor(() => {
+      const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+      expect(textarea.value).toBe(originalText);
+    });
+    await user.click(
+      screen.getByRole("button", { name: /re-run with doctr/i }),
+    );
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith("Re-run failed");
+    });
+    // Text should remain unchanged after failed rerun
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    expect(textarea.value).toBe(originalText);
+  });
 });
 
 describe("PageViewPage — word overlay wiring", () => {
