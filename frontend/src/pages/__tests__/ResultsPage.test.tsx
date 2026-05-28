@@ -1,17 +1,14 @@
 // Tests for ResultsPage — M4 task #230
 
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, waitFor, act } from "@testing-library/react";
+import { screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Routes, Route } from "react-router-dom";
 import ResultsPage from "../ResultsPage";
 import {
   renderWithProviders,
-  makeTestQueryClient,
   fixtures,
 } from "../../test/test-utils";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
 
 // Mock pdomain-ui/primitives
 vi.mock("@pdomain/pdomain-ui/primitives", async (importOriginal) => {
@@ -170,16 +167,11 @@ describe("ResultsPage", () => {
 
     (globalThis as any).fetch = mockFetch;
 
-    const client = makeTestQueryClient();
-
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-          <Routes>
-            <Route path="/jobs/:id" element={<ResultsPage />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+    renderWithProviders(
+      <Routes>
+        <Route path="/jobs/:id" element={<ResultsPage />} />
+      </Routes>,
+      { route: "/jobs/proj-abc" },
     );
 
     // Let microtasks flush (fetch promise resolves)
@@ -213,16 +205,11 @@ describe("ResultsPage", () => {
 
     (globalThis as any).fetch = mockFetch;
 
-    const client = makeTestQueryClient();
-
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-          <Routes>
-            <Route path="/jobs/:id" element={<ResultsPage />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+    renderWithProviders(
+      <Routes>
+        <Route path="/jobs/:id" element={<ResultsPage />} />
+      </Routes>,
+      { route: "/jobs/proj-abc" },
     );
 
     // Initial fetch
@@ -308,16 +295,11 @@ describe("ResultsPage", () => {
 
     (globalThis as any).fetch = mockFetch;
 
-    const client = makeTestQueryClient();
-
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-          <Routes>
-            <Route path="/jobs/:id" element={<ResultsPage />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+    renderWithProviders(
+      <Routes>
+        <Route path="/jobs/:id" element={<ResultsPage />} />
+      </Routes>,
+      { route: "/jobs/proj-abc" },
     );
 
     await waitFor(() => {
@@ -354,16 +336,11 @@ describe("ResultsPage", () => {
 
     (globalThis as any).fetch = mockFetch;
 
-    const client = makeTestQueryClient();
-
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-          <Routes>
-            <Route path="/jobs/:id" element={<ResultsPage />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+    renderWithProviders(
+      <Routes>
+        <Route path="/jobs/:id" element={<ResultsPage />} />
+      </Routes>,
+      { route: "/jobs/proj-abc" },
     );
 
     await waitFor(() => {
@@ -384,19 +361,11 @@ describe("ResultsPage", () => {
 
   // A7.2: download button tests
   it("shows download button when output_mode is managed and state is succeeded", async () => {
-    (globalThis as any).fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => fixtures.jobStatus("succeeded", { outputMode: "managed" }),
-    });
-    const client = makeTestQueryClient();
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-          <Routes>
-            <Route path="/jobs/:id" element={<ResultsPage />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => fixtures.jobStatus("succeeded", { outputMode: "managed" }),
+      }),
     );
     await waitFor(() => {
       expect(screen.getByTestId("download-results-button")).toBeInTheDocument();
@@ -404,19 +373,11 @@ describe("ResultsPage", () => {
   });
 
   it("hides download button when output_mode is next_to_source", async () => {
-    (globalThis as any).fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => fixtures.jobStatus("succeeded", { outputMode: "next_to_source" }),
-    });
-    const client = makeTestQueryClient();
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-          <Routes>
-            <Route path="/jobs/:id" element={<ResultsPage />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => fixtures.jobStatus("succeeded", { outputMode: "next_to_source" }),
+      }),
     );
     await waitFor(() => {
       expect(screen.getByText("test-project")).toBeInTheDocument();
@@ -427,19 +388,11 @@ describe("ResultsPage", () => {
   });
 
   it("hides download button when state is not succeeded", async () => {
-    (globalThis as any).fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => fixtures.jobStatus("running", { pagesDone: 1, outputMode: "managed" }),
-    });
-    const client = makeTestQueryClient();
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-          <Routes>
-            <Route path="/jobs/:id" element={<ResultsPage />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => fixtures.jobStatus("running", { pagesDone: 1, outputMode: "managed" }),
+      }),
     );
     await waitFor(() => {
       expect(screen.getByTestId("progress-bar")).toBeInTheDocument();
