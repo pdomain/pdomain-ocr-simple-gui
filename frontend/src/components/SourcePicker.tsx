@@ -30,22 +30,34 @@ async function uploadFiles(files: File[]): Promise<string> {
   return body.upload_id;
 }
 
-function describeFiles(files: File[]): string {
-  if (files.length === 0) return "";
-  const first = files[0]?.name ?? "(file)";
-  if (files.length === 1) return first;
-  return `${first} (+${files.length - 1} more)`;
+interface ChosenDescription {
+  /** Top-level folder name when a directory was dropped, else null. */
+  folder: string | null;
+  /** Individual file names (basename only). */
+  names: string[];
+}
+
+function describeFiles(files: File[]): ChosenDescription {
+  // Folder drops populate webkitRelativePath like "myfolder/sub/page1.png".
+  const firstRel =
+    (files[0] as File & { webkitRelativePath?: string })?.webkitRelativePath ??
+    "";
+  const folder = firstRel.includes("/") ? firstRel.split("/")[0]! : null;
+  return {
+    folder,
+    names: files.map((f) => f.name),
+  };
 }
 
 export function SourcePicker(props: SourcePickerProps) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [pathDraft, setPathDraft] = useState("");
-  const [chosenLabel, setChosenLabel] = useState<string | null>(null);
+  const [chosen, setChosen] = useState<ChosenDescription | null>(null);
   const [dragActive, setDragActive] = useState(false);
 
   const handleFiles = async (files: File[]) => {
     if (!files.length) return;
-    setChosenLabel(describeFiles(files));
+    setChosen(describeFiles(files));
     const id = await uploadFiles(files);
     props.onUploadComplete(id);
   };
@@ -55,7 +67,7 @@ export function SourcePicker(props: SourcePickerProps) {
   };
 
   const handleClear = () => {
-    setChosenLabel(null);
+    setChosen(null);
     if (fileInput.current) fileInput.current.value = "";
     props.onClear?.();
   };
@@ -121,29 +133,69 @@ export function SourcePicker(props: SourcePickerProps) {
               void handleFiles(files);
             }}
           />
-          {chosenLabel === null ? (
+          {chosen === null ? (
             <>
               <div>Drop an image, multiple images, a folder, or a .zip here.</div>
               <div style={{ fontSize: 12, opacity: 0.7 }}>or click to browse</div>
             </>
           ) : (
             <div
-              style={{ display: "flex", alignItems: "center", gap: 12 }}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "stretch",
+                gap: 8,
+                width: "100%",
+                maxWidth: 420,
+              }}
               data-testid="source-picker-chosen"
+              onClick={(e) => e.stopPropagation()}
             >
-              <span>{chosenLabel}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                data-testid="source-picker-clear"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleClear();
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
                 }}
-                aria-label="Clear selection"
               >
-                × Clear
-              </Button>
+                <strong style={{ fontSize: 13 }}>
+                  {chosen.folder !== null
+                    ? `📁 ${chosen.folder}`
+                    : chosen.names.length === 1
+                      ? chosen.names[0]
+                      : `${chosen.names.length} files`}
+                </strong>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  data-testid="source-picker-clear"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleClear();
+                  }}
+                  aria-label="Clear selection"
+                >
+                  × Clear
+                </Button>
+              </div>
+              {chosen.names.length > 1 && (
+                <ul
+                  style={{
+                    margin: 0,
+                    paddingLeft: 18,
+                    maxHeight: 120,
+                    overflowY: "auto",
+                    textAlign: "left",
+                    fontSize: 12,
+                    color: "var(--ink-2)",
+                  }}
+                >
+                  {chosen.names.map((name, i) => (
+                    <li key={`${name}-${i}`}>{name}</li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
         </div>

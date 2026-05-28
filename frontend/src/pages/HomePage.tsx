@@ -27,7 +27,7 @@ export function HomePage() {
 
   return (
     <div data-testid={APP_TEST_IDS.homePage} className="home-page">
-      {chosen === null && mode === "managed" && (
+      {mode === "managed" && (
         <SourcePicker
           allowDrop
           allowPathInput={false}
@@ -36,7 +36,7 @@ export function HomePage() {
           onClear={clearChosen}
         />
       )}
-      {chosen === null && mode === "local" && containerized && (
+      {mode === "local" && containerized && (
         <>
           <h3 className="heading-13">Upload</h3>
           <SourcePicker
@@ -59,7 +59,7 @@ export function HomePage() {
           />
         </>
       )}
-      {chosen === null && mode === "local" && !containerized && (
+      {mode === "local" && !containerized && (
         <SourcePicker
           allowDrop
           allowPathInput

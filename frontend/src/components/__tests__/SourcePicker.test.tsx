@@ -112,7 +112,7 @@ it("renders the dropped filename after a drop", async () => {
   ).toHaveTextContent("scan-007.png");
 });
 
-it("renders +N more for multiple dropped files", async () => {
+it("lists every dropped file with a count header", async () => {
   mockUploadFetch();
   render(
     <SourcePicker
@@ -130,8 +130,10 @@ it("renders +N more for multiple dropped files", async () => {
   ];
   fireEvent.drop(drop, { dataTransfer: { files } });
   const chosen = await screen.findByTestId("source-picker-chosen");
+  expect(chosen.textContent).toContain("3 files");
   expect(chosen.textContent).toContain("a.png");
-  expect(chosen.textContent).toContain("(+2 more)");
+  expect(chosen.textContent).toContain("b.png");
+  expect(chosen.textContent).toContain("c.png");
 });
 
 it("clear button resets the display and fires onClear", async () => {
