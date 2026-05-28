@@ -5,6 +5,22 @@ Reference plan: `docs/plans/2026-05-28-test-suite-audit-reorg.md`
 
 ---
 
+## Backend summary
+
+Backend tests: 201 collected across 24 files (including smoke).
+
+| Reason code | Count |
+|---|---|
+| ok | 28 |
+| no-bad-case | 127 |
+| asserts-mock | 29 |
+| tautological | 4 |
+| duplicate | 0 |
+
+Mock-depth breakdown: none — 128, shallow — 38, deep — 35.
+
+---
+
 ## Backend
 
 | Test (path::name) | Module under test | Behavior asserted | Mock depth (none/shallow/deep) | Good state? | Bad state? | Reason code |
