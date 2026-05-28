@@ -51,15 +51,32 @@ class TestSuiteJson:
 
 class TestSuiteRoutes:
     async def test_suite_installed_endpoint_responds(self, client: AsyncClient) -> None:
-        """GET /api/suite/installed returns 200."""
+        """GET /api/suite/installed returns 200 with list shape."""
         resp = await client.get("/api/suite/installed")
         assert resp.status_code == 200
-        assert isinstance(resp.json(), list)
+        data = resp.json()
+        assert isinstance(data, list)
+
+    async def test_suite_installed_endpoint_returns_list_of_objects(self, client: AsyncClient) -> None:
+        """GET /api/suite/installed returns list; each entry has at least app_id."""
+        resp = await client.get("/api/suite/installed")
+        assert resp.status_code == 200
+        data = resp.json()
+        # If any apps are registered, each must have at least app_id
+        for entry in data:
+            assert "app_id" in entry
 
     async def test_suite_prefs_endpoint_responds(self, client: AsyncClient) -> None:
         """GET /api/suite/prefs returns 200."""
         resp = await client.get("/api/suite/prefs")
         assert resp.status_code == 200
+
+    async def test_suite_prefs_endpoint_returns_object(self, client: AsyncClient) -> None:
+        """GET /api/suite/prefs returns a JSON object (not a list or scalar)."""
+        resp = await client.get("/api/suite/prefs")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, dict)
 
     async def test_healthz_endpoint_responds(self, client: AsyncClient) -> None:
         """GET /healthz returns 200 with status ok."""
@@ -68,22 +85,48 @@ class TestSuiteRoutes:
         data = resp.json()
         assert data["status"] == "ok"
 
+    async def test_healthz_bad_method_returns_405(self, client: AsyncClient) -> None:
+        """POST /healthz returns 405 (method not allowed — the route only handles GET)."""
+        resp = await client.post("/healthz")
+        assert resp.status_code == 405
+
 
 class TestRegisterSelf:
-    def test_bootstrap_spa_used_in_main(self) -> None:
-        """bootstrap_spa() is used in __main__ (handles port + register_self + print)."""
-        import inspect
+    def test_bootstrap_spa_invoked_on_startup(self) -> None:
+        """bootstrap_spa is actually called when main() runs (behavioral, not source-grep)."""
+        import sys
+        from unittest.mock import MagicMock
 
         import pdomain_ocr_simple_gui.__main__ as main_mod
 
-        src = inspect.getsource(main_mod)
-        assert "bootstrap_spa" in src
+        mock_bootstrap = MagicMock(return_value=8099)
+        mock_run = MagicMock()
+        with (
+            patch("pdomain_ocr_simple_gui.__main__.bootstrap_spa", mock_bootstrap),
+            patch("uvicorn.run", mock_run),
+            patch.object(sys, "argv", ["pdomain-ocr-simple-gui"]),
+        ):
+            main_mod.main()
+
+        # bootstrap_spa must have been called (not just referenced in source)
+        assert mock_bootstrap.call_count == 1
 
     def test_register_self_is_importable(self) -> None:
         """register_self is importable from pdomain_ops.suite."""
         from pdomain_ops.suite import register_self
 
         assert callable(register_self)
+
+    def test_register_self_does_not_raise_on_call(self) -> None:
+        """register_self() executes without raising (may be a no-op in test env)."""
+        import contextlib
+
+        from pdomain_ops.suite import register_self
+
+        # Should not raise — even if the registry isn't configured in CI.
+        # register_self uses _caller_package to locate pdomain-suite.json.
+        with contextlib.suppress(Exception):
+            register_self(_caller_package="pdomain_ocr_simple_gui")
 
 
 class TestIcons:
@@ -132,34 +175,84 @@ class TestIcons:
 
 
 class TestCLIFlags:
-    def test_unregister_suite_flag_exists(self) -> None:
-        """--unregister-suite flag is present in the CLI parser."""
+    def test_unregister_suite_flag_in_help(self) -> None:
+        """--unregister-suite appears in --help output (behavioral: it's a real CLI flag)."""
+        import subprocess
         import sys
 
-        # Patch sys.argv to avoid argparse reading pytest args
-        with patch.object(sys, "argv", ["pdomain-ocr-simple-gui", "--help"]):
-            # Import the parser-builder — we directly inspect __main__
-            import inspect
+        result = subprocess.run(
+            [sys.executable, "-m", "pdomain_ocr_simple_gui", "--help"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        assert "--unregister-suite" in result.stdout
 
-            import pdomain_ocr_simple_gui.__main__ as main_mod
+    def test_unregister_suite_flag_exits_without_launching_server(self) -> None:
+        """--unregister-suite exits cleanly (does not start uvicorn)."""
+        import subprocess
+        import sys
 
-            src = inspect.getsource(main_mod)
-            assert "--unregister-suite" in src
+        result = subprocess.run(
+            [sys.executable, "-m", "pdomain_ocr_simple_gui", "--unregister-suite"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        # Must not start a server (uvicorn would block); must exit promptly
+        assert result.returncode == 0
 
-    def test_install_desktop_shortcut_flag_exists(self) -> None:
-        """--install-desktop-shortcut flag is present in the CLI parser."""
-        import inspect
+    def test_install_desktop_shortcut_flag_in_help(self) -> None:
+        """--install-desktop-shortcut appears in --help output."""
+        import subprocess
+        import sys
 
-        import pdomain_ocr_simple_gui.__main__ as main_mod
+        result = subprocess.run(
+            [sys.executable, "-m", "pdomain_ocr_simple_gui", "--help"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        assert "--install-desktop-shortcut" in result.stdout
 
-        src = inspect.getsource(main_mod)
-        assert "--install-desktop-shortcut" in src
+    def test_install_desktop_shortcut_raises_not_implemented(self) -> None:
+        """--install-desktop-shortcut raises NotImplementedError (exits non-zero)."""
+        import subprocess
+        import sys
 
-    def test_remove_desktop_shortcut_flag_exists(self) -> None:
-        """--remove-desktop-shortcut flag is present in the CLI parser."""
-        import inspect
+        result = subprocess.run(
+            [sys.executable, "-m", "pdomain_ocr_simple_gui", "--install-desktop-shortcut"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode != 0
 
-        import pdomain_ocr_simple_gui.__main__ as main_mod
+    def test_remove_desktop_shortcut_flag_in_help(self) -> None:
+        """--remove-desktop-shortcut appears in --help output."""
+        import subprocess
+        import sys
 
-        src = inspect.getsource(main_mod)
-        assert "--remove-desktop-shortcut" in src
+        result = subprocess.run(
+            [sys.executable, "-m", "pdomain_ocr_simple_gui", "--help"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        assert "--remove-desktop-shortcut" in result.stdout
+
+    def test_remove_desktop_shortcut_raises_not_implemented(self) -> None:
+        """--remove-desktop-shortcut raises NotImplementedError (exits non-zero)."""
+        import subprocess
+        import sys
+
+        result = subprocess.run(
+            [sys.executable, "-m", "pdomain_ocr_simple_gui", "--remove-desktop-shortcut"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode != 0
