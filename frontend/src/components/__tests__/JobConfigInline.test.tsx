@@ -1,14 +1,15 @@
 // Tests for JobConfigInline — replaces JobConfigDialog modal flow.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import {
   JobConfigInline,
   defaultProjectName,
   type ChosenSource,
-} from "./JobConfigInline";
+} from "../JobConfigInline";
+import { renderWithProviders } from "../../test/test-utils";
 
 // Shim Toggle so tests can interact with it as a plain checkbox (avoid Radix
 // ResizeObserver dependency in jsdom).
@@ -85,21 +86,20 @@ function renderInline(
   (globalThis as unknown as { fetch: typeof fetch }).fetch =
     mockFetch as unknown as typeof fetch;
 
-  const result = render(
-    <MemoryRouter initialEntries={["/"]}>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <JobConfigInline source={source} mode={mode} onCancel={onCancel} />
-          }
-        />
-        <Route
-          path="/jobs/:id"
-          element={<LocationCapture onLocation={(p) => navigatedTo.push(p)} />}
-        />
-      </Routes>
-    </MemoryRouter>,
+  const result = renderWithProviders(
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <JobConfigInline source={source} mode={mode} onCancel={onCancel} />
+        }
+      />
+      <Route
+        path="/jobs/:id"
+        element={<LocationCapture onLocation={(p) => navigatedTo.push(p)} />}
+      />
+    </Routes>,
+    { route: "/" },
   );
 
   return { ...result, navigatedTo, mockFetch };
