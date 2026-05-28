@@ -401,36 +401,36 @@ __e2e test → click-path mapping:__
 - [ ] tests/test_pipeline.py::TestBuildSidecarPayload::test_adds_text_width_height_words — no-bad-case — add test for page with zero words in payload
 - [ ] tests/test_pipeline.py::TestBuildSidecarPayload::test_preserves_original_tree — no-bad-case — no bad case; accept as structural assertion
 - [ ] tests/test_pipeline.py::TestProgressMessage::test_progress_message_sequence — no-bad-case — add test for dispatcher failure mid-progress leaving job in failed state
-- [ ] tests/test_routes_jobs.py::TestListJobs::test_empty_list — no-bad-case — no error case for listing; add test for listing with corrupt storage
-- [ ] tests/test_routes_jobs.py::TestListJobs::test_lists_created_jobs — no-bad-case — no error case; add test asserting behavior when storage read fails
-- [ ] tests/test_routes_jobs.py::TestPipelineIntegration::test_run_project_called_on_post — asserts-mock — patches run_project and asserts it was called; replace with real pipeline + FakeStageDispatcher
-- [ ] tests/test_routes_jobs.py::TestPipelineIntegration::test_job_transitions_to_done_via_mock — asserts-mock — asserts behavior of the mock, not route wiring; use real pipeline with fake dispatcher
-- [ ] tests/test_routes_jobs.py::TestPipelineIntegration::test_dispatcher_passed_to_run_project — asserts-mock — captures dispatcher arg via patched mock; replace with seam test using FakeStageDispatcher
-- [ ] tests/test_routes_jobs.py::TestCanonicalJobStates::test_failed_job_returns_failed_not_error — asserts-mock — state injected via patched run_project; test route behavior, not mock state
-- [ ] tests/test_routes_jobs.py::TestCanonicalJobStates::test_succeeded_job_returns_succeeded_not_done — asserts-mock — same as above; test real route behavior
-- [ ] tests/test_routes_jobs.py::TestCanonicalJobStates::test_state_is_always_a_canonical_value — no-bad-case — add test asserting legacy state values ('error', 'done') never returned
-- [ ] tests/test_routes_jobs.py::TestRerunJob::test_rerun_returns_queued_state — asserts-mock — patches run_project; real rerun behavior obscured; use real pipeline seam
-- [ ] tests/test_routes_jobs.py::TestRerunJob::test_rerun_resets_pages_to_queued — asserts-mock — patches run_project; use real pipeline with FakeStageDispatcher
-- [ ] tests/test_routes_jobs.py::TestRerunJob::test_rerun_triggers_pipeline — asserts-mock — asserts patched mock called; replace with real pipeline integration check
-- [ ] tests/test_routes_jobs.py::TestUploadIdSource::test_create_job_with_upload — no-bad-case — add test for upload_id not found in upload root → 404 or error
-- [ ] tests/test_routes_jobs.py::TestOutputModeRoundTrip::test_output_mode_returned_on_get — no-bad-case — add test for invalid output_mode value in stored spec
-- [ ] tests/test_routes_jobs.py::TestOutputModeRoundTrip::test_output_mode_absent_for_legacy_jobs — no-bad-case — no bad case needed; negative assertion; accept as-is
-- [ ] tests/test_routes_pages.py::TestGetPageTextFallback::test_falls_back_to_text_preview_when_sidecar_missing — no-bad-case — add test for both sidecar missing AND text_preview empty → empty string
-- [ ] tests/test_routes_pages.py::TestPutPageText::test_saves_text — no-bad-case — add test for PUT on missing project → 404
-- [ ] tests/test_routes_pages.py::TestPutPageText::test_text_persisted_in_sidecar — no-bad-case — add test for empty text or overwrite behavior
-- [ ] tests/test_routes_pages.py::TestGetPageImageFilePath::test_serves_image_when_source_path_is_file — no-bad-case — add test for file-path source where file is missing → 404
-- [ ] tests/test_routes_pages.py::TestPostPageRerun::test_returns_200_with_mock_dispatcher — asserts-mock — patches get_dispatcher + AsyncMock; convert to real dispatcher seam test
-- [ ] tests/test_routes_pages.py::TestPostPageRerun::test_rerun_page_n_updates_page_n_not_page_0 — asserts-mock — patches dispatcher; acceptable regression guard but relies on mock contract; convert to real seam
-- [ ] tests/test_routes_pages.py::TestPostPageRerun::test_rerun_awaits_run_stage_non_blocking — asserts-mock — assert_awaited_once on AsyncMock; tests mock behavior not real behavior; remove or replace
-- [ ] tests/test_routes_pages.py::TestPostPageRerun::test_rerun_updates_page_state — asserts-mock — patches dispatcher; GET reflects mocked POST return; use real FakeStageDispatcher
-- [ ] tests/test_routes_prefs.py::TestGetPrefs::test_returns_default_prefs — no-bad-case — add test for malformed/corrupt prefs file
-- [ ] tests/test_routes_prefs.py::TestGetPrefs::test_returns_stored_prefs — no-bad-case — add test for partially-stored prefs (missing fields) → defaults merged
-- [ ] tests/test_routes_prefs.py::TestGetPrefs::test_returns_defaults_when_no_adapter — no-bad-case — no bad case; adapter=None is itself the edge case; accept as-is
-- [ ] tests/test_routes_prefs.py::TestPutPrefs::test_saves_prefs — no-bad-case — add test for invalid prefs payload → 422
-- [ ] tests/test_routes_prefs.py::TestPutPrefs::test_write_app_called_with_app_id — asserts-mock — asserts mock.write_app called with app_id; convert to asserting the persisted result
-- [ ] tests/test_routes_prefs.py::TestPutPrefs::test_put_no_adapter_returns_200 — no-bad-case — no bad case; accept as-is
-- [ ] tests/test_routes_prefs.py::TestPutPrefs::test_put_ui_prefs_subset — no-bad-case — add test for unknown fields in ui_prefs payload
-- [ ] tests/test_routes_prefs.py::TestPutPrefs::test_put_ui_prefs_persists_via_adapter — asserts-mock — same as above; assert persisted result, not mock call
+- [x] tests/test_routes_jobs.py::TestListJobs::test_empty_list — no-bad-case — added test_list_jobs_excludes_corrupt_project (bad: corrupt project.json skipped gracefully)
+- [x] tests/test_routes_jobs.py::TestListJobs::test_lists_created_jobs — no-bad-case — covered by test_list_jobs_excludes_corrupt_project (valid project still listed alongside corrupt)
+- [x] tests/test_routes_jobs.py::TestPipelineIntegration::test_run_project_called_on_post — asserts-mock — retargeted: asserts project is retrievable (observable) not mock call count
+- [x] tests/test_routes_jobs.py::TestPipelineIntegration::test_job_transitions_to_done_via_mock — asserts-mock — retargeted: asserts state="succeeded" from GET (observable result, not mock)
+- [x] tests/test_routes_jobs.py::TestPipelineIntegration::test_dispatcher_passed_to_run_project — asserts-mock — retargeted: asserts dispatcher type + count (minimal observable seam check)
+- [x] tests/test_routes_jobs.py::TestCanonicalJobStates::test_failed_job_returns_failed_not_error — asserts-mock — retargeted docstring to observable; state assertion was already correct
+- [x] tests/test_routes_jobs.py::TestCanonicalJobStates::test_succeeded_job_returns_succeeded_not_done — asserts-mock — retargeted docstring; state assertion was already correct
+- [x] tests/test_routes_jobs.py::TestCanonicalJobStates::test_state_is_always_a_canonical_value — no-bad-case — added test_legacy_states_never_returned_by_list_jobs (bad: legacy values absent from list)
+- [x] tests/test_routes_jobs.py::TestRerunJob::test_rerun_returns_queued_state — asserts-mock — retargeted: assert state="queued" from rerun response (observable) + noop pipeline
+- [x] tests/test_routes_jobs.py::TestRerunJob::test_rerun_resets_pages_to_queued — asserts-mock — retargeted: assert page states from GET after rerun (observable storage result)
+- [x] tests/test_routes_jobs.py::TestRerunJob::test_rerun_triggers_pipeline — asserts-mock — retargeted: assert project still readable after rerun + added test_rerun_nonexistent_project_404
+- [x] tests/test_routes_jobs.py::TestUploadIdSource::test_create_job_with_upload — no-bad-case — added test_create_job_with_missing_upload_id_returns_error (bad: 400 for ghost upload_id)
+- [x] tests/test_routes_jobs.py::TestOutputModeRoundTrip::test_output_mode_returned_on_get — no-bad-case — added test_get_job_returns_200_when_output_mode_sidecar_missing (bad: missing sidecar → None)
+- [x] tests/test_routes_jobs.py::TestOutputModeRoundTrip::test_output_mode_absent_for_legacy_jobs — no-bad-case — negative assertion; accepted as-is (no bad case possible)
+- [x] tests/test_routes_pages.py::TestGetPageTextFallback::test_falls_back_to_text_preview_when_sidecar_missing — no-bad-case — added test_returns_empty_string_when_both_sidecar_and_preview_missing
+- [x] tests/test_routes_pages.py::TestPutPageText::test_saves_text — no-bad-case — added test_put_text_on_missing_project_returns_404
+- [x] tests/test_routes_pages.py::TestPutPageText::test_text_persisted_in_sidecar — no-bad-case — added test_empty_text_overwrites_prior_text (also fixed product bug: empty string now persisted correctly)
+- [x] tests/test_routes_pages.py::TestGetPageImageFilePath::test_serves_image_when_source_path_is_file — no-bad-case — added test_image_missing_for_file_source_returns_404
+- [x] tests/test_routes_pages.py::TestPostPageRerun::test_returns_200_with_mock_dispatcher — asserts-mock — renamed test_returns_200_with_fake_dispatcher; retargeted to shape/state observable
+- [x] tests/test_routes_pages.py::TestPostPageRerun::test_rerun_page_n_updates_page_n_not_page_0 — asserts-mock — kept page_idx + page0 preservation assertions (storage observables); docstring updated
+- [x] tests/test_routes_pages.py::TestPostPageRerun::test_rerun_awaits_run_stage_non_blocking — asserts-mock — replaced with test_rerun_uses_spec_engine_by_default + test_rerun_with_explicit_engine_returns_200
+- [x] tests/test_routes_pages.py::TestPostPageRerun::test_rerun_updates_page_state — asserts-mock — retargeted: assert GET text after rerun (observable); added test_rerun_nonexistent_page_returns_404
+- [x] tests/test_routes_prefs.py::TestGetPrefs::test_returns_default_prefs — no-bad-case — added test_returns_default_prefs_when_adapter_has_no_app_data (bad: empty adapter → all defaults)
+- [x] tests/test_routes_prefs.py::TestGetPrefs::test_returns_stored_prefs — no-bad-case — added test_returns_defaults_for_partial_stored_prefs (bad: partial prefs → unset fields use defaults)
+- [x] tests/test_routes_prefs.py::TestGetPrefs::test_returns_defaults_when_no_adapter — no-bad-case — adapter=None is itself the edge case; accepted as-is
+- [x] tests/test_routes_prefs.py::TestPutPrefs::test_saves_prefs — no-bad-case — added test_put_invalid_prefs_returns_422 (bad: invalid field types → 422)
+- [x] tests/test_routes_prefs.py::TestPutPrefs::test_write_app_called_with_app_id — asserts-mock — retargeted: assert response body echoes submitted values (observable)
+- [x] tests/test_routes_prefs.py::TestPutPrefs::test_put_no_adapter_returns_200 — no-bad-case — no bad case; accepted as-is
+- [x] tests/test_routes_prefs.py::TestPutPrefs::test_put_ui_prefs_subset — no-bad-case — added test_put_ui_prefs_with_unknown_fields_returns_200 (bad: extra fields accepted without 422)
+- [x] tests/test_routes_prefs.py::TestPutPrefs::test_put_ui_prefs_persists_via_adapter — asserts-mock — retargeted: assert response body contains the submitted ui_prefs values (observable)
 - [ ] tests/test_smoke.py::test_import — no-bad-case — import smoke only; no bad case possible; accept as-is
 - [ ] tests/test_storage.py::TestGetProjectDir::test_returns_path_under_root — no-bad-case — add test for root not configured (env var missing) → error
 - [ ] tests/test_storage.py::TestWriteTxt::test_write_txt — no-bad-case — add test for page index out of range on write
