@@ -354,6 +354,7 @@ export default function PageViewPage() {
         onClick={() => goToPage(pageIdx - 1)}
         disabled={!hasPrev}
         aria-label="Prev page"
+        data-testid={APP_TEST_IDS.pagePrevButton}
       >
         ← Prev
       </KeyButton>
@@ -369,6 +370,7 @@ export default function PageViewPage() {
         onClick={() => goToPage(pageIdx + 1)}
         disabled={!hasNext}
         aria-label="Next page"
+        data-testid={APP_TEST_IDS.pageNextButton}
       >
         Next →
       </KeyButton>
@@ -389,6 +391,7 @@ export default function PageViewPage() {
             }}
             disabled={saveStatus === "saving" || loading}
             aria-label="Save edits"
+            data-testid={APP_TEST_IDS.pageSaveButton}
           >
             {saveStatus === "saving" ? "Saving…" : "Save edits"}
           </KeyButton>
@@ -400,6 +403,7 @@ export default function PageViewPage() {
             }}
             disabled={rerunStatus === "running" || loading}
             aria-label="Re-run with DocTR"
+            data-testid={APP_TEST_IDS.pageRerunDoctr}
           >
             {rerunStatus === "running" ? "Re-running…" : "Re-run DocTR"}
           </KeyButton>
@@ -411,6 +415,7 @@ export default function PageViewPage() {
             }}
             disabled={rerunStatus === "running" || loading}
             aria-label="Re-run with Tesseract"
+            data-testid={APP_TEST_IDS.pageRerunTesseract}
           >
             Re-run Tesseract
           </KeyButton>

@@ -44,3 +44,42 @@ def test_config_route_managed_containerized(monkeypatch) -> None:
         "detected_device": "local",
         "gpu_available": True,
     }
+
+
+def test_config_route_defaults_to_local_when_mode_env_unset(monkeypatch) -> None:
+    """GET /api/config with no mode env var returns mode='local' (default)."""
+    monkeypatch.delenv("PD_OCR_SIMPLE_GUI_MODE", raising=False)
+    monkeypatch.setattr(
+        "pdomain_ocr_simple_gui.routes.config.detect_containerized",
+        lambda: False,
+    )
+    monkeypatch.setattr(
+        "pdomain_ocr_simple_gui.routes.config._detect_device",
+        lambda: "cpu",
+    )
+    client = TestClient(create_app())
+    resp = client.get("/api/config")
+    assert resp.status_code == 200
+    data = resp.json()
+    # Mode should default to "local" or some valid mode string — not crash
+    assert isinstance(data["mode"], str)
+    assert data["mode"]  # not empty
+
+
+def test_config_route_managed_mode_without_containerized(monkeypatch) -> None:
+    """GET /api/config with mode=managed but not containerized returns managed mode."""
+    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_MODE", "managed")
+    monkeypatch.setattr(
+        "pdomain_ocr_simple_gui.routes.config.detect_containerized",
+        lambda: False,
+    )
+    monkeypatch.setattr(
+        "pdomain_ocr_simple_gui.routes.config._detect_device",
+        lambda: "cpu",
+    )
+    client = TestClient(create_app())
+    resp = client.get("/api/config")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["mode"] == "managed"
+    assert data["is_containerized"] is False

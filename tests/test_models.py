@@ -77,6 +77,13 @@ class TestProjectStatus:
         restored = ProjectStatus.model_validate_json(status.model_dump_json())
         assert restored == status
 
+    def test_invalid_json_raises_validation_error(self) -> None:
+        """ProjectStatus.model_validate_json raises ValidationError for invalid input."""
+        with pytest.raises(ValidationError):
+            ProjectStatus.model_validate_json(
+                '{"project_id": "x", "state": "bad-state", "page_count": 1, "pages_done": 0, "pages": []}'
+            )
+
 
 class TestAppPrefs:
     def test_defaults(self) -> None:
@@ -96,3 +103,8 @@ class TestAppPrefs:
         )
         restored = AppPrefs.model_validate_json(prefs.model_dump_json())
         assert restored == prefs
+
+    def test_invalid_json_raises_validation_error(self) -> None:
+        """AppPrefs.model_validate_json raises ValidationError for non-object JSON."""
+        with pytest.raises(ValidationError):
+            AppPrefs.model_validate_json('"just-a-string"')

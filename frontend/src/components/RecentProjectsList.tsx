@@ -112,6 +112,7 @@ export function RecentProjectsList() {
               style={{ cursor: "pointer" }}
               tabIndex={0}
               role="row"
+              data-testid={APP_TEST_IDS.recentProjectRow}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   navigate(`/jobs/${project.project_id}`);

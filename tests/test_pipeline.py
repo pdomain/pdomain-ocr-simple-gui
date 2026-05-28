@@ -221,6 +221,18 @@ class TestExtractWords:
         assert bbox["w"] == pytest.approx(0.2)
         assert bbox["h"] == pytest.approx(0.05)
 
+    def test_word_with_missing_bounding_box_keys_is_skipped(self) -> None:
+        """A word whose bounding_box lacks required keys is skipped (no crash)."""
+        page = _bboxed_page_dict()
+        # Replace bounding_box with a dict missing 'bottom_right'
+        page["items"][0]["items"][0]["bounding_box"] = {
+            "top_left": {"x": 0.1, "y": 0.1, "is_normalized": True}
+        }
+        words = extract_words(page)
+        # The malformed word is excluded; the other valid word remains
+        texts = [w["text"] for w in words]
+        assert "Hello" not in texts  # malformed word skipped
+
     def test_skips_words_without_geometry(self) -> None:
         page = _bboxed_page_dict()
         # Strip bounding_box from the second word
@@ -250,6 +262,12 @@ class TestBuildSidecarPayload:
         bbox = first["bbox"]
         assert isinstance(bbox, dict)
         assert set(bbox.keys()) == {"x", "y", "w", "h"}
+
+    def test_zero_words_payload_has_empty_words_list(self) -> None:
+        """A page with no words produces a payload with an empty words list."""
+        payload = build_sidecar_payload(EMPTY_PAGE_DICT, "")
+        assert payload["words"] == []
+        assert payload["text"] == ""
 
     def test_preserves_original_tree(self) -> None:
         page = _bboxed_page_dict()
@@ -720,6 +738,58 @@ class TestProgressMessage:
         _, final_status = read_project(spec.project_id)
         assert final_status.progress_message is None
         assert final_status.state == "succeeded"
+
+    async def test_dispatcher_failure_leaves_job_in_failed_state(self, tmp_path: Path, monkeypatch) -> None:
+        """A dispatcher that raises on every page leaves the job in failed state."""
+        from datetime import UTC, datetime
+
+        from pdomain_ocr_simple_gui.storage import read_project, write_project
+
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+
+        src = tmp_path / "source"
+        src.mkdir()
+        (src / "pg.png").write_bytes(b"fake-png")
+
+        spec = ProjectSpec(
+            project_id="proj-fail-001",
+            name="Fail Test",
+            source_path=str(src),
+            output_dir=str(tmp_path / "output"),
+            engine="doctr",
+            language="en",
+            save_json=False,
+            combined_txt=False,
+            created_at=datetime.now(UTC),
+            last_opened_at=datetime.now(UTC),
+        )
+
+        write_project(
+            spec,
+            ProjectStatus(
+                project_id=spec.project_id,
+                state="queued",
+                page_count=1,
+                pages_done=0,
+                pages=[PageResult(page_idx=0, page_name="pg.png", state="queued")],
+            ),
+        )
+
+        fail_dispatcher = MagicMock()
+
+        async def _always_fail(req):  # type: ignore[no-untyped-def]
+            raise RuntimeError("dispatcher exploded")
+
+        fail_dispatcher.run_ocr_batch = _always_fail
+
+        await run_project(spec, fail_dispatcher, AsyncMock())
+
+        _, final_status = read_project(spec.project_id)
+        assert final_status.state == "failed"
+        assert final_status.pages[0].state == "failed"
+        assert "dispatcher exploded" in (final_status.pages[0].error or "")
 
 
 class TestChunkFailureIsolation:

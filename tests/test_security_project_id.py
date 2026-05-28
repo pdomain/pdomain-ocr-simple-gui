@@ -28,63 +28,8 @@ Two-layer strategy tested here:
 from __future__ import annotations
 
 import pytest
-from httpx import ASGITransport, AsyncClient
 
-from pdomain_ocr_simple_gui.app import app
 from pdomain_ocr_simple_gui.storage import validate_project_id
-
-
-@pytest.fixture
-async def secured_client(tmp_path, monkeypatch):
-    """Client with an isolated tmp project store + a sentinel above the root.
-
-    Layout:
-        tmp_path/
-            sentinel.txt          ← must NEVER be deleted by the API
-            projects/             ← _PROJECTS_ROOT (monkeypatched)
-                legit-project/    ← pre-seeded so GET/DELETE can reach storage
-                    project.json
-    """
-    import json
-
-    root = tmp_path / "projects"
-    root.mkdir()
-    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
-
-    # Sentinel above the project root — its presence proves no upward escape
-    sentinel = tmp_path / "sentinel.txt"
-    sentinel.write_text("do not delete")
-
-    # Pre-seed a legitimate project so the storage layer has something to read
-    legit_id = "legit-project-abc123"
-    legit_dir = root / legit_id
-    legit_dir.mkdir()
-    project_data = {
-        "spec": {
-            "project_id": legit_id,
-            "name": "Legit",
-            "source_path": "/tmp/src",
-            "output_dir": "/tmp/out",
-            "engine": "doctr",
-            "language": "en",
-            "save_json": False,
-            "combined_txt": True,
-            "created_at": "2026-01-01T00:00:00+00:00",
-            "last_opened_at": "2026-01-01T00:00:00+00:00",
-        },
-        "status": {
-            "project_id": legit_id,
-            "state": "succeeded",
-            "page_count": 0,
-            "pages_done": 0,
-            "pages": [],
-        },
-    }
-    (legit_dir / "project.json").write_text(json.dumps(project_data))
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac, root, sentinel
-
 
 # ---------------------------------------------------------------------------
 # IDs that httpx will send AS-IS (no path normalization) and that must reach

@@ -1,11 +1,11 @@
 // Tests for ResultsPage — M4 task #230
 
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, waitFor, act } from "@testing-library/react";
+import { screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import ResultsPage from "./ResultsPage";
+import { Routes, Route } from "react-router-dom";
+import ResultsPage from "../ResultsPage";
+import { renderWithProviders, fixtures } from "../../test/test-utils";
 
 // Mock pdomain-ui/primitives
 vi.mock("@pdomain/pdomain-ui/primitives", async (importOriginal) => {
@@ -54,55 +54,6 @@ vi.mock("@pdomain/pdomain-ui/primitives", async (importOriginal) => {
   };
 });
 
-function makeJobStatus(
-  state: "queued" | "running" | "succeeded" | "failed" | "cancelled",
-  pagesDone = 0,
-  pageCount = 3,
-  outputMode?: "next_to_source" | "specified" | "managed",
-) {
-  return {
-    project_id: "proj-abc",
-    name: "test-project",
-    state,
-    pages_done: pagesDone,
-    page_count: pageCount,
-    output_dir: "/tmp/out",
-    output_mode: outputMode,
-    pages: [
-      {
-        page_idx: 0,
-        page_name: "page_001.png",
-        state: "succeeded",
-        text_preview: "Hello world first page text that is long",
-      },
-      {
-        page_idx: 1,
-        page_name: "page_002.png",
-        state: "running",
-        text_preview: "Second page content here",
-      },
-      {
-        page_idx: 2,
-        page_name: "page_003.png",
-        state: "queued",
-        text_preview: "",
-      },
-    ].slice(0, pageCount),
-  };
-}
-
-function makeQueryClient() {
-  return new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-        // Disable garbage collection in tests so data stays available.
-        gcTime: Infinity,
-      },
-    },
-  });
-}
-
 function renderResultsPage(
   projectId = "proj-abc",
   makeFetch?: () => ReturnType<typeof vi.fn>,
@@ -111,27 +62,22 @@ function renderResultsPage(
     ? makeFetch()
     : vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => makeJobStatus("succeeded", 3, 3),
+        json: async () => fixtures.jobStatus("succeeded"),
       });
 
   (globalThis as any).fetch = mockFetch;
 
-  const client = makeQueryClient();
-
   return {
     mockFetch,
-    ...render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={[`/jobs/${projectId}`]}>
-          <Routes>
-            <Route path="/jobs/:id" element={<ResultsPage />} />
-            <Route
-              path="/jobs/:id/pages/:idx"
-              element={<div data-testid="page-view" />}
-            />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+    ...renderWithProviders(
+      <Routes>
+        <Route path="/jobs/:id" element={<ResultsPage />} />
+        <Route
+          path="/jobs/:id/pages/:idx"
+          element={<div data-testid="page-view" />}
+        />
+      </Routes>,
+      { route: `/jobs/${projectId}` },
     ),
   };
 }
@@ -153,7 +99,7 @@ describe("ResultsPage", () => {
     renderResultsPage("proj-abc", () =>
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => makeJobStatus("running", 1, 3),
+        json: async () => fixtures.jobStatus("running", { pagesDone: 1 }),
       }),
     );
 
@@ -174,11 +120,12 @@ describe("ResultsPage", () => {
     renderResultsPage("proj-abc", () =>
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({
-          ...makeJobStatus("running", 0, 3),
-          progress_message:
-            "Loading OCR engine — first run may download ~200 MB to ~/.cache/huggingface",
-        }),
+        json: async () =>
+          fixtures.jobStatus("running", {
+            pagesDone: 0,
+            progressMessage:
+              "Loading OCR engine — first run may download ~200 MB to ~/.cache/huggingface",
+          }),
       }),
     );
 
@@ -193,15 +140,16 @@ describe("ResultsPage", () => {
     renderResultsPage("proj-abc", () =>
       vi.fn().mockResolvedValue({
         ok: true,
-        // No progress_message field at all — testid must be absent.
-        json: async () => makeJobStatus("running", 0, 3),
+        json: async () => fixtures.jobStatus("running", { pagesDone: 0 }),
       }),
     );
 
     await waitFor(() => {
       expect(screen.getByTestId("progress-bar")).toBeInTheDocument();
     });
-    expect(screen.queryByTestId("job-progress-message")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("job-progress-message"),
+    ).not.toBeInTheDocument();
   });
 
   it("polling stops when state is done", async () => {
@@ -212,22 +160,17 @@ describe("ResultsPage", () => {
       callCount++;
       return {
         ok: true,
-        json: async () => makeJobStatus("succeeded", 3, 3),
+        json: async () => fixtures.jobStatus("succeeded"),
       };
     });
 
     (globalThis as any).fetch = mockFetch;
 
-    const client = makeQueryClient();
-
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-          <Routes>
-            <Route path="/jobs/:id" element={<ResultsPage />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+    renderWithProviders(
+      <Routes>
+        <Route path="/jobs/:id" element={<ResultsPage />} />
+      </Routes>,
+      { route: "/jobs/proj-abc" },
     );
 
     // Let microtasks flush (fetch promise resolves)
@@ -255,22 +198,18 @@ describe("ResultsPage", () => {
       callCount++;
       return {
         ok: true,
-        json: async () => makeJobStatus("running", callCount, 5),
+        json: async () =>
+          fixtures.jobStatus("running", { pagesDone: callCount, pageCount: 5 }),
       };
     });
 
     (globalThis as any).fetch = mockFetch;
 
-    const client = makeQueryClient();
-
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-          <Routes>
-            <Route path="/jobs/:id" element={<ResultsPage />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+    renderWithProviders(
+      <Routes>
+        <Route path="/jobs/:id" element={<ResultsPage />} />
+      </Routes>,
+      { route: "/jobs/proj-abc" },
     );
 
     // Initial fetch
@@ -314,9 +253,7 @@ describe("ResultsPage", () => {
   it("shows text preview", async () => {
     renderResultsPage();
     await waitFor(() => {
-      expect(
-        screen.getByText("Hello world first page text that is long"),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Preview page 1")).toBeInTheDocument();
     });
   });
 
@@ -350,22 +287,17 @@ describe("ResultsPage", () => {
         }
         return {
           ok: true,
-          json: async () => makeJobStatus("succeeded", 3, 3),
+          json: async () => fixtures.jobStatus("succeeded"),
         };
       });
 
     (globalThis as any).fetch = mockFetch;
 
-    const client = makeQueryClient();
-
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-          <Routes>
-            <Route path="/jobs/:id" element={<ResultsPage />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+    renderWithProviders(
+      <Routes>
+        <Route path="/jobs/:id" element={<ResultsPage />} />
+      </Routes>,
+      { route: "/jobs/proj-abc" },
     );
 
     await waitFor(() => {
@@ -394,25 +326,19 @@ describe("ResultsPage", () => {
           };
         }
         fetchCount++;
-        // Always return done so button stays visible and polling stops
         return {
           ok: true,
-          json: async () => makeJobStatus("succeeded", 3, 3),
+          json: async () => fixtures.jobStatus("succeeded"),
         };
       });
 
     (globalThis as any).fetch = mockFetch;
 
-    const client = makeQueryClient();
-
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-          <Routes>
-            <Route path="/jobs/:id" element={<ResultsPage />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+    renderWithProviders(
+      <Routes>
+        <Route path="/jobs/:id" element={<ResultsPage />} />
+      </Routes>,
+      { route: "/jobs/proj-abc" },
     );
 
     await waitFor(() => {
@@ -433,19 +359,12 @@ describe("ResultsPage", () => {
 
   // A7.2: download button tests
   it("shows download button when output_mode is managed and state is succeeded", async () => {
-    (globalThis as any).fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => makeJobStatus("succeeded", 3, 3, "managed"),
-    });
-    const client = makeQueryClient();
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-          <Routes>
-            <Route path="/jobs/:id" element={<ResultsPage />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () =>
+          fixtures.jobStatus("succeeded", { outputMode: "managed" }),
+      }),
     );
     await waitFor(() => {
       expect(screen.getByTestId("download-results-button")).toBeInTheDocument();
@@ -453,19 +372,12 @@ describe("ResultsPage", () => {
   });
 
   it("hides download button when output_mode is next_to_source", async () => {
-    (globalThis as any).fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => makeJobStatus("succeeded", 3, 3, "next_to_source"),
-    });
-    const client = makeQueryClient();
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-          <Routes>
-            <Route path="/jobs/:id" element={<ResultsPage />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () =>
+          fixtures.jobStatus("succeeded", { outputMode: "next_to_source" }),
+      }),
     );
     await waitFor(() => {
       expect(screen.getByText("test-project")).toBeInTheDocument();
@@ -476,19 +388,15 @@ describe("ResultsPage", () => {
   });
 
   it("hides download button when state is not succeeded", async () => {
-    (globalThis as any).fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => makeJobStatus("running", 1, 3, "managed"),
-    });
-    const client = makeQueryClient();
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={["/jobs/proj-abc"]}>
-          <Routes>
-            <Route path="/jobs/:id" element={<ResultsPage />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () =>
+          fixtures.jobStatus("running", {
+            pagesDone: 1,
+            outputMode: "managed",
+          }),
+      }),
     );
     await waitFor(() => {
       expect(screen.getByTestId("progress-bar")).toBeInTheDocument();
@@ -496,5 +404,163 @@ describe("ResultsPage", () => {
     expect(
       screen.queryByTestId("download-results-button"),
     ).not.toBeInTheDocument();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Bad-case tests (M4 strengthening)
+  // ---------------------------------------------------------------------------
+
+  it("shows error alert when job fetch fails (bad state)", async () => {
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) }),
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
+    // Project name should not be rendered in error state
+    expect(screen.queryByText("test-project")).not.toBeInTheDocument();
+  });
+
+  it("shows no page rows when job has empty page list (succeeded but no pages)", async () => {
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => fixtures.jobStatus("succeeded", { pageCount: 0 }),
+      }),
+    );
+    await waitFor(() => {
+      // Name renders — job loaded
+      expect(screen.getByText("test-project")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("page-row")).not.toBeInTheDocument();
+  });
+
+  it("shows em-dash when text_preview is empty string", async () => {
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ...fixtures.jobStatus("succeeded"),
+          pages: [
+            {
+              page_idx: 0,
+              page_name: "page_001.png",
+              state: "succeeded",
+              text_preview: "",
+            },
+          ],
+        }),
+      }),
+    );
+    await waitFor(() => {
+      // The row should render with — for blank preview
+      expect(screen.getByText("—")).toBeInTheDocument();
+    });
+  });
+
+  it("page rows absent when job is loading (non-navigable state)", async () => {
+    // Simulate a slow fetch — page rows must not appear while loading
+    let resolveSlowFetch!: (v: unknown) => void;
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveSlowFetch = resolve;
+          }),
+      ),
+    );
+    // Before fetch resolves, no page-rows yet
+    expect(screen.queryByTestId("page-row")).not.toBeInTheDocument();
+    // Resolve with success so test teardown is clean
+    resolveSlowFetch({
+      ok: true,
+      json: async () => fixtures.jobStatus("succeeded"),
+    });
+  });
+
+  it("does not crash when rerun POST returns non-ok (error silently ignored)", async () => {
+    const user = userEvent.setup();
+    let rerunCalled = false;
+    const mockFetch = vi
+      .fn()
+      .mockImplementation(async (url: string, opts?: RequestInit) => {
+        if (url.includes("/rerun") && opts?.method === "POST") {
+          rerunCalled = true;
+          return { ok: false, json: async () => ({}) };
+        }
+        return {
+          ok: true,
+          json: async () => fixtures.jobStatus("succeeded"),
+        };
+      });
+
+    (globalThis as any).fetch = mockFetch;
+
+    renderWithProviders(
+      <Routes>
+        <Route path="/jobs/:id" element={<ResultsPage />} />
+      </Routes>,
+      { route: "/jobs/proj-abc" },
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /re.run all/i }),
+      ).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /re.run all/i }));
+
+    await waitFor(() => {
+      expect(rerunCalled).toBe(true);
+    });
+    // Page should still show project name — no crash
+    expect(screen.getByText("test-project")).toBeInTheDocument();
+  });
+
+  it("project name still shows after re-fetch failure post-rerun", async () => {
+    const user = userEvent.setup();
+    let rerunDone = false;
+    const mockFetch = vi
+      .fn()
+      .mockImplementation(async (url: string, opts?: RequestInit) => {
+        if (url.includes("/rerun") && opts?.method === "POST") {
+          rerunDone = true;
+          return {
+            ok: true,
+            json: async () => ({ project_id: "proj-abc", state: "queued" }),
+          };
+        }
+        // After rerun, simulate a fetch failure on the follow-up status poll
+        if (rerunDone) {
+          return { ok: false, json: async () => ({}) };
+        }
+        return {
+          ok: true,
+          json: async () => fixtures.jobStatus("succeeded"),
+        };
+      });
+
+    (globalThis as any).fetch = mockFetch;
+
+    renderWithProviders(
+      <Routes>
+        <Route path="/jobs/:id" element={<ResultsPage />} />
+      </Routes>,
+      { route: "/jobs/proj-abc" },
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /re.run all/i }),
+      ).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /re.run all/i }));
+
+    // After re-fetch failure the error alert appears — no crash
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
   });
 });

@@ -2,11 +2,10 @@
 // Issue #228
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { RecentProjectsList } from "./RecentProjectsList";
+import { RecentProjectsList } from "../RecentProjectsList";
+import { renderWithProviders } from "../../test/test-utils";
 
 // Mock react-router navigate
 const mockNavigate = vi.fn();
@@ -50,21 +49,6 @@ const mockPrefsWithProjects = {
 
 const mockPrefsEmpty = { recent_projects: [] };
 
-function makeQueryClient() {
-  return new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: Infinity } },
-  });
-}
-
-function renderWithClient(ui: React.ReactElement) {
-  const client = makeQueryClient();
-  return render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter>{ui}</MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
-
 beforeEach(() => {
   vi.clearAllMocks();
   mockNavigate.mockClear();
@@ -77,7 +61,7 @@ describe("RecentProjectsList", () => {
       json: async () => mockPrefsEmpty,
     });
 
-    renderWithClient(<RecentProjectsList />);
+    renderWithProviders(<RecentProjectsList />);
 
     await waitFor(() => {
       expect(screen.getByText(/no recent projects/i)).toBeInTheDocument();
@@ -90,7 +74,7 @@ describe("RecentProjectsList", () => {
       json: async () => mockPrefsWithProjects,
     });
 
-    renderWithClient(<RecentProjectsList />);
+    renderWithProviders(<RecentProjectsList />);
 
     await waitFor(() => {
       expect(screen.getByText("My Book Scans")).toBeInTheDocument();
@@ -105,7 +89,7 @@ describe("RecentProjectsList", () => {
       json: async () => mockPrefsWithProjects,
     });
 
-    renderWithClient(<RecentProjectsList />);
+    renderWithProviders(<RecentProjectsList />);
 
     await waitFor(() => {
       expect(screen.getByText("done")).toBeInTheDocument();
@@ -118,7 +102,7 @@ describe("RecentProjectsList", () => {
       json: async () => mockPrefsWithProjects,
     });
 
-    renderWithClient(<RecentProjectsList />);
+    renderWithProviders(<RecentProjectsList />);
 
     await waitFor(() => {
       expect(screen.getByText("My Book Scans")).toBeInTheDocument();
@@ -133,7 +117,7 @@ describe("RecentProjectsList", () => {
       .fn()
       .mockRejectedValueOnce(new Error("network error"));
 
-    renderWithClient(<RecentProjectsList />);
+    renderWithProviders(<RecentProjectsList />);
 
     await waitFor(() => {
       expect(screen.getByText(/no recent projects/i)).toBeInTheDocument();
@@ -155,7 +139,7 @@ describe("RecentProjectsList", () => {
       json: async () => ({ recent_projects: manyProjects }),
     });
 
-    renderWithClient(<RecentProjectsList />);
+    renderWithProviders(<RecentProjectsList />);
 
     await waitFor(() => {
       // Only 10 rows should be shown

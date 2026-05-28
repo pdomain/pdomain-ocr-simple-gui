@@ -164,6 +164,7 @@ export default function ResultsPage() {
             variant="ghost"
             disabled={rerunPending}
             aria-label="Re-run all"
+            data-testid={APP_TEST_IDS.rerunAllButton}
             onClick={() => {
               void handleRerunAll();
             }}

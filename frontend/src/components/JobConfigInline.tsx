@@ -95,7 +95,13 @@ export function JobConfigInline({
     setOutputConfig(defaultOutputMode(source, mode));
     setProjectName(defaultProjectName(source));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source.kind, mode, sourceIsFolder ? (source as { path: string }).path : (source as { uploadId: string }).uploadId]);
+  }, [
+    source.kind,
+    mode,
+    sourceIsFolder
+      ? (source as { path: string }).path
+      : (source as { uploadId: string }).uploadId,
+  ]);
 
   // Load engine/language defaults from prefs on mount
   useEffect(() => {
@@ -247,18 +253,21 @@ export function JobConfigInline({
           label="Convert curly quotes to straight"
           checked={straightQuotes}
           onCheckedChange={setStraightQuotes}
+          data-testid={APP_TEST_IDS.toggleStraightQuotes}
         />
         <Toggle
           id="jci-em-dash"
           label="Convert em-dashes (—) to double hyphens (--)"
           checked={emDashDoubleHyphen}
           onCheckedChange={setEmDashDoubleHyphen}
+          data-testid={APP_TEST_IDS.toggleEmDash}
         />
         <Toggle
           id="jci-illustration-placeholders"
           label="Emit [illustration] placeholders for figures"
           checked={emitIllustrationPlaceholders}
           onCheckedChange={setEmitIllustrationPlaceholders}
+          data-testid={APP_TEST_IDS.toggleIllustrationPlaceholders}
         />
 
         <Field label="Processing device">
@@ -327,8 +336,8 @@ export function JobConfigInline({
                 <strong>Enabling GPU acceleration</strong>
                 <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
                   <li>
-                    Confirm an NVIDIA GPU + driver:{" "}
-                    <code>nvidia-smi</code> should list a device.
+                    Confirm an NVIDIA GPU + driver: <code>nvidia-smi</code>{" "}
+                    should list a device.
                   </li>
                   <li>
                     Install a CUDA-enabled PyTorch build (the CPU-only wheel
@@ -336,12 +345,11 @@ export function JobConfigInline({
                   </li>
                   <li>
                     In a container, start it with <code>--gpus all</code> (or
-                    the Compose <code>deploy.resources</code> GPU
-                    reservation).
+                    the Compose <code>deploy.resources</code> GPU reservation).
                   </li>
                   <li>
-                    Restart the app after changing drivers/toolkit so
-                    detection re-runs.
+                    Restart the app after changing drivers/toolkit so detection
+                    re-runs.
                   </li>
                 </ul>
               </div>
@@ -349,10 +357,7 @@ export function JobConfigInline({
           </div>
         </Field>
 
-        <Field
-          htmlFor="jci-batch-pages"
-          label="Pages per batch (blank = auto)"
-        >
+        <Field htmlFor="jci-batch-pages" label="Pages per batch (blank = auto)">
           <Input
             id="jci-batch-pages"
             type="number"

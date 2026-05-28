@@ -9,8 +9,8 @@
 
 import { renderHook, act } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { useOcrJob } from "./useOcrJob";
-import type { OcrJobData } from "./useOcrJob";
+import { useOcrJob } from "../useOcrJob";
+import type { OcrJobData } from "../useOcrJob";
 
 function makeBackendResponse(
   state: "queued" | "running" | "succeeded" | "failed" | "cancelled",
@@ -181,5 +181,58 @@ describe("useOcrJob", () => {
     // In jsdom with no fetch mock, this will go to error — that's acceptable.
     // The test verifies the hook initialises without throwing.
     expect(result.current).toBeDefined();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Bad-case tests (M4 strengthening)
+  // ---------------------------------------------------------------------------
+
+  it("returns null progress when page_count is zero (division-by-zero guard)", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValue(
+        makeBackendResponse("running", { pages_done: 0, page_count: 0 }),
+      );
+    const { result } = renderHook(() =>
+      useOcrJob("proj-1", { fetchFn, pollIntervalMs: 100 }),
+    );
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(result.current.progress).toBeNull();
+  });
+
+  it("surfaces undefined extra fields gracefully when API omits them", async () => {
+    // Backend response without output_dir / output_mode — hook must not crash.
+    const minimal = {
+      project_id: "proj-1",
+      name: "proj",
+      state: "succeeded" as const,
+      pages_done: 1,
+      page_count: 1,
+      pages: [],
+    };
+    const fetchFn = vi.fn().mockResolvedValue(minimal);
+    const { result } = renderHook(() =>
+      useOcrJob("proj-1", { fetchFn, pollIntervalMs: 100 }),
+    );
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(result.current.longJobStatus).toBe("done");
+    expect(result.current.jobData?.output_dir).toBeUndefined();
+    expect(result.current.jobData?.output_mode).toBeUndefined();
+  });
+
+  it("transitions to error status when the poll fetch throws a network error", async () => {
+    const fetchFn = vi.fn().mockRejectedValue(new Error("Network failure"));
+    const { result } = renderHook(() =>
+      useOcrJob("proj-1", { fetchFn, pollIntervalMs: 100 }),
+    );
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 150));
+    });
+    expect(result.current.longJobStatus).toBe("error");
+    expect(result.current.jobData).toBeNull();
   });
 });
