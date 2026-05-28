@@ -31,7 +31,7 @@ endef
 PEER_BOOK_TOOLS_PATH ?= ../pdomain-book-tools
 
 .PHONY: help setup install uninstall remove-venv reset lint format format-check typecheck \
-        pre-commit-check test e2e-browser frontend-install frontend-build frontend-dev \
+        pre-commit-check test e2e-fast e2e-browser frontend-install frontend-build frontend-dev \
         frontend-test frontend-lint frontend-format frontend-format-check frontend-knip \
         openapi-export clean ci ci-full upgrade-deps dev-local \
         local-setup local-dev local-check local-upgrade-deps local-run \
@@ -44,9 +44,11 @@ help: ## Show this help message
 	@echo "Available commands:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-22s\033[0m %s\n", $$1, $$2}'
 
-setup: ## Sync deps + install pre-commit hooks
+setup: ## Sync deps + install pre-commit hooks + install Playwright chromium
 	@echo "📦 Installing dependencies..."
-	uv sync --group dev
+	uv sync --group dev --group e2e
+	@echo "🌐 Installing Playwright chromium..."
+	PLAYWRIGHT_BROWSERS_PATH=/cache/shared-ai/ms-playwright uv run --group e2e playwright install chromium || true
 	@echo "🪝 Setting up pre-commit hooks..."
 	uv run pre-commit install || true
 	@echo "✅ Setup complete!"
@@ -102,7 +104,13 @@ test: ## Run pytest (excludes slow/e2e tests)
 smoke: ## Run slow/e2e smoke tests (requires real OCR; use make ci AI=1 to include)
 	uv run pytest tests/smoke/ -v -m "slow or e2e"
 
-e2e-browser: frontend-build ## Run Playwright browser e2e tests (requires chromium)
+e2e-fast: frontend-build ## Run fake-backed Playwright click-path tests (fast, no model weights; part of make ci)
+	@echo "🌐 Running fast browser click-path tests (fake dispatcher)..."
+	PLAYWRIGHT_BROWSERS_PATH=/cache/shared-ai/ms-playwright \
+	PDOMAIN_OCR_FAKE_DISPATCHER=1 \
+	uv run --group e2e pytest tests/e2e/test_click_paths_*.py -v -m "slow or e2e"
+
+e2e-browser: frontend-build ## Run all Playwright browser e2e tests (requires chromium; includes e2e-fast tests)
 	@echo "🌐 Running Playwright e2e tests..."
 	PLAYWRIGHT_BROWSERS_PATH=/cache/shared-ai/ms-playwright \
 	uv run --group e2e pytest tests/e2e/ -v -m "slow or e2e" --no-cov
@@ -170,9 +178,9 @@ clean: ## Clean cache + build artifacts
 	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
 	rm -rf dist/ 2>/dev/null || true
 
-ci: setup frontend-install pre-commit-check lint typecheck frontend-build test smoke frontend-format-check frontend-lint frontend-test frontend-knip ## Full CI pipeline
+ci: setup frontend-install pre-commit-check lint typecheck frontend-build test smoke frontend-format-check frontend-lint frontend-test frontend-knip e2e-fast ## Full CI pipeline (includes fast browser click-path tier)
 
-ci-full: ci e2e-browser ## Full CI including Playwright browser tests (requires --group e2e + chromium)
+ci-full: ci e2e-browser smoke ## Full CI including all Playwright browser tests + real-OCR smoke (requires --group e2e + chromium + model weights)
 
 # ---------------------------------------------------------------------------
 # Run

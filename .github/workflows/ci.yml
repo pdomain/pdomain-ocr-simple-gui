@@ -29,4 +29,6 @@ jobs:
           node-version: "24"
           cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install Playwright chromium
+        run: uv sync --group e2e && uv run --group e2e playwright install chromium --with-deps
       - run: make ci
