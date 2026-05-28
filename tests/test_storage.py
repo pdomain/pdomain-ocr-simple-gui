@@ -47,15 +47,6 @@ def _make_status() -> ProjectStatus:
     )
 
 
-@pytest.fixture
-def projects_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Redirect storage root to tmp_path via the env var _projects_root() reads."""
-    root = tmp_path / "projects"
-    root.mkdir()
-    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
-    return root
-
-
 class TestGetProjectDir:
     def test_returns_path_under_root(self, projects_root: Path) -> None:
         p = get_project_dir("my-id")
