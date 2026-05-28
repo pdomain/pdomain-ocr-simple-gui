@@ -92,11 +92,15 @@ This matrix gates the rest: execution is checked against it.
 
 ### Section 4 — Strengthen weak tests in place
 
-For every test tagged in Section 1: rewrite to assert real behavior with an
-explicit **good state** (valid input → expected output/state) and a **bad
-state validated against it** (invalid/edge input → specific error, not "didn't
-crash"). Reduce mocks toward real collaborators where cheap (e.g. real storage
-round-trips on tmp dirs). Delete only proven duplicates.
+**Every** test tagged in Section 1 must be resolved in this plan — none
+deferred. Rewrite each to assert real behavior with an explicit **good state**
+(valid input → expected output/state) and a **bad state validated against it**
+(invalid/edge input → specific error, not "didn't crash"). The good/bad pairing
+is mandatory for every tagged test regardless of difficulty. Reducing mocks
+toward real collaborators (e.g. real storage round-trips on tmp dirs) is the
+default and applied wherever it does not require new product code; it is a
+means, not an optional extra. Delete only proven duplicates. A test tagged weak
+in Section 1 and left unchanged is an incomplete plan, not a follow-up.
 
 ### Section 5 — Full UI click-path e2e (stubbed OCR, real browser)
 
@@ -116,6 +120,30 @@ round-trips on tmp dirs). Delete only proven duplicates.
 One behavior per test; `test_<behavior>_<condition>_<expected>` naming; AAA
 structure; no logic in tests; deterministic (no real sleeps/clocks/network);
 good-vs-bad pairing as a reviewable rule; honest markers (`slow`/`e2e`).
+
+## Definition of done — no half-work, no stubs deferred
+
+This plan delivers the full scope in the sections above. It is **not** done
+until all of the following hold; partial completion of any section is a
+blocker, not a follow-up ticket:
+
+- Every backend and frontend test is classified in the Section-1 matrix —
+  none left "unknown".
+- Every test tagged weak (`tautological`, `asserts-mock`, `no-bad-case`,
+  `over-coupled`) is rewritten to the good/bad standard; every `duplicate` is
+  deleted. Zero weak tags remain open.
+- Every interactive element in the click-path matrix reaches `full-e2e` —
+  every `none` and every `hybrid-e2e` path is driven through the real browser.
+  The hybrid API-driven Playwright shortcuts are removed, not kept alongside.
+- **No deferral artifacts in the tree:** no `@pytest.mark.skip`,
+  `pytest.mark.xfail`, `it.skip`, `it.todo`, `describe.skip`, `@pytest.mark.todo`,
+  empty/placeholder test bodies, or `TODO`/`FIXME`/"add later" comments
+  standing in for an in-scope test. Markers `slow`/`e2e` are allowed only on
+  the one retained real-OCR smoke test.
+- Shared fixtures/utilities (Sections 2–3) are adopted by the tests they
+  replace — no file keeps its old hand-rolled setup beside the new shared one.
+- `make ci AI=1` and the new fast browser tier are green with the full suite
+  enabled — not green because work was skipped.
 
 ## Sequencing
 
