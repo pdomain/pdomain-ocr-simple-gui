@@ -28,4 +28,7 @@ make -C "$REPO_ROOT" local-frontend-build
 
 # 3) Launch — reproduce `make run`'s launch step inline so we don't
 #    trigger the registry-path `frontend-build` dependency chain.
-exec uv run --project "$CANONICAL_REPO_ROOT" pdomain-ocr-simple-gui ${ARGS:-}
+#    --no-sync is REQUIRED: a plain `uv run` re-syncs and reverts the editable
+#    pd-* siblings that local-setup-py just installed (book-tools/ops back to
+#    registry), breaking the editable batch API at runtime.
+exec uv run --no-sync --project "$CANONICAL_REPO_ROOT" pdomain-ocr-simple-gui ${ARGS:-}
