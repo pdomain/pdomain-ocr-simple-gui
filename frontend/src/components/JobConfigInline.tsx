@@ -80,8 +80,8 @@ export function JobConfigInline({
   // GPU is available so the disabled GPU option is never the active value.
   const [device, setDevice] = useState<"auto" | "gpu" | "cpu">("auto");
   const [showGpuHelp, setShowGpuHelp] = useState<boolean>(false);
-  // Blank = auto-size from hardware (pick_concurrency); a positive int overrides.
-  const [parallelPages, setParallelPages] = useState<string>("");
+  // Blank = default batch size (8); a positive int overrides.
+  const [batchPages, setBatchPages] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
@@ -135,10 +135,10 @@ export function JobConfigInline({
         em_dash_to_double_hyphen: emDashDoubleHyphen,
         emit_illustration_placeholders: emitIllustrationPlaceholders,
         device: !gpuAvailable && device === "gpu" ? "cpu" : device,
-        parallel_pages:
-          parallelPages.trim() === ""
+        batch_pages:
+          batchPages.trim() === ""
             ? null
-            : Math.max(1, parseInt(parallelPages, 10) || 1),
+            : Math.max(1, parseInt(batchPages, 10) || 1),
         output: outputConfig,
       };
 
@@ -350,19 +350,19 @@ export function JobConfigInline({
         </Field>
 
         <Field
-          htmlFor="jci-parallel-pages"
-          label="Parallel pages (blank = auto)"
+          htmlFor="jci-batch-pages"
+          label="Pages per batch (blank = auto)"
         >
           <Input
-            id="jci-parallel-pages"
+            id="jci-batch-pages"
             type="number"
             min={1}
-            value={parallelPages}
+            value={batchPages}
             onChange={(e: ChangeEvent<HTMLInputElement>) =>
-              setParallelPages(e.target.value)
+              setBatchPages(e.target.value)
             }
             placeholder="auto"
-            data-testid={APP_TEST_IDS.parallelPagesInput}
+            data-testid={APP_TEST_IDS.batchPagesInput}
           />
         </Field>
 

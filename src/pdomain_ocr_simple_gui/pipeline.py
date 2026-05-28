@@ -4,14 +4,13 @@ Entry points:
 
 * :func:`collect_images` — resolve a file or directory to a sorted list of
   image paths.
-* :func:`run_project` — async driver that iterates pages, dispatches OCR via
-  ``LocalStageDispatcher``, writes sidecars and ``.txt`` files, and fires a
-  status callback after each page.
+* :func:`run_project` — async driver that chunks pages into batches, dispatches
+  OCR via ``LocalStageDispatcher.run_ocr_batch``, writes sidecars and ``.txt``
+  files, and fires a status callback after each chunk.
 """
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, TypeAlias, cast
@@ -40,28 +39,58 @@ _IMAGE_SUFFIXES: frozenset[str] = frozenset(
     }
 )
 
+# Default batch size when spec.batch_pages is None.
+_DEFAULT_BATCH_PAGES: int = 8
+
 JsonPrimitive: TypeAlias = str | int | float | bool | None
 JsonValue: TypeAlias = JsonPrimitive | list["JsonValue"] | dict[str, "JsonValue"]
 JsonObject: TypeAlias = dict[str, JsonValue]
 
 
-class StageResultLike(Protocol):
-    """Subset of stage result required by pipeline/page extraction."""
-
-    metadata: Mapping[str, object]
-
-
 class OCRDispatcher(Protocol):
-    """Structural type for OCR dispatchers used by this module."""
+    """Structural type for OCR dispatchers used by this module.
 
-    async def run_stage(
+    NOTE: ``run_ocr_batch`` does not accept a device parameter — device
+    selection is handled internally by the LocalStageDispatcher (VRAM sizing
+    + OOM backoff + CPU fallback).  The user's device choice (spec.device)
+    is therefore not forwarded to the batch seam.  This is a known gap:
+    when the pdomain-ops OcrBatchRequest gains a device field, wire
+    spec.device through here.  See: follow-up on device override in
+    Wave-3 batch seam (ocr-container-meta).
+    """
+
+    async def run_ocr_batch(
         self,
-        stage_id: str,
-        page_id: str,
-        **kwargs: object,
-    ) -> StageResultLike:
-        """Run one pipeline stage and return its result metadata."""
+        req: object,
+    ) -> list[dict[str, object]]:
+        """Run batched OCR on multiple pages.
+
+        Accepts image bytes; returns one page dict per input image, in order.
+        """
         ...
+
+
+def resolve_device(choice: str) -> str | None:
+    """Translate a job's device choice into a run_stage override.
+
+    - "auto" -> None (dispatcher auto-detects via pick_device)
+    - "cpu"  -> "cpu"
+    - "gpu"  -> the detected accelerator ("local"/"mps"); falls back to the
+      detected device, which run_stage degrades to cpu when no GPU impl.
+
+    NOTE: This function is preserved for informational use but is NOT
+    forwarded to run_ocr_batch (which has no device parameter yet).
+    """
+    if choice == "cpu":
+        return "cpu"
+    if choice == "gpu":
+        try:
+            from pdomain_ops.gpu.device import pick_device
+
+            return pick_device()
+        except (ImportError, ValueError, RuntimeError):
+            return None
+    return None
 
 
 def _json_object_or_none(value: object) -> JsonObject | None:
@@ -91,44 +120,6 @@ def first_page_dict(metadata: Mapping[str, object]) -> JsonObject:
     """Extract the first page object from stage metadata."""
     pages_list = _json_object_list(metadata.get("pages"))
     return pages_list[0] if pages_list else {}
-
-
-def resolve_device(choice: str) -> str | None:
-    """Translate a job's device choice into a run_stage override.
-
-    - "auto" -> None (dispatcher auto-detects via pick_device)
-    - "cpu"  -> "cpu"
-    - "gpu"  -> the detected accelerator ("local"/"mps"); falls back to the
-      detected device, which run_stage degrades to cpu when no GPU impl.
-    """
-    if choice == "cpu":
-        return "cpu"
-    if choice == "gpu":
-        try:
-            from pdomain_ops.gpu.device import pick_device
-
-            return pick_device()
-        except (ImportError, ValueError, RuntimeError):
-            return None
-    return None
-
-
-def resolve_concurrency(choice: str, override: int | None) -> int:
-    """Resolve how many pages to OCR in parallel.
-
-    *override* wins when a positive int is given (user "Parallel pages"
-    setting). Otherwise auto-size from hardware via pdomain-ops
-    pick_concurrency for the resolved device. Falls back to 1 if the helper
-    is unavailable.
-    """
-    if override is not None and override >= 1:
-        return override
-    try:
-        from pdomain_ops.gpu.device import pick_concurrency
-
-        return max(1, pick_concurrency(resolve_device(choice)))
-    except (ImportError, ValueError, RuntimeError):
-        return 1
 
 
 def _bbox_xywh_from_bounding_box(bb: object) -> JsonObject | None:
@@ -314,15 +305,25 @@ async def run_project(
 ) -> None:
     """Orchestrate OCR for all pages in *spec.source_path*.
 
-    For each image:
+    Pages are grouped into chunks of ``spec.batch_pages`` (default
+    :data:`_DEFAULT_BATCH_PAGES`).  For each chunk:
 
-    1. Calls ``dispatcher.run_stage("ocr", page_id, image_path=..., engine=...,
-       language=...)`` to get a :class:`~pdomain_ops.gpu.types.StageResult`.
-    2. Extracts the first page dict from ``result.metadata["pages"]``.
-    3. Writes the page sidecar JSON and plain-text file via storage helpers.
-    4. Updates the per-page :class:`~pdomain_ocr_simple_gui.models.PageResult` and
-       calls *status_callback* with the updated
-       :class:`~pdomain_ocr_simple_gui.models.ProjectStatus`.
+    1. Reads image bytes for each page in the chunk.
+    2. Builds an :class:`~pdomain_ops.gpu.types.OcrBatchRequest` and calls
+       ``dispatcher.run_ocr_batch(req)``.
+    3. For each returned page dict, runs ``reorganize_page`` + text
+       normalizations + sidecar/txt writes.
+    4. On exception (non-OOM or any), marks only that chunk's pages as
+       ``failed`` and continues to the next chunk — one bad chunk does
+       not abort the whole job.
+    5. Calls *status_callback* after each chunk.
+
+    **Device note:** ``run_ocr_batch`` does not accept a device parameter;
+    device selection (VRAM sizing, OOM backoff, CPU fallback) is handled
+    internally by the LocalStageDispatcher.  The user's ``spec.device``
+    choice is therefore not forwarded.  When the pdomain-ops
+    ``OcrBatchRequest`` gains a device field this should be wired here.
+    See: follow-up on device override in Wave-3 batch seam.
 
     The project must already be written to storage with a ``pages`` list
     matching the discovered images (page names = image filenames) before
@@ -344,14 +345,13 @@ async def run_project(
     images = await collect_images(spec.source_path)
     total = len(images)
 
-    def _persist_message(message: str | None) -> ProjectStatus:
-        """Set ``progress_message`` on the stored status and persist it.
+    # Resolve batch size: honor spec.batch_pages when set; fall back to default.
+    batch_size: int = (
+        spec.batch_pages if spec.batch_pages is not None and spec.batch_pages >= 1 else _DEFAULT_BATCH_PAGES
+    )
 
-        Returns the freshly-written status (which the caller may forward to
-        the status callback). The per-page state machine is owned by
-        :func:`update_page_result`; this helper just stamps the free-text
-        progress field on top of whatever the current status is.
-        """
+    def _persist_message(message: str | None) -> ProjectStatus:
+        """Set ``progress_message`` on the stored status and persist it."""
         _, prev = read_project(spec.project_id)
         next_status = prev.model_copy(update={"progress_message": message})
         write_project(spec, next_status)
@@ -368,53 +368,57 @@ async def run_project(
     )
     write_project(spec, running_status)
 
-    # Auto-size (or honor the override of) how many pages OCR in parallel.
-    concurrency = resolve_concurrency(spec.device, spec.parallel_pages)
-    sem = asyncio.Semaphore(concurrency)
-    # All status.json mutations are read-modify-write (update_page_result,
-    # _persist_message), so serialize them while OCR itself runs concurrently.
-    status_lock = asyncio.Lock()
-    completed = 0
-
-    # Warm-up message before any page starts — DocTR's first run may pull
+    # Warm-up message before any batch starts — DocTR's first run may pull
     # ~200 MB of weights from Hugging Face plus a GPU model load.
     warm_status = _persist_message(
         "Loading OCR engine — first run may download ~200 MB to ~/.cache/huggingface",
     )
     await status_callback(warm_status)
 
-    async def _process_page(idx: int, img_path: Path) -> None:
-        nonlocal completed
-        page_id = f"{spec.project_id}/{idx}"
-        async with sem:
-            async with status_lock:
-                update_page_result(
-                    spec,
-                    PageResult(page_idx=idx, page_name=img_path.name, state="running"),
-                )
+    completed = 0
 
-            try:
-                stage_result = await dispatcher.run_stage(
-                    "ocr",
-                    page_id,
-                    image_path=str(img_path),
-                    engine=spec.engine,
-                    language=spec.language,
-                    device=resolve_device(spec.device),
-                )
-                page_dict = first_page_dict(stage_result.metadata)
+    # Process pages in chunks
+    chunk_start = 0
+    while chunk_start < total:
+        chunk_end = min(chunk_start + batch_size, total)
+        chunk_indices = list(range(chunk_start, chunk_end))
+        chunk_images = [images[i] for i in chunk_indices]
 
-                # Round-trip through pdomain-book-tools Page so
-                # reorganize_page() clusters flat OCR words into
-                # lines/paragraphs/blocks. Without this, every word lands on
-                # its own line. Mirrors pd-ocr-cli's ocr_to_txt.py pattern.
+        # Mark chunk pages as running
+        for idx, img_path in zip(chunk_indices, chunk_images, strict=True):
+            update_page_result(
+                spec,
+                PageResult(page_idx=idx, page_name=img_path.name, state="running"),
+            )
+
+        try:
+            # Build OcrBatchRequest — bytes-based, not path-based
+            from pdomain_ops.gpu.types import OcrBatchRequest
+
+            image_bytes = [img_path.read_bytes() for img_path in chunk_images]
+            source_ids = [f"{spec.project_id}/{idx}" for idx in chunk_indices]
+            req = OcrBatchRequest(
+                images=image_bytes,
+                source_identifiers=source_ids,
+                engine=spec.engine,
+                language=spec.language,
+            )
+
+            page_dicts: list[dict[str, object]] = await dispatcher.run_ocr_batch(req)
+
+            # Post-process each page in the successful chunk
+            for local_i, (idx, img_path) in enumerate(zip(chunk_indices, chunk_images, strict=True)):
+                raw_page_dict = cast("JsonObject", page_dicts[local_i])
+
+                # Round-trip through pdomain-book-tools Page so reorganize_page()
+                # clusters flat OCR words into lines/paragraphs/blocks.
                 from pdomain_book_tools.ocr.page import Page
 
-                raw_text = extract_text(page_dict)
-                reorganized_dict: JsonObject = page_dict
+                raw_text = extract_text(raw_page_dict)
+                reorganized_dict: JsonObject = raw_page_dict
                 reorganized_text = ""
                 try:
-                    page_obj = Page.from_dict(page_dict)
+                    page_obj = Page.from_dict(raw_page_dict)
                     page_obj.reorganize_page(
                         emit_illustration_placeholders=spec.emit_illustration_placeholders,
                     )
@@ -425,18 +429,16 @@ async def run_project(
                         "reorganize_page() failed; falling back to raw OCR dict",
                         extra={"context": f"page_idx={idx}, image={img_path.name!r}"},
                     )
-                # Reorganize needs bbox geometry; pages with no bboxes (e.g.
-                # test stubs) get empty text from page.text but still have
-                # words in the raw dict. Fall back to extract_text then.
+
+                # Reorganize needs bbox geometry; fall back to extract_text when empty
                 if reorganized_text.strip():
                     page_dict = reorganized_dict
                     text = reorganized_text
                 else:
+                    page_dict = raw_page_dict
                     text = raw_text
 
                 # Apply post-OCR text normalizations (curly quotes, em-dashes)
-                # matching pd-ocr-cli flags. Soft-import so tests pass against
-                # the older registry pdomain-book-tools.
                 try:
                     from pdomain_book_tools.ocr import (
                         apply_text_normalizations,  # pyright: ignore[reportAttributeAccessIssue]
@@ -465,34 +467,41 @@ async def run_project(
                     sidecar_payload if spec.save_json else None,
                 )
 
-                page_done = PageResult(
-                    page_idx=idx,
-                    page_name=img_path.name,
-                    state="succeeded",
-                    text_preview=text[:60],
+                update_page_result(
+                    spec,
+                    PageResult(
+                        page_idx=idx,
+                        page_name=img_path.name,
+                        state="succeeded",
+                        text_preview=text[:60],
+                    ),
                 )
-            except Exception as exc:  # one page's failure must not abort the batch
-                logger.exception(
-                    "OCR failed for page; recording failure and continuing batch",
-                    extra={"context": f"page_idx={idx}, image={img_path.name!r}"},
-                )
-                page_done = PageResult(
-                    page_idx=idx,
-                    page_name=img_path.name,
-                    state="failed",
-                    error=str(exc),
-                )
-
-            # Commit the result + progress under the lock so concurrent pages
-            # don't clobber each other's read-modify-write of status.json.
-            async with status_lock:
-                update_page_result(spec, page_done)
                 completed += 1
-                _persist_message(f"Processed {completed}/{total} pages")
-                _, updated_status = read_project(spec.project_id)
-                await status_callback(updated_status)
 
-    await asyncio.gather(*(_process_page(idx, img_path) for idx, img_path in enumerate(images)))
+        except Exception as exc:  # chunk failure must not abort the job
+            logger.exception(
+                "OCR batch failed for chunk; recording failure and continuing",
+                extra={"context": (f"chunk_start={chunk_start}, chunk_end={chunk_end}")},
+            )
+            # Mark all pages in the failed chunk as failed
+            for idx, img_path in zip(chunk_indices, chunk_images, strict=True):
+                update_page_result(
+                    spec,
+                    PageResult(
+                        page_idx=idx,
+                        page_name=img_path.name,
+                        state="failed",
+                        error=str(exc),
+                    ),
+                )
+            completed += len(chunk_indices)
+
+        # Fire progress callback after each chunk
+        _persist_message(f"Processed {completed}/{total} pages")
+        _, updated_status = read_project(spec.project_id)
+        await status_callback(updated_status)
+
+        chunk_start = chunk_end
 
     # Surface a "Writing outputs" message while we finalize: combined-txt
     # mirror, etc. Skipped when there are no outputs to write.

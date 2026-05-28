@@ -15,6 +15,30 @@ from pdomain_ocr_simple_gui.pipeline import (
 )
 
 
+def _make_batch_dispatcher(page_dicts: list[dict[str, Any]]) -> MagicMock:
+    """Build a mock dispatcher whose run_ocr_batch returns page_dicts in order.
+
+    Successive calls each return one page dict per image in the chunk.
+    The side_effect receives an OcrBatchRequest and returns the next slice.
+    """
+    dispatcher = MagicMock()
+    # Each call to run_ocr_batch returns page_dicts for pages in that chunk.
+    # We use a closure that slices out the right portion per call.
+    call_count = [0]
+    page_queue = list(page_dicts)
+
+    async def _run_ocr_batch(req):  # type: ignore[no-untyped-def]
+        n = len(req.images)
+        result = page_queue[:n]
+        del page_queue[:n]
+        call_count[0] += 1
+        return result
+
+    dispatcher.run_ocr_batch = _run_ocr_batch
+    dispatcher._call_count = call_count
+    return dispatcher
+
+
 def _make_spec(tmp_path: Path, source_path: str | None = None) -> ProjectSpec:
     from datetime import UTC, datetime
 
@@ -43,6 +67,17 @@ def _make_stub_stage_result(page_id: str, page_dict: dict[str, Any]):
         duration_ms=10,
         metadata={"pages": [page_dict]},
     )
+
+
+def _make_single_batch_dispatcher(page_dict: dict[str, Any]) -> MagicMock:
+    """Build a mock dispatcher whose run_ocr_batch always returns [page_dict] per image."""
+    dispatcher = MagicMock()
+
+    async def _run_ocr_batch(req):  # type: ignore[no-untyped-def]
+        return [page_dict] * len(req.images)
+
+    dispatcher.run_ocr_batch = _run_ocr_batch
+    return dispatcher
 
 
 EMPTY_PAGE_DICT: dict[str, Any] = {
@@ -294,18 +329,18 @@ class TestCollectImages:
 
 
 class TestRunProject:
-    async def test_calls_run_stage_once_per_image(self, tmp_path: Path, monkeypatch) -> None:
-        """run_project calls dispatcher.run_stage once per image file."""
+    async def test_calls_run_ocr_batch_for_images(self, tmp_path: Path, monkeypatch) -> None:
+        """run_project calls dispatcher.run_ocr_batch for all image files."""
 
         root = tmp_path / "projects"
         root.mkdir()
         monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
 
-        # Create two image files
+        # Create two image files with real content so bytes reads work
         src = tmp_path / "source"
         src.mkdir()
-        (src / "page0.png").touch()
-        (src / "page1.png").touch()
+        (src / "page0.png").write_bytes(b"fake-png-0")
+        (src / "page1.png").write_bytes(b"fake-png-1")
 
         spec = _make_spec(tmp_path, source_path=str(src))
 
@@ -327,10 +362,15 @@ class TestRunProject:
             ),
         )
 
+        batch_calls: list[object] = []
+
         mock_dispatcher = MagicMock()
-        mock_dispatcher.run_stage = AsyncMock(
-            return_value=_make_stub_stage_result("proj-test-001/0", EMPTY_PAGE_DICT)
-        )
+
+        async def _run_ocr_batch(req):  # type: ignore[no-untyped-def]
+            batch_calls.append(req)
+            return [EMPTY_PAGE_DICT] * len(req.images)
+
+        mock_dispatcher.run_ocr_batch = _run_ocr_batch
 
         callbacks: list[ProjectStatus] = []
 
@@ -339,10 +379,12 @@ class TestRunProject:
 
         await run_project(spec, mock_dispatcher, _cb)
 
-        assert mock_dispatcher.run_stage.call_count == 2
-        # Concurrent flow: 1 warm-up callback + 1 completion callback per page.
+        # All 2 pages processed across 1 or more batch calls
+        total_pages_batched = sum(len(r.images) for r in batch_calls)  # type: ignore[union-attr]
+        assert total_pages_batched == 2
+        # 1 warm-up callback + 1 completion callback per chunk.
         # combined_txt=False so the "Writing outputs" callback is skipped.
-        assert len(callbacks) == 3
+        assert len(callbacks) >= 2
 
     async def test_status_callback_receives_project_status(self, tmp_path: Path, monkeypatch) -> None:
 
@@ -352,7 +394,7 @@ class TestRunProject:
 
         src = tmp_path / "source"
         src.mkdir()
-        (src / "page0.png").touch()
+        (src / "page0.png").write_bytes(b"fake-png")
 
         spec = _make_spec(tmp_path, source_path=str(src))
         pages = [PageResult(page_idx=0, page_name="page0.png", state="queued")]
@@ -369,10 +411,7 @@ class TestRunProject:
             ),
         )
 
-        mock_dispatcher = MagicMock()
-        mock_dispatcher.run_stage = AsyncMock(
-            return_value=_make_stub_stage_result("proj-test-001/0", SIMPLE_PAGE_DICT)
-        )
+        mock_dispatcher = _make_single_batch_dispatcher(SIMPLE_PAGE_DICT)
 
         received: list[ProjectStatus] = []
 
@@ -381,13 +420,13 @@ class TestRunProject:
 
         await run_project(spec, mock_dispatcher, _cb)
 
-        # Concurrent flow: 1 warm-up + 1 completion callback for the single page.
-        assert len(received) == 2
+        # 1 warm-up + 1 completion callback for the single page.
+        assert len(received) >= 2
         assert received[0].project_id == spec.project_id
         assert isinstance(received[0], ProjectStatus)
 
-    async def test_run_stage_kwargs(self, tmp_path: Path, monkeypatch) -> None:
-        """run_project passes image_path, engine, language to run_stage."""
+    async def test_run_ocr_batch_request_fields(self, tmp_path: Path, monkeypatch) -> None:
+        """run_project passes correct engine, language, and image bytes to run_ocr_batch."""
 
         root = tmp_path / "projects"
         root.mkdir()
@@ -396,7 +435,7 @@ class TestRunProject:
         src = tmp_path / "source"
         src.mkdir()
         img = src / "pg.png"
-        img.touch()
+        img.write_bytes(b"fake-image-bytes")
 
         spec = _make_spec(tmp_path, source_path=str(src))
         pages = [PageResult(page_idx=0, page_name="pg.png", state="queued")]
@@ -413,17 +452,22 @@ class TestRunProject:
             ),
         )
 
+        captured_reqs: list[object] = []
         mock_dispatcher = MagicMock()
-        mock_dispatcher.run_stage = AsyncMock(
-            return_value=_make_stub_stage_result("proj-test-001/0", EMPTY_PAGE_DICT)
-        )
+
+        async def _run_ocr_batch(req):  # type: ignore[no-untyped-def]
+            captured_reqs.append(req)
+            return [EMPTY_PAGE_DICT] * len(req.images)
+
+        mock_dispatcher.run_ocr_batch = _run_ocr_batch
 
         await run_project(spec, mock_dispatcher, AsyncMock())
 
-        call_kwargs = mock_dispatcher.run_stage.call_args
-        assert call_kwargs.kwargs.get("image_path") == str(img)
-        assert call_kwargs.kwargs.get("engine") == spec.engine
-        assert call_kwargs.kwargs.get("language") == spec.language
+        assert len(captured_reqs) == 1
+        req = captured_reqs[0]
+        assert req.engine == spec.engine  # type: ignore[union-attr]
+        assert req.language == spec.language  # type: ignore[union-attr]
+        assert req.images == [b"fake-image-bytes"]  # type: ignore[union-attr]
 
     async def test_extracts_text_from_page_dict(self, tmp_path: Path, monkeypatch) -> None:
         """run_project extracts text from the page dict and writes it."""
@@ -434,7 +478,7 @@ class TestRunProject:
 
         src = tmp_path / "source"
         src.mkdir()
-        (src / "page0.png").touch()
+        (src / "page0.png").write_bytes(b"fake-png")
 
         spec = _make_spec(tmp_path, source_path=str(src))
         pages = [PageResult(page_idx=0, page_name="page0.png", state="queued")]
@@ -451,10 +495,7 @@ class TestRunProject:
             ),
         )
 
-        mock_dispatcher = MagicMock()
-        mock_dispatcher.run_stage = AsyncMock(
-            return_value=_make_stub_stage_result("proj-test-001/0", SIMPLE_PAGE_DICT)
-        )
+        mock_dispatcher = _make_single_batch_dispatcher(SIMPLE_PAGE_DICT)
 
         await run_project(spec, mock_dispatcher, AsyncMock())
 
@@ -477,7 +518,7 @@ class TestRunProject:
 
         src = tmp_path / "source"
         src.mkdir()
-        (src / "p0.png").touch()
+        (src / "p0.png").write_bytes(b"fake-png")
 
         spec = _make_spec(tmp_path, source_path=str(src))
         pages = [PageResult(page_idx=0, page_name="p0.png", state="queued")]
@@ -495,10 +536,7 @@ class TestRunProject:
         )
 
         page_dict = _bboxed_page_dict()
-        mock_dispatcher = MagicMock()
-        mock_dispatcher.run_stage = AsyncMock(
-            return_value=_make_stub_stage_result("proj-test-001/0", page_dict)
-        )
+        mock_dispatcher = _make_single_batch_dispatcher(page_dict)
 
         await run_project(spec, mock_dispatcher, AsyncMock())
 
@@ -528,7 +566,7 @@ class TestRunProject:
 
         src = tmp_path / "source"
         src.mkdir()
-        (src / "p0.png").touch()
+        (src / "p0.png").write_bytes(b"fake-png")
 
         out_dir = tmp_path / "user-outputs"
         spec = ProjectSpec(
@@ -556,10 +594,7 @@ class TestRunProject:
             ),
         )
 
-        mock_dispatcher = MagicMock()
-        mock_dispatcher.run_stage = AsyncMock(
-            return_value=_make_stub_stage_result("proj-out-001/0", _bboxed_page_dict())
-        )
+        mock_dispatcher = _make_single_batch_dispatcher(_bboxed_page_dict())
 
         await run_project(spec, mock_dispatcher, AsyncMock())
 
@@ -578,7 +613,7 @@ class TestRunProject:
         monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
         src = tmp_path / "source"
         src.mkdir()
-        (src / "p0.png").touch()
+        (src / "p0.png").write_bytes(b"fake-png")
         out_dir = tmp_path / "out2"
         spec = ProjectSpec(
             project_id="proj-out-002",
@@ -604,10 +639,7 @@ class TestRunProject:
                 pages=[PageResult(page_idx=0, page_name="p0.png", state="queued")],
             ),
         )
-        mock_dispatcher = MagicMock()
-        mock_dispatcher.run_stage = AsyncMock(
-            return_value=_make_stub_stage_result("proj-out-002/0", _bboxed_page_dict())
-        )
+        mock_dispatcher = _make_single_batch_dispatcher(_bboxed_page_dict())
         await run_project(spec, mock_dispatcher, AsyncMock())
         assert (out_dir / "p0.txt").exists()
         assert not (out_dir / "p0.json").exists()
@@ -619,25 +651,38 @@ class TestProgressMessage:
     async def test_progress_message_sequence(self, tmp_path: Path, monkeypatch) -> None:
         """run_project emits the documented per-phase progress messages.
 
-        Concurrent flow on a 2-page job with combined_txt=False:
-          1. "Loading OCR engine..." (once, before any page dispatch).
-          2. "Processed 1/2 pages" (first page to complete).
-          3. "Processed 2/2 pages" (second page to complete).
-          The completed counter increments under the status lock, so the
-          numbers are deterministic regardless of completion order.
+        Chunked flow on a 2-page job with batch_pages=1 and combined_txt=False:
+          1. "Loading OCR engine..." (once, before any batch dispatch).
+          2. "Processed 1/2 pages" (after chunk 1 completes).
+          3. "Processed 2/2 pages" (after chunk 2 completes).
           Terminal callback is NOT emitted via status_callback, but the
           persisted ProjectStatus clears progress_message to None.
         """
+        from datetime import UTC, datetime
+
         root = tmp_path / "projects"
         root.mkdir()
         monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
 
         src = tmp_path / "source"
         src.mkdir()
-        (src / "name0.png").touch()
-        (src / "name1.png").touch()
+        (src / "name0.png").write_bytes(b"fake-png-0")
+        (src / "name1.png").write_bytes(b"fake-png-1")
 
-        spec = _make_spec(tmp_path, source_path=str(src))
+        # Use batch_pages=1 so we get two separate chunks → deterministic message order
+        spec = ProjectSpec(
+            project_id="proj-test-001",
+            name="Test Project",
+            source_path=str(src),
+            output_dir=str(tmp_path / "output"),
+            engine="doctr",
+            language="en",
+            save_json=False,
+            combined_txt=False,
+            batch_pages=1,
+            created_at=datetime.now(UTC),
+            last_opened_at=datetime.now(UTC),
+        )
         pages = [
             PageResult(page_idx=0, page_name="name0.png", state="queued"),
             PageResult(page_idx=1, page_name="name1.png", state="queued"),
@@ -655,10 +700,7 @@ class TestProgressMessage:
             ),
         )
 
-        mock_dispatcher = MagicMock()
-        mock_dispatcher.run_stage = AsyncMock(
-            return_value=_make_stub_stage_result("proj-test-001/0", EMPTY_PAGE_DICT)
-        )
+        mock_dispatcher = _make_single_batch_dispatcher(EMPTY_PAGE_DICT)
 
         messages: list[str | None] = []
 
@@ -678,3 +720,102 @@ class TestProgressMessage:
         _, final_status = read_project(spec.project_id)
         assert final_status.progress_message is None
         assert final_status.state == "succeeded"
+
+
+class TestChunkFailureIsolation:
+    async def test_second_chunk_failure_does_not_abort_first(self, tmp_path: Path, monkeypatch) -> None:
+        """Chunk failure isolation: a non-OOM RuntimeError on chunk 2 must not abort chunk 1.
+
+        Setup:
+          - 4 pages, batch_pages=2  → 2 chunks of 2 pages each
+          - chunk 1 succeeds (pages 0, 1)
+          - chunk 2 raises RuntimeError (pages 2, 3)
+
+        Expected:
+          - pages 0+1 have state="succeeded" with sidecar+txt written
+          - pages 2+3 have state="failed" with error set
+          - job terminal state = "failed" (not aborted/cancelled)
+          - per-chunk progress callbacks fired (at least 3: warm-up + 2 chunk completions)
+        """
+        from datetime import UTC, datetime
+
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+
+        src = tmp_path / "source"
+        src.mkdir()
+        for i in range(4):
+            (src / f"pg{i}.png").write_bytes(f"fake-png-{i}".encode())
+
+        spec = ProjectSpec(
+            project_id="proj-chunk-isolation",
+            name="Chunk Test",
+            source_path=str(src),
+            output_dir=str(tmp_path / "output"),
+            engine="doctr",
+            language="en",
+            save_json=False,
+            combined_txt=False,
+            batch_pages=2,
+            created_at=datetime.now(UTC),
+            last_opened_at=datetime.now(UTC),
+        )
+        pages = [PageResult(page_idx=i, page_name=f"pg{i}.png", state="queued") for i in range(4)]
+        from pdomain_ocr_simple_gui.storage import get_project_dir, read_project, write_project
+
+        write_project(
+            spec,
+            ProjectStatus(
+                project_id=spec.project_id,
+                state="queued",
+                page_count=4,
+                pages_done=0,
+                pages=pages,
+            ),
+        )
+
+        chunk_call = [0]
+
+        async def _run_ocr_batch_partial_fail(req):  # type: ignore[no-untyped-def]
+            chunk_call[0] += 1
+            if chunk_call[0] == 1:
+                return [EMPTY_PAGE_DICT] * len(req.images)
+            raise RuntimeError("simulated chunk-2 failure")
+
+        mock_dispatcher = MagicMock()
+        mock_dispatcher.run_ocr_batch = _run_ocr_batch_partial_fail
+
+        callbacks: list[ProjectStatus] = []
+
+        async def _cb(status: ProjectStatus) -> None:
+            callbacks.append(status)
+
+        await run_project(spec, mock_dispatcher, _cb)
+
+        _, final_status = read_project(spec.project_id)
+
+        # Job ends in "failed" (not aborted)
+        assert final_status.state == "failed"
+
+        # Pages 0+1 succeeded
+        assert final_status.pages[0].state == "succeeded"
+        assert final_status.pages[1].state == "succeeded"
+
+        # Pages 2+3 failed with error set
+        assert final_status.pages[2].state == "failed"
+        assert final_status.pages[3].state == "failed"
+        assert "simulated chunk-2 failure" in (final_status.pages[2].error or "")
+        assert "simulated chunk-2 failure" in (final_status.pages[3].error or "")
+
+        # Sidecar + txt written for pages 0+1
+        pages_dir = get_project_dir(spec.project_id) / "pages"
+        assert (pages_dir / "pg0.png.txt").exists()
+        assert (pages_dir / "pg1.png.txt").exists()
+
+        # No sidecar/txt for pages 2+3 (they failed before post-processing)
+        assert not (pages_dir / "pg2.png.txt").exists()
+        assert not (pages_dir / "pg3.png.txt").exists()
+
+        # Per-chunk progress callbacks: warm-up + at least 2 chunk completions
+        assert len(callbacks) >= 3

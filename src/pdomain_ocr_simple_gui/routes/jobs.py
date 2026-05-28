@@ -115,8 +115,8 @@ class CreateJobRequest(BaseModel):
     emit_illustration_placeholders: bool = False
     # Device choice: "auto" (detection), "cpu", or "gpu".
     device: Literal["auto", "cpu", "gpu"] = "auto"
-    # Parallel page workers; None/absent = auto-size from hardware.
-    parallel_pages: int | None = None
+    # Pages per batch; None/absent = use default (8).
+    batch_pages: int | None = None
 
 
 def _build_source_and_flags(body: CreateJobRequest, mode: Mode) -> tuple[str, bool]:
@@ -267,7 +267,7 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
         em_dash_to_double_hyphen=body.em_dash_to_double_hyphen,
         emit_illustration_placeholders=body.emit_illustration_placeholders,
         device=body.device,
-        parallel_pages=body.parallel_pages,
+        batch_pages=body.batch_pages,
         created_at=now,
         last_opened_at=now,
     )

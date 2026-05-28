@@ -29,8 +29,8 @@ class ProjectSpec(BaseModel):
     emit_illustration_placeholders: bool = False
     # Device choice: "auto" (use detection), "cpu", or "gpu".
     device: str = "auto"
-    # Parallel page workers; None = auto-size from hardware (pick_concurrency).
-    parallel_pages: int | None = None
+    # Pages per batch; None = use default (_DEFAULT_BATCH_PAGES = 8).
+    batch_pages: int | None = None
     created_at: datetime
     last_opened_at: datetime
 
