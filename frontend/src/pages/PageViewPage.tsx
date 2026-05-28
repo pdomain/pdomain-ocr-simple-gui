@@ -250,21 +250,19 @@ export default function PageViewPage() {
       aria-label="Page actions"
       data-testid="page-editor-toolbar"
       leftSlot={
-        <Button
-          variant="primary"
-          onClick={() => {
-            void handleSave();
-          }}
-          disabled={saveStatus === "saving" || loading}
-          aria-label="Save edits"
-        >
-          {saveStatus === "saving" ? "Saving…" : "Save edits"}
-        </Button>
-      }
-      centerSlot={
         <>
           <Button
-            variant="ghost"
+            variant="primary"
+            onClick={() => {
+              void handleSave();
+            }}
+            disabled={saveStatus === "saving" || loading}
+            aria-label="Save edits"
+          >
+            {saveStatus === "saving" ? "Saving…" : "Save edits"}
+          </Button>
+          <Button
+            variant="primary"
             onClick={() => {
               void handleRerun("doctr");
             }}
@@ -274,7 +272,7 @@ export default function PageViewPage() {
             {rerunStatus === "running" ? "Re-running…" : "Re-run DocTR"}
           </Button>
           <Button
-            variant="ghost"
+            variant="primary"
             onClick={() => {
               void handleRerun("tesseract");
             }}
@@ -283,12 +281,8 @@ export default function PageViewPage() {
           >
             Re-run Tesseract
           </Button>
-        </>
-      }
-      rightSlot={
-        <>
           <Button
-            variant="ghost"
+            variant="primary"
             data-testid={APP_TEST_IDS.pageDownloadText}
             onClick={() => {
               window.location.href = `/api/jobs/${id ?? ""}/download?include=text`;
@@ -299,7 +293,7 @@ export default function PageViewPage() {
             ⤓ .txt
           </Button>
           <Button
-            variant="ghost"
+            variant="primary"
             data-testid={APP_TEST_IDS.pageDownloadJson}
             onClick={() => {
               window.location.href = `/api/jobs/${id ?? ""}/download?include=json`;
