@@ -49,4 +49,7 @@ export const APP_TEST_IDS = {
   pageSaveButton: "page-save-button",
   pageRerunDoctr: "page-rerun-doctr",
   pageRerunTesseract: "page-rerun-tesseract",
+  toggleStraightQuotes: "toggle-straight-quotes",
+  toggleEmDash: "toggle-em-dash",
+  toggleIllustrationPlaceholders: "toggle-illustration-placeholders",
 } as const;

@@ -253,18 +253,21 @@ export function JobConfigInline({
           label="Convert curly quotes to straight"
           checked={straightQuotes}
           onCheckedChange={setStraightQuotes}
+          data-testid={APP_TEST_IDS.toggleStraightQuotes}
         />
         <Toggle
           id="jci-em-dash"
           label="Convert em-dashes (—) to double hyphens (--)"
           checked={emDashDoubleHyphen}
           onCheckedChange={setEmDashDoubleHyphen}
+          data-testid={APP_TEST_IDS.toggleEmDash}
         />
         <Toggle
           id="jci-illustration-placeholders"
           label="Emit [illustration] placeholders for figures"
           checked={emitIllustrationPlaceholders}
           onCheckedChange={setEmitIllustrationPlaceholders}
+          data-testid={APP_TEST_IDS.toggleIllustrationPlaceholders}
         />
 
         <Field label="Processing device">
