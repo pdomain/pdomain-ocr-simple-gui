@@ -42,4 +42,11 @@ export const APP_TEST_IDS = {
   pageZoomViewport: "page-zoom-viewport",
   jobProgressMessage: "job-progress-message",
   pageProgressMessage: "page-progress-message",
+  rerunAllButton: "rerun-all-button",
+  recentProjectRow: "recent-project-row",
+  pagePrevButton: "page-prev-button",
+  pageNextButton: "page-next-button",
+  pageSaveButton: "page-save-button",
+  pageRerunDoctr: "page-rerun-doctr",
+  pageRerunTesseract: "page-rerun-tesseract",
 } as const;
