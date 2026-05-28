@@ -450,8 +450,8 @@ __e2e test → click-path mapping:__
 - [x] tests/test_words_route.py::test_words_payload_shape — asserts-mock — replaced with real storage round-trip via `_seed_project_with_words`
 - [x] tests/test_words_route.py::test_words_missing_returns_404 — asserts-mock — replaced with real missing-project sidecar on disk
 - [x] tests/smoke/test_e2e.py::test_e2e_job_completes — no-bad-case — no bad case for e2e smoke; accepted as-is (xfails without weights; marker retained)
-- [ ] frontend/src/App.test.tsx::App::renders without crashing and shows home page at / — no-bad-case — no error/bad-route test; add test for unknown route rendering 404 or fallback
-- [ ] frontend/src/App.test.tsx::App::AppShell mock receives a main prop — no-bad-case — no bad case; accept as structural prop-passing assertion
+- [x] frontend/src/App.test.tsx::App::renders without crashing and shows home page at / — no-bad-case — bad case: unknown route → shell renders without crash, no home-page testid — sibling added
+- [x] frontend/src/App.test.tsx::App::AppShell mock receives a main prop — no-bad-case — structural prop-passing; accepted as-is
 - [x] frontend/src/api/useOcrJob.test.tsx::useOcrJob::starts idle with no job data when jobId is null — no-bad-case — null jobId is the edge case; accepted as-is
 - [x] frontend/src/api/useOcrJob.test.tsx::useOcrJob::exposes progress as fraction of pages_done / page_count — no-bad-case — bad case: page_count=0 → progress=null (division-by-zero guard) — sibling added
 - [x] frontend/src/api/useOcrJob.test.tsx::useOcrJob::surfaces extra fields (output_dir, output_mode, pages, name) via jobData — no-bad-case — bad case: API omits optional fields → jobData fields are undefined (no crash) — sibling added
