@@ -5,7 +5,7 @@ from __future__ import annotations
 import contextlib
 import logging
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
@@ -218,8 +218,18 @@ async def put_page_text(project_id: str, page_idx: int, body: SaveTextRequest) -
     return {"status": "saved"}
 
 
+class RerunRequest(BaseModel):
+    """Optional body for POST /api/pages/{id}/{idx}/rerun."""
+
+    engine: Literal["doctr", "tesseract"] | None = None
+
+
 @router.post("/{project_id}/{page_idx}/rerun", response_model=PageResult)
-async def rerun_page(project_id: str, page_idx: int) -> PageResult:
+async def rerun_page(
+    project_id: str,
+    page_idx: int,
+    body: RerunRequest | None = None,
+) -> PageResult:
     """Re-run OCR on a single page and return the updated PageResult.
 
     Runs OCR inline (does NOT call run_project) so that the correct page_idx
@@ -265,16 +275,55 @@ async def rerun_page(project_id: str, page_idx: int) -> PageResult:
     page_id = f"{spec.project_id}/{page_idx}"
 
     try:
+        engine = body.engine if (body and body.engine) else spec.engine
         # Await the async stage dispatcher — non-blocking, yields control to the event loop
         stage_result = await dispatcher.run_stage(
             "ocr",
             page_id,
             image_path=str(image_path),
-            engine=spec.engine,
+            engine=engine,
             language=spec.language,
         )
         page_dict = first_page_dict(stage_result.metadata)
-        text = extract_text(page_dict)
+
+        # Mirror run_project's reorganize + text-normalize pipeline so the
+        # rerun output matches the initial OCR run.
+        raw_text = extract_text(page_dict)
+        reorganized_dict: JsonObject = page_dict
+        reorganized_text = ""
+        try:
+            from pdomain_book_tools.ocr.page import Page
+
+            page_obj = Page.from_dict(page_dict)
+            page_obj.reorganize_page(
+                emit_illustration_placeholders=spec.emit_illustration_placeholders,
+            )
+            reorganized_dict = cast("JsonObject", page_obj.to_dict())
+            reorganized_text = page_obj.text
+        except Exception:
+            logger.exception(
+                "reorganize_page() failed on rerun; falling back to raw dict",
+                extra={"context": f"page_idx={page_idx}, image={image_path.name!r}"},
+            )
+        if reorganized_text.strip():
+            page_dict = reorganized_dict
+            text = reorganized_text
+        else:
+            text = raw_text
+        try:
+            from pdomain_book_tools.ocr import (
+                apply_text_normalizations,  # pyright: ignore[reportAttributeAccessIssue]
+            )
+
+            text = apply_text_normalizations(
+                text,
+                straight_quotes=spec.straight_quotes,
+                em_dash_to_double_hyphen=spec.em_dash_to_double_hyphen,
+            )
+        except ImportError:
+            logger.debug(
+                "apply_text_normalizations unavailable; skipping rerun cleanup",
+            )
 
         # Augment the sidecar with text + normalized words list so GET
         # /api/pages and /words can surface them without re-walking the tree.
