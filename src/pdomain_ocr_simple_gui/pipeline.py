@@ -291,8 +291,10 @@ def extract_text(page_dict: JsonObject) -> str:
     if node_type == "Page":
         # Top-level page: double newline between blocks
         return "\n\n".join(parts)
-    if child_type == "WORD":
-        # Line-level block containing words: join with spaces
+    if child_type in ("WORD", "WORDS"):
+        # Line-level block containing words: join with spaces.
+        # "WORDS" is the canonical BlockChildType value; "WORD" was the
+        # legacy DocTR shape accepted for back-compat.
         return " ".join(parts)
     # Block containing child blocks: single newline between them
     return "\n".join(parts)
