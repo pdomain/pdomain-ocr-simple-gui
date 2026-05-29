@@ -109,6 +109,12 @@ export default function PageViewPage() {
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const [text, setText] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  // Page-fetch failure: "not-found" for a 404 (page/project missing), "error"
+  // for any other non-ok status or a network reject. Drives the dedicated
+  // error blocks (mirrors ResultsPage's results-not-found / results-error).
+  const [fetchError, setFetchError] = useState<"not-found" | "error" | null>(
+    null,
+  );
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving">("idle");
   const [rerunStatus, setRerunStatus] = useState<"idle" | "running">("idle");
   const [wordBboxes, setWordBboxes] = useState<WordBbox[]>([]);
@@ -136,10 +142,19 @@ export default function PageViewPage() {
     let cancelled = false;
     setLoading(true);
     setSaveStatus("idle");
+    setFetchError(null);
 
     fetch(`/api/pages/${id ?? ""}/${pageIdx}`)
       .then(async (res) => {
-        if (!res.ok || cancelled) return;
+        if (cancelled) return;
+        if (!res.ok) {
+          // Surface a dedicated error affordance instead of leaving the screen
+          // stuck loading on a blank shell. 404 → "not found"; anything else
+          // (e.g. 400 malformed id, 5xx) → the generic error block.
+          setFetchError(res.status === 404 ? "not-found" : "error");
+          setLoading(false);
+          return;
+        }
         const data = (await res.json()) as PageData;
         if (!cancelled) {
           setPageData(data);
@@ -148,7 +163,10 @@ export default function PageViewPage() {
         }
       })
       .catch(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setFetchError("error");
+          setLoading(false);
+        }
       });
 
     return () => {
@@ -499,6 +517,42 @@ export default function PageViewPage() {
       />
     </div>
   );
+
+  // A failed page fetch surfaces a dedicated block (no blank loading shell).
+  // 404 → "page not found" with a way back to the job; other errors → a
+  // generic error message. Mirrors ResultsPage's not-found / error blocks.
+  if (fetchError !== null) {
+    return (
+      <div
+        data-testid={APP_TEST_IDS.pageViewPage}
+        className="page-split-view-wrapper"
+      >
+        {fetchError === "not-found" ? (
+          <div
+            role="alert"
+            data-testid={APP_TEST_IDS.pageNotFound}
+            className="page-view-page__error"
+          >
+            <p>Page not found. It may have been deleted or never existed.</p>
+            <Button
+              variant="ghost"
+              onClick={() => navigate(`/jobs/${id ?? ""}`)}
+            >
+              Back to job
+            </Button>
+          </div>
+        ) : (
+          <p
+            role="alert"
+            data-testid={APP_TEST_IDS.pageError}
+            className="page-view-page__error"
+          >
+            Error loading page. Please try again.
+          </p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div

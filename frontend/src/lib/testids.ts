@@ -30,6 +30,8 @@ export const APP_TEST_IDS = {
   runOcrButton: "run-ocr-button",
   pageRow: "page-row",
   pageViewPage: "page-view-page",
+  pageNotFound: "page-not-found",
+  pageError: "page-error",
   pageImageCanvas: "page-image-canvas",
   resultsPage: "results-page",
   resultsLoading: "results-loading",

@@ -657,6 +657,65 @@ describe("PageViewPage", () => {
   // Bad-case tests (M4 strengthening)
   // ---------------------------------------------------------------------------
 
+  it("shows a page-not-found block when the page fetch 404s", async () => {
+    // Regression (B-PAGEVIEW-015): a 404 page fetch used to leave the screen
+    // stuck loading with a blank shell. It must now surface a dedicated
+    // page-not-found block (mirroring ResultsPage's results-not-found) and
+    // render no canvas.
+    (globalThis as any).fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/api/jobs/") && !url.includes("/pages/")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => makeJobStatus(1),
+        });
+      }
+      if (url.endsWith("/words")) {
+        return Promise.resolve({ ok: false, status: 404 });
+      }
+      // The page fetch 404s.
+      return Promise.resolve({
+        ok: false,
+        status: 404,
+        json: async () => ({}),
+      });
+    });
+    renderWithRoute("proj-abc", 9);
+    await waitFor(() => {
+      expect(screen.getByTestId("page-not-found")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("page-image-canvas")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("page-error")).not.toBeInTheDocument();
+  });
+
+  it("shows a page-error block when the page fetch errors (non-404)", async () => {
+    // Regression (B-PAGEVIEW-015): a non-404 failure (e.g. a 400 or a network
+    // reject) must surface the generic page-error block, distinct from
+    // page-not-found, and render no canvas.
+    (globalThis as any).fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/api/jobs/") && !url.includes("/pages/")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => makeJobStatus(1),
+        });
+      }
+      if (url.endsWith("/words")) {
+        return Promise.resolve({ ok: false, status: 400 });
+      }
+      // The page fetch fails with a non-404 status.
+      return Promise.resolve({
+        ok: false,
+        status: 400,
+        json: async () => ({}),
+      });
+    });
+    renderWithRoute("proj-abc", 0);
+    await waitFor(() => {
+      expect(screen.getByTestId("page-error")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("page-image-canvas")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("page-not-found")).not.toBeInTheDocument();
+  });
+
   it("shows empty textarea when page data has no text (blank page result)", async () => {
     (globalThis as any).fetch = vi.fn().mockImplementation((url: string) => {
       if (url.includes("/api/jobs/")) {
