@@ -1,6 +1,11 @@
 from pathlib import Path
 
-from scripts.behavior_coverage import scan_cited, scan_declared
+from scripts.behavior_coverage import (
+    Record,
+    build_report,
+    scan_cited,
+    scan_declared,
+)
 
 
 def test_scan_declared_finds_ids_and_regression_flag(tmp_path: Path) -> None:
@@ -28,3 +33,25 @@ def test_scan_cited_finds_docstring_and_marker(tmp_path: Path) -> None:
     )
     cited = scan_cited(tmp_path)
     assert cited == {"B-HOME-001", "B-HOME-002"}
+
+
+def test_build_report_flags_orphan_regression_and_unlinked() -> None:
+    declared = {
+        "B-HOME-001": Record("B-HOME-001", regression=False),  # specified, no test
+        "B-HOME-002": Record("B-HOME-002", regression=True),  # regression, no test -> FAIL
+        "B-HOME-003": Record("B-HOME-003", regression=True),  # regression, cited -> ok
+    }
+    cited = {"B-HOME-003", "B-RESULTS-999"}  # last one is unlinked
+    report = build_report(declared, cited)
+    assert report.orphans == {"B-HOME-001", "B-HOME-002"}
+    assert report.unlinked == {"B-RESULTS-999"}
+    assert report.uncovered_regressions == {"B-HOME-002"}
+    assert report.ok is False  # gate fails
+
+
+def test_build_report_ok_when_clean() -> None:
+    declared = {"B-HOME-001": Record("B-HOME-001", regression=True)}
+    report = build_report(declared, {"B-HOME-001"})
+    assert report.ok is True
+    assert report.uncovered_regressions == set()
+    assert report.unlinked == set()

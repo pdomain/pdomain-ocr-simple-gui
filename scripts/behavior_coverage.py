@@ -51,3 +51,30 @@ def scan_cited(tests_dir: Path) -> set[str]:
             if "Covers:" in line or "@behavior" in line:
                 cited.update(ID_RE.findall(line))
     return cited
+
+
+@dataclass(frozen=True)
+class Report:
+    declared: dict[str, Record]
+    cited: set[str]
+    orphans: set[str]
+    unlinked: set[str]
+    uncovered_regressions: set[str]
+
+    @property
+    def ok(self) -> bool:
+        return not self.unlinked and not self.uncovered_regressions
+
+
+def build_report(declared: dict[str, Record], cited: set[str]) -> Report:
+    declared_ids = set(declared)
+    orphans = declared_ids - cited
+    unlinked = cited - declared_ids
+    uncovered_regressions = {rid for rid in orphans if declared[rid].regression}
+    return Report(
+        declared=declared,
+        cited=cited,
+        orphans=orphans,
+        unlinked=unlinked,
+        uncovered_regressions=uncovered_regressions,
+    )
