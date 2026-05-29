@@ -43,8 +43,6 @@ def _make_job(
         output_dir=str(output_dir),
         engine="doctr",
         language="en",
-        save_json=True,
-        combined_txt=True,
         created_at=now,
         last_opened_at=now,
     )

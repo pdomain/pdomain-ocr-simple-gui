@@ -33,8 +33,12 @@ class TestProjectSpec:
 
     def test_defaults(self) -> None:
         spec = _make_spec()
-        assert spec.save_json is False
-        assert spec.combined_txt is True
+        # B-HOME-011 cleanup: save_json / combined_txt are no longer fields.
+        assert "save_json" not in ProjectSpec.model_fields
+        assert "combined_txt" not in ProjectSpec.model_fields
+        # Normalization toggles keep their defaults.
+        assert spec.straight_quotes is True
+        assert spec.em_dash_to_double_hyphen is True
 
     def test_engine_literal(self) -> None:
         with pytest.raises(ValidationError):

@@ -22,8 +22,9 @@ class ProjectSpec(BaseModel):
     output_dir: str
     engine: Literal["doctr", "tesseract"]
     language: str
-    save_json: bool = False
-    combined_txt: bool = True
+    # NOTE: there is intentionally NO save_json / combined_txt knob. Per-page
+    # sidecars (pages/<name>.json) AND combined.txt are ALWAYS written — the
+    # bbox overlay + combined download depend on both (B-HOME-011 cleanup).
     straight_quotes: bool = True
     em_dash_to_double_hyphen: bool = True
     emit_illustration_placeholders: bool = False
