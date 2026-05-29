@@ -31,7 +31,7 @@ endef
 PEER_BOOK_TOOLS_PATH ?= ../pdomain-book-tools
 
 .PHONY: help setup install uninstall remove-venv reset lint format format-check typecheck \
-        pre-commit-check test e2e-fast e2e-browser frontend-install frontend-build frontend-dev \
+        pre-commit-check test behavior-coverage e2e-fast e2e-browser frontend-install frontend-build frontend-dev \
         frontend-test frontend-lint frontend-format frontend-format-check frontend-knip \
         openapi-export clean ci ci-full upgrade-deps dev-local \
         local-setup local-dev local-check local-upgrade-deps local-run \
@@ -100,6 +100,9 @@ pre-commit-check: ## Run pre-commit on all files
 
 test: ## Run pytest (excludes slow/e2e tests)
 	uv run pytest tests/ -v -n auto
+
+behavior-coverage: ## Regenerate behavior coverage.md + gate (declared vs cited IDs)
+	uv run python -m scripts.behavior_coverage
 
 smoke: ## Run slow/e2e smoke tests (requires real OCR; use make ci AI=1 to include)
 	uv run pytest tests/smoke/ -v -m "slow or e2e"
@@ -178,7 +181,7 @@ clean: ## Clean cache + build artifacts
 	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
 	rm -rf dist/ 2>/dev/null || true
 
-ci: setup frontend-install pre-commit-check lint typecheck frontend-build test smoke frontend-format-check frontend-lint frontend-test frontend-knip e2e-fast ## Full CI pipeline (includes fast browser click-path tier)
+ci: setup frontend-install pre-commit-check lint typecheck frontend-build test behavior-coverage smoke frontend-format-check frontend-lint frontend-test frontend-knip e2e-fast ## Full CI pipeline (includes fast browser click-path tier)
 
 ci-full: ci e2e-browser smoke ## Full CI including all Playwright browser tests + real-OCR smoke (requires --group e2e + chromium + model weights)
 
