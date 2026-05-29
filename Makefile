@@ -31,7 +31,7 @@ endef
 PEER_BOOK_TOOLS_PATH ?= ../pdomain-book-tools
 
 .PHONY: help setup install uninstall remove-venv reset lint format format-check typecheck \
-        pre-commit-check test behavior-coverage e2e-fast e2e-browser frontend-install frontend-build frontend-dev \
+        pre-commit-check test behavior-coverage e2e-fast e2e-browser e2e-real-ocr frontend-install frontend-build frontend-dev \
         frontend-test frontend-lint frontend-format frontend-format-check frontend-knip \
         openapi-export clean ci ci-full upgrade-deps dev-local \
         local-setup local-dev local-check local-upgrade-deps local-run \
@@ -117,6 +117,11 @@ e2e-browser: frontend-build ## Run all Playwright browser e2e tests (requires ch
 	@echo "🌐 Running Playwright e2e tests..."
 	PLAYWRIGHT_BROWSERS_PATH=/cache/shared-ai/ms-playwright \
 	uv run --group e2e pytest tests/e2e/ -v -m "slow or e2e" --no-cov
+
+e2e-real-ocr: frontend-build ## Run Tier-B real-OCR e2e on the GPU (opt-in; NOT in make ci; requires model weights + chromium)
+	@echo "🧠 Running Tier-B real-OCR e2e (real engine, GPU)..."
+	PLAYWRIGHT_BROWSERS_PATH=/cache/shared-ai/ms-playwright \
+	uv run --group e2e pytest tests/e2e/test_real_ocr_*.py -v -m "real_ocr" --no-cov
 
 frontend-install: ## Install frontend dependencies
 	@# pnpm >=11 rewrites pnpm-workspace.yaml (appends an unfilled `allowBuilds:`
