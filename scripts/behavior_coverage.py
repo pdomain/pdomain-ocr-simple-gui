@@ -7,14 +7,16 @@ Source of truth = docs/specs/behavior/*.md. Tests cite IDs via a
 from __future__ import annotations
 
 import re
+import sys
 from dataclasses import dataclass
-
-# TC003 suppressed: Path is used at runtime by main() (Path(__file__) and
-# directory I/O), not only in annotations.
-from pathlib import Path  # noqa: TC003
+from pathlib import Path
 
 ID_RE = re.compile(r"\b([BF]-[A-Z0-9]+-\d+)\b")
 RECORD_HEADING_RE = re.compile(r"^###\s+([BF]-[A-Z0-9]+-\d+)\b", re.MULTILINE)
+
+# This scanner's own unit-test file contains example IDs inside string
+# fixtures (not real citations). Skip it so it never pollutes the gate.
+_SELF_TEST = "test_behavior_coverage.py"
 
 
 @dataclass(frozen=True)
@@ -46,6 +48,8 @@ def scan_cited(tests_dir: Path) -> set[str]:
     """Find every behavior ID cited in test files (docstring or marker)."""
     cited: set[str] = set()
     for py in tests_dir.rglob("*.py"):
+        if py.name == _SELF_TEST:
+            continue
         text = py.read_text(encoding="utf-8")
         for line in text.splitlines():
             if "Covers:" in line or "@behavior" in line:
@@ -78,3 +82,52 @@ def build_report(declared: dict[str, Record], cited: set[str]) -> Report:
         unlinked=unlinked,
         uncovered_regressions=uncovered_regressions,
     )
+
+
+def render_markdown(report: Report) -> str:
+    lines = [
+        "# Behavior coverage (generated — do not edit)",
+        "",
+        "Run `make behavior-coverage` to regenerate.",
+        "",
+        "| ID | Regression | Status |",
+        "|----|------------|--------|",
+    ]
+    for rid in sorted(report.declared):
+        rec = report.declared[rid]
+        status = "test-written" if rid in report.cited else "specified"
+        reg = "yes" if rec.regression else "no"
+        lines.append(f"| {rid} | {reg} | {status} |")
+    if report.unlinked:
+        lines += ["", "## Unlinked citations (FAIL — typo/stale)", ""]
+        lines += [f"- {rid}" for rid in sorted(report.unlinked)]
+    if report.uncovered_regressions:
+        lines += ["", "## Uncovered regressions (FAIL)", ""]
+        lines += [f"- {rid}" for rid in sorted(report.uncovered_regressions)]
+    return "\n".join(lines) + "\n"
+
+
+def main(argv: list[str] | None = None) -> int:
+    root = Path(__file__).resolve().parent.parent
+    docs_dir = root / "docs" / "specs" / "behavior"
+    tests_dir = root / "tests"
+    declared = scan_declared(docs_dir)
+    cited = scan_cited(tests_dir)
+    report = build_report(declared, cited)
+    (docs_dir / "coverage.md").write_text(render_markdown(report), encoding="utf-8")
+    if not report.ok:
+        print("BEHAVIOR COVERAGE GATE FAILED", file=sys.stderr)
+        if report.unlinked:
+            print(f"  unlinked citations: {sorted(report.unlinked)}", file=sys.stderr)
+        if report.uncovered_regressions:
+            print(
+                f"  uncovered regressions: {sorted(report.uncovered_regressions)}",
+                file=sys.stderr,
+            )
+        return 1
+    print(f"behavior coverage OK: {len(declared)} records, {len(cited)} cited")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
