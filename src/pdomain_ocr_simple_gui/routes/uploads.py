@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import shutil
 import tempfile
 import uuid
@@ -12,11 +13,16 @@ import zipfile
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Allowlist for upload_id path components: uuid hex plus an optional
+# ``upload-`` prefix. Bans dots, slashes, and percent-encoded traversal.
+_UPLOAD_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 _DEFAULT_ROOT = Path.home() / ".local/share/pdomain-ocr-simple-gui/uploads"
 _DEFAULT_MAX_BYTES = 2 * 1024**3  # 2 GiB total per request
@@ -90,6 +96,34 @@ async def post_upload(files: list[UploadFile]) -> UploadResponse:
         )
         shutil.rmtree(staging, ignore_errors=True)
         raise
+
+
+@router.delete("/api/uploads/{upload_id}", response_class=Response)
+async def delete_upload(upload_id: str) -> Response:
+    """Delete the staging directory for *upload_id*.
+
+    Called when the user clears a chosen upload on the home page so orphan
+    staging dirs do not accumulate (B-HOME-004). Accepts both the bare-hex
+    form (``root/<id>``, what the upload route writes) and the canonical
+    ``root/upload-<id>`` form. Returns 200 when a dir was removed, 204 when
+    nothing matched (idempotent), and 400 for a traversal-unsafe id.
+    """
+    if not _UPLOAD_ID_RE.fullmatch(upload_id):
+        raise HTTPException(status_code=400, detail="invalid upload_id")
+
+    root = _upload_root()
+    removed = False
+    for candidate in (root / upload_id, root / f"upload-{upload_id}"):
+        # Containment guard: the resolved path must stay under the root.
+        resolved = candidate.resolve()
+        if not str(resolved).startswith(str(root.resolve()) + "/"):
+            raise HTTPException(status_code=400, detail="invalid upload_id")
+        if resolved.is_dir():
+            shutil.rmtree(resolved)
+            removed = True
+    if not removed:
+        return Response(status_code=204)
+    return Response(status_code=200, content='{"status": "deleted"}', media_type="application/json")
 
 
 def _extract_in_place(zip_path: Path) -> None:
