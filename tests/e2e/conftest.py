@@ -72,6 +72,46 @@ def _wait_ready(base_url: str, timeout: float = 30.0) -> None:
     raise TimeoutError(f"Server at {base_url} did not become ready within {timeout}s")
 
 
+def _boot_server(env_overrides: dict[str, str], *, ready_timeout: float = 30.0) -> Generator[str, None, None]:
+    """Boot the app as a uvicorn subprocess and yield its base URL.
+
+    Shared boot logic for every live-server fixture. ``env_overrides`` is layered
+    on top of the current ``os.environ`` so callers select the dispatcher / GPU
+    backend / data roots they need. The server is polled on ``/api/config`` for
+    readiness and terminated on teardown.
+    """
+    port = _free_port()
+    base_url = f"http://127.0.0.1:{port}"
+
+    env = {**os.environ, **env_overrides}
+
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "pdomain_ocr_simple_gui.app:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+        ],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    try:
+        _wait_ready(base_url, timeout=ready_timeout)
+        yield base_url
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+
+
 # ---------------------------------------------------------------------------
 # Session-scoped data roots — shared between subprocess server and fixtures
 # ---------------------------------------------------------------------------
@@ -94,11 +134,7 @@ def e2e_data_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @pytest.fixture(scope="session")
 def live_server_url(e2e_data_root: Path) -> Generator[str, None, None]:
     """Start the app on a free port; yield the base URL; shut down after session."""
-    port = _free_port()
-    base_url = f"http://127.0.0.1:{port}"
-
     env = {
-        **os.environ,
         # Redirect all server data into the session-scoped tmpdir so tests
         # can write fixtures into the same paths without racing against the
         # real home-dir storage.
@@ -109,32 +145,7 @@ def live_server_url(e2e_data_root: Path) -> Generator[str, None, None]:
         # Use FakeStageDispatcher so browser e2e tests run fast without model weights.
         "PDOMAIN_OCR_FAKE_DISPATCHER": "1",
     }
-
-    proc = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "pdomain_ocr_simple_gui.app:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(port),
-        ],
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-
-    try:
-        _wait_ready(base_url, timeout=30.0)
-        yield base_url
-    finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+    yield from _boot_server(env)
 
 
 # ---------------------------------------------------------------------------
@@ -320,11 +331,7 @@ def live_server_url_cpu(e2e_data_root: Path) -> Generator[str, None, None]:
     Used for gpu-help-toggle tests: when gpu_available=False the toggle is
     rendered; when gpu_available=True it is absent from the DOM.
     """
-    port = _free_port()
-    base_url = f"http://127.0.0.1:{port}"
-
     env = {
-        **os.environ,
         "PD_OCR_SIMPLE_GUI_PROJECTS_ROOT": str(e2e_data_root / "projects"),
         "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(e2e_data_root / "outputs"),
         "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(e2e_data_root / "jobs_meta"),
@@ -333,32 +340,31 @@ def live_server_url_cpu(e2e_data_root: Path) -> Generator[str, None, None]:
         # Force CPU so gpu_available=False → gpu-help-toggle is rendered.
         "PDOMAIN_GPU_BACKEND": "cpu",
     }
+    yield from _boot_server(env)
 
-    proc = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "pdomain_ocr_simple_gui.app:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(port),
-        ],
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
 
-    try:
-        _wait_ready(base_url, timeout=30.0)
-        yield base_url
-    finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+@pytest.fixture(scope="session")
+def live_server_url_real_ocr(e2e_data_root: Path) -> Generator[str, None, None]:
+    """Live server running the REAL OCR engine on the GPU. Opt-in (real_ocr).
+
+    Mirrors ``live_server_url`` but intentionally OMITS
+    ``PDOMAIN_OCR_FAKE_DISPATCHER`` (so the real LocalStageDispatcher + DocTR
+    runner execute) and sets ``PDOMAIN_GPU_BACKEND=local``. Data roots are
+    isolated from the fake-dispatcher fixtures so the real engine never collides
+    with the seeded artifacts. Used only by Tier-B ``real_ocr`` tests; never in
+    default CI.
+    """
+    env = {
+        "PD_OCR_SIMPLE_GUI_PROJECTS_ROOT": str(e2e_data_root / "rp"),
+        "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(e2e_data_root / "ro"),
+        "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(e2e_data_root / "rj"),
+        "PD_OCR_SIMPLE_GUI_UPLOAD_ROOT": str(e2e_data_root / "ru"),
+        "PDOMAIN_GPU_BACKEND": "local",
+        # NOTE: PDOMAIN_OCR_FAKE_DISPATCHER intentionally NOT set.
+    }
+    # Real OCR cold-start (model load) is slower than the fake dispatcher, so
+    # give the server a longer readiness window before the first request.
+    yield from _boot_server(env, ready_timeout=60.0)
 
 
 @pytest.fixture(scope="session")
