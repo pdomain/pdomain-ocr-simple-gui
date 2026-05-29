@@ -62,6 +62,7 @@ function renderResultsPage(
     ? makeFetch()
     : vi.fn().mockResolvedValue({
         ok: true,
+        status: 200,
         json: async () => fixtures.jobStatus("succeeded"),
       });
 
@@ -387,6 +388,66 @@ describe("ResultsPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  // ---------------------------------------------------------------------------
+  // Download include-filter UI — B-RESULTS-006 / B-RESULTS-007
+  // ---------------------------------------------------------------------------
+
+  it("renders text + json filter toggles alongside the managed download button", async () => {
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () =>
+          fixtures.jobStatus("succeeded", { outputMode: "managed" }),
+      }),
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("download-results-button")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("download-filter-text")).toBeInTheDocument();
+    expect(screen.getByTestId("download-filter-json")).toBeInTheDocument();
+  });
+
+  it("download include param reflects the chosen filter toggles", async () => {
+    // B-RESULTS-006: deselecting JSON drives include=text (not the hardcoded
+    // text,json). The handler must assemble include from the toggles.
+    const user = userEvent.setup();
+    const assignSpy = vi.fn();
+    const original = window.location;
+    // jsdom forbids reassigning location.assign directly; redefine on a stub.
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...original, assign: assignSpy },
+    });
+    try {
+      renderResultsPage("proj-abc", () =>
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () =>
+            fixtures.jobStatus("succeeded", { outputMode: "managed" }),
+        }),
+      );
+      await waitFor(() => {
+        expect(
+          screen.getByTestId("download-results-button"),
+        ).toBeInTheDocument();
+      });
+      // Turn JSON off; leave text on.
+      await user.click(screen.getByTestId("download-filter-json"));
+      await user.click(screen.getByTestId("download-results-button"));
+      expect(assignSpy).toHaveBeenCalledTimes(1);
+      const url = assignSpy.mock.calls[0]?.[0] as string;
+      expect(url).toContain("include=text");
+      expect(url).not.toContain("json");
+    } finally {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: original,
+      });
+    }
+  });
+
   it("hides download button when state is not succeeded", async () => {
     renderResultsPage("proj-abc", () =>
       vi.fn().mockResolvedValue({
@@ -412,13 +473,156 @@ describe("ResultsPage", () => {
 
   it("shows error alert when job fetch fails (bad state)", async () => {
     renderResultsPage("proj-abc", () =>
-      vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) }),
+      vi
+        .fn()
+        .mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }),
     );
     await waitFor(() => {
       expect(screen.getByRole("alert")).toBeInTheDocument();
     });
     // Project name should not be rendered in error state
     expect(screen.queryByText("test-project")).not.toBeInTheDocument();
+  });
+
+  // ---------------------------------------------------------------------------
+  // 404 not-found vs transient error vs loading — B-RESULTS-011/-012, testids
+  // ---------------------------------------------------------------------------
+
+  it("shows a distinct 'Job not found' block with a back-home link on 404", async () => {
+    // B-RESULTS-011: a 404 must read "Job not found" (not the generic fetch
+    // error) and offer a way back home — via the dedicated results-not-found id.
+    renderResultsPage("proj-gone", () =>
+      vi
+        .fn()
+        .mockResolvedValue({ ok: false, status: 404, json: async () => ({}) }),
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("results-not-found")).toBeInTheDocument();
+    });
+    expect(screen.getByText(/job not found/i)).toBeInTheDocument();
+    // A back-to-home affordance is present.
+    expect(screen.getByTestId("results-back-home")).toBeInTheDocument();
+    // It is NOT the generic fetch-error block.
+    expect(screen.queryByTestId("results-error")).not.toBeInTheDocument();
+  });
+
+  it("shows the generic results-error block on a transient (5xx) error", async () => {
+    // B-RESULTS-012: a transient error renders the results-error block (with a
+    // retry indication) and is distinct from the 404 not-found block.
+    renderResultsPage("proj-abc", () =>
+      vi
+        .fn()
+        .mockResolvedValue({ ok: false, status: 503, json: async () => ({}) }),
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("results-error")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("results-not-found")).not.toBeInTheDocument();
+  });
+
+  it("uses the results-loading testid while the first poll is in flight", async () => {
+    let resolveSlow!: (v: unknown) => void;
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveSlow = resolve;
+          }),
+      ),
+    );
+    expect(screen.getByTestId("results-loading")).toBeInTheDocument();
+    resolveSlow({
+      ok: true,
+      status: 200,
+      json: async () => fixtures.jobStatus("succeeded"),
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Failed-job UX — B-RESULTS-004
+  // ---------------------------------------------------------------------------
+
+  it("surfaces status.error text on a failed job", async () => {
+    // B-RESULTS-004: a failed job previously rendered only a red pip with no
+    // explanation. The error string must be visible.
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ...fixtures.jobStatus("failed", { pageCount: 0 }),
+          error: "No supported image files found in source.",
+        }),
+      }),
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByText(/No supported image files found/i),
+      ).toBeInTheDocument();
+    });
+    // The failed-state error is shown via the job-error region.
+    expect(screen.getByTestId("results-error")).toBeInTheDocument();
+  });
+
+  it("offers a re-run affordance on a failed job", async () => {
+    // B-RESULTS-004: a failed job must offer a way to re-run (previously only
+    // succeeded jobs had any rerun control).
+    renderResultsPage("proj-abc", () =>
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ...fixtures.jobStatus("failed", { pageCount: 0 }),
+          error: "Pipeline crashed.",
+        }),
+      }),
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("rerun-failed-button")).toBeInTheDocument();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Rerun error surfacing — B-RESULTS-009
+  // ---------------------------------------------------------------------------
+
+  it("surfaces a rerun error when the rerun POST returns non-ok", async () => {
+    // B-RESULTS-009: a non-ok rerun was previously swallowed silently.
+    const user = userEvent.setup();
+    const mockFetch = vi
+      .fn()
+      .mockImplementation(async (url: string, opts?: RequestInit) => {
+        if (url.includes("/rerun") && opts?.method === "POST") {
+          return { ok: false, status: 500, json: async () => ({}) };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => fixtures.jobStatus("succeeded"),
+        };
+      });
+    (globalThis as any).fetch = mockFetch;
+
+    renderWithProviders(
+      <Routes>
+        <Route path="/jobs/:id" element={<ResultsPage />} />
+      </Routes>,
+      { route: "/jobs/proj-abc" },
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /re.run all/i }),
+      ).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: /re.run all/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("results-rerun-error")).toBeInTheDocument();
+    });
+    expect(screen.getByText(/re.run failed/i)).toBeInTheDocument();
+    // The page did not crash — name still shows.
+    expect(screen.getByText("test-project")).toBeInTheDocument();
   });
 
   it("shows no page rows when job has empty page list (succeeded but no pages)", async () => {

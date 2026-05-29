@@ -12,7 +12,7 @@
 // incompatible. Keeping the hand-rolled <table>.
 
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Progress, JobStatusPip, Button } from "@pdomain/pdomain-ui/primitives";
 import { useOcrJob } from "../api/useOcrJob";
 import { APP_TEST_IDS } from "../lib/testids";
@@ -23,7 +23,14 @@ export default function ResultsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [rerunPending, setRerunPending] = useState(false);
+  const [rerunError, setRerunError] = useState<string | null>(null);
   const [pathCopied, setPathCopied] = useState(false);
+
+  // Download include-filter (managed mode only). Images are always included by
+  // the backend; these toggles drive the text/json members of the ZIP via the
+  // ?include= query param (B-RESULTS-006). Both default on (legacy behaviour).
+  const [includeText, setIncludeText] = useState(true);
+  const [includeJson, setIncludeJson] = useState(true);
 
   // rerunKey is bumped after a successful rerun POST so useOcrJob sees a new
   // jobId and restarts polling (useLongJob stops when state reaches done/error).
@@ -32,46 +39,103 @@ export default function ResultsPage() {
   // Encode rerunKey in jobId to force useOcrJob/useLongJob reset after rerun.
   const effectiveJobId = id ? `${id}:${rerunKey}` : null;
 
-  const { longJobStatus, progress, jobData } = useOcrJob(effectiveJobId, {
-    pollIntervalMs: POLL_INTERVAL_MS,
-  });
+  const { longJobStatus, progress, jobData, notFound, transientError } =
+    useOcrJob(effectiveJobId, {
+      pollIntervalMs: POLL_INTERVAL_MS,
+    });
 
   async function handleRerunAll() {
     if (!id) return;
     setRerunPending(true);
+    setRerunError(null);
     try {
       const res = await fetch(`/api/jobs/${id}/rerun`, { method: "POST" });
       if (res.ok) {
         // Bump rerunKey so effectiveJobId changes, forcing useLongJob to
         // restart its polling loop (it stops when it reaches a terminal state).
         setRerunKey((k) => k + 1);
+      } else {
+        // B-RESULTS-009: a non-ok rerun was previously swallowed silently.
+        // Surface it so the user knows the re-run did not start.
+        setRerunError(`Re-run failed (HTTP ${res.status}). Please try again.`);
       }
-    } catch {
-      // ignore — user can retry
+    } catch (err) {
+      // Network-level failure — surface it rather than swallowing.
+      setRerunError(
+        `Re-run failed: ${err instanceof Error ? err.message : "network error"}.`,
+      );
     } finally {
       setRerunPending(false);
     }
   }
 
-  // Loading: jobId present but no data yet and not in error
-  const isLoading =
-    id !== undefined && jobData === null && longJobStatus !== "error";
-
-  if (isLoading) {
+  // 404 is terminal and distinct: the job does not exist (deleted / never
+  // existed). Show a dedicated "not found" block with a way back home rather
+  // than the generic fetch-error banner (B-RESULTS-011).
+  if (notFound) {
     return (
       <div data-testid={APP_TEST_IDS.resultsPage} className="results-page">
-        <p className="results-page__loading">Loading…</p>
+        <div
+          role="alert"
+          data-testid={APP_TEST_IDS.resultsNotFound}
+          className="results-page__error"
+        >
+          <p>Job not found. It may have been deleted.</p>
+          <Link to="/" data-testid={APP_TEST_IDS.resultsBackHome}>
+            Back to home
+          </Link>
+        </div>
       </div>
     );
   }
 
-  if (longJobStatus === "error" || jobData === null) {
+  // A transient error (5xx / network) keeps polling under the hood — surface a
+  // non-fatal banner (B-RESULTS-012). A terminal fetch error with no data also
+  // lands here. NOTE: a *job* in the "failed" state ALSO maps to
+  // longJobStatus="error" via toHookStatus — but that is a legitimate terminal
+  // job result (jobData is populated), handled in the main render below, not a
+  // fetch failure. Only treat it as a fetch error when there is no jobData.
+  if (transientError || (longJobStatus === "error" && jobData === null)) {
     return (
       <div data-testid={APP_TEST_IDS.resultsPage} className="results-page">
-        <p role="alert" className="results-page__error">
-          {longJobStatus === "error"
-            ? "Error fetching job status."
-            : "Job not found."}
+        <p
+          role="alert"
+          data-testid={APP_TEST_IDS.resultsError}
+          className="results-page__error"
+        >
+          {transientError
+            ? "Error fetching job status — retrying…"
+            : "Error fetching job status."}
+        </p>
+      </div>
+    );
+  }
+
+  // Loading: jobId present but no data yet, no error/not-found flag.
+  const isLoading = id !== undefined && jobData === null;
+
+  if (isLoading) {
+    return (
+      <div data-testid={APP_TEST_IDS.resultsPage} className="results-page">
+        <p
+          data-testid={APP_TEST_IDS.resultsLoading}
+          className="results-page__loading"
+        >
+          Loading…
+        </p>
+      </div>
+    );
+  }
+
+  if (jobData === null) {
+    return (
+      <div data-testid={APP_TEST_IDS.resultsPage} className="results-page">
+        <p
+          role="alert"
+          data-testid={APP_TEST_IDS.resultsError}
+          className="results-page__error"
+        >
+          Error fetching job status.
         </p>
       </div>
     );
@@ -80,6 +144,7 @@ export default function ResultsPage() {
   const {
     name,
     state,
+    error,
     pages_done,
     page_count,
     output_dir,
@@ -96,7 +161,15 @@ export default function ResultsPage() {
         : 0;
 
   const isRunning = state === "queued" || state === "running";
+  const isFailed = state === "failed";
   const showDownload = state === "succeeded" && output_mode === "managed";
+
+  // Assemble the download include-filter from the toggles. Images are always
+  // included server-side; text/json are gated by these tokens (B-RESULTS-006).
+  const includeTokens = [
+    ...(includeText ? ["text"] : []),
+    ...(includeJson ? ["json"] : []),
+  ];
 
   return (
     <div data-testid={APP_TEST_IDS.resultsPage} className="results-page">
@@ -111,6 +184,42 @@ export default function ResultsPage() {
           data-testid={APP_TEST_IDS.jobProgressMessage}
         >
           {progress_message}
+        </p>
+      )}
+
+      {/* B-RESULTS-004: a failed job surfaces its error text + a rerun control,
+          rather than rendering only a bare red pip. */}
+      {isFailed && (
+        <div className="results-page__failed">
+          <p
+            role="alert"
+            data-testid={APP_TEST_IDS.resultsError}
+            className="results-page__error"
+          >
+            {error ?? "The job failed. See server logs for details."}
+          </p>
+          <Button
+            variant="primary"
+            disabled={rerunPending}
+            aria-label="Re-run failed job"
+            data-testid={APP_TEST_IDS.rerunFailedButton}
+            onClick={() => {
+              void handleRerunAll();
+            }}
+          >
+            {rerunPending ? "Re-running…" : "Re-run job"}
+          </Button>
+        </div>
+      )}
+
+      {/* B-RESULTS-009: a non-ok rerun is surfaced, not swallowed. */}
+      {rerunError && (
+        <p
+          role="alert"
+          data-testid={APP_TEST_IDS.resultsRerunError}
+          className="results-page__error"
+        >
+          {rerunError}
         </p>
       )}
 
@@ -129,12 +238,41 @@ export default function ResultsPage() {
 
       {showDownload && (
         <div className="results-page__download">
+          <fieldset className="results-page__download-filter">
+            <legend>Include in download</legend>
+            <label>
+              <input
+                type="checkbox"
+                checked={includeText}
+                data-testid={APP_TEST_IDS.downloadFilterText}
+                onChange={(e) => {
+                  setIncludeText(e.target.checked);
+                }}
+              />
+              Text (.txt)
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={includeJson}
+                data-testid={APP_TEST_IDS.downloadFilterJson}
+                onChange={(e) => {
+                  setIncludeJson(e.target.checked);
+                }}
+              />
+              JSON (.json)
+            </label>
+            <span className="results-page__download-note">
+              Images are always included.
+            </span>
+          </fieldset>
           <Button
             variant="primary"
+            disabled={includeTokens.length === 0}
             data-testid={APP_TEST_IDS.downloadResultsButton}
             onClick={() => {
               window.location.assign(
-                `/api/jobs/${id ?? ""}/download?include=text,json`,
+                `/api/jobs/${id ?? ""}/download?include=${includeTokens.join(",")}`,
               );
             }}
           >
