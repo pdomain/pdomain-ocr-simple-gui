@@ -2,6 +2,7 @@
 
 Covers: F-UPLOAD-OCR-DOWNLOAD-01 (real-engine slice)
 Covers: B-HOME-011 (Tier-B: a submitted job produces real OCR text on disk)
+Covers: B-RESULTS-003 (Tier-B: a succeeded job's ResultsPage carries real OCR text)
 
 Unlike the Tier-A click-path tests (which run against the FakeStageDispatcher),
 this test boots the server with the real LocalStageDispatcher + DocTR runner on

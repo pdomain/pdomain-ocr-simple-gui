@@ -24,3 +24,17 @@ Run `make behavior-coverage` to regenerate.
 | B-HOME-018 | no | test-written |
 | B-HOME-019 | no | test-written |
 | B-HOME-020 | no | test-written |
+| B-RESULTS-001 | no | test-written |
+| B-RESULTS-002 | no | test-written |
+| B-RESULTS-003 | no | test-written |
+| B-RESULTS-004 | yes | test-written |
+| B-RESULTS-005 | no | test-written |
+| B-RESULTS-006 | no | test-written |
+| B-RESULTS-007 | no | test-written |
+| B-RESULTS-008 | no | test-written |
+| B-RESULTS-009 | yes | test-written |
+| B-RESULTS-010 | no | test-written |
+| B-RESULTS-011 | yes | test-written |
+| B-RESULTS-012 | yes | test-written |
+| B-RESULTS-013 | no | test-written |
+| B-RESULTS-014 | yes | test-written |

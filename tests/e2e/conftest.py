@@ -394,6 +394,61 @@ def seeded_rerun_job_id(e2e_data_root: Path) -> str:
     return project_id
 
 
+def _write_failed_project_json(projects_root: Path, project_id: str, *, output_dir: str) -> None:
+    """Write a minimal project.json for a FAILED job (zero pages + error text)."""
+    proj_dir = projects_root / project_id
+    proj_dir.mkdir(parents=True, exist_ok=True)
+
+    spec: dict[str, object] = {
+        "project_id": project_id,
+        "name": f"e2e-failed-{project_id[:8]}",
+        "source_path": str(proj_dir),
+        "output_dir": output_dir,
+        "engine": "doctr",
+        "language": "en",
+        "save_json": False,
+        "combined_txt": False,
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "last_opened_at": "2026-01-01T00:00:00+00:00",
+    }
+    status: dict[str, object] = {
+        "project_id": project_id,
+        "state": "failed",
+        "page_count": 0,
+        "pages_done": 0,
+        "pages": [],
+        "error": (
+            "No supported image files found in source; supported types are PNG, JPEG, TIFF, JPEG 2000, WebP."
+        ),
+    }
+    data = {"spec": spec, "status": status}
+    (proj_dir / "project.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+@pytest.fixture(scope="session")
+def seeded_failed_job_id(e2e_data_root: Path) -> str:
+    """Yield a project_id for a FAILED job pre-seeded on disk.
+
+    The job has:
+    - status = failed, 0 pages, error = "No supported image files found…"
+    - output_mode = next_to_source
+
+    Used for B-RESULTS-004 (a failed job must surface its error text AND offer
+    a rerun affordance, not render a bare red pip). The fixture has NO source
+    image, so a rerun re-fails (which is fine — the test asserts the error +
+    rerun control render, not a successful rerun).
+    """
+    project_id = "e2efailed-" + uuid.uuid4().hex[:12]
+    projects_root = e2e_data_root / "projects"
+    outputs_root = e2e_data_root / "outputs"
+    jobs_meta_root = e2e_data_root / "jobs_meta"
+
+    out_dir = str(outputs_root / project_id)
+    _write_failed_project_json(projects_root, project_id, output_dir=out_dir)
+    _write_job_meta(jobs_meta_root, project_id, mode="next_to_source")
+    return project_id
+
+
 @pytest.fixture(scope="session")
 def seeded_managed_job_id(e2e_data_root: Path) -> str:
     """Yield a project_id for a completed managed-mode job pre-seeded on disk.
