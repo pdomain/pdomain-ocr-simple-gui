@@ -121,7 +121,7 @@ def _boot_server(env_overrides: dict[str, str], *, ready_timeout: float = 30.0) 
 def e2e_data_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Session-scoped temporary directory for all e2e server data."""
     root: Path = tmp_path_factory.mktemp("e2e_server_data")
-    for subdir in ("projects", "outputs", "jobs_meta", "uploads"):
+    for subdir in ("projects", "outputs", "jobs_meta", "uploads", "suite_data", "suite_data_real"):
         (root / subdir).mkdir(parents=True, exist_ok=True)
     return root
 
@@ -142,10 +142,40 @@ def live_server_url(e2e_data_root: Path) -> Generator[str, None, None]:
         "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(e2e_data_root / "outputs"),
         "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(e2e_data_root / "jobs_meta"),
         "PD_OCR_SIMPLE_GUI_UPLOAD_ROOT": str(e2e_data_root / "uploads"),
+        # Redirect pdomain-ops suite data (including ui-prefs.json) into the
+        # session-scoped tmpdir so prefs mutations in one test never bleed into
+        # another test or the real user prefs file on disk.
+        # PD_SUITE_DATA_DIR is per-xdist-worker because tmp_path_factory is
+        # worker-scoped; combined with reset_prefs (function-scoped autouse)
+        # this gives full per-test prefs isolation.
+        "PD_SUITE_DATA_DIR": str(e2e_data_root / "suite_data"),
         # Use FakeStageDispatcher so browser e2e tests run fast without model weights.
         "PDOMAIN_OCR_FAKE_DISPATCHER": "1",
     }
     yield from _boot_server(env)
+
+
+# ---------------------------------------------------------------------------
+# Function-scoped prefs reset — autouse for every e2e test
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def reset_prefs(live_server_url: str) -> None:
+    """Reset app prefs to defaults before each e2e test.
+
+    Prefs (default_engine, recent_projects, etc.) are persisted to a JSON
+    file on the server subprocess's filesystem.  Under pytest-xdist each
+    worker runs multiple tests against the same session-scoped live server;
+    any test that mutates prefs via PUT /api/prefs would otherwise pollute
+    subsequent tests assigned to the same worker.
+
+    This fixture calls PUT /api/prefs with an empty payload (AppPrefs
+    defaults) immediately before each test so every test starts from a
+    known clean state.  It is autouse so no individual test needs to
+    opt in.
+    """
+    httpx.put(f"{live_server_url}/api/prefs", json={}, timeout=5.0)
 
 
 # ---------------------------------------------------------------------------
@@ -336,6 +366,7 @@ def live_server_url_cpu(e2e_data_root: Path) -> Generator[str, None, None]:
         "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(e2e_data_root / "outputs"),
         "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(e2e_data_root / "jobs_meta"),
         "PD_OCR_SIMPLE_GUI_UPLOAD_ROOT": str(e2e_data_root / "uploads"),
+        "PD_SUITE_DATA_DIR": str(e2e_data_root / "suite_data"),
         "PDOMAIN_OCR_FAKE_DISPATCHER": "1",
         # Force CPU so gpu_available=False → gpu-help-toggle is rendered.
         "PDOMAIN_GPU_BACKEND": "cpu",
@@ -359,6 +390,7 @@ def live_server_url_real_ocr(e2e_data_root: Path) -> Generator[str, None, None]:
         "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(e2e_data_root / "ro"),
         "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(e2e_data_root / "rj"),
         "PD_OCR_SIMPLE_GUI_UPLOAD_ROOT": str(e2e_data_root / "ru"),
+        "PD_SUITE_DATA_DIR": str(e2e_data_root / "suite_data_real"),
         "PDOMAIN_GPU_BACKEND": "local",
         # NOTE: PDOMAIN_OCR_FAKE_DISPATCHER intentionally NOT set.
     }
