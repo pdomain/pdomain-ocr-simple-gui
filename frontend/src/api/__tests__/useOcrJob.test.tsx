@@ -9,7 +9,7 @@
 
 import { renderHook, act } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { useOcrJob } from "../useOcrJob";
+import { useOcrJob, JobFetchError } from "../useOcrJob";
 import type { OcrJobData } from "../useOcrJob";
 
 function makeBackendResponse(
@@ -224,15 +224,84 @@ describe("useOcrJob", () => {
     expect(result.current.jobData?.output_mode).toBeUndefined();
   });
 
-  it("transitions to error status when the poll fetch throws a network error", async () => {
-    const fetchFn = vi.fn().mockRejectedValue(new Error("Network failure"));
+  // ---------------------------------------------------------------------------
+  // 404 (terminal not-found) vs transient (retry) distinction — B-RESULTS-011/-012
+  // ---------------------------------------------------------------------------
+
+  it("flags notFound and goes terminal when the fetch throws a 404 JobFetchError", async () => {
+    // B-RESULTS-011: a 404 is a terminal "job not found" — stop polling, set notFound.
+    let callCount = 0;
+    const fetchFn = vi.fn().mockImplementation(async () => {
+      callCount++;
+      throw new JobFetchError("not found", 404);
+    });
     const { result } = renderHook(() =>
-      useOcrJob("proj-1", { fetchFn, pollIntervalMs: 100 }),
+      useOcrJob("proj-1", { fetchFn, pollIntervalMs: 50 }),
     );
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 150));
+      await new Promise((r) => setTimeout(r, 200));
     });
+    expect(result.current.notFound).toBe(true);
     expect(result.current.longJobStatus).toBe("error");
-    expect(result.current.jobData).toBeNull();
+    // Polling must STOP on a 404 (terminal) — only the first poll fires.
+    expect(callCount).toBe(1);
+  });
+
+  it("keeps polling (does NOT go terminal) on a transient network error", async () => {
+    // B-RESULTS-012: a generic network failure is retryable — keep polling,
+    // do not set notFound, surface a transient-error flag instead.
+    let callCount = 0;
+    const fetchFn = vi.fn().mockImplementation(async () => {
+      callCount++;
+      throw new Error("Network failure");
+    });
+    const { result } = renderHook(() =>
+      useOcrJob("proj-1", { fetchFn, pollIntervalMs: 50 }),
+    );
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 200));
+    });
+    expect(result.current.notFound).toBe(false);
+    expect(result.current.transientError).toBe(true);
+    // Polling must CONTINUE through transient errors → more than one poll.
+    expect(callCount).toBeGreaterThan(1);
+    // The hook must not be terminal — useLongJob keeps re-arming.
+    expect(result.current.longJobStatus).not.toBe("error");
+  });
+
+  it("keeps polling on a transient 5xx JobFetchError", async () => {
+    // B-RESULTS-012: a 5xx is retryable, distinct from a terminal 404.
+    let callCount = 0;
+    const fetchFn = vi.fn().mockImplementation(async () => {
+      callCount++;
+      throw new JobFetchError("server error", 503);
+    });
+    const { result } = renderHook(() =>
+      useOcrJob("proj-1", { fetchFn, pollIntervalMs: 50 }),
+    );
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 200));
+    });
+    expect(result.current.notFound).toBe(false);
+    expect(result.current.transientError).toBe(true);
+    expect(callCount).toBeGreaterThan(1);
+  });
+
+  it("clears the transientError flag after a poll recovers", async () => {
+    // B-RESULTS-012: once a poll succeeds again, the transient flag clears.
+    let callCount = 0;
+    const fetchFn = vi.fn().mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) throw new Error("Network blip");
+      return makeBackendResponse("running");
+    });
+    const { result } = renderHook(() =>
+      useOcrJob("proj-1", { fetchFn, pollIntervalMs: 50 }),
+    );
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 250));
+    });
+    expect(result.current.transientError).toBe(false);
+    expect(result.current.jobData?.state).toBe("running");
   });
 });
