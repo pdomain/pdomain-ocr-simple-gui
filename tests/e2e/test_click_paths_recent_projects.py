@@ -3,7 +3,12 @@
 Marked ``slow`` and ``e2e`` — excluded from ``make test``, included in
 ``make e2e-browser``.
 
-Seeds a recent-project entry via PUT /api/prefs, then:
+Covers: B-HOME-012 (recent-projects list renders from prefs; empty state)
+Covers: B-HOME-013 (clicking a recent-project row navigates to its results)
+
+Population of recent_projects is future Projects-page work (see
+docs/specs/2026-05-29-projects-page.md); this screen only RENDERS from prefs,
+so the row is seeded via PUT /api/prefs. Then:
 - visits the home page
 - waits for the recent-projects table to render with that row
 - clicks the row
@@ -41,25 +46,56 @@ def _seed_recent_project(base_url: str, project_id: str, name: str) -> None:
 def test_recent_project_row_navigates_to_results(
     page: Page, live_server_url: str, seeded_job_id: str
 ) -> None:
-    """Click a recent-project row on the home page; assert results page for that job."""
+    """B-HOME-013: click a recent-project row → navigate to its results page.
+
+    Observable: results-page renders and the URL contains the project id.
+    Backend effect: GET /api/jobs/{id} returns that project (the row was seeded
+    into prefs via PUT /api/prefs — population is future Projects-page work).
+    """
     seeded_name = f"e2e-seeded-{seeded_job_id[:8]}"
 
     # Seed prefs so the home page shows a recent-project row.
     _seed_recent_project(live_server_url, seeded_job_id, seeded_name)
 
+    # Backend effect: the seeded row is readable back from prefs.
+    prefs = httpx.get(f"{live_server_url}/api/prefs", timeout=5.0).json()
+    assert any(p.get("project_id") == seeded_job_id for p in prefs.get("recent_projects", [])), prefs
+
     page.goto(live_server_url)
     expect(page.get_by_test_id("home-page")).to_be_visible(timeout=10_000)
 
-    # Wait for the recent-projects list to render with our seeded row.
+    # B-HOME-012: the recent-projects list renders the seeded row.
     row = page.get_by_test_id("recent-project-row").first
     expect(row).to_be_visible(timeout=10_000)
 
-    # Click the row — should navigate to /jobs/<seeded_job_id>.
+    # B-HOME-013: click the row — should navigate to /jobs/<seeded_job_id>.
     row.click()
 
-    # Results page is now visible.
     expect(page.get_by_test_id("results-page")).to_be_visible(timeout=15_000)
-
-    # The correct project is rendered — at least the results-page element
-    # loaded from the seeded job ID.
     assert seeded_job_id in page.url, f"Expected URL to contain {seeded_job_id!r}, got {page.url!r}"
+
+    # Backend effect: the navigated project is retrievable.
+    status = httpx.get(f"{live_server_url}/api/jobs/{seeded_job_id}", timeout=5.0).json()
+    assert status["project_id"] == seeded_job_id
+
+
+@pytest.mark.slow
+@pytest.mark.e2e
+def test_recent_projects_empty_state(page: Page, live_server_url: str) -> None:
+    """B-HOME-012: with no recent projects, the list shows the empty message.
+
+    Resets prefs to an empty recent_projects list (PUT overwrites AppPrefs),
+    then asserts the recent-projects container shows 'No recent projects' and
+    renders zero rows.
+    """
+    # Reset prefs so recent_projects is empty for this assertion.
+    resp = httpx.put(f"{live_server_url}/api/prefs", json={"recent_projects": []}, timeout=5.0)
+    resp.raise_for_status()
+
+    page.goto(live_server_url)
+    expect(page.get_by_test_id("home-page")).to_be_visible(timeout=10_000)
+
+    container = page.get_by_test_id("recent-projects-list")
+    expect(container).to_be_visible(timeout=10_000)
+    expect(container).to_contain_text("No recent projects", timeout=10_000)
+    expect(page.get_by_test_id("recent-project-row")).to_have_count(0)

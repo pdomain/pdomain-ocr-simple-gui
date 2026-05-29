@@ -1,6 +1,7 @@
 """Tier B — full exercise with the REAL OCR engine (GPU, opt-in).
 
 Covers: F-UPLOAD-OCR-DOWNLOAD-01 (real-engine slice)
+Covers: B-HOME-011 (Tier-B: a submitted job produces real OCR text on disk)
 
 Unlike the Tier-A click-path tests (which run against the FakeStageDispatcher),
 this test boots the server with the real LocalStageDispatcher + DocTR runner on

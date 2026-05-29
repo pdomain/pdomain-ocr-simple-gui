@@ -30,6 +30,8 @@ the outside:
 
 This is the only user-visible prefs state in this SPA that can be
 asserted without coupling to AppShell internals.
+
+Covers: B-HOME-012 (recent-projects list renders the persisted prefs row)
 """
 
 from __future__ import annotations
