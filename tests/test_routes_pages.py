@@ -220,6 +220,33 @@ class TestPutPageText:
         assert resp.status_code == 404
         assert "not found" in resp.json()["detail"].lower()
 
+    async def test_put_text_on_out_of_range_index_returns_404_no_write(
+        self,
+        async_client: AsyncClient,
+        project_with_image: tuple[str, Path],
+    ) -> None:
+        """PUT text with an out-of-range page index returns a clean 404, no disk write.
+
+        Regression (B-PAGEVIEW-012): the project has only page 0, so saving to
+        index 99 must return 404 ("Page not found") — NOT an uncaught
+        FileNotFoundError surfacing as 500 — and must not write a stray sidecar.
+        """
+        from pdomain_ocr_simple_gui.storage import get_project_dir
+
+        project_id, _ = project_with_image
+        resp = await async_client.put(
+            f"/api/pages/{project_id}/99/text",
+            json={"text": "should never persist"},
+        )
+        assert resp.status_code == 404
+        assert "not found" in resp.json()["detail"].lower()
+
+        # No stray sidecar/txt artifact for the bad index.
+        pages_dir = get_project_dir(project_id) / "pages"
+        if pages_dir.exists():
+            stray = [p.name for p in pages_dir.iterdir() if "99" in p.name]
+            assert not stray, f"out-of-range save wrote stray artifacts: {stray}"
+
     async def test_text_persisted_in_sidecar(
         self,
         async_client: AsyncClient,

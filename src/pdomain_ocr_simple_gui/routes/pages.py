@@ -214,9 +214,15 @@ async def put_page_text(project_id: str, page_idx: int, body: SaveTextRequest) -
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     try:
-        spec, _ = read_project(project_id)
+        spec, status = read_project(project_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Project not found") from exc
+    # Guard the page index BEFORE any disk write. An out-of-range index used to
+    # fall through to write_page_sidecar → _page_name_for_idx, which raised an
+    # uncaught FileNotFoundError surfacing as a 500 (and could leave a partial
+    # write). Resolve to a clean 404 with no disk mutation instead.
+    if not any(p.page_idx == page_idx for p in status.pages):
+        raise HTTPException(status_code=404, detail="Page not found")
     sidecar: JsonObject = _read_sidecar(spec, page_idx)
     if not sidecar:
         sidecar = {"page_idx": page_idx}
