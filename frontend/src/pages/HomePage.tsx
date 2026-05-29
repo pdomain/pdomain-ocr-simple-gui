@@ -2,7 +2,7 @@
 // After a source is chosen, an inline JobConfigInline form appears progressively
 // below the SourcePicker(s); no modal dialog.
 import { useState } from "react";
-import { useConfig } from "../runtime/ConfigContext";
+import { useConfig, useConfigStatus } from "../runtime/ConfigContext";
 import { SourcePicker } from "../components/SourcePicker";
 import { RecentProjectsList } from "../components/RecentProjectsList";
 import {
@@ -13,10 +13,30 @@ import { APP_TEST_IDS } from "../lib/testids";
 
 export function HomePage() {
   const cfg = useConfig();
+  const { error: configError, reload } = useConfigStatus();
   const [chosen, setChosen] = useState<ChosenSource | null>(null);
 
   function handleCancel() {
     setChosen(null);
+  }
+
+  // B-HOME-014 (Regression): when /api/config fails, surface the error +
+  // a retry instead of hanging on "Loading…" forever.
+  if (configError) {
+    return (
+      <div data-testid={APP_TEST_IDS.homePage} className="home-page">
+        <div role="alert" data-testid="home-config-error">
+          <p>Could not load app configuration. The server may be unavailable.</p>
+          <button
+            type="button"
+            data-testid="home-config-retry"
+            onClick={() => void reload()}
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (!cfg) return <div>Loading…</div>;

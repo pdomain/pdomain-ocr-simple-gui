@@ -29,6 +29,18 @@ function withConfig(cfg: { mode: string; is_containerized: boolean }) {
     ok: true,
     json: async () => cfg,
   })) as unknown as typeof fetch;
+  return renderTree();
+}
+
+function withConfigError() {
+  globalThis.fetch = (async () => ({
+    ok: false,
+    json: async () => ({}),
+  })) as unknown as typeof fetch;
+  return renderTree();
+}
+
+function renderTree() {
   const client = makeQueryClient();
   return (
     <QueryClientProvider client={client}>
@@ -58,6 +70,18 @@ it("managed shows upload-only (no path input)", async () => {
   render(withConfig({ mode: "managed", is_containerized: false }));
   expect(await screen.findByTestId("source-picker-drop")).toBeInTheDocument();
   expect(screen.queryByTestId("source-picker-path-input")).toBeNull();
+});
+
+// B-HOME-014 (Regression): a failed /api/config must surface an error message
+// + retry affordance instead of hanging on "Loading…" forever.
+it("shows an error state (not infinite loading) when /api/config fails", async () => {
+  render(withConfigError());
+  expect(
+    await screen.findByTestId("home-config-error"),
+  ).toBeInTheDocument();
+  expect(screen.getByTestId("home-config-retry")).toBeInTheDocument();
+  // Must NOT be stuck on the loading text.
+  expect(screen.queryByText("Loading…")).toBeNull();
 });
 
 it("JobConfigInline is hidden until a source is chosen", async () => {
