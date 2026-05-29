@@ -76,9 +76,7 @@ it("managed shows upload-only (no path input)", async () => {
 // + retry affordance instead of hanging on "Loading…" forever.
 it("shows an error state (not infinite loading) when /api/config fails", async () => {
   render(withConfigError());
-  expect(
-    await screen.findByTestId("home-config-error"),
-  ).toBeInTheDocument();
+  expect(await screen.findByTestId("home-config-error")).toBeInTheDocument();
   expect(screen.getByTestId("home-config-retry")).toBeInTheDocument();
   // Must NOT be stuck on the loading text.
   expect(screen.queryByText("Loading…")).toBeNull();

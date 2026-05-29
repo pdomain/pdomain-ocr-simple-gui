@@ -55,3 +55,16 @@ Run `make behavior-coverage` to regenerate.
 | B-RESULTS-012 | yes | test-written |
 | B-RESULTS-013 | no | test-written |
 | B-RESULTS-014 | yes | test-written |
+| B-SHELL-001 | no | test-written |
+| B-SHELL-002 | no | specified |
+| B-SHELL-003 | no | specified |
+| B-SHELL-004 | no | test-written |
+| B-SHELL-005 | no | test-written |
+| B-SHELL-006 | no | specified |
+| B-SHELL-007 | no | specified |
+| B-SHELL-008 | yes | test-written |
+| B-SHELL-009 | yes | test-written |
+| B-SHELL-010 | yes | test-written |
+| B-SHELL-011 | no | test-written |
+| B-SHELL-012 | no | test-written |
+| B-SHELL-013 | no | test-written |

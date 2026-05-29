@@ -1,11 +1,7 @@
 // Tests for ConfigContext — A6.1 + B-HOME-014 error surfacing.
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import {
-  ConfigProvider,
-  useConfig,
-  useConfigStatus,
-} from "../ConfigContext";
+import { ConfigProvider, useConfig, useConfigStatus } from "../ConfigContext";
 
 function Probe() {
   const cfg = useConfig();
@@ -45,9 +41,7 @@ it("surfaces an error state when /api/config returns non-ok", async () => {
       <Probe />
     </ConfigProvider>,
   );
-  await waitFor(() =>
-    expect(screen.getByText("error")).toBeInTheDocument(),
-  );
+  await waitFor(() => expect(screen.getByText("error")).toBeInTheDocument());
 });
 
 it("surfaces an error state when /api/config throws a network error", async () => {
@@ -58,9 +52,7 @@ it("surfaces an error state when /api/config throws a network error", async () =
       <Probe />
     </ConfigProvider>,
   );
-  await waitFor(() =>
-    expect(screen.getByText("error")).toBeInTheDocument(),
-  );
+  await waitFor(() => expect(screen.getByText("error")).toBeInTheDocument());
 });
 
 it("reload() re-fetches and clears the error on success", async () => {
