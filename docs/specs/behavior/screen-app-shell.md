@@ -15,7 +15,7 @@ A record is **incomplete** until both *Observable output* and *Backend /
 side-effects* are filled. Every record needs a good path and at least one
 bad path.
 
-> **NOTE — registry gap and custom-header limitation:**
+> **NOTE — registry gap:**
 >
 > **Shortcuts:** `ShortcutsProvider`, `useShortcuts`, `ShortcutsHelpButton`
 > from `@pdomain/pdomain-ui/hooks` and `@pdomain/pdomain-ui/shell` are present
@@ -24,13 +24,12 @@ bad path.
 > in the pdomain-ui bundle but NOT exported from the testids catalog — aliased
 > locally in `APP_TEST_IDS.shortcutsCheatsheet`.
 >
-> **Settings modal (B-SHELL-006/007):** `App.tsx` passes a custom `header` prop
-> to AppShell, which disables AppShell's built-in header (the one that includes
-> `SettingsSlot` / `settings-slot-trigger`). The `AppHeader` component from
-> pdomain-ui does not include a settings gear. As a result, the settings modal
-> is not user-accessible via the DOM in the current app. The `settings-slot-trigger`
-> element is absent from the rendered DOM even though it exists in the bundle.
-> B-SHELL-006/007 tests are deferred pending a settings affordance in AppHeader.
+> **Settings modal (B-SHELL-006/007):** `App.tsx` places `<SettingsSlot />` inside
+> `AppHeader.actions` alongside `<ShortcutsHelpButton />`. `SettingsSlot` calls
+> `useSettingsModal().openModal()` from `SettingsModalContext` provided by `AppShell`.
+> Since `AppHeader` is a descendant of `AppShell` (rendered via the `header` slot),
+> the context is available and the gear button opens the built-in settings modal.
+> All B-SHELL-006/007/008/009/010 behaviors are now testable via real UI clicks.
 
 ### Selectors (confirmed against `frontend/src/lib/testids.ts` + pdomain-ui dist)
 
@@ -125,9 +124,7 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
   badge disappears; pill returns to idle (Package icon, no pulse dot)
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** (timing-sensitive; relies on a job staying in running state during
-  the 5-second poll interval; deferred until fake-dispatcher supports
-  long-running jobs)
+- **Test:** `tests/e2e/test_click_paths_app_shell.py::test_active_jobs_count_badge_appears_with_running_job`
 
 ---
 
@@ -144,7 +141,7 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
   not open (or opens empty)
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** (deferred — same timing constraint as B-SHELL-002)
+- **Test:** `tests/e2e/test_click_paths_app_shell.py::test_jobs_pill_popover_lists_running_job`
 
 ---
 
@@ -204,11 +201,7 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
 - **Bad-state / error:** No bad-state for opening; the modal always renders
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** (deferred — the app uses a custom `header` prop on AppShell, so
-  AppShell's built-in `SettingsSlot` / `settings-slot-trigger` is never rendered;
-  `AppHeader` from pdomain-ui does not include a settings gear. The settings modal
-  is not user-accessible in the current app. Re-enable when the app adds a
-  settings affordance to its custom AppHeader.)
+- **Test:** `tests/e2e/test_click_paths_app_shell.py::test_settings_modal_opens_on_gear_click`
 
 ---
 
@@ -224,7 +217,7 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
 - **Bad-state / error:** —
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** (deferred — same reason as B-SHELL-006)
+- **Test:** `tests/e2e/test_click_paths_app_shell.py::test_settings_modal_closes_on_close_button`
 
 ---
 
@@ -248,9 +241,9 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
 - **Tier(s):** A
 - **Regression:** yes — prior code had `catch {}` (silent) and no `res.ok`
   check; fix adds `throw if !res.ok` + `onPersistError` → `toast.error(...)`
-- **Test:** `tests/e2e/test_click_paths_app_shell.py::test_theme_persists_via_api`
-  (API-level test — UI toggle via settings modal deferred until settings
-  affordance is added to AppHeader; see B-SHELL-006)
+- **Test:** `tests/e2e/test_click_paths_app_shell.py::test_theme_persists_via_ui`,
+  `tests/e2e/test_click_paths_app_shell.py::test_theme_persists_via_api`,
+  `tests/e2e/test_click_paths_app_shell.py::test_prefs_persist_error_shows_toast`
 
 ---
 
@@ -270,8 +263,8 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
   now shows a sonner toast; density reverts on reload
 - **Tier(s):** A
 - **Regression:** yes — same silent-catch regression as B-SHELL-008
-- **Test:** `tests/e2e/test_click_paths_app_shell.py::test_density_persists_via_api`
-  (API-level test — UI toggle deferred, same as B-SHELL-008)
+- **Test:** `tests/e2e/test_click_paths_app_shell.py::test_density_persists_via_ui`,
+  `tests/e2e/test_click_paths_app_shell.py::test_density_persists_via_api`
 
 ---
 
@@ -298,8 +291,9 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
   toast; scale reverts on reload
 - **Tier(s):** A
 - **Regression:** yes — same silent-catch regression as B-SHELL-008/009
-- **Test:** (slider drag requires specific Playwright drag sequence; deferred to
-  follow-up; PUT/GET round-trip covered by B-SHELL-011)
+- **Test:** `tests/e2e/test_click_paths_app_shell.py::test_fontscale_persists_via_api`
+  (slider visibility confirmed in the modal; Playwright drag-sequence for slider
+  value change deferred — PUT/GET round-trip covered by this test + B-SHELL-011)
 
 ---
 
