@@ -107,11 +107,11 @@ behavior-coverage: ## Regenerate behavior coverage.md + gate (declared vs cited 
 smoke: ## Run slow/e2e smoke tests (requires real OCR; use make ci AI=1 to include)
 	uv run pytest tests/smoke/ -v -m "slow or e2e"
 
-e2e-fast: frontend-build ## Run fake-backed Playwright click-path tests (fast, no model weights; part of make ci)
-	@echo "🌐 Running fast browser click-path tests (fake dispatcher)..."
+e2e-fast: frontend-build ## Run full behavior e2e suite (fake dispatcher, no model weights; part of make ci)
+	@echo "🌐 Running full behavior e2e suite (fake dispatcher)..."
 	PLAYWRIGHT_BROWSERS_PATH=/cache/shared-ai/ms-playwright \
 	PDOMAIN_OCR_FAKE_DISPATCHER=1 \
-	uv run --group e2e pytest tests/e2e/test_click_paths_*.py -v -m "slow or e2e" -n auto
+	uv run --group e2e pytest tests/e2e/ -v -m "(slow or e2e) and not real_ocr" --no-cov -n auto
 
 e2e-browser: frontend-build ## Run all Playwright browser e2e tests (requires chromium; includes e2e-fast tests)
 	@echo "🌐 Running Playwright e2e tests..."
