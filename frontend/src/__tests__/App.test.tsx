@@ -18,6 +18,7 @@ vi.mock("@pdomain/pdomain-ui/shell", () => ({
     <>{children}</>
   ),
   ShortcutsHelpButton: () => <div data-testid="shortcuts-help-button-mock" />,
+  SettingsSlot: () => <div data-testid="settings-slot-trigger-mock" />,
 }));
 
 vi.mock("@pdomain/pdomain-ui/hooks", () => ({

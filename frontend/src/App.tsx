@@ -32,6 +32,7 @@ import {
   AppHeader,
   SuiteSiblingsProvider,
   ShortcutsHelpButton,
+  SettingsSlot,
 } from "@pdomain/pdomain-ui/shell";
 import { ShortcutsProvider } from "@pdomain/pdomain-ui/hooks";
 import type {
@@ -214,7 +215,12 @@ function AppShellWithHeader() {
         <AppHeader
           appName="OCR Simple GUI"
           activeJobs={activeJobs}
-          actions={<ShortcutsHelpButton />}
+          actions={
+            <>
+              <SettingsSlot />
+              <ShortcutsHelpButton />
+            </>
+          }
         />
       }
       main={<AppRoutes />}
