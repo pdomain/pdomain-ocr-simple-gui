@@ -38,7 +38,7 @@ PEER_BOOK_TOOLS_PATH ?= ../pdomain-book-tools
         local-setup-py local-frontend-install local-frontend-build \
         local-frontend-test local-frontend-dev \
         update-pd-deps upgrade-pdomain-book-tools \
-        release-patch release-minor release-major _do-release
+        release-patch release-minor release-major _do-release ci-slow build
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -186,7 +186,12 @@ clean: ## Clean cache + build artifacts
 	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
 	rm -rf dist/ 2>/dev/null || true
 
+build: frontend-build ## Build release artifacts
+	uv build
+
 ci: setup frontend-install pre-commit-check lint typecheck frontend-build test behavior-coverage smoke frontend-format-check frontend-lint frontend-test frontend-knip e2e-fast ## Full CI pipeline (includes fast browser click-path tier)
+
+ci-slow: ci ## Full pre-flight for releases (alias of ci today; reserved for slower checks if added later)
 
 ci-full: ci e2e-browser smoke ## Full CI including all Playwright browser tests + real-OCR smoke (requires --group e2e + chromium + model weights)
 
@@ -252,20 +257,19 @@ upgrade-pdomain-book-tools: ## [DEPRECATED] Use 'make update-pd-deps' instead
 # Releases
 # ---------------------------------------------------------------------------
 
-release-patch: ## Release: bump patch, run ci, tag, push, trigger GitHub release workflow (e.g. v0.4.2 → v0.4.3)
+release-patch: ## Release: bump patch, run ci-slow, tag, push (e.g. v0.4.2 → v0.4.3)
 	@$(MAKE) --no-print-directory _do-release BUMP=patch
 
-release-minor: ## Release: bump minor, run ci, tag, push, trigger GitHub release workflow (e.g. v0.4.2 → v0.5.0)
+release-minor: ## Release: bump minor, run ci-slow, tag, push (e.g. v0.4.2 → v0.5.0)
 	@$(MAKE) --no-print-directory _do-release BUMP=minor
 
-release-major: ## Release: bump major, run ci, tag, push, trigger GitHub release workflow (e.g. v0.4.2 → v1.0.0)
+release-major: ## Release: bump major, run ci-slow, tag, push (e.g. v0.4.2 → v1.0.0)
 	@$(MAKE) --no-print-directory _do-release BUMP=major
 
-# scripts/do-release.sh handles repo-state guards, runs the ci pre-flight,
-# creates a three-component tag, pushes main + tag, and triggers the
-# GitHub release workflow via `gh workflow run`.
+# scripts/do-release.sh handles repo-state guards, runs the ci-slow pre-flight,
+# creates a three-component tag, and pushes main + tag.
 # Pass FORCE=1 to skip the repo-state guards (pre-flight still runs).
-# Pass SKIP_PUSH=1 to create the tag locally without pushing (dry-run).
+# Pass SKIP_PUSH=1 to create the tag locally without pushing.
 _do-release:
 	@BUMP=$(or $(BUMP),minor) ./scripts/do-release.sh
 
