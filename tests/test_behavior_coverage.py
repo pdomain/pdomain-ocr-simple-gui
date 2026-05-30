@@ -80,3 +80,39 @@ def test_render_markdown_lists_status() -> None:
     assert "specified" in md  # not cited
     assert "test-written" in md  # cited
     assert "do not edit" in md.lower()
+
+
+def test_scan_declared_finds_multi_segment_flow_id(tmp_path: Path) -> None:
+    """Multi-segment IDs like F-UPLOAD-OCR-DOWNLOAD-01 are declared and scanned.
+
+    The regex must allow optional inner segments so that IDs with more than
+    one token between the prefix letter and the numeric suffix are matched.
+    Single-segment IDs (B-HOME-001, F-RERUN-01) must also still match.
+    """
+    doc = tmp_path / "flows.md"
+    doc.write_text(
+        "# Cross-unit flows\n\n"
+        "### F-UPLOAD-OCR-DOWNLOAD-01 — Flagship happy path\n\n"
+        "- **Regression:** no\n\n"
+        "### F-RERUN-01 — Single-page rerun\n\n"
+        "- **Regression:** yes\n",
+        encoding="utf-8",
+    )
+    declared = scan_declared(tmp_path)
+    assert "F-UPLOAD-OCR-DOWNLOAD-01" in declared, f"Multi-segment ID not found in declared={set(declared)!r}"
+    assert "F-RERUN-01" in declared, f"Single-segment ID not found in declared={set(declared)!r}"
+    assert declared["F-UPLOAD-OCR-DOWNLOAD-01"].regression is False
+    assert declared["F-RERUN-01"].regression is True
+
+
+def test_scan_cited_finds_multi_segment_flow_id(tmp_path: Path) -> None:
+    """scan_cited must match multi-segment IDs in Covers: lines."""
+    test_file = tmp_path / "test_flows.py"
+    test_file.write_text(
+        'def test_flagship():\n    """Covers: F-UPLOAD-OCR-DOWNLOAD-01"""\n    pass\n\n'
+        'def test_rerun():\n    """Covers: F-RERUN-01"""\n    pass\n',
+        encoding="utf-8",
+    )
+    cited = scan_cited(tmp_path)
+    assert "F-UPLOAD-OCR-DOWNLOAD-01" in cited, f"Multi-segment ID not found in cited={cited!r}"
+    assert "F-RERUN-01" in cited, f"Single-segment ID not found in cited={cited!r}"

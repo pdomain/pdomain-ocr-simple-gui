@@ -11,8 +11,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-ID_RE = re.compile(r"\b([BF]-[A-Z0-9]+-\d+)\b")
-RECORD_HEADING_RE = re.compile(r"^###\s+([BF]-[A-Z0-9]+-\d+)\b", re.MULTILINE)
+ID_RE = re.compile(r"\b([BF]-[A-Z0-9]+(?:-[A-Z0-9]+)*-\d+)\b")
+RECORD_HEADING_RE = re.compile(r"^###\s+([BF]-[A-Z0-9]+(?:-[A-Z0-9]+)*-\d+)\b", re.MULTILINE)
 
 # This scanner's own unit-test file contains example IDs inside string
 # fixtures (not real citations). Skip it so it never pollutes the gate.
