@@ -549,7 +549,7 @@ def test_save_missing_project_returns_404(page: Page, live_server_url: str) -> N
 
 
 def test_rerun_doctr_toasts_and_preserves_saved_edit(
-    page: Page, live_server_url: str, e2e_data_root: Path, seeded_rerun_job_id: str
+    page: Page, live_server_url: str, e2e_data_root: Path, seeded_page_rerun_job_id: str
 ) -> None:
     """Covers: B-PAGEVIEW-013 (Regression) — a rerun never clobbers a saved edit.
 
@@ -558,9 +558,14 @@ def test_rerun_doctr_toasts_and_preserves_saved_edit(
     the user's saved edit survives the rerun on disk + via the API. (The genuine
     real-text regeneration is the Tier-B slice in test_real_ocr_rerun.py, which
     also cites B-PAGEVIEW-013.)
+
+    Uses seeded_page_rerun_job_id (isolated from seeded_rerun_job_id) to avoid
+    xdist parallel write contamination with test_rerun_all_button_on_results_page
+    which fires a full-job rerun on seeded_rerun_job_id and can overwrite the
+    sidecar before this test finishes reading edited_text.
     """
     # 1. Save an edit first.
-    page.goto(f"{live_server_url}/jobs/{seeded_rerun_job_id}/pages/0")
+    page.goto(f"{live_server_url}/jobs/{seeded_page_rerun_job_id}/pages/0")
     textarea = page.get_by_label("OCR text")
     expect(textarea).to_be_enabled(timeout=15_000)
     edit = "hand edit that must survive a rerun"
@@ -576,11 +581,11 @@ def test_rerun_doctr_toasts_and_preserves_saved_edit(
     _toast_with(page, "Re-run", timeout_ms=10_000)
 
     # 3. Backend effect: the edit is preserved (GET returns it; sidecar keeps it).
-    resp = httpx.get(f"{live_server_url}/api/pages/{seeded_rerun_job_id}/0", timeout=10.0)
+    resp = httpx.get(f"{live_server_url}/api/pages/{seeded_page_rerun_job_id}/0", timeout=10.0)
     assert resp.status_code == 200
     assert resp.json()["text"] == edit
     sidecar = json.loads(
-        (e2e_data_root / "projects" / seeded_rerun_job_id / "pages" / "page-001.json").read_text()
+        (e2e_data_root / "projects" / seeded_page_rerun_job_id / "pages" / "page-001.json").read_text()
     )
     assert sidecar["edited_text"] == edit
 

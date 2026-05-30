@@ -68,3 +68,7 @@ Run `make behavior-coverage` to regenerate.
 | B-SHELL-011 | no | test-written |
 | B-SHELL-012 | no | test-written |
 | B-SHELL-013 | no | test-written |
+| F-NOTFOUND-01 | yes | test-written |
+| F-PREFS-ROUNDTRIP-01 | yes | test-written |
+| F-RERUN-01 | yes | test-written |
+| F-UPLOAD-OCR-DOWNLOAD-01 | no | test-written |

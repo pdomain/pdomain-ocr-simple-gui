@@ -482,6 +482,61 @@ def seeded_failed_job_id(e2e_data_root: Path) -> str:
 
 
 @pytest.fixture(scope="session")
+def seeded_flow_rerun_job_id(e2e_data_root: Path) -> str:
+    """Yield a project_id for a succeeded job with a real source image.
+
+    Dedicated fixture for F-RERUN-01 flow test, isolated from
+    seeded_rerun_job_id so that the flow test's save+rerun writes do not
+    contaminate the per-unit rerun tests (both sets run in parallel under
+    xdist and share session-scoped fixtures by project_id; sharing the same
+    fixture caused flakiness when both tests write to page-001.json).
+    """
+    project_id = "e2eflowrerun-" + uuid.uuid4().hex[:12]
+    projects_root = e2e_data_root / "projects"
+    outputs_root = e2e_data_root / "outputs"
+    jobs_meta_root = e2e_data_root / "jobs_meta"
+
+    proj_dir = projects_root / project_id
+    proj_dir.mkdir(parents=True, exist_ok=True)
+    (proj_dir / "page-001.png").write_bytes(_PNG_1X1)
+
+    out_dir = str(outputs_root / project_id)
+    _write_project_json(projects_root, project_id, output_dir=out_dir)
+    _write_page_sidecar(projects_root, project_id)
+    _write_output_txt(outputs_root, project_id)
+    _write_job_meta(jobs_meta_root, project_id, mode="next_to_source")
+    return project_id
+
+
+@pytest.fixture(scope="session")
+def seeded_page_rerun_job_id(e2e_data_root: Path) -> str:
+    """Yield a project_id for a succeeded job with a real source image.
+
+    Dedicated fixture for test_rerun_doctr_toasts_and_preserves_saved_edit
+    (B-PAGEVIEW-013), isolated from seeded_rerun_job_id (used by the full-job
+    rerun test in test_click_paths_downloads.py).  When those two tests share
+    the same project, the full-job rerun can overwrite the sidecar before the
+    per-page rerun test finishes reading it, causing intermittent failures
+    under xdist parallel execution.
+    """
+    project_id = "e2epgrerun-" + uuid.uuid4().hex[:12]
+    projects_root = e2e_data_root / "projects"
+    outputs_root = e2e_data_root / "outputs"
+    jobs_meta_root = e2e_data_root / "jobs_meta"
+
+    proj_dir = projects_root / project_id
+    proj_dir.mkdir(parents=True, exist_ok=True)
+    (proj_dir / "page-001.png").write_bytes(_PNG_1X1)
+
+    out_dir = str(outputs_root / project_id)
+    _write_project_json(projects_root, project_id, output_dir=out_dir)
+    _write_page_sidecar(projects_root, project_id)
+    _write_output_txt(outputs_root, project_id)
+    _write_job_meta(jobs_meta_root, project_id, mode="next_to_source")
+    return project_id
+
+
+@pytest.fixture(scope="session")
 def seeded_managed_job_id(e2e_data_root: Path) -> str:
     """Yield a project_id for a completed managed-mode job pre-seeded on disk.
 
