@@ -72,43 +72,18 @@ def _wait_ready(base_url: str, timeout: float = 30.0) -> None:
     raise TimeoutError(f"Server at {base_url} did not become ready within {timeout}s")
 
 
-# ---------------------------------------------------------------------------
-# Session-scoped data roots — shared between subprocess server and fixtures
-# ---------------------------------------------------------------------------
+def _boot_server(env_overrides: dict[str, str], *, ready_timeout: float = 30.0) -> Generator[str, None, None]:
+    """Boot the app as a uvicorn subprocess and yield its base URL.
 
-
-@pytest.fixture(scope="session")
-def e2e_data_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Session-scoped temporary directory for all e2e server data."""
-    root: Path = tmp_path_factory.mktemp("e2e_server_data")
-    for subdir in ("projects", "outputs", "jobs_meta", "uploads"):
-        (root / subdir).mkdir(parents=True, exist_ok=True)
-    return root
-
-
-# ---------------------------------------------------------------------------
-# Session-scoped server fixture
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="session")
-def live_server_url(e2e_data_root: Path) -> Generator[str, None, None]:
-    """Start the app on a free port; yield the base URL; shut down after session."""
+    Shared boot logic for every live-server fixture. ``env_overrides`` is layered
+    on top of the current ``os.environ`` so callers select the dispatcher / GPU
+    backend / data roots they need. The server is polled on ``/api/config`` for
+    readiness and terminated on teardown.
+    """
     port = _free_port()
     base_url = f"http://127.0.0.1:{port}"
 
-    env = {
-        **os.environ,
-        # Redirect all server data into the session-scoped tmpdir so tests
-        # can write fixtures into the same paths without racing against the
-        # real home-dir storage.
-        "PD_OCR_SIMPLE_GUI_PROJECTS_ROOT": str(e2e_data_root / "projects"),
-        "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(e2e_data_root / "outputs"),
-        "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(e2e_data_root / "jobs_meta"),
-        "PD_OCR_SIMPLE_GUI_UPLOAD_ROOT": str(e2e_data_root / "uploads"),
-        # Use FakeStageDispatcher so browser e2e tests run fast without model weights.
-        "PDOMAIN_OCR_FAKE_DISPATCHER": "1",
-    }
+    env = {**os.environ, **env_overrides}
 
     proc = subprocess.Popen(
         [
@@ -127,7 +102,7 @@ def live_server_url(e2e_data_root: Path) -> Generator[str, None, None]:
     )
 
     try:
-        _wait_ready(base_url, timeout=30.0)
+        _wait_ready(base_url, timeout=ready_timeout)
         yield base_url
     finally:
         proc.terminate()
@@ -135,6 +110,72 @@ def live_server_url(e2e_data_root: Path) -> Generator[str, None, None]:
             proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
             proc.kill()
+
+
+# ---------------------------------------------------------------------------
+# Session-scoped data roots — shared between subprocess server and fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def e2e_data_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Session-scoped temporary directory for all e2e server data."""
+    root: Path = tmp_path_factory.mktemp("e2e_server_data")
+    for subdir in ("projects", "outputs", "jobs_meta", "uploads", "suite_data", "suite_data_real"):
+        (root / subdir).mkdir(parents=True, exist_ok=True)
+    return root
+
+
+# ---------------------------------------------------------------------------
+# Session-scoped server fixture
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def live_server_url(e2e_data_root: Path) -> Generator[str, None, None]:
+    """Start the app on a free port; yield the base URL; shut down after session."""
+    env = {
+        # Redirect all server data into the session-scoped tmpdir so tests
+        # can write fixtures into the same paths without racing against the
+        # real home-dir storage.
+        "PD_OCR_SIMPLE_GUI_PROJECTS_ROOT": str(e2e_data_root / "projects"),
+        "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(e2e_data_root / "outputs"),
+        "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(e2e_data_root / "jobs_meta"),
+        "PD_OCR_SIMPLE_GUI_UPLOAD_ROOT": str(e2e_data_root / "uploads"),
+        # Redirect pdomain-ops suite data (including ui-prefs.json) into the
+        # session-scoped tmpdir so prefs mutations in one test never bleed into
+        # another test or the real user prefs file on disk.
+        # PD_SUITE_DATA_DIR is per-xdist-worker because tmp_path_factory is
+        # worker-scoped; combined with reset_prefs (function-scoped autouse)
+        # this gives full per-test prefs isolation.
+        "PD_SUITE_DATA_DIR": str(e2e_data_root / "suite_data"),
+        # Use FakeStageDispatcher so browser e2e tests run fast without model weights.
+        "PDOMAIN_OCR_FAKE_DISPATCHER": "1",
+    }
+    yield from _boot_server(env)
+
+
+# ---------------------------------------------------------------------------
+# Function-scoped prefs reset — autouse for every e2e test
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def reset_prefs(live_server_url: str) -> None:
+    """Reset app prefs to defaults before each e2e test.
+
+    Prefs (default_engine, recent_projects, etc.) are persisted to a JSON
+    file on the server subprocess's filesystem.  Under pytest-xdist each
+    worker runs multiple tests against the same session-scoped live server;
+    any test that mutates prefs via PUT /api/prefs would otherwise pollute
+    subsequent tests assigned to the same worker.
+
+    This fixture calls PUT /api/prefs with an empty payload (AppPrefs
+    defaults) immediately before each test so every test starts from a
+    known clean state.  It is autouse so no individual test needs to
+    opt in.
+    """
+    httpx.put(f"{live_server_url}/api/prefs", json={}, timeout=5.0)
 
 
 # ---------------------------------------------------------------------------
@@ -320,45 +361,42 @@ def live_server_url_cpu(e2e_data_root: Path) -> Generator[str, None, None]:
     Used for gpu-help-toggle tests: when gpu_available=False the toggle is
     rendered; when gpu_available=True it is absent from the DOM.
     """
-    port = _free_port()
-    base_url = f"http://127.0.0.1:{port}"
-
     env = {
-        **os.environ,
         "PD_OCR_SIMPLE_GUI_PROJECTS_ROOT": str(e2e_data_root / "projects"),
         "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(e2e_data_root / "outputs"),
         "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(e2e_data_root / "jobs_meta"),
         "PD_OCR_SIMPLE_GUI_UPLOAD_ROOT": str(e2e_data_root / "uploads"),
+        "PD_SUITE_DATA_DIR": str(e2e_data_root / "suite_data"),
         "PDOMAIN_OCR_FAKE_DISPATCHER": "1",
         # Force CPU so gpu_available=False → gpu-help-toggle is rendered.
         "PDOMAIN_GPU_BACKEND": "cpu",
     }
+    yield from _boot_server(env)
 
-    proc = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "pdomain_ocr_simple_gui.app:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(port),
-        ],
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
 
-    try:
-        _wait_ready(base_url, timeout=30.0)
-        yield base_url
-    finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+@pytest.fixture(scope="session")
+def live_server_url_real_ocr(e2e_data_root: Path) -> Generator[str, None, None]:
+    """Live server running the REAL OCR engine on the GPU. Opt-in (real_ocr).
+
+    Mirrors ``live_server_url`` but intentionally OMITS
+    ``PDOMAIN_OCR_FAKE_DISPATCHER`` (so the real LocalStageDispatcher + DocTR
+    runner execute) and sets ``PDOMAIN_GPU_BACKEND=local``. Data roots are
+    isolated from the fake-dispatcher fixtures so the real engine never collides
+    with the seeded artifacts. Used only by Tier-B ``real_ocr`` tests; never in
+    default CI.
+    """
+    env = {
+        "PD_OCR_SIMPLE_GUI_PROJECTS_ROOT": str(e2e_data_root / "rp"),
+        "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(e2e_data_root / "ro"),
+        "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(e2e_data_root / "rj"),
+        "PD_OCR_SIMPLE_GUI_UPLOAD_ROOT": str(e2e_data_root / "ru"),
+        "PD_SUITE_DATA_DIR": str(e2e_data_root / "suite_data_real"),
+        "PDOMAIN_GPU_BACKEND": "local",
+        # NOTE: PDOMAIN_OCR_FAKE_DISPATCHER intentionally NOT set.
+    }
+    # Real OCR cold-start (model load) is slower than the fake dispatcher, so
+    # give the server a longer readiness window before the first request.
+    yield from _boot_server(env, ready_timeout=60.0)
 
 
 @pytest.fixture(scope="session")
@@ -376,6 +414,116 @@ def seeded_rerun_job_id(e2e_data_root: Path) -> str:
     jobs_meta_root = e2e_data_root / "jobs_meta"
 
     # Write the source image into the project dir so collect_images finds it.
+    proj_dir = projects_root / project_id
+    proj_dir.mkdir(parents=True, exist_ok=True)
+    (proj_dir / "page-001.png").write_bytes(_PNG_1X1)
+
+    out_dir = str(outputs_root / project_id)
+    _write_project_json(projects_root, project_id, output_dir=out_dir)
+    _write_page_sidecar(projects_root, project_id)
+    _write_output_txt(outputs_root, project_id)
+    _write_job_meta(jobs_meta_root, project_id, mode="next_to_source")
+    return project_id
+
+
+def _write_failed_project_json(projects_root: Path, project_id: str, *, output_dir: str) -> None:
+    """Write a minimal project.json for a FAILED job (zero pages + error text)."""
+    proj_dir = projects_root / project_id
+    proj_dir.mkdir(parents=True, exist_ok=True)
+
+    spec: dict[str, object] = {
+        "project_id": project_id,
+        "name": f"e2e-failed-{project_id[:8]}",
+        "source_path": str(proj_dir),
+        "output_dir": output_dir,
+        "engine": "doctr",
+        "language": "en",
+        "save_json": False,
+        "combined_txt": False,
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "last_opened_at": "2026-01-01T00:00:00+00:00",
+    }
+    status: dict[str, object] = {
+        "project_id": project_id,
+        "state": "failed",
+        "page_count": 0,
+        "pages_done": 0,
+        "pages": [],
+        "error": (
+            "No supported image files found in source; supported types are PNG, JPEG, TIFF, JPEG 2000, WebP."
+        ),
+    }
+    data = {"spec": spec, "status": status}
+    (proj_dir / "project.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+@pytest.fixture(scope="session")
+def seeded_failed_job_id(e2e_data_root: Path) -> str:
+    """Yield a project_id for a FAILED job pre-seeded on disk.
+
+    The job has:
+    - status = failed, 0 pages, error = "No supported image files found…"
+    - output_mode = next_to_source
+
+    Used for B-RESULTS-004 (a failed job must surface its error text AND offer
+    a rerun affordance, not render a bare red pip). The fixture has NO source
+    image, so a rerun re-fails (which is fine — the test asserts the error +
+    rerun control render, not a successful rerun).
+    """
+    project_id = "e2efailed-" + uuid.uuid4().hex[:12]
+    projects_root = e2e_data_root / "projects"
+    outputs_root = e2e_data_root / "outputs"
+    jobs_meta_root = e2e_data_root / "jobs_meta"
+
+    out_dir = str(outputs_root / project_id)
+    _write_failed_project_json(projects_root, project_id, output_dir=out_dir)
+    _write_job_meta(jobs_meta_root, project_id, mode="next_to_source")
+    return project_id
+
+
+@pytest.fixture(scope="session")
+def seeded_flow_rerun_job_id(e2e_data_root: Path) -> str:
+    """Yield a project_id for a succeeded job with a real source image.
+
+    Dedicated fixture for F-RERUN-01 flow test, isolated from
+    seeded_rerun_job_id so that the flow test's save+rerun writes do not
+    contaminate the per-unit rerun tests (both sets run in parallel under
+    xdist and share session-scoped fixtures by project_id; sharing the same
+    fixture caused flakiness when both tests write to page-001.json).
+    """
+    project_id = "e2eflowrerun-" + uuid.uuid4().hex[:12]
+    projects_root = e2e_data_root / "projects"
+    outputs_root = e2e_data_root / "outputs"
+    jobs_meta_root = e2e_data_root / "jobs_meta"
+
+    proj_dir = projects_root / project_id
+    proj_dir.mkdir(parents=True, exist_ok=True)
+    (proj_dir / "page-001.png").write_bytes(_PNG_1X1)
+
+    out_dir = str(outputs_root / project_id)
+    _write_project_json(projects_root, project_id, output_dir=out_dir)
+    _write_page_sidecar(projects_root, project_id)
+    _write_output_txt(outputs_root, project_id)
+    _write_job_meta(jobs_meta_root, project_id, mode="next_to_source")
+    return project_id
+
+
+@pytest.fixture(scope="session")
+def seeded_page_rerun_job_id(e2e_data_root: Path) -> str:
+    """Yield a project_id for a succeeded job with a real source image.
+
+    Dedicated fixture for test_rerun_doctr_toasts_and_preserves_saved_edit
+    (B-PAGEVIEW-013), isolated from seeded_rerun_job_id (used by the full-job
+    rerun test in test_click_paths_downloads.py).  When those two tests share
+    the same project, the full-job rerun can overwrite the sidecar before the
+    per-page rerun test finishes reading it, causing intermittent failures
+    under xdist parallel execution.
+    """
+    project_id = "e2epgrerun-" + uuid.uuid4().hex[:12]
+    projects_root = e2e_data_root / "projects"
+    outputs_root = e2e_data_root / "outputs"
+    jobs_meta_root = e2e_data_root / "jobs_meta"
+
     proj_dir = projects_root / project_id
     proj_dir.mkdir(parents=True, exist_ok=True)
     (proj_dir / "page-001.png").write_bytes(_PNG_1X1)

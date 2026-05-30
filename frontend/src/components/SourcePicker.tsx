@@ -55,6 +55,9 @@ export function SourcePicker(props: SourcePickerProps) {
   const [chosen, setChosen] = useState<ChosenDescription | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // Track the staged upload so clearing can delete its server-side dir
+  // (B-HOME-004 — orphan staging dirs must not accumulate).
+  const uploadIdRef = useRef<string | null>(null);
 
   const handleFiles = async (files: File[]) => {
     if (!files.length) return;
@@ -62,6 +65,7 @@ export function SourcePicker(props: SourcePickerProps) {
     setChosen(describeFiles(files));
     try {
       const id = await uploadFiles(files);
+      uploadIdRef.current = id;
       props.onUploadComplete(id);
     } catch (err) {
       setUploadError(
@@ -77,6 +81,16 @@ export function SourcePicker(props: SourcePickerProps) {
   const handleClear = () => {
     setChosen(null);
     if (fileInput.current) fileInput.current.value = "";
+    // Delete the staged upload dir on the server, if any (B-HOME-004).
+    const staged = uploadIdRef.current;
+    if (staged) {
+      uploadIdRef.current = null;
+      void fetch(`/api/uploads/${encodeURIComponent(staged)}`, {
+        method: "DELETE",
+      }).catch(() => {
+        // Best-effort cleanup — a failed delete must not block the UI reset.
+      });
+    }
     props.onClear?.();
   };
 

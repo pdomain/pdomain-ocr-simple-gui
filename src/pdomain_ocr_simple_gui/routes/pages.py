@@ -214,9 +214,15 @@ async def put_page_text(project_id: str, page_idx: int, body: SaveTextRequest) -
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     try:
-        spec, _ = read_project(project_id)
+        spec, status = read_project(project_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Project not found") from exc
+    # Guard the page index BEFORE any disk write. An out-of-range index used to
+    # fall through to write_page_sidecar → _page_name_for_idx, which raised an
+    # uncaught FileNotFoundError surfacing as a 500 (and could leave a partial
+    # write). Resolve to a clean 404 with no disk mutation instead.
+    if not any(p.page_idx == page_idx for p in status.pages):
+        raise HTTPException(status_code=404, detail="Page not found")
     sidecar: JsonObject = _read_sidecar(spec, page_idx)
     if not sidecar:
         sidecar = {"page_idx": page_idx}
@@ -337,8 +343,20 @@ async def rerun_page(
         # Augment the sidecar with text + normalized words list so GET
         # /api/pages and /words can surface them without re-walking the tree.
         sidecar_data: JsonObject = build_sidecar_payload(page_dict, text)
+        # Preserve the user's saved edit across a rerun. build_sidecar_payload
+        # produces a fresh dict from the OCR tree (no edited_text), so a rerun
+        # used to silently discard hand-edits. Carry over edited_text from the
+        # prior sidecar when present (a string, including the empty string —
+        # the user may have intentionally cleared the field). The refreshed OCR
+        # still lands in `text` + `words`; only the edit is preserved.
+        prior = _read_sidecar(spec, page_idx)
+        prior_edit = _json_str(prior.get("edited_text"))
+        if prior_edit is not None:
+            sidecar_data["edited_text"] = prior_edit
         write_page_sidecar(spec, page_idx, sidecar_data)
-        write_txt(spec, page_idx, text)
+        # Keep the per-page .txt consistent with what GET /api/pages surfaces:
+        # edited_text wins when preserved, otherwise the refreshed OCR text.
+        write_txt(spec, page_idx, prior_edit if prior_edit is not None else text)
 
         done_page = PageResult(
             page_idx=page_idx,

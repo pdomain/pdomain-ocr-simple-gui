@@ -5,7 +5,7 @@
 // feat/adopt-richer-primitives: replaced PageImageCanvas with ArtifactViewer
 // feat(viewer): keyboard shortcuts + hover tooltips + ? cheatsheet
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArtifactViewer } from "@pdomain/pdomain-ui/stages/PageWorkbench";
@@ -109,6 +109,12 @@ export default function PageViewPage() {
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const [text, setText] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  // Page-fetch failure: "not-found" for a 404 (page/project missing), "error"
+  // for any other non-ok status or a network reject. Drives the dedicated
+  // error blocks (mirrors ResultsPage's results-not-found / results-error).
+  const [fetchError, setFetchError] = useState<"not-found" | "error" | null>(
+    null,
+  );
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving">("idle");
   const [rerunStatus, setRerunStatus] = useState<"idle" | "running">("idle");
   const [wordBboxes, setWordBboxes] = useState<WordBbox[]>([]);
@@ -136,10 +142,19 @@ export default function PageViewPage() {
     let cancelled = false;
     setLoading(true);
     setSaveStatus("idle");
+    setFetchError(null);
 
     fetch(`/api/pages/${id ?? ""}/${pageIdx}`)
       .then(async (res) => {
-        if (!res.ok || cancelled) return;
+        if (cancelled) return;
+        if (!res.ok) {
+          // Surface a dedicated error affordance instead of leaving the screen
+          // stuck loading on a blank shell. 404 → "not found"; anything else
+          // (e.g. 400 malformed id, 5xx) → the generic error block.
+          setFetchError(res.status === 404 ? "not-found" : "error");
+          setLoading(false);
+          return;
+        }
         const data = (await res.json()) as PageData;
         if (!cancelled) {
           setPageData(data);
@@ -148,7 +163,10 @@ export default function PageViewPage() {
         }
       })
       .catch(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setFetchError("error");
+          setLoading(false);
+        }
       });
 
     return () => {
@@ -243,95 +261,141 @@ export default function PageViewPage() {
   const showJobProgressMessage = jobInFlight && !!jobStatus.progress_message;
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  // Stable bindings: the `when` guards + `handler` functions use refs to read
+  // the latest values without changing the array reference.  This prevents the
+  // ShortcutsContext infinite-loop: allBindings change → re-render → new array
+  // → second useEffect in useShortcuts fires → register again → loop.
+  const shortcutCtxRef = useRef({
+    pageIdx,
+    hasPrev,
+    hasNext,
+    loading,
+    saveStatus,
+    rerunStatus,
+    id,
+    handleSave,
+    handleRerun,
+    goToPage,
+  });
+  // Keep ref current on every render (no extra re-renders caused).
+  shortcutCtxRef.current = {
+    pageIdx,
+    hasPrev,
+    hasNext,
+    loading,
+    saveStatus,
+    rerunStatus,
+    id,
+    handleSave,
+    handleRerun,
+    goToPage,
+  };
 
-  const bindings: ShortcutBinding[] = [
-    // Navigation
-    {
-      keys: "arrowleft",
-      label: "Previous page",
-      group: "Navigation",
-      handler: () => goToPage(pageIdx - 1),
-      when: () => hasPrev,
-    },
-    {
-      keys: "k",
-      label: "Previous page (alt)",
-      group: "Navigation",
-      handler: () => goToPage(pageIdx - 1),
-      when: () => hasPrev,
-    },
-    {
-      keys: "arrowright",
-      label: "Next page",
-      group: "Navigation",
-      handler: () => goToPage(pageIdx + 1),
-      when: () => hasNext,
-    },
-    {
-      keys: "j",
-      label: "Next page (alt)",
-      group: "Navigation",
-      handler: () => goToPage(pageIdx + 1),
-      when: () => hasNext,
-    },
-    // Editing
-    {
-      keys: "mod+s",
-      label: "Save edits",
-      group: "Editing",
-      handler: () => {
-        void handleSave();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const bindings = useMemo<ShortcutBinding[]>(
+    () => [
+      // Navigation
+      {
+        keys: "arrowleft",
+        label: "Previous page",
+        group: "Navigation",
+        handler: () =>
+          shortcutCtxRef.current.goToPage(shortcutCtxRef.current.pageIdx - 1),
+        when: () => shortcutCtxRef.current.hasPrev,
       },
-      when: () => !loading && saveStatus === "idle",
-    },
-    // OCR
-    {
-      keys: "mod+r",
-      label: "Re-run DocTR",
-      group: "OCR",
-      handler: () => {
-        void handleRerun("doctr");
+      {
+        keys: "k",
+        label: "Previous page (alt)",
+        group: "Navigation",
+        handler: () =>
+          shortcutCtxRef.current.goToPage(shortcutCtxRef.current.pageIdx - 1),
+        when: () => shortcutCtxRef.current.hasPrev,
       },
-      when: () => !loading && rerunStatus === "idle",
-    },
-    {
-      keys: "mod+shift+r",
-      label: "Re-run Tesseract",
-      group: "OCR",
-      handler: () => {
-        void handleRerun("tesseract");
+      {
+        keys: "arrowright",
+        label: "Next page",
+        group: "Navigation",
+        handler: () =>
+          shortcutCtxRef.current.goToPage(shortcutCtxRef.current.pageIdx + 1),
+        when: () => shortcutCtxRef.current.hasNext,
       },
-      when: () => !loading && rerunStatus === "idle",
-    },
-    // Export
-    {
-      keys: "mod+shift+t",
-      label: "Download .txt",
-      group: "Export",
-      handler: () => {
-        window.location.href = `/api/jobs/${id ?? ""}/download?include=text`;
+      {
+        keys: "j",
+        label: "Next page (alt)",
+        group: "Navigation",
+        handler: () =>
+          shortcutCtxRef.current.goToPage(shortcutCtxRef.current.pageIdx + 1),
+        when: () => shortcutCtxRef.current.hasNext,
       },
-      when: () => !loading,
-    },
-    {
-      keys: "mod+shift+j",
-      label: "Download .json",
-      group: "Export",
-      handler: () => {
-        window.location.href = `/api/jobs/${id ?? ""}/download?include=json`;
+      // Editing
+      {
+        keys: "mod+s",
+        label: "Save edits",
+        group: "Editing",
+        handler: () => {
+          void shortcutCtxRef.current.handleSave();
+        },
+        when: () =>
+          !shortcutCtxRef.current.loading &&
+          shortcutCtxRef.current.saveStatus === "idle",
       },
-      when: () => !loading,
-    },
-    {
-      keys: "mod+d",
-      label: "Download .zip",
-      group: "Export",
-      handler: () => {
-        window.location.href = `/api/jobs/${id ?? ""}/download?include=text,json`;
+      // OCR
+      {
+        keys: "mod+r",
+        label: "Re-run DocTR",
+        group: "OCR",
+        handler: () => {
+          void shortcutCtxRef.current.handleRerun("doctr");
+        },
+        when: () =>
+          !shortcutCtxRef.current.loading &&
+          shortcutCtxRef.current.rerunStatus === "idle",
       },
-      when: () => !loading,
-    },
-  ];
+      {
+        keys: "mod+shift+r",
+        label: "Re-run Tesseract",
+        group: "OCR",
+        handler: () => {
+          void shortcutCtxRef.current.handleRerun("tesseract");
+        },
+        when: () =>
+          !shortcutCtxRef.current.loading &&
+          shortcutCtxRef.current.rerunStatus === "idle",
+      },
+      // Export
+      {
+        keys: "mod+shift+t",
+        label: "Download .txt",
+        group: "Export",
+        handler: () => {
+          window.location.href = `/api/jobs/${shortcutCtxRef.current.id ?? ""}/download?include=text`;
+        },
+        when: () => !shortcutCtxRef.current.loading,
+      },
+      {
+        keys: "mod+shift+j",
+        label: "Download .json",
+        group: "Export",
+        handler: () => {
+          window.location.href = `/api/jobs/${shortcutCtxRef.current.id ?? ""}/download?include=json`;
+        },
+        when: () => !shortcutCtxRef.current.loading,
+      },
+      {
+        keys: "mod+d",
+        label: "Download .zip",
+        group: "Export",
+        handler: () => {
+          window.location.href = `/api/jobs/${shortcutCtxRef.current.id ?? ""}/download?include=text,json`;
+        },
+        when: () => !shortcutCtxRef.current.loading,
+      },
+      // Empty deps: the array is created once; handlers use shortcutCtxRef for
+      // latest values. This is intentional — DO NOT add deps here.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    ],
+    [],
+  );
 
   // Registers these bindings into the app-level ShortcutsProvider, so the
   // header ? button's cheatsheet is screen-aware. The provider owns the ?
@@ -499,6 +563,42 @@ export default function PageViewPage() {
       />
     </div>
   );
+
+  // A failed page fetch surfaces a dedicated block (no blank loading shell).
+  // 404 → "page not found" with a way back to the job; other errors → a
+  // generic error message. Mirrors ResultsPage's not-found / error blocks.
+  if (fetchError !== null) {
+    return (
+      <div
+        data-testid={APP_TEST_IDS.pageViewPage}
+        className="page-split-view-wrapper"
+      >
+        {fetchError === "not-found" ? (
+          <div
+            role="alert"
+            data-testid={APP_TEST_IDS.pageNotFound}
+            className="page-view-page__error"
+          >
+            <p>Page not found. It may have been deleted or never existed.</p>
+            <Button
+              variant="ghost"
+              onClick={() => navigate(`/jobs/${id ?? ""}`)}
+            >
+              Back to job
+            </Button>
+          </div>
+        ) : (
+          <p
+            role="alert"
+            data-testid={APP_TEST_IDS.pageError}
+            className="page-view-page__error"
+          >
+            Error loading page. Please try again.
+          </p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div

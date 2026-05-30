@@ -178,10 +178,12 @@ def write_output_page_files(
 ) -> None:
     """Mirror per-page outputs into ``spec.output_dir``.
 
-    Always writes ``<output_dir>/<page_stem>.txt``.  When
-    *sidecar_payload* is non-None (i.e. ``spec.save_json`` was set),
-    additionally writes ``<output_dir>/<page_stem>.json``.  No-op when
-    ``spec.output_dir`` is empty.
+    Always writes ``<output_dir>/<page_stem>.txt``.  When *sidecar_payload*
+    is non-None, additionally writes ``<output_dir>/<page_stem>.json``.  The
+    pipeline now always passes the sidecar payload (no save_json knob), so the
+    ``.json`` mirror is always written when an output dir is configured; the
+    ``None`` branch is retained only for callers that have no sidecar.  No-op
+    when ``spec.output_dir`` is empty.
     """
     _ = idx  # kept for future per-index disambiguation; signature stays stable
     out = _output_dir(spec)

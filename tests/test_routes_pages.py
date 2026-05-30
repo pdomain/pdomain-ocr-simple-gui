@@ -220,6 +220,33 @@ class TestPutPageText:
         assert resp.status_code == 404
         assert "not found" in resp.json()["detail"].lower()
 
+    async def test_put_text_on_out_of_range_index_returns_404_no_write(
+        self,
+        async_client: AsyncClient,
+        project_with_image: tuple[str, Path],
+    ) -> None:
+        """PUT text with an out-of-range page index returns a clean 404, no disk write.
+
+        Regression (B-PAGEVIEW-012): the project has only page 0, so saving to
+        index 99 must return 404 ("Page not found") — NOT an uncaught
+        FileNotFoundError surfacing as 500 — and must not write a stray sidecar.
+        """
+        from pdomain_ocr_simple_gui.storage import get_project_dir
+
+        project_id, _ = project_with_image
+        resp = await async_client.put(
+            f"/api/pages/{project_id}/99/text",
+            json={"text": "should never persist"},
+        )
+        assert resp.status_code == 404
+        assert "not found" in resp.json()["detail"].lower()
+
+        # No stray sidecar/txt artifact for the bad index.
+        pages_dir = get_project_dir(project_id) / "pages"
+        if pages_dir.exists():
+            stray = [p.name for p in pages_dir.iterdir() if "99" in p.name]
+            assert not stray, f"out-of-range save wrote stray artifacts: {stray}"
+
     async def test_text_persisted_in_sidecar(
         self,
         async_client: AsyncClient,
@@ -660,3 +687,65 @@ class TestPostPageRerun:
         project_id, _ = project_with_image
         resp = await async_client.post(f"/api/pages/{project_id}/99/rerun")
         assert resp.status_code == 404
+
+    async def test_rerun_preserves_edited_text(
+        self,
+        async_client: AsyncClient,
+        project_with_image: tuple[str, Path],
+    ) -> None:
+        """A single-page rerun refreshes OCR but PRESERVES the user's edited_text.
+
+        Regression (B-PAGEVIEW-013): rerun rewrote the sidecar via
+        build_sidecar_payload, which produced a fresh dict with no edited_text
+        carry-over — silently discarding the user's saved edits. After the fix,
+        the rerun refreshes the underlying OCR (sidecar ``text`` + words) yet the
+        previously-saved ``edited_text`` survives, so GET (edited_text wins)
+        still returns the user's edit.
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from pdomain_ocr_simple_gui.storage import read_page_sidecar, read_project
+
+        project_id, _ = project_with_image
+
+        # 1. User saves an edit on page 0.
+        save = await async_client.put(
+            f"/api/pages/{project_id}/0/text",
+            json={"text": "my careful hand-edit"},
+        )
+        assert save.status_code == 200
+
+        # 2. Rerun OCR on page 0 (fresh engine output differs from the edit).
+        fake_result = AsyncMock()
+        fake_result.metadata = {
+            "pages": [
+                {
+                    "type": "Page",
+                    "items": [
+                        {
+                            "type": "Block",
+                            "child_type": "WORD",
+                            "items": [{"type": "Word", "text": "fresh ocr output"}],
+                        }
+                    ],
+                }
+            ]
+        }
+        mock_dispatcher = AsyncMock()
+        mock_dispatcher.run_stage = AsyncMock(return_value=fake_result)
+        with patch("pdomain_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
+            rerun = await async_client.post(f"/api/pages/{project_id}/0/rerun")
+        assert rerun.status_code == 200
+        assert rerun.json()["state"] == "succeeded"
+
+        # 3. The edit must survive — GET returns edited_text, not the fresh OCR.
+        get_resp = await async_client.get(f"/api/pages/{project_id}/0")
+        assert get_resp.status_code == 200
+        assert get_resp.json()["text"] == "my careful hand-edit"
+
+        # On-disk: the sidecar carries BOTH the refreshed OCR text (proving the
+        # rerun ran) AND the preserved edited_text.
+        spec, _ = read_project(project_id)
+        sidecar = read_page_sidecar(spec, 0)
+        assert sidecar.get("edited_text") == "my careful hand-edit"
+        assert sidecar.get("text") == "fresh ocr output"

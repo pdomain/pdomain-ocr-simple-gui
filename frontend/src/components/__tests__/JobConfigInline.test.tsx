@@ -194,8 +194,9 @@ describe("JobConfigInline", () => {
       expect(body.source_path).toBe("/tmp/scans");
       expect(body).not.toHaveProperty("upload_id");
       expect(body).not.toHaveProperty("output_dir");
-      expect(body.save_json).toBe(true);
-      expect(body.combined_txt).toBe(true);
+      // B-HOME-011 cleanup: no save_json / combined_txt knob in the body.
+      expect(body).not.toHaveProperty("save_json");
+      expect(body).not.toHaveProperty("combined_txt");
       expect(body.device).toBe("auto");
       expect(body.batch_pages).toBeNull();
       expect(body.output).toEqual({ mode: "next_to_source" });
@@ -286,5 +287,91 @@ describe("JobConfigInline", () => {
     const cancel = await screen.findByTestId("job-config-inline-cancel");
     await user.click(cancel);
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  // B-HOME-006 (Regression): GET /api/prefs returns default_engine /
+  // default_language (the AppPrefs shape), NOT engine / language. The form
+  // must seed its engine + language fields from those keys so a saved default
+  // actually applies instead of silently no-op'ing back to doctr/en.
+  it("seeds engine + language from prefs default_engine/default_language", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, opts?: RequestInit) => {
+        if (url === "/api/prefs" && (!opts || opts.method !== "POST")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              default_engine: "tesseract",
+              default_language: "fr",
+            }),
+          });
+        }
+        if (url === "/api/jobs" && opts?.method === "POST") {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ project_id: "proj-123" }),
+          });
+        }
+        return Promise.resolve({ ok: false, json: async () => ({}) });
+      });
+    renderInline({ kind: "path", path: "/tmp/scans" }, fetchMock);
+
+    const engineSelect = (await screen.findByLabelText(
+      /engine/i,
+    )) as HTMLSelectElement;
+    const langInput = (await screen.findByLabelText(
+      /language/i,
+    )) as HTMLInputElement;
+
+    await waitFor(() => {
+      expect(engineSelect.value).toBe("tesseract");
+      expect(langInput.value).toBe("fr");
+    });
+  });
+
+  it("submits the prefs-seeded engine/language in the POST body", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, opts?: RequestInit) => {
+        if (url === "/api/prefs" && (!opts || opts.method !== "POST")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              default_engine: "tesseract",
+              default_language: "de",
+            }),
+          });
+        }
+        if (url === "/api/jobs" && opts?.method === "POST") {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ project_id: "proj-123" }),
+          });
+        }
+        return Promise.resolve({ ok: false, json: async () => ({}) });
+      });
+    renderInline({ kind: "path", path: "/tmp/scans" }, fetchMock);
+
+    // Wait for the seed to land before submitting.
+    const engineSelect = (await screen.findByLabelText(
+      /engine/i,
+    )) as HTMLSelectElement;
+    await waitFor(() => expect(engineSelect.value).toBe("tesseract"));
+
+    await user.click(await screen.findByTestId("run-ocr-button"));
+
+    await waitFor(() => {
+      const postCalls = fetchMock.mock.calls.filter(
+        ([url, opts]: [string, RequestInit | undefined]) =>
+          url === "/api/jobs" && opts?.method === "POST",
+      );
+      expect(postCalls).toHaveLength(1);
+      const body = JSON.parse(
+        (postCalls[0][1] as RequestInit).body as string,
+      ) as Record<string, unknown>;
+      expect(body.engine).toBe("tesseract");
+      expect(body.language).toBe("de");
+    });
   });
 });

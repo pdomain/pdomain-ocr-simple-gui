@@ -32,6 +32,7 @@ import {
   AppHeader,
   SuiteSiblingsProvider,
   ShortcutsHelpButton,
+  SettingsSlot,
 } from "@pdomain/pdomain-ui/shell";
 import { ShortcutsProvider } from "@pdomain/pdomain-ui/hooks";
 import type {
@@ -40,10 +41,27 @@ import type {
   LaunchResult,
   ActiveJob,
 } from "@pdomain/pdomain-ui/shell";
+import { toast } from "sonner";
 import { ConfigProvider } from "./runtime/ConfigContext";
 import { HomePage } from "./pages/HomePage";
 import ResultsPage from "./pages/ResultsPage";
 import PageViewPage from "./pages/PageViewPage";
+
+/**
+ * onPersistError — surfaces a sonner toast when PUT /api/prefs fails.
+ *
+ * B-SHELL-008/009/010 regression fix: persistCommon and persistApp
+ * previously swallowed all errors with a silent `catch {}` and never
+ * checked `res.ok`. A failed PUT caused the pref to revert on reload
+ * with no user feedback. This callback is wired into UIPrefsConfig so
+ * pdomain-ui's createUIPrefsStore can call it when the promise rejects.
+ */
+function handlePersistError(err: unknown): void {
+  const detail = err instanceof Error ? err.message : String(err);
+  toast.error("Preferences not saved — server error", {
+    description: detail,
+  });
+}
 
 /** Minimal UIPrefs config — reads/writes from /api/prefs app prefs. */
 const uiPrefsConfig: UIPrefsConfig = {
@@ -80,26 +98,25 @@ const uiPrefsConfig: UIPrefsConfig = {
       };
     }
   },
+  onPersistError: handlePersistError,
   persistCommon: async (prefs) => {
-    try {
-      await fetch("/api/prefs", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ui_prefs: prefs }),
-      });
-    } catch {
-      // non-fatal
+    const res = await fetch("/api/prefs", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ui_prefs: prefs }),
+    });
+    if (!res.ok) {
+      throw new Error(`PUT /api/prefs failed: ${res.status}`);
     }
   },
   persistApp: async (appPrefs) => {
-    try {
-      await fetch("/api/prefs", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ app_prefs: appPrefs }),
-      });
-    } catch {
-      // non-fatal
+    const res = await fetch("/api/prefs", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ app_prefs: appPrefs }),
+    });
+    if (!res.ok) {
+      throw new Error(`PUT /api/prefs failed: ${res.status}`);
     }
   },
 };
@@ -198,7 +215,12 @@ function AppShellWithHeader() {
         <AppHeader
           appName="OCR Simple GUI"
           activeJobs={activeJobs}
-          actions={<ShortcutsHelpButton />}
+          actions={
+            <>
+              <SettingsSlot />
+              <ShortcutsHelpButton />
+            </>
+          }
         />
       }
       main={<AppRoutes />}

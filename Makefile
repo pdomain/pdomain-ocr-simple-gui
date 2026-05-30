@@ -31,7 +31,7 @@ endef
 PEER_BOOK_TOOLS_PATH ?= ../pdomain-book-tools
 
 .PHONY: help setup install uninstall remove-venv reset lint format format-check typecheck \
-        pre-commit-check test e2e-fast e2e-browser frontend-install frontend-build frontend-dev \
+        pre-commit-check test behavior-coverage e2e-fast e2e-browser e2e-real-ocr frontend-install frontend-build frontend-dev \
         frontend-test frontend-lint frontend-format frontend-format-check frontend-knip \
         openapi-export clean ci ci-full upgrade-deps dev-local \
         local-setup local-dev local-check local-upgrade-deps local-run \
@@ -101,19 +101,27 @@ pre-commit-check: ## Run pre-commit on all files
 test: ## Run pytest (excludes slow/e2e tests)
 	uv run pytest tests/ -v -n auto
 
+behavior-coverage: ## Regenerate behavior coverage.md + gate (declared vs cited IDs)
+	uv run python -m scripts.behavior_coverage
+
 smoke: ## Run slow/e2e smoke tests (requires real OCR; use make ci AI=1 to include)
 	uv run pytest tests/smoke/ -v -m "slow or e2e"
 
-e2e-fast: frontend-build ## Run fake-backed Playwright click-path tests (fast, no model weights; part of make ci)
-	@echo "🌐 Running fast browser click-path tests (fake dispatcher)..."
+e2e-fast: frontend-build ## Run full behavior e2e suite (fake dispatcher, no model weights; part of make ci)
+	@echo "🌐 Running full behavior e2e suite (fake dispatcher)..."
 	PLAYWRIGHT_BROWSERS_PATH=/cache/shared-ai/ms-playwright \
 	PDOMAIN_OCR_FAKE_DISPATCHER=1 \
-	uv run --group e2e pytest tests/e2e/test_click_paths_*.py -v -m "slow or e2e"
+	uv run --group e2e pytest tests/e2e/ -v -m "(slow or e2e) and not real_ocr" --no-cov -n auto
 
 e2e-browser: frontend-build ## Run all Playwright browser e2e tests (requires chromium; includes e2e-fast tests)
 	@echo "🌐 Running Playwright e2e tests..."
 	PLAYWRIGHT_BROWSERS_PATH=/cache/shared-ai/ms-playwright \
 	uv run --group e2e pytest tests/e2e/ -v -m "slow or e2e" --no-cov
+
+e2e-real-ocr: frontend-build ## Run Tier-B real-OCR e2e on the GPU (opt-in; NOT in make ci; requires model weights + chromium)
+	@echo "🧠 Running Tier-B real-OCR e2e (real engine, GPU)..."
+	PLAYWRIGHT_BROWSERS_PATH=/cache/shared-ai/ms-playwright \
+	uv run --group e2e pytest tests/e2e/test_real_ocr_*.py -v -m "real_ocr" --no-cov
 
 frontend-install: ## Install frontend dependencies
 	@# pnpm >=11 rewrites pnpm-workspace.yaml (appends an unfilled `allowBuilds:`
@@ -178,7 +186,7 @@ clean: ## Clean cache + build artifacts
 	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
 	rm -rf dist/ 2>/dev/null || true
 
-ci: setup frontend-install pre-commit-check lint typecheck frontend-build test smoke frontend-format-check frontend-lint frontend-test frontend-knip e2e-fast ## Full CI pipeline (includes fast browser click-path tier)
+ci: setup frontend-install pre-commit-check lint typecheck frontend-build test behavior-coverage smoke frontend-format-check frontend-lint frontend-test frontend-knip e2e-fast ## Full CI pipeline (includes fast browser click-path tier)
 
 ci-full: ci e2e-browser smoke ## Full CI including all Playwright browser tests + real-OCR smoke (requires --group e2e + chromium + model weights)
 

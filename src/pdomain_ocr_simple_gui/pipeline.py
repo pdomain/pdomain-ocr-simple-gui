@@ -462,12 +462,14 @@ async def run_project(
                 write_txt(spec, idx, text)
 
                 # Mirror per-page artifacts into spec.output_dir for download.
+                # The sidecar .json is ALWAYS mirrored (no save_json knob) —
+                # the bbox overlay needs it (B-HOME-011 cleanup).
                 write_output_page_files(
                     spec,
                     idx,
                     img_path.name,
                     text,
-                    sidecar_payload if spec.save_json else None,
+                    sidecar_payload,
                 )
 
                 update_page_result(
@@ -506,11 +508,10 @@ async def run_project(
 
         chunk_start = chunk_end
 
-    # Surface a "Writing outputs" message while we finalize: combined-txt
-    # mirror, etc. Skipped when there are no outputs to write.
-    if spec.combined_txt:
-        writing_status = _persist_message("Writing outputs")
-        await status_callback(writing_status)
+    # Surface a "Writing outputs" message while we finalize the combined-txt
+    # mirror. combined.txt is always written now (B-HOME-011 cleanup).
+    writing_status = _persist_message("Writing outputs")
+    await status_callback(writing_status)
 
     # Final state — clear progress_message so stale text doesn't linger in
     # the polled GET /api/jobs/{id} response.
@@ -527,6 +528,7 @@ async def run_project(
     )
     write_project(spec, terminal_status)
 
-    if spec.combined_txt:
-        write_combined_txt(spec, terminal_status)
-        write_output_combined_txt(spec, terminal_status)
+    # combined.txt is ALWAYS written (canonical + output mirror) — the
+    # combined download + previews depend on it (B-HOME-011 cleanup).
+    write_combined_txt(spec, terminal_status)
+    write_output_combined_txt(spec, terminal_status)

@@ -164,6 +164,131 @@ class TestDeleteJob:
         resp = await async_client.delete("/api/jobs/does-not-exist")
         assert resp.status_code == 204
 
+    async def test_delete_removes_output_mirror_and_meta_sidecar(self, tmp_path, monkeypatch) -> None:
+        """B-RESULTS-014: delete must also remove the output mirror and meta sidecar.
+
+        Previously delete only rmtree'd the canonical projects dir, leaving the
+        user-visible output mirror (spec.output_dir) and the per-job meta
+        sidecar (<JOBS_META_ROOT>/<id>/) orphaned — so a deleted job's ZIP
+        could still be downloaded. All three on-disk locations must be gone.
+        """
+        import json
+        from datetime import UTC, datetime
+
+        from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
+        from pdomain_ocr_simple_gui.storage import get_project_dir, write_project
+
+        projects_root = tmp_path / "projects"
+        output_root = tmp_path / "outputs"
+        meta_root = tmp_path / "jobs_meta"
+        for d in (projects_root, output_root, meta_root):
+            d.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(projects_root))
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_OUTPUT_ROOT", str(output_root))
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_JOBS_META_ROOT", str(meta_root))
+
+        project_id = "deltest-001"
+        now = datetime.now(UTC)
+        output_dir = output_root / project_id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        # User-visible output mirror artifacts (what the download ZIP streams).
+        (output_dir / "page-001.txt").write_text("hello", encoding="utf-8")
+        (output_dir / "page-001.json").write_text('{"text": "hello"}', encoding="utf-8")
+
+        spec = ProjectSpec(
+            project_id=project_id,
+            name="del-me",
+            source_path=str(tmp_path / "src"),
+            output_dir=str(output_dir),
+            engine="doctr",
+            language="en",
+            created_at=now,
+            last_opened_at=now,
+        )
+        status = ProjectStatus(
+            project_id=project_id,
+            state="succeeded",
+            page_count=1,
+            pages_done=1,
+            pages=[PageResult(page_idx=0, page_name="page-001", state="succeeded")],
+        )
+        write_project(spec, status)
+
+        # Per-job meta sidecar (drives output_mode in GET, survives delete today).
+        meta_dir = meta_root / project_id
+        meta_dir.mkdir(parents=True, exist_ok=True)
+        (meta_dir / "output_mode.json").write_text(json.dumps({"mode": "managed"}), encoding="utf-8")
+
+        canonical_dir = get_project_dir(project_id)
+        assert canonical_dir.exists()
+        assert output_dir.exists()
+        assert meta_dir.exists()
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.delete(f"/api/jobs/{project_id}")
+
+        assert resp.status_code == 200
+        # All THREE on-disk locations must be gone — no orphaned mirror or meta.
+        assert not canonical_dir.exists(), "canonical project dir not removed"
+        assert not output_dir.exists(), "output mirror dir not removed (orphaned ZIP source)"
+        assert not meta_dir.exists(), "per-job meta sidecar dir not removed"
+
+    async def test_delete_then_download_is_404(self, tmp_path, monkeypatch) -> None:
+        """B-RESULTS-014: after delete, the download endpoint must 404 (no orphan).
+
+        The bad-path companion: previously the output mirror survived delete and
+        the downloads route fell back to <OUTPUT_ROOT>/<id>, so a deleted job's
+        ZIP still streamed. With the mirror removed, download must 404.
+        """
+        from datetime import UTC, datetime
+
+        from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
+        from pdomain_ocr_simple_gui.storage import write_project
+
+        projects_root = tmp_path / "projects"
+        output_root = tmp_path / "outputs"
+        meta_root = tmp_path / "jobs_meta"
+        for d in (projects_root, output_root, meta_root):
+            d.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(projects_root))
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_OUTPUT_ROOT", str(output_root))
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_JOBS_META_ROOT", str(meta_root))
+
+        project_id = "deldl-001"
+        now = datetime.now(UTC)
+        output_dir = output_root / project_id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "page-001.txt").write_text("hello", encoding="utf-8")
+
+        spec = ProjectSpec(
+            project_id=project_id,
+            name="dl-me",
+            source_path=str(tmp_path / "src"),
+            output_dir=str(output_dir),
+            engine="doctr",
+            language="en",
+            created_at=now,
+            last_opened_at=now,
+        )
+        status = ProjectStatus(
+            project_id=project_id,
+            state="succeeded",
+            page_count=1,
+            pages_done=1,
+            pages=[PageResult(page_idx=0, page_name="page-001", state="succeeded")],
+        )
+        write_project(spec, status)
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            # Download works before delete.
+            pre = await ac.get(f"/api/jobs/{project_id}/download")
+            assert pre.status_code == 200
+            del_resp = await ac.delete(f"/api/jobs/{project_id}")
+            assert del_resp.status_code == 200
+            # After delete the mirror is gone → download 404s.
+            post = await ac.get(f"/api/jobs/{project_id}/download")
+        assert post.status_code == 404
+
 
 class TestPipelineIntegration:
     """Tests that verify run_project is wired into POST /api/jobs."""

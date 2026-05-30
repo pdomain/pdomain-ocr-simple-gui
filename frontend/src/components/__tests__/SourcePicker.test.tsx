@@ -157,6 +157,66 @@ it("clear button resets the display and fires onClear", async () => {
   expect(screen.queryByTestId("source-picker-chosen")).toBeNull();
 });
 
+// B-HOME-004 (Regression): clearing a chosen upload must delete its staging
+// dir server-side via DELETE /api/uploads/{upload_id} so orphan dirs do not
+// accumulate. A path source has no staging dir, so no DELETE is issued.
+it("clearing an uploaded source DELETEs its staging dir", async () => {
+  const calls: Array<{ url: string; method?: string }> = [];
+  globalThis.fetch = (async (url: string, opts?: RequestInit) => {
+    calls.push({ url, method: opts?.method });
+    if (url === "/api/uploads" && opts?.method !== "DELETE") {
+      return { ok: true, json: async () => ({ upload_id: "u-del-1" }) };
+    }
+    return { ok: true, json: async () => ({}) };
+  }) as unknown as typeof fetch;
+
+  render(
+    <SourcePicker
+      allowDrop
+      allowPathInput={false}
+      onUploadComplete={() => {}}
+      onPathChosen={() => {}}
+      onClear={() => {}}
+    />,
+  );
+  const drop = screen.getByTestId("source-picker-drop");
+  const file = new File(["x"], "scan.png", { type: "image/png" });
+  fireEvent.drop(drop, { dataTransfer: { files: [file] } });
+  const clearBtn = await screen.findByTestId("source-picker-clear");
+  fireEvent.click(clearBtn);
+
+  await vi.waitFor(() => {
+    expect(
+      calls.some(
+        (c) => c.url === "/api/uploads/u-del-1" && c.method === "DELETE",
+      ),
+    ).toBe(true);
+  });
+});
+
+it("clearing a path-only picker issues NO DELETE (no staging dir)", async () => {
+  const calls: Array<{ url: string; method?: string }> = [];
+  globalThis.fetch = (async (url: string, opts?: RequestInit) => {
+    calls.push({ url, method: opts?.method });
+    return { ok: true, json: async () => ({}) };
+  }) as unknown as typeof fetch;
+
+  render(
+    <SourcePicker
+      allowDrop={false}
+      allowPathInput
+      onUploadComplete={() => {}}
+      onPathChosen={() => {}}
+      onClear={() => {}}
+    />,
+  );
+  const input = screen.getByTestId("source-picker-path-input");
+  fireEvent.change(input, { target: { value: "/scans/book1" } });
+  fireEvent.submit(input.closest("form")!);
+  // No chosen view in a path-only picker; nothing to clear server-side.
+  expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+});
+
 it("clicking the clear button does not re-open the file picker", async () => {
   mockUploadFetch();
   const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click");

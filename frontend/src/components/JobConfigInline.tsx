@@ -17,8 +17,11 @@ import { useConfig } from "../runtime/ConfigContext";
 import { APP_TEST_IDS } from "../lib/testids";
 
 interface PrefsResponse {
-  engine?: string;
-  language?: string;
+  // AppPrefs (GET /api/prefs) exposes default_engine / default_language —
+  // NOT engine / language. Reading the wrong keys silently no-op'd saved
+  // defaults (B-HOME-006 regression).
+  default_engine?: string;
+  default_language?: string;
 }
 
 export type ChosenSource =
@@ -111,8 +114,8 @@ export function JobConfigInline({
         if (!res.ok || cancelled) return;
         const data = (await res.json()) as PrefsResponse;
         if (cancelled) return;
-        if (data.engine) setEngine(data.engine);
-        if (data.language) setLanguage(data.language);
+        if (data.default_engine) setEngine(data.default_engine);
+        if (data.default_language) setLanguage(data.default_language);
       })
       .catch(() => {
         // Network error — keep defaults
@@ -135,8 +138,8 @@ export function JobConfigInline({
         name: projectName,
         engine,
         language,
-        save_json: true,
-        combined_txt: true,
+        // No save_json / combined_txt knob — the server always writes per-page
+        // sidecars + combined.txt (B-HOME-011 cleanup).
         straight_quotes: straightQuotes,
         em_dash_to_double_hyphen: emDashDoubleHyphen,
         emit_illustration_placeholders: emitIllustrationPlaceholders,

@@ -26,6 +26,27 @@ import { useLongJob } from "@pdomain/pdomain-ui/stores";
 import type { LongJobStatus } from "@pdomain/pdomain-ui/stores";
 import type { JobState } from "@pdomain/pdomain-ui/types";
 
+/**
+ * Error thrown by the job-status fetch carrying the HTTP status code.
+ *
+ * The status code is load-bearing: useOcrJob uses it to distinguish a
+ * **terminal** 404 ("job not found" — stop polling, show a distinct message)
+ * from a **transient** 5xx / network failure (keep polling, surface a
+ * recoverable banner). Without the code, both collapse into the generic
+ * "error" status and a deleted job reads the same as a server hiccup
+ * (B-RESULTS-011 / B-RESULTS-012).
+ */
+export class JobFetchError extends Error {
+  /** HTTP status code, or 0 for a network-level failure (no response). */
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "JobFetchError";
+    this.status = status;
+  }
+}
+
 interface OcrJobPage {
   page_idx: number;
   page_name: string;
@@ -41,6 +62,12 @@ export interface OcrJobData {
   page_count: number;
   output_dir?: string;
   output_mode?: "next_to_source" | "specified" | "managed";
+  /**
+   * Failure detail set by the backend when state is "failed" (e.g. the
+   * "No supported image files found…" message). Surfaced on the ResultsPage
+   * failed-state banner rather than swallowed (B-RESULTS-004).
+   */
+  error?: string | null;
   pages: OcrJobPage[];
   /**
    * Human-readable progress message stamped by the backend pipeline
@@ -69,6 +96,20 @@ export interface UseOcrJobResult {
   jobData: OcrJobData | null;
   /** Call to request job cancellation (no-op — backend lacks cancel endpoint). */
   cancel: () => void;
+  /**
+   * True when the status fetch returned 404 — the job does not exist (never
+   * existed, or was deleted). This is a TERMINAL condition: polling stops and
+   * the UI shows a distinct "Job not found" message rather than the generic
+   * fetch-error banner (B-RESULTS-011).
+   */
+  notFound: boolean;
+  /**
+   * True when the most recent poll failed with a RETRYABLE error (5xx or a
+   * network-level failure) rather than a terminal 404. Polling continues; the
+   * UI can show a non-fatal "retrying" banner. Cleared on the next successful
+   * poll (B-RESULTS-012).
+   */
+  transientError: boolean;
 }
 
 /** Map backend JobState → useLongJob's LongJobStatus. */
@@ -102,9 +143,25 @@ function stripRerunKey(jobId: string): string {
 
 async function defaultFetchFn(jobId: string): Promise<OcrJobData> {
   const rawId = stripRerunKey(jobId);
-  const res = await fetch(`/api/jobs/${rawId}`);
+  // A network-level failure (server down, DNS, CORS) rejects fetch() before a
+  // Response exists — surface it as a JobFetchError with status 0 so the hook
+  // treats it as transient (retryable), not as a terminal 404.
+  let res: Response;
+  try {
+    res = await fetch(`/api/jobs/${rawId}`);
+  } catch (err) {
+    throw new JobFetchError(
+      `GET /api/jobs/${rawId} failed: ${err instanceof Error ? err.message : String(err)}`,
+      0,
+    );
+  }
   if (!res.ok) {
-    throw new Error(`GET /api/jobs/${rawId} returned ${res.status}`);
+    // Carry the status code so the hook can distinguish 404 (terminal) from
+    // 5xx (transient) — see JobFetchError.
+    throw new JobFetchError(
+      `GET /api/jobs/${rawId} returned ${res.status}`,
+      res.status,
+    );
   }
   return (await res.json()) as OcrJobData;
 }
@@ -116,26 +173,52 @@ export function useOcrJob(
   const { fetchFn = defaultFetchFn, pollIntervalMs = 1000 } = options;
 
   const [jobData, setJobData] = React.useState<OcrJobData | null>(null);
+  const [notFound, setNotFound] = React.useState(false);
+  const [transientError, setTransientError] = React.useState(false);
 
-  // Stable pollFn reference — captures setJobData and the injectable fetchFn.
+  // Stable pollFn reference — captures the state setters and the injectable
+  // fetchFn. The error handling here is the heart of the 404-vs-transient
+  // distinction (B-RESULTS-011 / -012):
+  //
+  //   * success            → clear transientError, store data, map status.
+  //   * 404 (terminal)     → set notFound, RE-THROW so useLongJob goes
+  //                          terminal ("error") and STOPS polling.
+  //   * 5xx / network      → set transientError, swallow the throw and return
+  //                          a NON-terminal status so useLongJob re-arms the
+  //                          next poll (keep polling — the server may recover).
   const pollFn = React.useCallback(
     async (id: string) => {
-      const data = await fetchFn(stripRerunKey(id));
-      setJobData(data);
-      return {
-        status: toHookStatus(data.state),
-        progress:
-          data.page_count > 0 ? data.pages_done / data.page_count : null,
-      };
+      try {
+        const data = await fetchFn(stripRerunKey(id));
+        setJobData(data);
+        setTransientError(false);
+        return {
+          status: toHookStatus(data.state),
+          progress:
+            data.page_count > 0 ? data.pages_done / data.page_count : null,
+        };
+      } catch (err) {
+        const status = err instanceof JobFetchError ? err.status : 0;
+        if (status === 404) {
+          // Terminal: the job does not exist. Re-throw so useLongJob stops.
+          setNotFound(true);
+          throw err;
+        }
+        // Transient (5xx / network): keep polling. Returning "pending" (a
+        // non-terminal LongJobStatus) makes useLongJob re-arm the next poll.
+        setTransientError(true);
+        return { status: "pending" as LongJobStatus, progress: null };
+      }
     },
     [fetchFn],
   );
 
-  // Reset jobData when jobId changes (mirrors useLongJob's own reset on id change).
+  // Reset all derived state when jobId changes (mirrors useLongJob's own reset
+  // on id change). A new job must not inherit a stale notFound/transient flag.
   React.useEffect(() => {
-    if (!jobId) {
-      setJobData(null);
-    }
+    setJobData(null);
+    setNotFound(false);
+    setTransientError(false);
   }, [jobId]);
 
   const { status, progress, cancel } = useLongJob(jobId, {
@@ -148,5 +231,7 @@ export function useOcrJob(
     progress,
     jobData,
     cancel,
+    notFound,
+    transientError,
   };
 }

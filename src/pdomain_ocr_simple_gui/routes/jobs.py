@@ -106,8 +106,9 @@ class CreateJobRequest(BaseModel):
     # Job options:
     engine: Literal["doctr", "tesseract"] = "doctr"
     language: str = "en"
-    save_json: bool = False
-    combined_txt: bool = True
+    # NOTE: no save_json / combined_txt knob — sidecars + combined.txt are
+    # always written (B-HOME-011 cleanup). A stale save_json/combined_txt in a
+    # POST body is simply ignored (extra fields ignored by default).
     # Post-OCR text normalization toggles (mirrors pd-ocr-cli flags)
     straight_quotes: bool = True
     em_dash_to_double_hyphen: bool = True
@@ -261,8 +262,6 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
         output_dir=resolved_output_dir,
         engine=body.engine,
         language=body.language,
-        save_json=body.save_json,
-        combined_txt=body.combined_txt,
         straight_quotes=body.straight_quotes,
         em_dash_to_double_hyphen=body.em_dash_to_double_hyphen,
         emit_illustration_placeholders=body.emit_illustration_placeholders,
@@ -311,9 +310,48 @@ async def get_job(project_id: str) -> ProjectStatus:
     return status.model_copy(update=update)
 
 
+def _delete_job_meta(job_id: str) -> None:
+    """Remove the per-job meta sidecar dir (<JOBS_META_ROOT>/<id>/). Best-effort.
+
+    Without this, deleting a job left the output_mode sidecar orphaned
+    (B-RESULTS-014).
+    """
+    import shutil
+
+    meta_dir = _jobs_meta_root() / job_id
+    if meta_dir.exists():
+        shutil.rmtree(meta_dir, ignore_errors=True)
+
+
+def _delete_output_mirror(output_dir: str) -> None:
+    """Remove the user-visible output mirror dir (spec.output_dir). Best-effort.
+
+    The mirror is what ``GET /api/jobs/{id}/download`` streams; leaving it
+    behind on delete meant a deleted job's ZIP was still downloadable
+    (B-RESULTS-014). Guarded so we never rmtree an empty/unset path or one
+    outside the managed output root unintentionally.
+    """
+    import shutil
+
+    if not output_dir:
+        return
+    mirror = Path(output_dir)
+    # Only remove a directory that exists; a stray file path is left alone.
+    if mirror.is_dir():
+        shutil.rmtree(mirror, ignore_errors=True)
+
+
 @router.delete("/{project_id}", response_class=Response)
 async def delete_job(project_id: str) -> Response:
-    """Delete a project. Returns 200 if it existed, 204 if it didn't."""
+    """Delete a project. Returns 200 if it existed, 204 if it didn't.
+
+    Removes ALL on-disk artifacts for the job: the canonical project dir, the
+    user-visible output mirror (spec.output_dir), and the per-job meta sidecar
+    (<JOBS_META_ROOT>/<id>/). Previously only the canonical dir was removed,
+    leaving the mirror + meta orphaned so a deleted job's ZIP still downloaded
+    (B-RESULTS-014). No UI delete control exists yet — the affordance is
+    deferred to the future Projects page (docs/specs/2026-05-29-projects-page.md).
+    """
     from pdomain_ocr_simple_gui.storage import get_project_dir
 
     try:
@@ -324,9 +362,25 @@ async def delete_job(project_id: str) -> Response:
     proj_dir = get_project_dir(project_id)
     if not proj_dir.exists():
         return Response(status_code=204)
+
+    # Read the spec (for output_dir) BEFORE rmtree removes project.json.
+    output_dir = ""
+    try:
+        spec, _ = read_project(project_id)
+        output_dir = spec.output_dir
+    except FileNotFoundError:
+        # No readable spec — canonical dir exists but project.json is gone;
+        # we can still remove the canonical dir + meta below.
+        logger.warning(
+            "delete_job: project dir present but project.json unreadable; output mirror cannot be located",
+            extra={"context": f"project_id={project_id!r}"},
+        )
+
     # Remove from recent_projects in prefs (best-effort)
     _remove_from_recent_projects(project_id)
     delete_project(project_id)
+    _delete_output_mirror(output_dir)
+    _delete_job_meta(project_id)
     return Response(status_code=200, content='{"status": "deleted"}', media_type="application/json")
 
 

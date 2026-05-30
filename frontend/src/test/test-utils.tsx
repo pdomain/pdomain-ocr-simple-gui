@@ -3,8 +3,7 @@
  *
  * Provides:
  *   - renderWithProviders — wraps UI in QueryClientProvider + MemoryRouter
- *   - mockFetchJson — stubs globalThis.fetch for a single URL pattern
- *   - resetFetch — clears the fetch stub after each test
+ *   - makeTestQueryClient — builds a no-retry QueryClient for tests
  *   - fixtures — canonical in-memory data builders for common API shapes
  */
 
@@ -12,7 +11,6 @@ import { render, type RenderOptions } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement, ReactNode } from "react";
-import { vi } from "vitest";
 
 // ---------------------------------------------------------------------------
 // renderWithProviders
@@ -55,56 +53,6 @@ export function renderWithProviders(
   }
 
   return render(ui, { wrapper: Wrapper, ...options });
-}
-
-// ---------------------------------------------------------------------------
-// Fetch mock helpers
-// ---------------------------------------------------------------------------
-
-type FetchImpl = (
-  url: string,
-  opts?: RequestInit,
-) => Promise<{
-  ok: boolean;
-  json?: () => Promise<unknown>;
-  text?: () => Promise<string>;
-}>;
-
-/**
- * Install a simple fetch stub.
- * `handler` is called for every fetch; return the shaped response.
- * Stores the mock in a ref so tests can inspect calls via `.mock.calls`.
- */
-export function installFetchMock(handler: FetchImpl): ReturnType<typeof vi.fn> {
-  const mock = vi.fn().mockImplementation(handler);
-  (globalThis as unknown as { fetch: unknown }).fetch = mock;
-  return mock;
-}
-
-/**
- * Install a fetch stub that returns `body` as JSON for any URL matching `urlPattern`,
- * and `{ ok: false }` for everything else.
- * Returns the vi.fn so callers can assert calls.
- */
-export function mockFetchJson(
-  urlPattern: string | RegExp,
-  body: unknown,
-): ReturnType<typeof vi.fn> {
-  return installFetchMock((url) => {
-    const matched =
-      typeof urlPattern === "string"
-        ? url.includes(urlPattern)
-        : urlPattern.test(url);
-    if (matched) {
-      return Promise.resolve({ ok: true, json: async () => body });
-    }
-    return Promise.resolve({ ok: false, json: async () => ({}) });
-  });
-}
-
-/** Clear globalThis.fetch (call in afterEach if needed). */
-export function resetFetch(): void {
-  (globalThis as unknown as { fetch: unknown }).fetch = undefined;
 }
 
 // ---------------------------------------------------------------------------

@@ -149,7 +149,7 @@ addopts = [
     "-m", "not slow",
 ]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 asyncio_mode = "auto"
 filterwarnings = [
     "error",
@@ -159,4 +159,5 @@ filterwarnings = [
 markers = [
     "slow: marks tests as slow (excluded from default make test run)",
     "e2e: marks tests as end-to-end (requires a running server and real OCR)",
+    "real_ocr: marks Tier-B tests that exercise the REAL OCR engine (GPU, opt-in; never in default CI)",
 ]

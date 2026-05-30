@@ -49,8 +49,6 @@ def _make_spec(tmp_path: Path, source_path: str | None = None) -> ProjectSpec:
         output_dir=str(tmp_path / "output"),
         engine="doctr",
         language="en",
-        save_json=False,
-        combined_txt=False,
         created_at=datetime.now(UTC),
         last_opened_at=datetime.now(UTC),
     )
@@ -400,8 +398,8 @@ class TestRunProject:
         # All 2 pages processed across 1 or more batch calls
         total_pages_batched = sum(len(r.images) for r in batch_calls)  # type: ignore[union-attr]
         assert total_pages_batched == 2
-        # 1 warm-up callback + 1 completion callback per chunk.
-        # combined_txt=False so the "Writing outputs" callback is skipped.
+        # 1 warm-up callback + 1 completion callback per chunk + 1 "Writing
+        # outputs" callback (combined.txt is now always written).
         assert len(callbacks) >= 2
 
     async def test_status_callback_receives_project_status(self, tmp_path: Path, monkeypatch) -> None:
@@ -575,7 +573,12 @@ class TestRunProject:
         assert isinstance(w0["confidence"], float)
 
     async def test_writes_outputs_into_output_dir(self, tmp_path: Path, monkeypatch) -> None:
-        """When save_json + combined_txt are set, output_dir gets json + txt + combined.txt."""
+        """output_dir always gets per-page json + txt + combined.txt (no knobs).
+
+        B-HOME-011 cleanup: the save_json / combined_txt knobs are gone — the
+        output mirror always includes the per-page sidecar .json AND the
+        combined .txt, because the bbox display needs both.
+        """
         from datetime import UTC, datetime
 
         root = tmp_path / "projects"
@@ -594,8 +597,6 @@ class TestRunProject:
             output_dir=str(out_dir),
             engine="doctr",
             language="en",
-            save_json=True,
-            combined_txt=True,
             created_at=datetime.now(UTC),
             last_opened_at=datetime.now(UTC),
         )
@@ -618,12 +619,18 @@ class TestRunProject:
 
         assert (out_dir / "p0.txt").exists(), list(out_dir.iterdir())
         assert "Hello" in (out_dir / "p0.txt").read_text()
-        assert (out_dir / "p0.json").exists()  # save_json=True
-        # Combined uses sanitised spec.name
+        # Sidecar .json is ALWAYS mirrored now (no save_json knob).
+        assert (out_dir / "p0.json").exists()
+        # Combined .txt is ALWAYS written, using the sanitised spec.name.
         assert (out_dir / "My_Run.txt").exists()
 
-    async def test_save_json_false_skips_json_in_output_dir(self, tmp_path: Path, monkeypatch) -> None:
-        """save_json=False → no .json file mirrored to output_dir (txt still written)."""
+    async def test_sidecar_and_combined_always_written(self, tmp_path: Path, monkeypatch) -> None:
+        """No knob can suppress the canonical sidecar or combined.txt.
+
+        B-HOME-011 cleanup: the canonical per-page sidecar (pages/<name>.json)
+        and the canonical combined.txt are written unconditionally — the bbox
+        overlay + combined download depend on them.
+        """
         from datetime import UTC, datetime
 
         root = tmp_path / "projects"
@@ -640,12 +647,10 @@ class TestRunProject:
             output_dir=str(out_dir),
             engine="doctr",
             language="en",
-            save_json=False,
-            combined_txt=False,
             created_at=datetime.now(UTC),
             last_opened_at=datetime.now(UTC),
         )
-        from pdomain_ocr_simple_gui.storage import write_project
+        from pdomain_ocr_simple_gui.storage import get_project_dir, write_project
 
         write_project(
             spec,
@@ -659,20 +664,36 @@ class TestRunProject:
         )
         mock_dispatcher = _make_single_batch_dispatcher(_bboxed_page_dict())
         await run_project(spec, mock_dispatcher, AsyncMock())
+
+        proj_dir = get_project_dir(spec.project_id)
+        # Canonical sidecar + combined always present.
+        assert (proj_dir / "pages" / "p0.png.json").exists()
+        assert (proj_dir / "combined.txt").exists()
+        # Output mirror always gets the per-page .json + combined .txt.
         assert (out_dir / "p0.txt").exists()
-        assert not (out_dir / "p0.json").exists()
-        # combined_txt=False → no combined file
-        assert not any(p.suffix == ".txt" and p.name != "p0.txt" for p in out_dir.iterdir())
+        assert (out_dir / "p0.json").exists()
+        assert (out_dir / "run.txt").exists()
+
+    async def test_create_job_request_has_no_save_json_knob(self) -> None:
+        """B-HOME-011 cleanup: CreateJobRequest no longer exposes save_json."""
+        from pdomain_ocr_simple_gui.routes.jobs import CreateJobRequest
+
+        assert "save_json" not in CreateJobRequest.model_fields
+        # A POST body that still sends save_json=false must NOT disable sidecars
+        # — the field is simply ignored (extra fields ignored by default).
+        req = CreateJobRequest.model_validate({"source_path": "/x", "save_json": False})
+        assert not hasattr(req, "save_json") or "save_json" not in req.model_dump()
 
 
 class TestProgressMessage:
     async def test_progress_message_sequence(self, tmp_path: Path, monkeypatch) -> None:
         """run_project emits the documented per-phase progress messages.
 
-        Chunked flow on a 2-page job with batch_pages=1 and combined_txt=False:
+        Chunked flow on a 2-page job with batch_pages=1:
           1. "Loading OCR engine..." (once, before any batch dispatch).
           2. "Processed 1/2 pages" (after chunk 1 completes).
           3. "Processed 2/2 pages" (after chunk 2 completes).
+          4. "Writing outputs" (combined.txt is always written now).
           Terminal callback is NOT emitted via status_callback, but the
           persisted ProjectStatus clears progress_message to None.
         """
@@ -695,8 +716,6 @@ class TestProgressMessage:
             output_dir=str(tmp_path / "output"),
             engine="doctr",
             language="en",
-            save_json=False,
-            combined_txt=False,
             batch_pages=1,
             created_at=datetime.now(UTC),
             last_opened_at=datetime.now(UTC),
@@ -732,6 +751,7 @@ class TestProgressMessage:
             loading_msg,
             "Processed 1/2 pages",
             "Processed 2/2 pages",
+            "Writing outputs",
         ]
 
         # Terminal persisted status clears the message.
@@ -760,8 +780,6 @@ class TestProgressMessage:
             output_dir=str(tmp_path / "output"),
             engine="doctr",
             language="en",
-            save_json=False,
-            combined_txt=False,
             created_at=datetime.now(UTC),
             last_opened_at=datetime.now(UTC),
         )
@@ -825,8 +843,6 @@ class TestChunkFailureIsolation:
             output_dir=str(tmp_path / "output"),
             engine="doctr",
             language="en",
-            save_json=False,
-            combined_txt=False,
             batch_pages=2,
             created_at=datetime.now(UTC),
             last_opened_at=datetime.now(UTC),
