@@ -7,10 +7,11 @@ import logging
 from pathlib import Path
 from typing import Literal, cast
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from pdomain_ocr_simple_gui.auth import require_token
 from pdomain_ocr_simple_gui.models import PageResponse, PageResult, ProjectSpec
 from pdomain_ocr_simple_gui.pipeline import (
     JsonObject,
@@ -206,7 +207,9 @@ async def get_page_image(project_id: str, page_idx: int, request: Request) -> Fi
     return FileResponse(str(served), media_type=media_type)
 
 
-@router.put("/{project_id}/{page_idx}/text", response_model=dict[str, str])
+@router.put(
+    "/{project_id}/{page_idx}/text", response_model=dict[str, str], dependencies=[Depends(require_token)]
+)
 async def put_page_text(project_id: str, page_idx: int, body: SaveTextRequest) -> dict[str, str]:
     """Save edited text for the given page."""
     try:
@@ -238,7 +241,9 @@ class RerunRequest(BaseModel):
     engine: Literal["doctr", "tesseract"] | None = None
 
 
-@router.post("/{project_id}/{page_idx}/rerun", response_model=PageResult)
+@router.post(
+    "/{project_id}/{page_idx}/rerun", response_model=PageResult, dependencies=[Depends(require_token)]
+)
 async def rerun_page(
     project_id: str,
     page_idx: int,

@@ -13,6 +13,7 @@ from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -87,6 +88,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             from pdomain_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
 
             _dispatcher = LocalStageDispatcher()
+    # Auth startup notice.
+    api_token = os.environ.get("PDOMAIN_API_TOKEN", "").strip()
+    if not api_token:
+        logger.warning(
+            "PDOMAIN_API_TOKEN is not set — API auth is DISABLED. Set this env var to enable capability token protection.",
+        )
+
     # Suite registration is handled by bootstrap_spa() in __main__.py before uvicorn.run().
     yield
     _prefs_adapter = None
@@ -113,6 +121,12 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Protect suite routes (/api/suite/*) via middleware — they are mounted
+    # externally by pdomain_ops.suite.routes and cannot use FastAPI Depends.
+    from pdomain_ocr_simple_gui.auth import suite_token_middleware
+
+    _app.add_middleware(BaseHTTPMiddleware, dispatch=suite_token_middleware)
 
     # Register routes.
     # Imported here (not at module level) to avoid circular imports at collection time.

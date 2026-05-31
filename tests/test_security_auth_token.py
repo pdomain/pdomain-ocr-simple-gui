@@ -1,0 +1,328 @@
+"""Security tests — PDOMAIN_API_TOKEN capability token and concurrent-job cap.
+
+GH issues #18, #19, #23.
+
+Token behaviour:
+  - When PDOMAIN_API_TOKEN env var is set and non-empty, all mutating endpoints
+    (POST, PUT, DELETE) plus the prefs GET and jobs list GET require either:
+      Authorization: Bearer <token>
+      X-API-Token: <token>
+    Missing or wrong token → HTTP 401.
+  - When PDOMAIN_API_TOKEN is absent or empty, all endpoints work with no auth
+    (preserves local-dev usability).
+  - Suite routes /api/suite/* are protected by HTTP middleware (not FastAPI Depends).
+
+Semaphore behaviour:
+  - PDOMAIN_MAX_CONCURRENT_JOBS (default 3) caps concurrent create_job calls.
+  - When the semaphore is exhausted → HTTP 429.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from pathlib import Path
+from typing import Any
+from unittest.mock import MagicMock
+
+import pytest
+from httpx import ASGITransport, AsyncClient
+
+pytestmark = pytest.mark.anyio
+
+_TOKEN = "test-secret-token"
+
+_PREFS_PAYLOAD: dict[str, Any] = {
+    "default_engine": "doctr",
+    "default_language": "en",
+    "default_output_dir": "",
+    "save_json_default": False,
+    "combined_txt_default": True,
+    "recent_projects": [],
+}
+
+_JOB_PAYLOAD: dict[str, Any] = {
+    "name": "Auth Test Job",
+    "source_path": "/tmp/source",
+    "output_dir": "/tmp/output",
+    "engine": "doctr",
+    "language": "en",
+}
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def mock_prefs_adapter(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    """Install a mock prefs adapter so prefs routes don't need a real fs."""
+    from pdomain_ops.suite.types import UIPrefs
+
+    import pdomain_ocr_simple_gui.app as app_mod
+
+    mock = MagicMock()
+    mock.read.return_value = UIPrefs()
+    mock.write_app.return_value = None
+    monkeypatch.setattr(app_mod, "_prefs_adapter", mock)
+    return mock
+
+
+@pytest.fixture
+async def secured_app_client(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_prefs_adapter: MagicMock,
+) -> AsyncClient:
+    """Async client against an app that has PDOMAIN_API_TOKEN set."""
+    root = tmp_path / "projects"
+    root.mkdir()
+    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+    monkeypatch.setenv("PDOMAIN_API_TOKEN", _TOKEN)
+    from pdomain_ocr_simple_gui.app import app
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac  # type: ignore[misc]
+
+
+@pytest.fixture
+async def open_app_client(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_prefs_adapter: MagicMock,
+) -> AsyncClient:
+    """Async client against an app that has NO PDOMAIN_API_TOKEN (local-dev mode)."""
+    root = tmp_path / "projects"
+    root.mkdir()
+    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+    monkeypatch.delenv("PDOMAIN_API_TOKEN", raising=False)
+    from pdomain_ocr_simple_gui.app import app
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# Token authentication tests — POST /api/jobs (create_job)
+# ---------------------------------------------------------------------------
+
+
+class TestCreateJobAuth:
+    async def test_create_job_rejected_without_token(self, secured_app_client: AsyncClient) -> None:
+        """POST /api/jobs with no auth header → 401 when token env var is set."""
+        resp = await secured_app_client.post("/api/jobs", json=_JOB_PAYLOAD)
+        assert resp.status_code == 401
+
+    async def test_create_job_rejected_with_wrong_bearer_token(self, secured_app_client: AsyncClient) -> None:
+        """POST /api/jobs with wrong Bearer token → 401."""
+        resp = await secured_app_client.post(
+            "/api/jobs",
+            json=_JOB_PAYLOAD,
+            headers={"Authorization": "Bearer wrong-token"},
+        )
+        assert resp.status_code == 401
+
+    async def test_create_job_rejected_with_wrong_x_api_token(self, secured_app_client: AsyncClient) -> None:
+        """POST /api/jobs with wrong X-API-Token header → 401."""
+        resp = await secured_app_client.post(
+            "/api/jobs",
+            json=_JOB_PAYLOAD,
+            headers={"X-API-Token": "wrong-token"},
+        )
+        assert resp.status_code == 401
+
+    async def test_create_job_accepted_with_bearer_token(self, secured_app_client: AsyncClient) -> None:
+        """POST /api/jobs with correct Bearer token → 202."""
+        resp = await secured_app_client.post(
+            "/api/jobs",
+            json=_JOB_PAYLOAD,
+            headers={"Authorization": f"Bearer {_TOKEN}"},
+        )
+        # 202 Accepted (or 422 from validation — but not 401)
+        assert resp.status_code != 401
+
+    async def test_create_job_accepted_with_x_api_token_header(self, secured_app_client: AsyncClient) -> None:
+        """POST /api/jobs with correct X-API-Token header → not 401."""
+        resp = await secured_app_client.post(
+            "/api/jobs",
+            json=_JOB_PAYLOAD,
+            headers={"X-API-Token": _TOKEN},
+        )
+        assert resp.status_code != 401
+
+
+# ---------------------------------------------------------------------------
+# Token authentication tests — GET/PUT /api/prefs
+# ---------------------------------------------------------------------------
+
+
+class TestPrefsAuth:
+    async def test_prefs_get_rejected_without_token(self, secured_app_client: AsyncClient) -> None:
+        """GET /api/prefs with no auth header → 401 when token env var is set."""
+        resp = await secured_app_client.get("/api/prefs")
+        assert resp.status_code == 401
+
+    async def test_prefs_put_rejected_without_token(self, secured_app_client: AsyncClient) -> None:
+        """PUT /api/prefs with no auth header → 401 when token env var is set."""
+        resp = await secured_app_client.put("/api/prefs", json=_PREFS_PAYLOAD)
+        assert resp.status_code == 401
+
+    async def test_prefs_get_accepted_with_bearer_token(self, secured_app_client: AsyncClient) -> None:
+        """GET /api/prefs with correct Bearer token → 200."""
+        resp = await secured_app_client.get(
+            "/api/prefs",
+            headers={"Authorization": f"Bearer {_TOKEN}"},
+        )
+        assert resp.status_code == 200
+
+    async def test_prefs_put_accepted_with_bearer_token(self, secured_app_client: AsyncClient) -> None:
+        """PUT /api/prefs with correct Bearer token → 200."""
+        resp = await secured_app_client.put(
+            "/api/prefs",
+            json=_PREFS_PAYLOAD,
+            headers={"Authorization": f"Bearer {_TOKEN}"},
+        )
+        assert resp.status_code == 200
+
+    async def test_prefs_get_accepted_with_x_api_token(self, secured_app_client: AsyncClient) -> None:
+        """GET /api/prefs with correct X-API-Token header → 200."""
+        resp = await secured_app_client.get(
+            "/api/prefs",
+            headers={"X-API-Token": _TOKEN},
+        )
+        assert resp.status_code == 200
+
+    async def test_prefs_put_accepted_with_x_api_token(self, secured_app_client: AsyncClient) -> None:
+        """PUT /api/prefs with correct X-API-Token header → 200."""
+        resp = await secured_app_client.put(
+            "/api/prefs",
+            json=_PREFS_PAYLOAD,
+            headers={"X-API-Token": _TOKEN},
+        )
+        assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Token authentication tests — GET /api/jobs (list_jobs)
+# ---------------------------------------------------------------------------
+
+
+class TestListJobsAuth:
+    async def test_list_jobs_rejected_without_token(self, secured_app_client: AsyncClient) -> None:
+        """GET /api/jobs with no auth header → 401 when token env var is set."""
+        resp = await secured_app_client.get("/api/jobs")
+        assert resp.status_code == 401
+
+    async def test_list_jobs_accepted_with_bearer_token(self, secured_app_client: AsyncClient) -> None:
+        """GET /api/jobs with correct Bearer token → 200."""
+        resp = await secured_app_client.get(
+            "/api/jobs",
+            headers={"Authorization": f"Bearer {_TOKEN}"},
+        )
+        assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Suite middleware tests — /api/suite/launch and /api/suite/stop
+# ---------------------------------------------------------------------------
+
+
+class TestSuiteAuth:
+    async def test_suite_launch_rejected_without_token(self, secured_app_client: AsyncClient) -> None:
+        """POST /api/suite/launch with no auth header → 401 via middleware."""
+        resp = await secured_app_client.post("/api/suite/launch", json={})
+        assert resp.status_code == 401
+
+    async def test_suite_stop_rejected_without_token(self, secured_app_client: AsyncClient) -> None:
+        """POST /api/suite/stop with no auth header → 401 via middleware."""
+        resp = await secured_app_client.post("/api/suite/stop", json={})
+        assert resp.status_code == 401
+
+    async def test_suite_launch_rejected_with_wrong_token(self, secured_app_client: AsyncClient) -> None:
+        """POST /api/suite/launch with wrong token → 401 via middleware."""
+        resp = await secured_app_client.post(
+            "/api/suite/launch",
+            json={},
+            headers={"Authorization": "Bearer wrong"},
+        )
+        assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# No-token env-var mode — all endpoints accessible
+# ---------------------------------------------------------------------------
+
+
+class TestNoTokenMode:
+    async def test_no_token_env_allows_prefs_get(self, open_app_client: AsyncClient) -> None:
+        """GET /api/prefs with no token env var → 200 (no auth required)."""
+        resp = await open_app_client.get("/api/prefs")
+        assert resp.status_code == 200
+
+    async def test_no_token_env_allows_prefs_put(self, open_app_client: AsyncClient) -> None:
+        """PUT /api/prefs with no token env var → 200 (no auth required)."""
+        resp = await open_app_client.put("/api/prefs", json=_PREFS_PAYLOAD)
+        assert resp.status_code == 200
+
+    async def test_no_token_env_allows_jobs_list(self, open_app_client: AsyncClient) -> None:
+        """GET /api/jobs with no token env var → 200 (no auth required)."""
+        resp = await open_app_client.get("/api/jobs")
+        assert resp.status_code == 200
+
+    async def test_no_token_env_allows_job_create(self, open_app_client: AsyncClient) -> None:
+        """POST /api/jobs with no token env var → 202 (no auth required)."""
+        resp = await open_app_client.post("/api/jobs", json=_JOB_PAYLOAD)
+        # 202 or 422 (validation), but NOT 401
+        assert resp.status_code != 401
+
+    async def test_empty_token_env_allows_requests(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_prefs_adapter: MagicMock
+    ) -> None:
+        """PDOMAIN_API_TOKEN='' (empty string) is treated as absent → no auth."""
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+        monkeypatch.setenv("PDOMAIN_API_TOKEN", "")
+        from pdomain_ocr_simple_gui.app import app
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.get("/api/prefs")
+        assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Concurrent jobs semaphore — 429 when exhausted
+# ---------------------------------------------------------------------------
+
+
+class TestMaxConcurrentJobs:
+    async def test_max_concurrent_jobs_returns_429(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        mock_prefs_adapter: MagicMock,
+    ) -> None:
+        """When the semaphore is exhausted, POST /api/jobs returns 429.
+
+        Strategy: monkeypatch PDOMAIN_MAX_CONCURRENT_JOBS=1 and replace the
+        semaphore with one that is already acquired, so the next POST
+        immediately sees it as exhausted.
+        """
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+        monkeypatch.delenv("PDOMAIN_API_TOKEN", raising=False)
+        monkeypatch.setenv("PDOMAIN_MAX_CONCURRENT_JOBS", "1")
+
+        import pdomain_ocr_simple_gui.routes.jobs as jobs_mod
+
+        # Patch the semaphore with one that's already fully acquired
+        sem = asyncio.Semaphore(0)  # value=0 → can't acquire at all
+        monkeypatch.setattr(jobs_mod, "_job_semaphore", sem)
+
+        from pdomain_ocr_simple_gui.app import app
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.post("/api/jobs", json=_JOB_PAYLOAD)
+
+        assert resp.status_code == 429

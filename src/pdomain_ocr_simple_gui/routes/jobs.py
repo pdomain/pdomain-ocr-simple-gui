@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -10,10 +11,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
+from pdomain_ocr_simple_gui.auth import require_token
 from pdomain_ocr_simple_gui.models import AppPrefs, PageResult, ProjectSpec, ProjectStatus
 from pdomain_ocr_simple_gui.output.config import OutputConfig, OutputConfigError, resolve_output_dir
 from pdomain_ocr_simple_gui.pipeline import collect_images, run_project
@@ -32,6 +34,25 @@ from pdomain_ocr_simple_gui.storage import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
+
+# ---------------------------------------------------------------------------
+# Concurrent-jobs semaphore
+# ---------------------------------------------------------------------------
+
+_DEFAULT_MAX_CONCURRENT_JOBS = 3
+
+
+def _max_concurrent_jobs() -> int:
+    """Return the configured max concurrent jobs (PDOMAIN_MAX_CONCURRENT_JOBS, default 3)."""
+    raw = os.environ.get("PDOMAIN_MAX_CONCURRENT_JOBS", "")
+    try:
+        return int(raw) if raw else _DEFAULT_MAX_CONCURRENT_JOBS
+    except ValueError:
+        return _DEFAULT_MAX_CONCURRENT_JOBS
+
+
+# Module-level semaphore — monkeypatch target for tests.
+_job_semaphore: asyncio.Semaphore = asyncio.Semaphore(_max_concurrent_jobs())
 
 _DEFAULT_OUTPUT_ROOT = Path.home() / ".local/share/pdomain-ocr-simple-gui/outputs"
 _DEFAULT_UPLOAD_ROOT = Path.home() / ".local/share/pdomain-ocr-simple-gui/uploads"
@@ -221,7 +242,15 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
             )
 
 
-@router.post("", status_code=202, response_model=dict[str, str])
+async def _pipeline_run_job_with_semaphore(spec: ProjectSpec) -> None:
+    """Background task wrapper: run OCR then release the concurrent-jobs semaphore."""
+    try:
+        await _pipeline_run_job(spec)
+    finally:
+        _job_semaphore.release()
+
+
+@router.post("", status_code=202, response_model=dict[str, str], dependencies=[Depends(require_token)])
 async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) -> dict[str, str]:
     """Create a new OCR project and enqueue it.
 
@@ -229,60 +258,73 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
     is controlled by the output field (OutputConfig); when absent, output_dir
     is used directly for backward compatibility.
     """
-    mode = read_mode()
-    project_id = str(uuid.uuid4())
-    now = datetime.now(UTC)
+    # Check concurrent-jobs cap before doing any work.
+    # In asyncio (single-threaded), checking _value then acquiring is
+    # race-free — no other coroutine can preempt between two sync statements.
+    if _job_semaphore._value <= 0:  # asyncio.Semaphore internal; safe in single-threaded async
+        raise HTTPException(status_code=429, detail="Too many concurrent jobs; try again later")
+    await _job_semaphore.acquire()
 
-    if body.output is not None:
-        # New path: resolve source via Source adapter, then resolve output via OutputConfig.
-        source_dir_str, source_is_folder = _build_source_and_flags(body, mode)
-        try:
-            output_path = resolve_output_dir(
-                body.output,
-                mode=mode,
-                source_dir=Path(source_dir_str),
-                managed_root=_managed_output_root(),
-                job_id=project_id,
-                source_is_folder=source_is_folder,
-            )
-        except OutputConfigError as exc:
-            raise HTTPException(status_code=400, detail=f"output: {exc}") from exc
-        resolved_output_dir = str(output_path)
-        resolved_source_path = source_dir_str
-        _write_job_meta(project_id, body.output.mode)
-    else:
-        # Legacy path: source_path and output_dir are used as-is.
-        resolved_source_path = body.source_path
-        resolved_output_dir = body.output_dir
+    # Release the semaphore if any validation error prevents us from enqueuing.
+    try:
+        mode = read_mode()
+        project_id = str(uuid.uuid4())
+        now = datetime.now(UTC)
 
-    spec = ProjectSpec(
-        project_id=project_id,
-        name=body.name,
-        source_path=resolved_source_path,
-        output_dir=resolved_output_dir,
-        engine=body.engine,
-        language=body.language,
-        straight_quotes=body.straight_quotes,
-        em_dash_to_double_hyphen=body.em_dash_to_double_hyphen,
-        emit_illustration_placeholders=body.emit_illustration_placeholders,
-        device=body.device,
-        batch_pages=body.batch_pages,
-        created_at=now,
-        last_opened_at=now,
-    )
-    status = ProjectStatus(
-        project_id=project_id,
-        state="queued",
-        page_count=0,
-        pages_done=0,
-        pages=[],
-    )
-    write_project(spec, status)
-    background_tasks.add_task(_pipeline_run_job, spec)
+        if body.output is not None:
+            # New path: resolve source via Source adapter, then resolve output via OutputConfig.
+            source_dir_str, source_is_folder = _build_source_and_flags(body, mode)
+            try:
+                output_path = resolve_output_dir(
+                    body.output,
+                    mode=mode,
+                    source_dir=Path(source_dir_str),
+                    managed_root=_managed_output_root(),
+                    job_id=project_id,
+                    source_is_folder=source_is_folder,
+                )
+            except OutputConfigError as exc:
+                raise HTTPException(status_code=400, detail=f"output: {exc}") from exc
+            resolved_output_dir = str(output_path)
+            resolved_source_path = source_dir_str
+            _write_job_meta(project_id, body.output.mode)
+        else:
+            # Legacy path: source_path and output_dir are used as-is.
+            resolved_source_path = body.source_path
+            resolved_output_dir = body.output_dir
+
+        spec = ProjectSpec(
+            project_id=project_id,
+            name=body.name,
+            source_path=resolved_source_path,
+            output_dir=resolved_output_dir,
+            engine=body.engine,
+            language=body.language,
+            straight_quotes=body.straight_quotes,
+            em_dash_to_double_hyphen=body.em_dash_to_double_hyphen,
+            emit_illustration_placeholders=body.emit_illustration_placeholders,
+            device=body.device,
+            batch_pages=body.batch_pages,
+            created_at=now,
+            last_opened_at=now,
+        )
+        status = ProjectStatus(
+            project_id=project_id,
+            state="queued",
+            page_count=0,
+            pages_done=0,
+            pages=[],
+        )
+        write_project(spec, status)
+        background_tasks.add_task(_pipeline_run_job_with_semaphore, spec)
+    except Exception:
+        # Release the slot we acquired — the job will not run.
+        _job_semaphore.release()
+        raise
     return {"project_id": project_id}
 
 
-@router.get("", response_model=list[ProjectStatus])
+@router.get("", response_model=list[ProjectStatus], dependencies=[Depends(require_token)])
 async def list_jobs() -> list[ProjectStatus]:
     """Return all projects as a list of ProjectStatus enriched with name and output_dir."""
     projects = list_projects()
@@ -341,7 +383,7 @@ def _delete_output_mirror(output_dir: str) -> None:
         shutil.rmtree(mirror, ignore_errors=True)
 
 
-@router.delete("/{project_id}", response_class=Response)
+@router.delete("/{project_id}", response_class=Response, dependencies=[Depends(require_token)])
 async def delete_job(project_id: str) -> Response:
     """Delete a project. Returns 200 if it existed, 204 if it didn't.
 
@@ -384,7 +426,12 @@ async def delete_job(project_id: str) -> Response:
     return Response(status_code=200, content='{"status": "deleted"}', media_type="application/json")
 
 
-@router.post("/{project_id}/rerun", status_code=202, response_model=dict[str, str])
+@router.post(
+    "/{project_id}/rerun",
+    status_code=202,
+    response_model=dict[str, str],
+    dependencies=[Depends(require_token)],
+)
 async def rerun_job(project_id: str, background_tasks: BackgroundTasks) -> dict[str, str]:
     """Reset all pages to queued and re-run the full project pipeline."""
     try:
