@@ -68,6 +68,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         )
         _prefs_adapter = None
     if os.environ.get("PDOMAIN_OCR_FAKE_DISPATCHER"):
+        logger.warning(
+            "PDOMAIN_OCR_FAKE_DISPATCHER is set: using FakeStageDispatcher — "
+            "OCR output is FAKE. Do not use in production."
+        )
         from pdomain_ocr_simple_gui.testing.fake_dispatcher import FakeStageDispatcher
 
         _dispatcher = FakeStageDispatcher()  # pyright: ignore[reportAssignmentType]
