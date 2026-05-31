@@ -21,6 +21,7 @@ import os
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from collections.abc import Generator
@@ -45,6 +46,26 @@ _PNG_1X1 = (
 _SHARED_BROWSERS = "/cache/shared-ai/ms-playwright"
 if os.path.isdir(_SHARED_BROWSERS) and "PLAYWRIGHT_BROWSERS_PATH" not in os.environ:
     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = _SHARED_BROWSERS
+
+# ---------------------------------------------------------------------------
+# Safety guards
+# ---------------------------------------------------------------------------
+
+
+def _assert_suite_data_dir_is_tmp(suite_data_dir: str) -> None:
+    """Raise AssertionError when *suite_data_dir* is not a safe tmp path.
+
+    Called from ``_boot_server`` before each server launch to prevent the
+    prefs-reset autouse fixture from overwriting real user data when a
+    developer forgets to set the isolation env var.
+    """
+    tmp = tempfile.gettempdir()
+    assert suite_data_dir and suite_data_dir.startswith(("/tmp", tmp)), (
+        "PD_SUITE_DATA_DIR must be set to a tmp path before running e2e tests "
+        f"(current value: {suite_data_dir!r}). This prevents prefs-reset from overwriting real "
+        "user data."
+    )
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -84,6 +105,7 @@ def _boot_server(env_overrides: dict[str, str], *, ready_timeout: float = 30.0) 
     base_url = f"http://127.0.0.1:{port}"
 
     env = {**os.environ, **env_overrides}
+    _assert_suite_data_dir_is_tmp(env.get("PD_SUITE_DATA_DIR", ""))
 
     proc = subprocess.Popen(
         [
