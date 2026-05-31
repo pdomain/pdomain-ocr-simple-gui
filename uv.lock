@@ -1819,9 +1819,9 @@ dependencies = [
     { name = "torchvision" },
     { name = "transformers" },
 ]
-sdist = { url = "https://github.com/pdomain/pdomain-book-tools/releases/download/v0.15.2/pdomain_book_tools-0.15.2.tar.gz" }
+sdist = { url = "https://github.com/pdomain/pdomain-book-tools/releases/download/v0.15.2/pdomain_book_tools-0.15.2.tar.gz", hash = "sha256:4280eb393ebbe6de937bfa3d5dc8535740c3eaa41539639f28327b2f4816ac43" }
 wheels = [
-    { url = "https://github.com/pdomain/pdomain-book-tools/releases/download/v0.15.2/pdomain_book_tools-0.15.2-py3-none-any.whl" },
+    { url = "https://github.com/pdomain/pdomain-book-tools/releases/download/v0.15.2/pdomain_book_tools-0.15.2-py3-none-any.whl", hash = "sha256:c2cc89a0330fedd69990f62b7fcb4951b744dbe45cb249bfb495b061eed5e59e" },
 ]
 
 [[package]]
