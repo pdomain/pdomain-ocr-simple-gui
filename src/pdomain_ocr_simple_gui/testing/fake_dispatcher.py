@@ -224,7 +224,19 @@ class FakeStageDispatcher:
         ``Page.from_dict()`` accepts the dict and ``extract_words`` returns
         real bounding boxes instead of an empty list.
         """
-        # req is an OcrBatchRequest or compatible object; we only need len(images)
-        images_attr = getattr(req, "images", None)
-        count = len(images_attr) if isinstance(images_attr, (list, tuple)) else 1
+        # req is an OcrBatchRequest or a compatible stub (test-only).
+        # Import the concrete type at runtime so isinstance narrows correctly;
+        # the TYPE_CHECKING guard above keeps it out of the shipped type stubs.
+        from pdomain_ops.gpu.types import OcrBatchRequest  # pyright: ignore[reportMissingTypeStubs]
+
+        if isinstance(req, OcrBatchRequest):
+            count = len(req.images)
+        else:
+            # Fallback for test stubs that carry an ``images`` attribute but are
+            # not the concrete type (e.g. ClassVar-based stub classes in
+            # tests/test_fake_dispatcher.py).  The stub type is unknown to the
+            # type checker so getattr() is the only option here; this branch
+            # never executes in production (real callers pass OcrBatchRequest).
+            images = getattr(req, "images", None)
+            count = len(images) if isinstance(images, (list, tuple)) else 1
         return [_page_dict_for(self._text, page_index=i) for i in range(count)]

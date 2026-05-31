@@ -149,3 +149,27 @@ def test_fake_dispatcher_extract_words_returns_geometry() -> None:
         assert float(bbox["h"]) > 0, "bbox height must be > 0"
         assert isinstance(rec["confidence"], float)
         assert rec["confidence"] > 0
+
+
+def test_fake_dispatcher_uses_images_attribute_from_real_request() -> None:
+    """run_ocr_batch counts pages from OcrBatchRequest.images (isinstance narrowing).
+
+    Passes a real OcrBatchRequest (not the stub) with two images and asserts
+    that exactly two page dicts are returned.  This exercises the isinstance
+    narrowing path added by fix #38 — if getattr() regresses, the real
+    request type would still work but this test pins the implementation path.
+    """
+    from pdomain_ops.gpu.types import OcrBatchRequest
+
+    req = OcrBatchRequest(
+        images=[b"fake-image-a", b"fake-image-b"],
+        source_identifiers=["proj/0", "proj/1"],
+        engine="doctr",
+        language="en",
+    )
+    disp = FakeStageDispatcher(text="hello")
+    result = asyncio.run(disp.run_ocr_batch(req))
+    assert len(result) == 2, f"Expected 2 page dicts for 2 images, got {len(result)}"
+    # page_index is set correctly for both pages
+    assert result[0]["page_index"] == 0
+    assert result[1]["page_index"] == 1
