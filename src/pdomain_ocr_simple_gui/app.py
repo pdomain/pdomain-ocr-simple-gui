@@ -45,6 +45,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Wire prefs adapter, stage dispatcher, and suite registration at startup."""
     _ = app
     global _prefs_adapter, _dispatcher  # noqa: PLW0603  # module-level singletons for FastAPI lifespan
+    # Warn at startup when source paths are unrestricted.
+    from pdomain_ocr_simple_gui.sources.local_path import _get_allowlist
+
+    if _get_allowlist() is None:
+        logger.warning(
+            "SOURCE_ROOT_ALLOWLIST is not set or empty — "
+            "LocalPathSource will accept any filesystem path. "
+            "Set SOURCE_ROOT_ALLOWLIST to a colon-separated list of allowed roots "
+            "to restrict access.",
+        )
+
     try:
         from pdomain_ops.suite.prefs import LocalFilePrefs  # pyright: ignore[reportMissingTypeStubs]
 

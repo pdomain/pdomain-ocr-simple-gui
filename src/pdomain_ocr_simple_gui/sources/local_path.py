@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import os
 import shutil
 import tempfile
 import zipfile
@@ -11,6 +13,8 @@ from pdomain_ocr_simple_gui.sources import (
     SourceNotFound,
     SourceTooLarge,
 )
+
+logger = logging.getLogger(__name__)
 
 _IMAGE_EXTS = {
     ".png",
@@ -29,12 +33,53 @@ _IMAGE_EXTS = {
 _MAX_UNCOMPRESSED_BYTES = 2 * 1024**3  # 2 GiB
 
 
+def _get_allowlist() -> list[Path] | None:
+    """Return the parsed SOURCE_ROOT_ALLOWLIST, or None when unset/empty."""
+    raw = os.environ.get("SOURCE_ROOT_ALLOWLIST", "")
+    if not raw.strip():
+        return None
+    roots: list[Path] = []
+    for part in raw.split(":"):
+        stripped = part.strip()
+        if stripped:
+            roots.append(Path(stripped))
+    return roots if roots else None
+
+
+def _check_allowlist(resolved: Path) -> None:
+    """Raise ValueError if *resolved* is not a strict child of any allowed root.
+
+    Does nothing when SOURCE_ROOT_ALLOWLIST is unset or empty.
+    """
+    roots = _get_allowlist()
+    if roots is None:
+        return
+    resolved_str = str(resolved)
+    for root in roots:
+        try:
+            root_resolved = root.resolve()
+        except OSError:
+            # Non-existent root — skip silently.
+            continue
+        root_str = str(root_resolved)
+        # strict child: resolved must start with root/ and not equal root exactly
+        if resolved_str.startswith(root_str + os.sep) and resolved_str != root_str:
+            return
+    raise ValueError(
+        f"source path {resolved!r} is not within any allowed source root "
+        f"(SOURCE_ROOT_ALLOWLIST={os.environ.get('SOURCE_ROOT_ALLOWLIST', '')!r})"
+    )
+
+
 class LocalPathSource(Source):
     """Source backed by a local filesystem path (folder, image, or zip)."""
 
     def __init__(self, path: Path, extract_root: Path | None = None) -> None:
         self._path = Path(path).expanduser()
         self._extract_root = extract_root
+        # Allowlist check at accept time — resolve() follows symlinks, so a
+        # symlink that escapes the allowed tree is caught here.
+        _check_allowlist(self._path.resolve())
 
     def materialize(self) -> Path:
         """Return the materialized folder, creating a temp dir if needed."""

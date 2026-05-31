@@ -1795,7 +1795,7 @@ wheels = [
 
 [[package]]
 name = "pdomain-book-tools"
-version = "0.14.2"
+version = "0.15.2"
 source = { registry = "https://pdomain.github.io/pdomain-index-pip/simple/" }
 dependencies = [
     { name = "huggingface-hub" },
@@ -1819,9 +1819,9 @@ dependencies = [
     { name = "torchvision" },
     { name = "transformers" },
 ]
-sdist = { url = "https://github.com/pdomain/pdomain-book-tools/releases/download/v0.14.2/pdomain_book_tools-0.14.2.tar.gz" }
+sdist = { url = "https://github.com/pdomain/pdomain-book-tools/releases/download/v0.15.2/pdomain_book_tools-0.15.2.tar.gz" }
 wheels = [
-    { url = "https://github.com/pdomain/pdomain-book-tools/releases/download/v0.14.2/pdomain_book_tools-0.14.2-py3-none-any.whl" },
+    { url = "https://github.com/pdomain/pdomain-book-tools/releases/download/v0.15.2/pdomain_book_tools-0.15.2-py3-none-any.whl" },
 ]
 
 [[package]]
@@ -1903,7 +1903,7 @@ requires-dist = [
     { name = "filelock", specifier = ">=3.13" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "modal", marker = "extra == 'modal'", specifier = ">=0.66" },
-    { name = "pdomain-book-tools", specifier = ">=0.14.1", index = "https://pdomain.github.io/pdomain-index-pip/simple/" },
+    { name = "pdomain-book-tools", specifier = ">=0.15.1", index = "https://pdomain.github.io/pdomain-index-pip/simple/" },
     { name = "platformdirs", specifier = ">=4.2" },
     { name = "pydantic", specifier = ">=2.5" },
     { name = "tomli", specifier = ">=2.0" },
@@ -1930,7 +1930,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess" },
+    { name = "ptyprocess", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
