@@ -31,6 +31,8 @@ from __future__ import annotations
 
 from typing import cast
 
+from pdomain_ops.gpu.types import OcrBatchRequest
+
 
 def _bbox_dict(tl_x: float, tl_y: float, br_x: float, br_y: float) -> dict[str, object]:
     """Return a normalized BoundingBox dict as produced by ``BoundingBox.to_dict()``."""
@@ -224,10 +226,13 @@ class FakeStageDispatcher:
         ``Page.from_dict()`` accepts the dict and ``extract_words`` returns
         real bounding boxes instead of an empty list.
         """
-        # req is an OcrBatchRequest (real or local fallback) or a compatible
-        # test stub — use duck typing on the ``images`` attribute so this code
-        # works whether pdomain-ops is >= 0.3.1 (has the real type) or == 0.3.0
-        # (local fallback dataclass defined in pipeline.py).
-        images = getattr(req, "images", None)
-        count = len(images) if isinstance(images, (list, tuple)) else 1
+        # req is an OcrBatchRequest (pdomain-ops >= 0.4.0) or a compatible
+        # test stub.  Use isinstance narrowing for real requests; fall back to
+        # duck-typing on the ``images`` attribute for test stubs that don't
+        # import OcrBatchRequest directly.
+        if isinstance(req, OcrBatchRequest):
+            count = len(req.images)
+        else:
+            images = getattr(req, "images", None)
+            count = len(images) if isinstance(images, (list, tuple)) else 1
         return [_page_dict_for(self._text, page_index=i) for i in range(count)]

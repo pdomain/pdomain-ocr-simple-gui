@@ -11,10 +11,11 @@ Entry points:
 
 from __future__ import annotations
 
-import dataclasses
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Protocol, TypeAlias, cast
+from typing import TYPE_CHECKING, Protocol, TypeAlias, cast
+
+from pdomain_ops.gpu.types import OcrBatchRequest
 
 logger = logging.getLogger(__name__)
 
@@ -22,25 +23,6 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Mapping
 
     from pdomain_ocr_simple_gui.models import ProjectSpec, ProjectStatus
-
-# ---------------------------------------------------------------------------
-# OcrBatchRequest — try the upstream type; fall back to a local stub when
-# pdomain-ops is pinned to a release that predates it (< 0.3.1).
-# ---------------------------------------------------------------------------
-try:
-    from pdomain_ops.gpu.types import OcrBatchRequest  # pyright: ignore[reportAttributeAccessIssue]
-except ImportError:
-
-    @dataclasses.dataclass
-    class OcrBatchRequest:  # type: ignore[no-redef]  # local fallback
-        """Local fallback for pdomain_ops.gpu.types.OcrBatchRequest (< 0.3.1)."""
-
-        images: list[bytes]
-        source_identifiers: list[str]
-        engine: Literal["doctr", "tesseract"] = "doctr"
-        language: str = "eng"
-        model_key: str | None = None
-        device: str | None = None
 
 
 # Image extensions we recognise (case-insensitive).
@@ -416,8 +398,7 @@ async def run_project(
 
         try:
             # Build OcrBatchRequest — bytes-based, not path-based.
-            # OcrBatchRequest is imported at module level (real type when
-            # pdomain-ops >= 0.3.1; local fallback dataclass otherwise).
+            # OcrBatchRequest is imported from pdomain_ops.gpu.types (>= 0.4.0).
             image_bytes = [img_path.read_bytes() for img_path in chunk_images]
             source_ids = [f"{spec.project_id}/{idx}" for idx in chunk_indices]
             req = OcrBatchRequest(
