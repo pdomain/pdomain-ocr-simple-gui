@@ -152,14 +152,14 @@ def test_fake_dispatcher_extract_words_returns_geometry() -> None:
 
 
 def test_fake_dispatcher_uses_images_attribute_from_real_request() -> None:
-    """run_ocr_batch counts pages from OcrBatchRequest.images (isinstance narrowing).
+    """run_ocr_batch counts pages via the images attribute on the request object.
 
-    Passes a real OcrBatchRequest (not the stub) with two images and asserts
-    that exactly two page dicts are returned.  This exercises the isinstance
-    narrowing path added by fix #38 — if getattr() regresses, the real
-    request type would still work but this test pins the implementation path.
+    Passes an OcrBatchRequest (real pdomain-ops type when >= 0.3.1; local
+    fallback dataclass from pipeline.py when == 0.3.0) with two images and
+    asserts exactly two page dicts are returned.  This exercises the duck-typed
+    getattr(req, "images") path in FakeStageDispatcher.run_ocr_batch.
     """
-    from pdomain_ops.gpu.types import OcrBatchRequest
+    from pdomain_ocr_simple_gui.pipeline import OcrBatchRequest
 
     req = OcrBatchRequest(
         images=[b"fake-image-a", b"fake-image-b"],
