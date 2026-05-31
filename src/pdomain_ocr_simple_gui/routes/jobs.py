@@ -130,7 +130,7 @@ class CreateJobRequest(BaseModel):
     # NOTE: no save_json / combined_txt knob — sidecars + combined.txt are
     # always written (B-HOME-011 cleanup). A stale save_json/combined_txt in a
     # POST body is simply ignored (extra fields ignored by default).
-    # Post-OCR text normalization toggles (mirrors pd-ocr-cli flags)
+    # Post-OCR text normalization toggles (mirrors pdomain-ocr-cli flags)
     straight_quotes: bool = True
     em_dash_to_double_hyphen: bool = True
     # Reorganize-page knob (illustration block emission)

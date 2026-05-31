@@ -47,7 +47,7 @@ Architecture doc: `docs/architecture/00-overview.md`.
 | `make local-frontend-test` | vitest using locally-linked npm siblings |
 | `make local-frontend-dev` | Vite dev server using locally-linked npm siblings |
 | `make local-run` | run the SPA against local-dev workspace (local-mode only; uses `local-frontend-build` — local-link sticky) |
-| `make update-pd-deps` | bump pd-* sibling deps to registry latest; leaves diff for review |
+| `make update-pdomain-deps` | bump pd-* sibling deps to registry latest; leaves diff for review |
 
 `frontend-*` and `run` are registry-resolved (canonical CI path).
 `local-frontend-*` and `local-run` are local-link-resolved (developer

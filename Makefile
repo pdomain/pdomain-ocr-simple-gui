@@ -37,7 +37,7 @@ PEER_BOOK_TOOLS_PATH ?= ../pdomain-book-tools
         local-setup local-dev local-check local-upgrade-deps local-run \
         local-setup-py local-frontend-install local-frontend-build \
         local-frontend-test local-frontend-dev \
-        update-pd-deps upgrade-pdomain-book-tools \
+        update-pdomain-deps upgrade-pdomain-book-tools \
         release-patch release-minor release-major _do-release ci-slow build
 
 help: ## Show this help message
@@ -246,12 +246,12 @@ local-frontend-dev: local-frontend-install ## Vite dev server using local-linked
 # Sibling-dep refresh (spec #363)
 # ---------------------------------------------------------------------------
 
-update-pd-deps: ## Bump pd-* sibling deps to registry latest; leaves diff for review
-	@./scripts/update-pd-deps.sh
+update-pdomain-deps: ## Bump pd-* sibling deps to registry latest; leaves diff for review
+	@./scripts/update-pdomain-deps.sh
 
-upgrade-pdomain-book-tools: ## [DEPRECATED] Use 'make update-pd-deps' instead
-	@echo "⚠️  upgrade-pdomain-book-tools is deprecated. Use 'make update-pd-deps' for all sibling deps."
-	@$(MAKE) --no-print-directory update-pd-deps
+upgrade-pdomain-book-tools: ## [DEPRECATED] Use 'make update-pdomain-deps' instead
+	@echo "⚠️  upgrade-pdomain-book-tools is deprecated. Use 'make update-pdomain-deps' for all sibling deps."
+	@$(MAKE) --no-print-directory update-pdomain-deps
 
 # ---------------------------------------------------------------------------
 # Releases
