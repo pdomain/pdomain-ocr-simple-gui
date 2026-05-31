@@ -1,7 +1,7 @@
 # pdomain-ocr-simple-gui — Architecture Overview
 
-**Status:** Shipped (M0–M8 complete, verification milestone complete)
-**Last updated:** 2026-05-22
+**Status:** Shipped (M0–M8 complete, verification milestone complete, behavior-E2E pilot complete)
+**Last updated:** 2026-05-30
 
 ---
 
@@ -72,9 +72,11 @@ pdomain-ocr-simple-gui/
     test_entrypoint.py
     smoke/test_e2e.py       httpx end-to-end smoke (marked slow)
     e2e/                    Playwright browser e2e tests
-      conftest.py           live_server fixture
-      test_app_loads.py     Browser smoke: app loads + home-page visible
-      test_job_flow.py      Happy path: submit job → results page → page view
+      conftest.py           live_server fixture (fake + real-OCR variants)
+      test_browser_smoke.py Browser smoke: app loads + routing
+      test_click_paths_*.py Per-screen behavior-asserting Tier-A tests
+      test_flows.py         Cross-screen flow tests (F-* IDs)
+      test_real_ocr_*.py    Tier-B real-OCR tests (opt-in; GPU)
 ```
 
 ---
@@ -162,8 +164,12 @@ from `@pdomain/pdomain-ui`.
 - **Frontend:** vitest + `@testing-library/react` for component tests.
 - **Smoke:** `tests/smoke/test_e2e.py` — httpx end-to-end; starts server via
   subprocess; submits a real job; asserts `state=done` (xfails on missing model weights).
-- **Browser e2e:** `tests/e2e/` — Playwright (Chromium); `live_server` session fixture;
-  covers app load, job submission → results page, page-row click → page view.
+- **Browser e2e (Tier A):** `tests/e2e/` — Playwright (Chromium); fake-dispatcher
+  `live_server` fixture; behavior-asserting tests cite stable IDs from
+  `docs/specs/behavior/screen-*.md` and `flows.md`; an ID-traceable coverage
+  gate runs via `make behavior-coverage` (68 records / 68 cited as of 2026-05-30).
+- **Browser e2e (Tier B):** `tests/e2e/test_real_ocr_*.py` — real OCR engine,
+  GPU-backed, opt-in via `make e2e-real-ocr`.
 - **SPA serving contract:** `tests/test_routes_root.py` — monkeypatch + `tmp_path`
   fake `index.html`; always runs even without built frontend.
 

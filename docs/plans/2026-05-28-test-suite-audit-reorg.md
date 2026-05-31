@@ -1,5 +1,18 @@
 # Test Suite Audit, Reorg & Full UI Coverage — Implementation Plan
 
+> **Replanning note (2026-05-30):** This plan has not been started and is
+> not ready to execute as written. The behavior-driven E2E pilot (M0–M8,
+> merged 2026-05-30 as commit `c6af2ee`) shipped a behavior-spec layer,
+> coverage gate, and upgraded Playwright tests that overlap significantly
+> with this plan's M5 scope. Before executing, this plan must be reviewed
+> and reconciled against what was shipped: the fake-dispatcher seam, the
+> `data-testid` contract, the `e2e-fast` CI wiring, and the existing
+> backend/frontend test improvements. Some milestones (M1 audit matrix,
+> M2/M3 fixture consolidation) may still be relevant. Others (M5 e2e
+> scaffolding) are partially or fully superseded. Do not begin any
+> milestone without first reviewing the current repo state and updating
+> the plan.
+<!-- replan before executing -->
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Audit every test in pdomain-ocr-simple-gui, consolidate duplicated setup into shared fixtures/utilities, strengthen weak tests to an explicit good/bad standard, and drive every UI click path end-to-end through a real browser against a stubbed OCR backend — with no half-work and no deferred stubs.

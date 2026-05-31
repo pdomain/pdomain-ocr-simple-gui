@@ -1,5 +1,9 @@
 # Deep Code Review and Security Scan - 2026-05-22
 
+> **Status (2026-05-30):** Findings filed as GH security backlog issues
+> #17, #18, #19, #22, and #23 in this repo. All five remain open. No
+> findings have been remediated yet.
+
 Repo: `pdomain/pdomain-ocr-simple-gui`
 
 Scope: backend API/runtime, frontend GUI/privacy, dependency and supply-chain posture, CI/config, and static security scans. Four read-only subagents reviewed independent areas; the coordinating pass verified route behavior and ran local scanners.
