@@ -4,7 +4,6 @@
 // output-destination control; there is no separate outputDir field.
 
 import { useState, useEffect, type ChangeEvent, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Button,
   Input,
@@ -13,8 +12,12 @@ import {
   Segmented,
 } from "@pdomain/pdomain-ui/primitives";
 import { OutputConfigPanel, type OutputConfigValue } from "./OutputConfigPanel";
-import { useConfig } from "../runtime/ConfigContext";
 import { APP_TEST_IDS } from "../lib/testids";
+import type {
+  ChosenSource,
+  JobForm,
+  RuntimeConfig,
+} from "../statecharts/jobCreationTypes";
 
 interface PrefsResponse {
   // AppPrefs (GET /api/prefs) exposes default_engine / default_language —
@@ -24,17 +27,18 @@ interface PrefsResponse {
   default_language?: string;
 }
 
-export type ChosenSource =
-  | { kind: "path"; path: string }
-  | { kind: "upload"; uploadId: string };
+export type { ChosenSource } from "../statecharts/jobCreationTypes";
 
 export interface JobConfigInlineProps {
-  /** Structured source — required (form is only rendered when a source is chosen). */
+  /** Structured source required because this form only renders after selection. */
   source: ChosenSource;
-  /** Current runtime mode from ConfigContext. */
   mode?: "local" | "managed";
-  /** Called when user clicks "Use different files" to clear the chosen source. */
+  runtimeConfig?: RuntimeConfig | null;
+  submitError?: string | null;
+  submitting?: boolean;
   onCancel?: () => void;
+  onFormChanged?: (patch: Partial<JobForm>) => void;
+  onSubmitJob?: (form: JobForm) => void;
 }
 
 function defaultOutputMode(
@@ -64,16 +68,19 @@ export function defaultProjectName(source: ChosenSource): string {
 export function JobConfigInline({
   source,
   mode = "local",
+  runtimeConfig = null,
+  submitError = null,
+  submitting = false,
   onCancel,
+  onFormChanged,
+  onSubmitJob,
 }: JobConfigInlineProps) {
-  const navigate = useNavigate();
-  const cfg = useConfig();
-  const gpuAvailable = cfg?.gpu_available ?? false;
+  const gpuAvailable = runtimeConfig?.gpu_available ?? false;
 
   const [projectName, setProjectName] = useState<string>(() =>
     defaultProjectName(source),
   );
-  const [engine, setEngine] = useState<string>("doctr");
+  const [engine, setEngine] = useState<JobForm["engine"]>("doctr");
   const [language, setLanguage] = useState<string>("en");
   const [straightQuotes, setStraightQuotes] = useState<boolean>(true);
   const [emDashDoubleHyphen, setEmDashDoubleHyphen] = useState<boolean>(true);
@@ -85,8 +92,7 @@ export function JobConfigInline({
   const [showGpuHelp, setShowGpuHelp] = useState<boolean>(false);
   // Blank = default batch size (8); a positive int overrides.
   const [batchPages, setBatchPages] = useState<string>("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const sourceIsFolder = source.kind === "path";
   const [outputConfig, setOutputConfig] = useState<OutputConfigValue>(() =>
@@ -96,7 +102,12 @@ export function JobConfigInline({
   // Reset output config + project name when source/mode changes
   useEffect(() => {
     setOutputConfig(defaultOutputMode(source, mode));
-    setProjectName(defaultProjectName(source));
+    const name = defaultProjectName(source);
+    setProjectName(name);
+    onFormChanged?.({
+      name,
+      output: defaultOutputMode(source, mode),
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     source.kind,
@@ -114,8 +125,15 @@ export function JobConfigInline({
         if (!res.ok || cancelled) return;
         const data = (await res.json()) as PrefsResponse;
         if (cancelled) return;
-        if (data.default_engine) setEngine(data.default_engine);
-        if (data.default_language) setLanguage(data.default_language);
+        if (data.default_engine) {
+          const nextEngine = data.default_engine as JobForm["engine"];
+          setEngine(nextEngine);
+          onFormChanged?.({ engine: nextEngine });
+        }
+        if (data.default_language) {
+          setLanguage(data.default_language);
+          onFormChanged?.({ language: data.default_language });
+        }
       })
       .catch(() => {
         // Network error — keep defaults
@@ -125,54 +143,31 @@ export function JobConfigInline({
     };
   }, []);
 
-  async function handleSubmit(e: FormEvent) {
+  function buildForm(): JobForm {
+    return {
+      name: projectName,
+      engine,
+      language,
+      straight_quotes: straightQuotes,
+      em_dash_to_double_hyphen: emDashDoubleHyphen,
+      emit_illustration_placeholders: emitIllustrationPlaceholders,
+      device: !gpuAvailable && device === "gpu" ? "cpu" : device,
+      batch_pages:
+        batchPages.trim() === ""
+          ? null
+          : Math.max(1, parseInt(batchPages, 10) || 1),
+      output: outputConfig,
+    };
+  }
+
+  function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!projectName.trim()) {
-      setError("Project name is required.");
+      setValidationError("Project name is required.");
       return;
     }
-    setError(null);
-    setSubmitting(true);
-    try {
-      const baseBody: Record<string, unknown> = {
-        name: projectName,
-        engine,
-        language,
-        // No save_json / combined_txt knob — the server always writes per-page
-        // sidecars + combined.txt (B-HOME-011 cleanup).
-        straight_quotes: straightQuotes,
-        em_dash_to_double_hyphen: emDashDoubleHyphen,
-        emit_illustration_placeholders: emitIllustrationPlaceholders,
-        device: !gpuAvailable && device === "gpu" ? "cpu" : device,
-        batch_pages:
-          batchPages.trim() === ""
-            ? null
-            : Math.max(1, parseInt(batchPages, 10) || 1),
-        output: outputConfig,
-      };
-
-      if (source.kind === "upload") {
-        baseBody.upload_id = source.uploadId;
-      } else {
-        baseBody.source_path = source.path;
-      }
-
-      const res = await fetch("/api/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(baseBody),
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Server error: ${text}`);
-      }
-      const data = (await res.json()) as { project_id: string };
-      navigate(`/jobs/${data.project_id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred.");
-    } finally {
-      setSubmitting(false);
-    }
+    setValidationError(null);
+    onSubmitJob?.(buildForm());
   }
 
   return (
@@ -204,9 +199,9 @@ export function JobConfigInline({
         }}
         noValidate
       >
-        {error !== null && (
+        {(validationError !== null || submitError !== null) && (
           <p role="alert" className="job-config-inline__error">
-            {error}
+            {validationError ?? submitError}
           </p>
         )}
 
@@ -215,9 +210,10 @@ export function JobConfigInline({
             id="jci-name"
             type="text"
             value={projectName}
-            onChange={(e: ChangeEvent<HTMLInputElement>) =>
-              setProjectName(e.target.value)
-            }
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              setProjectName(e.target.value);
+              onFormChanged?.({ name: e.target.value });
+            }}
             aria-label="Project name"
           />
         </Field>
@@ -226,9 +222,11 @@ export function JobConfigInline({
           <select
             id="jci-engine"
             value={engine}
-            onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-              setEngine(e.target.value)
-            }
+            onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+              const nextEngine = e.target.value as JobForm["engine"];
+              setEngine(nextEngine);
+              onFormChanged?.({ engine: nextEngine });
+            }}
             className="input"
             aria-label="Engine"
             data-testid={APP_TEST_IDS.engineSelect}
@@ -243,9 +241,10 @@ export function JobConfigInline({
             id="jci-language"
             type="text"
             value={language}
-            onChange={(e: ChangeEvent<HTMLInputElement>) =>
-              setLanguage(e.target.value)
-            }
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              setLanguage(e.target.value);
+              onFormChanged?.({ language: e.target.value });
+            }}
             placeholder="en"
             data-testid={APP_TEST_IDS.languageInput}
           />
@@ -255,21 +254,30 @@ export function JobConfigInline({
           id="jci-straight-quotes"
           label="Convert curly quotes to straight"
           checked={straightQuotes}
-          onCheckedChange={setStraightQuotes}
+          onCheckedChange={(checked) => {
+            setStraightQuotes(checked);
+            onFormChanged?.({ straight_quotes: checked });
+          }}
           data-testid={APP_TEST_IDS.toggleStraightQuotes}
         />
         <Toggle
           id="jci-em-dash"
           label="Convert em-dashes (—) to double hyphens (--)"
           checked={emDashDoubleHyphen}
-          onCheckedChange={setEmDashDoubleHyphen}
+          onCheckedChange={(checked) => {
+            setEmDashDoubleHyphen(checked);
+            onFormChanged?.({ em_dash_to_double_hyphen: checked });
+          }}
           data-testid={APP_TEST_IDS.toggleEmDash}
         />
         <Toggle
           id="jci-illustration-placeholders"
           label="Emit [illustration] placeholders for figures"
           checked={emitIllustrationPlaceholders}
-          onCheckedChange={setEmitIllustrationPlaceholders}
+          onCheckedChange={(checked) => {
+            setEmitIllustrationPlaceholders(checked);
+            onFormChanged?.({ emit_illustration_placeholders: checked });
+          }}
           data-testid={APP_TEST_IDS.toggleIllustrationPlaceholders}
         />
 
@@ -289,7 +297,11 @@ export function JobConfigInline({
                     ]
               }
               value={device}
-              onChange={(v) => setDevice(v as "auto" | "gpu" | "cpu")}
+              onChange={(v) => {
+                const nextDevice = v as JobForm["device"];
+                setDevice(nextDevice);
+                onFormChanged?.({ device: nextDevice });
+              }}
             />
             <p
               style={{
@@ -299,8 +311,8 @@ export function JobConfigInline({
               }}
             >
               {gpuAvailable
-                ? `GPU detected (${cfg?.detected_device}). Auto uses it.`
-                : "No GPU detected — OCR will run on CPU (slower)."}
+                ? `GPU detected (${runtimeConfig?.detected_device}). Auto uses it.`
+                : "No GPU detected - OCR will run on CPU (slower)."}
               {!gpuAvailable && (
                 <>
                   {" "}
@@ -366,9 +378,15 @@ export function JobConfigInline({
             type="number"
             min={1}
             value={batchPages}
-            onChange={(e: ChangeEvent<HTMLInputElement>) =>
-              setBatchPages(e.target.value)
-            }
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              setBatchPages(e.target.value);
+              onFormChanged?.({
+                batch_pages:
+                  e.target.value.trim() === ""
+                    ? null
+                    : Math.max(1, parseInt(e.target.value, 10) || 1),
+              });
+            }}
             placeholder="auto"
             data-testid={APP_TEST_IDS.batchPagesInput}
           />
@@ -378,7 +396,10 @@ export function JobConfigInline({
           mode={mode}
           sourceIsFolder={sourceIsFolder}
           value={outputConfig}
-          onChange={setOutputConfig}
+          onChange={(nextOutput) => {
+            setOutputConfig(nextOutput);
+            onFormChanged?.({ output: nextOutput });
+          }}
         />
 
         <div className="job-config-inline__actions">

@@ -1,33 +1,58 @@
-// HomePage — renders input affordances based on mode/container matrix from /api/config.
-// After a source is chosen, an inline JobConfigInline form appears progressively
-// below the SourcePicker(s); no modal dialog.
-import { useState, useMemo, useCallback } from "react";
-import { useConfig, useConfigStatus } from "../runtime/ConfigContext";
+// HomePage renders the source-selection and job-configuration flow from the
+// jobCreationMachine runtime statechart.
+import { useCallback, useEffect, useMemo } from "react";
+import { useMachine } from "@xstate/react";
+import { useNavigate } from "react-router-dom";
 import { SourcePicker } from "../components/SourcePicker";
 import { RecentProjectsList } from "../components/RecentProjectsList";
-import {
-  JobConfigInline,
-  type ChosenSource,
-} from "../components/JobConfigInline";
+import { JobConfigInline } from "../components/JobConfigInline";
 import { APP_TEST_IDS } from "../lib/testids";
+import { jobCreationMachine } from "../statecharts/jobCreationMachine";
+import type { JobForm } from "../statecharts/jobCreationTypes";
 import { useShortcuts } from "@pdomain/pdomain-ui/hooks";
 import type { ShortcutBinding } from "@pdomain/pdomain-ui/hooks";
 
-export function HomePage() {
-  const cfg = useConfig();
-  const { error: configError, reload } = useConfigStatus();
-  const [chosen, setChosen] = useState<ChosenSource | null>(null);
+const recentPaths = [
+  "~/scans/belloc-survivals/jp2/",
+  "belloc-survivals.zip",
+  "manuscript-fragment.pdf",
+];
 
-  function handleCancel() {
-    setChosen(null);
-  }
+export function HomePage() {
+  const [snapshot, send] = useMachine(jobCreationMachine);
+  const navigate = useNavigate();
+  const { config, profile, source, uploadError, submitError } =
+    snapshot.context;
+
+  const chooseFiles = useCallback(
+    (files: File[]) => send({ type: "FILES_SELECTED", files }),
+    [send],
+  );
+  const choosePath = useCallback(
+    (path: string) => send({ type: "PATH_CHOSEN", path }),
+    [send],
+  );
+  const clearSource = useCallback(() => send({ type: "CLEAR_SOURCE" }), [send]);
+  const changeJobForm = useCallback(
+    (patch: Partial<JobForm>) => send({ type: "JOB_FORM_CHANGED", patch }),
+    [send],
+  );
+  const submitJob = useCallback(
+    (form: JobForm) => {
+      send({ type: "JOB_FORM_CHANGED", patch: form });
+      send({ type: "SUBMIT_JOB" });
+    },
+    [send],
+  );
+
+  useEffect(() => {
+    if (snapshot.matches("submitted") && snapshot.context.submittedProjectId) {
+      navigate(`/jobs/${snapshot.context.submittedProjectId}`);
+    }
+  }, [navigate, snapshot]);
 
   // B-SHELL-013: Register a home-route keyboard shortcut so the cheatsheet
   // is not empty when the user opens it from the home page.
-  // "n" → focus the source path input (if present in current mode).
-  // useCallback + useMemo: stable references prevent infinite re-registration
-  // via ShortcutsContext (allBindings changes cause Provider re-render →
-  // new bindings array → new registration → loop).
   const focusPathInput = useCallback(() => {
     const el = document.querySelector<HTMLElement>(
       `[data-testid="${APP_TEST_IDS.sourcePickerPathInput}"]`,
@@ -49,9 +74,7 @@ export function HomePage() {
 
   useShortcuts(homeShortcuts);
 
-  // B-HOME-014 (Regression): when /api/config fails, surface the error +
-  // a retry instead of hanging on "Loading…" forever.
-  if (configError) {
+  if (snapshot.matches("configFailed")) {
     return (
       <div data-testid={APP_TEST_IDS.homePage} className="home-page">
         <div role="alert" data-testid="home-config-error">
@@ -61,7 +84,7 @@ export function HomePage() {
           <button
             type="button"
             data-testid="home-config-retry"
-            onClick={() => void reload()}
+            onClick={() => send({ type: "CONFIG_RETRY" })}
           >
             Retry
           </button>
@@ -70,70 +93,80 @@ export function HomePage() {
     );
   }
 
-  if (!cfg) return <div>Loading…</div>;
+  if (profile === null || config === null) return <div>Loading...</div>;
 
-  const mode = cfg.mode;
-  const containerized = cfg.is_containerized;
-  const clearChosen = () => setChosen(null);
-
+  const mode = config.mode;
+  const localPathHint =
+    profile.kind === "local-container"
+      ? "Paths refer to the container filesystem (bind-mount your scans dir if needed)."
+      : "Folder, image, or zip path on this machine.";
   return (
     <div data-testid={APP_TEST_IDS.homePage} className="home-page">
-      {mode === "managed" && (
+      {profile.kind === "managed-server" && (
         <SourcePicker
           allowDrop
           allowPathInput={false}
-          onUploadComplete={(id) => setChosen({ kind: "upload", uploadId: id })}
-          onPathChosen={() => {}}
-          onClear={clearChosen}
+          uploadError={uploadError}
+          onFilesSelected={chooseFiles}
+          onPathChosen={choosePath}
+          onClear={clearSource}
         />
       )}
-      {mode === "local" && containerized && (
+      {profile.kind === "local-container" && (
         <>
-          {/* Hide the upload picker once a path source is chosen, and vice versa.
-              Both pickers are visible when no source is chosen (chosen === null).
-              Once one source is chosen, only that source is visible. Clearing
-              (onClear → clearChosen) restores chosen to null → both reappear. */}
-          {chosen === null || chosen.kind === "upload" ? (
+          {source === null || source.kind === "upload" ? (
             <>
               <h3 className="heading-13">Upload</h3>
               <SourcePicker
                 allowDrop
                 allowPathInput={false}
-                onUploadComplete={(id) =>
-                  setChosen({ kind: "upload", uploadId: id })
-                }
-                onPathChosen={() => {}}
-                onClear={clearChosen}
+                uploadError={uploadError}
+                onFilesSelected={chooseFiles}
+                onPathChosen={choosePath}
+                onClear={clearSource}
               />
             </>
           ) : null}
-          {chosen === null || chosen.kind === "path" ? (
+          {source === null || source.kind === "path" ? (
             <>
               <h3 className="heading-13">Existing folder or zip</h3>
               <SourcePicker
                 allowDrop={false}
                 allowPathInput
-                pathHint="Paths refer to the container filesystem (bind-mount your scans dir if needed)."
-                onUploadComplete={() => {}}
-                onPathChosen={(p) => setChosen({ kind: "path", path: p })}
-                onClear={clearChosen}
+                pathHint={localPathHint}
+                recentPaths={recentPaths}
+                uploadError={uploadError}
+                onFilesSelected={chooseFiles}
+                onPathChosen={choosePath}
+                onClear={clearSource}
               />
             </>
           ) : null}
         </>
       )}
-      {mode === "local" && !containerized && (
+      {profile.kind === "local-host" && (
         <SourcePicker
           allowDrop
           allowPathInput
-          pathHint="Folder, image, or zip path on this machine."
-          onUploadComplete={(id) => setChosen({ kind: "upload", uploadId: id })}
-          onPathChosen={(p) => setChosen({ kind: "path", path: p })}
-          onClear={clearChosen}
+          pathHint={localPathHint}
+          recentPaths={recentPaths}
+          uploadError={uploadError}
+          onFilesSelected={chooseFiles}
+          onPathChosen={choosePath}
+          onClear={clearSource}
         />
       )}
-      {chosen !== null && (
-        <JobConfigInline source={chosen} mode={mode} onCancel={handleCancel} />
+      {source !== null && (
+        <JobConfigInline
+          source={source}
+          mode={mode}
+          runtimeConfig={config}
+          submitError={submitError}
+          submitting={snapshot.matches("submittingJob")}
+          onCancel={clearSource}
+          onFormChanged={changeJobForm}
+          onSubmitJob={submitJob}
+        />
       )}
       <RecentProjectsList />
     </div>

@@ -1,18 +1,46 @@
 // Tests for HomePage layout matrix.
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ConfigProvider } from "../../runtime/ConfigContext";
 import { HomePage } from "../HomePage";
+import type { JobForm } from "../../statecharts/jobCreationTypes";
 
-// Mock JobConfigInline — keep render trivial so HomePage tests focus on
-// layout matrix + chosen-source visibility, not the config form internals.
+const mockSubmitForm: JobForm = {
+  name: "scans",
+  engine: "doctr",
+  language: "en",
+  straight_quotes: true,
+  em_dash_to_double_hyphen: true,
+  emit_illustration_placeholders: false,
+  device: "auto",
+  batch_pages: null,
+  output: { mode: "managed" },
+};
+
 vi.mock("../../components/JobConfigInline", () => ({
-  JobConfigInline: ({ onCancel }: { onCancel?: () => void }) => (
+  JobConfigInline: ({
+    onCancel,
+    onSubmitJob,
+    submitError,
+    submitting,
+  }: {
+    onCancel?: () => void;
+    onSubmitJob?: (form: JobForm) => void;
+    submitError?: string | null;
+    submitting?: boolean;
+  }) => (
     <div data-testid="job-config-inline">
+      {submitError ? <p role="alert">{submitError}</p> : null}
       <button type="button" onClick={onCancel} data-testid="mock-cancel">
         Cancel
+      </button>
+      <button
+        type="button"
+        disabled={submitting}
+        onClick={() => onSubmitJob?.(mockSubmitForm)}
+      >
+        Run OCR
       </button>
     </div>
   ),
@@ -24,212 +52,232 @@ function makeQueryClient() {
   });
 }
 
-function withConfig(cfg: { mode: string; is_containerized: boolean }) {
-  globalThis.fetch = (async () => ({
-    ok: true,
-    json: async () => cfg,
-  })) as unknown as typeof fetch;
-  return renderTree();
+function installFetch(cfg: {
+  mode: "local" | "managed";
+  is_containerized: boolean;
+}) {
+  globalThis.fetch = vi
+    .fn()
+    .mockImplementation((url: string, opts?: RequestInit) => {
+      if (url === "/api/config") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            ...cfg,
+            detected_device: "cpu",
+            gpu_available: false,
+          }),
+        });
+      }
+      if (url === "/api/prefs") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ recent_projects: [] }),
+        });
+      }
+      if (url === "/api/uploads" && opts?.method === "POST") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ upload_id: "test-upload-123" }),
+        });
+      }
+      if (url === "/api/jobs" && opts?.method === "POST") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ project_id: "job-123" }),
+        });
+      }
+      return Promise.resolve({ ok: false, json: async () => ({}) });
+    }) as unknown as typeof fetch;
 }
 
-function withConfigError() {
-  globalThis.fetch = (async () => ({
-    ok: false,
-    json: async () => ({}),
-  })) as unknown as typeof fetch;
-  return renderTree();
+function installConfigErrorThenSuccess() {
+  let attempts = 0;
+  globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+    if (url === "/api/config") {
+      attempts += 1;
+      if (attempts === 1) {
+        return Promise.resolve({ ok: false, json: async () => ({}) });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          mode: "local",
+          is_containerized: false,
+          detected_device: "cpu",
+          gpu_available: false,
+        }),
+      });
+    }
+    if (url === "/api/prefs") {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ recent_projects: [] }),
+      });
+    }
+    return Promise.resolve({ ok: false, json: async () => ({}) });
+  }) as unknown as typeof fetch;
 }
 
-function renderTree() {
+function LocationCapture({
+  onLocation,
+}: {
+  onLocation: (path: string) => void;
+}) {
+  const location = useLocation();
+  onLocation(location.pathname);
+  return null;
+}
+
+function renderTree(onLocation?: (path: string) => void) {
   const client = makeQueryClient();
   return (
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <ConfigProvider>
-          <HomePage />
-        </ConfigProvider>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route
+            path="/jobs/:id"
+            element={<LocationCapture onLocation={onLocation ?? (() => {})} />}
+          />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>
   );
 }
 
 it("local + containerized shows drop zone and path input", async () => {
-  render(withConfig({ mode: "local", is_containerized: true }));
+  installFetch({ mode: "local", is_containerized: true });
+  render(renderTree());
   expect(await screen.findByTestId("source-picker-drop")).toBeInTheDocument();
   expect(screen.getByTestId("source-picker-path-input")).toBeInTheDocument();
 });
 
 it("local + not containerized shows drop, file pick, and path together", async () => {
-  render(withConfig({ mode: "local", is_containerized: false }));
+  installFetch({ mode: "local", is_containerized: false });
+  render(renderTree());
   expect(await screen.findByTestId("source-picker-drop")).toBeInTheDocument();
   expect(screen.getByTestId("source-picker-file-pick")).toBeInTheDocument();
   expect(screen.getByTestId("source-picker-path-input")).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: /browse folder/i }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: /choose file/i }),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/or paste a path/i)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^open$/i })).toBeInTheDocument();
+  expect(screen.getByText(/recent:/i)).toBeInTheDocument();
 });
 
-it("managed shows upload-only (no path input)", async () => {
-  render(withConfig({ mode: "managed", is_containerized: false }));
+it("managed shows upload-only with no path affordances", async () => {
+  installFetch({ mode: "managed", is_containerized: false });
+  render(renderTree());
   expect(await screen.findByTestId("source-picker-drop")).toBeInTheDocument();
   expect(screen.queryByTestId("source-picker-path-input")).toBeNull();
+  expect(screen.queryByText(/or paste a path/i)).toBeNull();
+  expect(screen.queryByText(/recent:/i)).toBeNull();
 });
 
 // B-HOME-014 (Regression): a failed /api/config must surface an error message
-// + retry affordance instead of hanging on "Loading…" forever.
+// + retry affordance instead of hanging on "Loading..." forever.
 it("shows an error state (not infinite loading) when /api/config fails", async () => {
-  render(withConfigError());
+  installConfigErrorThenSuccess();
+  const user = userEvent.setup();
+  render(renderTree());
+
   expect(await screen.findByTestId("home-config-error")).toBeInTheDocument();
   expect(screen.getByTestId("home-config-retry")).toBeInTheDocument();
-  // Must NOT be stuck on the loading text.
-  expect(screen.queryByText("Loading…")).toBeNull();
+  expect(screen.queryByText("Loading...")).toBeNull();
+
+  await user.click(screen.getByTestId("home-config-retry"));
+  expect(await screen.findByTestId("source-picker-drop")).toBeInTheDocument();
 });
 
 it("JobConfigInline is hidden until a source is chosen", async () => {
-  render(withConfig({ mode: "local", is_containerized: false }));
+  installFetch({ mode: "local", is_containerized: false });
+  render(renderTree());
   await screen.findByTestId("source-picker-drop");
   expect(screen.queryByTestId("job-config-inline")).toBeNull();
 });
 
 it("JobConfigInline appears after a path is chosen, and clears on cancel", async () => {
+  installFetch({ mode: "local", is_containerized: false });
   const user = userEvent.setup();
-  render(withConfig({ mode: "local", is_containerized: false }));
+  render(renderTree());
 
-  // Simulate path input → triggers onPathChosen → chosen set
   const pathInput = await screen.findByTestId("source-picker-path-input");
   await user.type(pathInput, "/tmp/scans");
-  const useBtn = screen.getByRole("button", { name: /use this path/i });
-  await user.click(useBtn);
+  await user.click(screen.getByRole("button", { name: /^open$/i }));
 
-  // After source chosen, inline config appears
   expect(await screen.findByTestId("job-config-inline")).toBeInTheDocument();
 
-  // Click cancel → inline disappears
-  const cancel = screen.getByTestId("mock-cancel");
-  await user.click(cancel);
+  await user.click(screen.getByTestId("mock-cancel"));
   expect(screen.queryByTestId("job-config-inline")).toBeNull();
 });
 
-// ---- Source-hide behavior (Change 1) ----
-// In local+containerized mode, two SourcePickers are rendered (upload + path).
-// Once one source is chosen, the alternative input must be hidden.
-// Clearing the chosen source restores both inputs.
+it("navigates to the submitted job when the machine submit succeeds", async () => {
+  installFetch({ mode: "local", is_containerized: false });
+  const user = userEvent.setup();
+  const locations: string[] = [];
+  render(renderTree((path) => locations.push(path)));
+
+  const pathInput = await screen.findByTestId("source-picker-path-input");
+  await user.type(pathInput, "/tmp/scans");
+  await user.click(screen.getByRole("button", { name: /^open$/i }));
+  await user.click(await screen.findByRole("button", { name: /run ocr/i }));
+
+  await waitFor(() => {
+    expect(locations).toContain("/jobs/job-123");
+  });
+});
 
 it("local+containerized: choosing upload hides the path input", async () => {
-  // Mock fetch: config + uploads endpoint
-  const origFetch = globalThis.fetch;
-  globalThis.fetch = (async (url: string, opts?: RequestInit) => {
-    if (typeof url === "string" && url.includes("/api/config")) {
-      return {
-        ok: true,
-        json: async () => ({ mode: "local", is_containerized: true }),
-      };
-    }
-    if (
-      typeof url === "string" &&
-      url.includes("/api/uploads") &&
-      opts?.method === "POST"
-    ) {
-      return { ok: true, json: async () => ({ upload_id: "test-upload-123" }) };
-    }
-    return { ok: true, json: async () => ({}) };
-  }) as unknown as typeof fetch;
-
+  installFetch({ mode: "local", is_containerized: true });
+  const user = userEvent.setup();
   render(renderTree());
 
-  // Both pickers visible initially (upload drop zone + path input)
   expect(await screen.findByTestId("source-picker-drop")).toBeInTheDocument();
   expect(screen.getByTestId("source-picker-path-input")).toBeInTheDocument();
 
-  // Simulate upload completing by triggering the SourcePicker file input
-  // The upload picker's SourcePicker calls onUploadComplete → sets chosen
-  // We simulate by using the file input
-  const user = userEvent.setup();
   const file = new File(["fake"], "scan.png", { type: "image/png" });
-  const fileInput = screen.getByTestId("source-picker-file-pick");
-  await user.upload(fileInput, file);
+  await user.upload(screen.getByTestId("source-picker-file-pick"), file);
 
-  // After upload chosen: path input must be hidden; config form appears
   await screen.findByTestId("job-config-inline");
   expect(screen.queryByTestId("source-picker-path-input")).toBeNull();
-
-  globalThis.fetch = origFetch;
 });
 
 it("local+containerized: choosing path hides the upload drop zone", async () => {
-  globalThis.fetch = (async (url: string) => {
-    if (typeof url === "string" && url.includes("/api/config")) {
-      return {
-        ok: true,
-        json: async () => ({ mode: "local", is_containerized: true }),
-      };
-    }
-    return { ok: true, json: async () => ({}) };
-  }) as unknown as typeof fetch;
-
+  installFetch({ mode: "local", is_containerized: true });
   const user = userEvent.setup();
   render(renderTree());
 
-  // Both inputs visible initially
   expect(await screen.findByTestId("source-picker-drop")).toBeInTheDocument();
   expect(screen.getByTestId("source-picker-path-input")).toBeInTheDocument();
 
-  // Choose a path → triggers onPathChosen → sets chosen
   const pathInput = screen.getByTestId("source-picker-path-input");
   await user.type(pathInput, "/tmp/scans");
-  const useBtn = screen.getByRole("button", { name: /use this path/i });
-  await user.click(useBtn);
+  await user.click(screen.getByRole("button", { name: /^open$/i }));
 
-  // After path chosen: upload drop zone must be hidden
   await screen.findByTestId("job-config-inline");
   expect(screen.queryByTestId("source-picker-drop")).toBeNull();
 });
 
 it("local+containerized: clearing upload restores both source inputs", async () => {
-  const origFetch = globalThis.fetch;
-  globalThis.fetch = (async (url: string, opts?: RequestInit) => {
-    if (typeof url === "string" && url.includes("/api/config")) {
-      return {
-        ok: true,
-        json: async () => ({ mode: "local", is_containerized: true }),
-      };
-    }
-    if (
-      typeof url === "string" &&
-      url.includes("/api/uploads") &&
-      opts?.method === "POST"
-    ) {
-      return { ok: true, json: async () => ({ upload_id: "test-upload-456" }) };
-    }
-    if (
-      typeof url === "string" &&
-      url.includes("/api/uploads/") &&
-      opts?.method === "DELETE"
-    ) {
-      return { ok: true, json: async () => ({}) };
-    }
-    return { ok: true, json: async () => ({}) };
-  }) as unknown as typeof fetch;
-
+  installFetch({ mode: "local", is_containerized: true });
   const user = userEvent.setup();
   render(renderTree());
 
   await screen.findByTestId("source-picker-drop");
 
-  // Upload a file to choose a source
   const file = new File(["fake"], "scan.png", { type: "image/png" });
-  const fileInput = screen.getByTestId("source-picker-file-pick");
-  await user.upload(fileInput, file);
+  await user.upload(screen.getByTestId("source-picker-file-pick"), file);
   await screen.findByTestId("job-config-inline");
 
-  // Path input is now hidden
   expect(screen.queryByTestId("source-picker-path-input")).toBeNull();
 
-  // Click the cancel button (mock-cancel is tied to handleCancel)
-  // which resets chosen to null, restoring both inputs
-  const cancel = screen.getByTestId("mock-cancel");
-  await user.click(cancel);
+  await user.click(screen.getByTestId("mock-cancel"));
 
-  // Both source inputs restore
   expect(await screen.findByTestId("source-picker-drop")).toBeInTheDocument();
   expect(screen.getByTestId("source-picker-path-input")).toBeInTheDocument();
-
-  globalThis.fetch = origFetch;
 });

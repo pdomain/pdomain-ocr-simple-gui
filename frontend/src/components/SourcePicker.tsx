@@ -1,8 +1,5 @@
-// SourcePicker — A6.2
-// Drop zone (also click-to-browse) + path input affordances.
-// The dropzone IS the entire input affordance — there is no separate
-// "Choose files" button. Drop into it, or click it to open the file picker.
-// After a drop/select, the dropzone shows what was chosen plus a clear button.
+// SourcePicker is a presentational source-entry surface. Runtime work such as
+// uploads is owned by HomePage's jobCreationMachine.
 import { useRef, useState } from "react";
 import { Button, Field, Input } from "@pdomain/pdomain-ui/primitives";
 import { APP_TEST_IDS } from "../lib/testids";
@@ -10,127 +7,86 @@ import { APP_TEST_IDS } from "../lib/testids";
 export interface SourcePickerProps {
   allowDrop: boolean;
   allowPathInput: boolean;
+  allowFolderBrowse?: boolean;
+  recentPaths?: string[];
   pathHint?: string;
-  onUploadComplete: (uploadId: string) => void;
+  uploadError?: string | null;
+  onFilesSelected: (files: File[]) => void;
   onPathChosen: (path: string) => void;
-  /**
-   * Called when the user clicks the dropzone's clear/cancel button.
-   * Lets the parent reset any chosen-source state (e.g. hide a config form
-   * that was revealed after onUploadComplete).
-   */
   onClear?: () => void;
 }
 
-async function uploadFiles(files: File[]): Promise<string> {
-  const form = new FormData();
-  files.forEach((f) => form.append("files", f));
-  const res = await fetch("/api/uploads", { method: "POST", body: form });
-  if (!res.ok) throw new Error(`upload failed: ${res.status}`);
-  const body = (await res.json()) as { upload_id: string };
-  return body.upload_id;
-}
-
 interface ChosenDescription {
-  /** Top-level folder name when a directory was dropped, else null. */
   folder: string | null;
-  /** Individual file names (basename only). */
   names: string[];
 }
 
 function describeFiles(files: File[]): ChosenDescription {
-  // Folder drops populate webkitRelativePath like "myfolder/sub/page1.png".
   const firstRel =
     (files[0] as File & { webkitRelativePath?: string })?.webkitRelativePath ??
     "";
   const folder = firstRel.includes("/") ? firstRel.split("/")[0]! : null;
   return {
     folder,
-    names: files.map((f) => f.name),
+    names: files.map((file) => file.name),
   };
 }
 
 export function SourcePicker(props: SourcePickerProps) {
   const fileInput = useRef<HTMLInputElement>(null);
+  const folderInput = useRef<HTMLInputElement>(null);
   const [pathDraft, setPathDraft] = useState("");
   const [chosen, setChosen] = useState<ChosenDescription | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  // Track the staged upload so clearing can delete its server-side dir
-  // (B-HOME-004 — orphan staging dirs must not accumulate).
-  const uploadIdRef = useRef<string | null>(null);
 
-  const handleFiles = async (files: File[]) => {
+  const allowFolderBrowse = props.allowFolderBrowse ?? props.allowDrop;
+
+  const handleFiles = (files: File[]) => {
     if (!files.length) return;
-    setUploadError(null);
     setChosen(describeFiles(files));
-    try {
-      const id = await uploadFiles(files);
-      uploadIdRef.current = id;
-      props.onUploadComplete(id);
-    } catch (err) {
-      setUploadError(
-        err instanceof Error ? err.message : "Upload failed. Please try again.",
-      );
-    }
+    props.onFilesSelected(files);
   };
 
-  const openPicker = () => {
+  const openFilePicker = () => {
     fileInput.current?.click();
+  };
+
+  const openFolderPicker = () => {
+    folderInput.current?.click();
   };
 
   const handleClear = () => {
     setChosen(null);
     if (fileInput.current) fileInput.current.value = "";
-    // Delete the staged upload dir on the server, if any (B-HOME-004).
-    const staged = uploadIdRef.current;
-    if (staged) {
-      uploadIdRef.current = null;
-      void fetch(`/api/uploads/${encodeURIComponent(staged)}`, {
-        method: "DELETE",
-      }).catch(() => {
-        // Best-effort cleanup — a failed delete must not block the UI reset.
-      });
-    }
+    if (folderInput.current) folderInput.current.value = "";
     props.onClear?.();
   };
 
   return (
-    <div>
+    <div className="source-picker">
       {props.allowDrop && (
         <div
           data-testid={APP_TEST_IDS.sourcePickerDropZone}
           role="button"
+          aria-label="Drop source files"
           tabIndex={0}
-          onClick={openPicker}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              openPicker();
+          className={`source-picker__drop${dragActive ? " source-picker__drop--active" : ""}`}
+          onClick={openFilePicker}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              openFilePicker();
             }
           }}
-          onDragOver={(e) => {
-            e.preventDefault();
+          onDragOver={(event) => {
+            event.preventDefault();
             setDragActive(true);
           }}
           onDragLeave={() => setDragActive(false)}
-          onDrop={(e) => {
-            e.preventDefault();
+          onDrop={(event) => {
+            event.preventDefault();
             setDragActive(false);
-            void handleFiles(Array.from(e.dataTransfer.files));
-          }}
-          style={{
-            padding: 24,
-            border: `2px dashed ${dragActive ? "var(--accent-9)" : "var(--border-3)"}`,
-            background: dragActive ? "var(--surface-2)" : "transparent",
-            cursor: "pointer",
-            borderRadius: 8,
-            minHeight: 120,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            textAlign: "center",
+            handleFiles(Array.from(event.dataTransfer.files));
           }}
         >
           <input
@@ -138,56 +94,78 @@ export function SourcePicker(props: SourcePickerProps) {
             data-testid={APP_TEST_IDS.sourcePickerFilePick}
             type="file"
             multiple
-            accept="image/*,.zip"
-            style={{
-              position: "absolute",
-              width: 1,
-              height: 1,
-              padding: 0,
-              margin: -1,
-              overflow: "hidden",
-              clip: "rect(0,0,0,0)",
-              whiteSpace: "nowrap",
-              border: 0,
-            }}
-            onChange={(e) => {
-              const files = Array.from(e.target.files ?? []);
-              void handleFiles(files);
-            }}
+            accept="image/*,.pdf,.tif,.tiff,.jp2,.zip"
+            className="source-picker__hidden-input"
+            onChange={(event) =>
+              handleFiles(Array.from(event.target.files ?? []))
+            }
           />
+          <input
+            ref={folderInput}
+            type="file"
+            multiple
+            className="source-picker__hidden-input"
+            {...({ webkitdirectory: "" } as Record<string, string>)}
+            onChange={(event) =>
+              handleFiles(Array.from(event.target.files ?? []))
+            }
+          />
+
+          <div aria-label="Source type" className="source-picker__mode-tabs">
+            <button type="button" aria-label="Folder source">
+              DIR
+            </button>
+            <button type="button" aria-label="File source">
+              FILE
+            </button>
+            <button type="button" aria-label="Archive source">
+              ZIP
+            </button>
+          </div>
+
           {chosen === null ? (
             <>
-              <div>
-                Drop an image, multiple images, a folder, or a .zip here.
+              <h2>Drop a file or folder to start OCR</h2>
+              <p>
+                PDF, multi-page TIFF, or a folder of images. Pages are queued
+                and OCR&apos;d in the background.
+              </p>
+              <div className="source-picker__actions">
+                {allowFolderBrowse ? (
+                  <Button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openFolderPicker();
+                    }}
+                  >
+                    Browse folder...
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openFilePicker();
+                  }}
+                >
+                  Choose file...
+                </Button>
               </div>
-              <div style={{ fontSize: 12, opacity: 0.7 }}>
-                or click to browse
-              </div>
+              <p className="source-picker__formats">
+                PDF | TIFF | JP2 | PNG | JPG | max 5 GB
+              </p>
             </>
           ) : (
             <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "stretch",
-                gap: 8,
-                width: "100%",
-                maxWidth: 420,
-              }}
+              className="source-picker__chosen"
               data-testid="source-picker-chosen"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
             >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 12,
-                }}
-              >
-                <strong style={{ fontSize: 13 }}>
+              <div className="source-picker__chosen-header">
+                <strong>
                   {chosen.folder !== null
-                    ? `📁 ${chosen.folder}`
+                    ? chosen.folder
                     : chosen.names.length === 1
                       ? chosen.names[0]
                       : `${chosen.names.length} files`}
@@ -196,35 +174,25 @@ export function SourcePicker(props: SourcePickerProps) {
                   variant="ghost"
                   size="sm"
                   data-testid="source-picker-clear"
-                  onClick={(e) => {
-                    e.stopPropagation();
+                  onClick={(event) => {
+                    event.stopPropagation();
                     handleClear();
                   }}
                   aria-label="Clear selection"
                 >
-                  × Clear
+                  Clear
                 </Button>
               </div>
               {chosen.names.length > 1 && (
-                <ul
-                  style={{
-                    margin: 0,
-                    paddingLeft: 18,
-                    maxHeight: 120,
-                    overflowY: "auto",
-                    textAlign: "left",
-                    fontSize: 12,
-                    color: "var(--ink-2)",
-                  }}
-                >
-                  {chosen.names.map((name, i) => (
-                    <li key={`${name}-${i}`}>{name}</li>
+                <ul>
+                  {chosen.names.map((name, index) => (
+                    <li key={`${name}-${index}`}>{name}</li>
                   ))}
                 </ul>
               )}
             </div>
           )}
-          {uploadError !== null && (
+          {props.uploadError !== null && props.uploadError !== undefined && (
             <div
               role="alert"
               data-testid="source-picker-upload-error"
@@ -234,28 +202,50 @@ export function SourcePicker(props: SourcePickerProps) {
                 marginTop: 8,
               }}
             >
-              {uploadError}
+              {props.uploadError}
             </div>
           )}
         </div>
       )}
+
       {props.allowPathInput && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (pathDraft.trim()) props.onPathChosen(pathDraft.trim());
-          }}
-        >
-          <Field label="Path">
-            <Input
-              data-testid={APP_TEST_IDS.sourcePickerPathInput}
-              value={pathDraft}
-              onChange={(e) => setPathDraft(e.target.value)}
-              placeholder={props.pathHint ?? "/path/to/folder-or-image-or.zip"}
-            />
-          </Field>
-          <Button type="submit">Use this path</Button>
-        </form>
+        <>
+          <div className="source-picker__path-divider">OR PASTE A PATH</div>
+          <form
+            className="source-picker__path-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const path = pathDraft.trim();
+              if (path) props.onPathChosen(path);
+            }}
+          >
+            <Field label="Path">
+              <Input
+                data-testid={APP_TEST_IDS.sourcePickerPathInput}
+                value={pathDraft}
+                onChange={(event) => setPathDraft(event.target.value)}
+                placeholder={
+                  props.pathHint ?? "/path/to/folder-or-image-or.zip"
+                }
+              />
+            </Field>
+            <Button type="submit">Open</Button>
+          </form>
+          {props.recentPaths?.length ? (
+            <div className="source-picker__recent">
+              <span>Recent:</span>
+              {props.recentPaths.map((path) => (
+                <button
+                  type="button"
+                  key={path}
+                  onClick={() => props.onPathChosen(path)}
+                >
+                  {path}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </>
       )}
     </div>
   );

@@ -3,12 +3,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Routes, Route, useLocation } from "react-router-dom";
 import {
   JobConfigInline,
   defaultProjectName,
   type ChosenSource,
 } from "../JobConfigInline";
+import type {
+  JobForm,
+  RuntimeConfig,
+} from "../../statecharts/jobCreationTypes";
 import { renderWithProviders } from "../../test/test-utils";
 
 // Shim Toggle so tests can interact with it as a plain checkbox (avoid Radix
@@ -50,20 +53,34 @@ vi.mock("@pdomain/pdomain-ui/primitives", async (importOriginal) => {
   };
 });
 
-function LocationCapture({ onLocation }: { onLocation: (p: string) => void }) {
-  const loc = useLocation();
-  onLocation(loc.pathname);
-  return null;
+interface RenderInlineOptions {
+  source?: ChosenSource;
+  fetchMock?: ReturnType<typeof vi.fn>;
+  mode?: "local" | "managed";
+  onCancel?: () => void;
+  onSubmitJob?: (form: JobForm) => void;
+  onFormChanged?: (patch: Partial<JobForm>) => void;
+  runtimeConfig?: RuntimeConfig | null;
+  submitError?: string | null;
+  submitting?: boolean;
 }
 
-function renderInline(
-  source: ChosenSource = { kind: "path", path: "/tmp/scans" },
-  fetchMock?: ReturnType<typeof vi.fn>,
-  mode: "local" | "managed" = "local",
-  onCancel?: () => void,
-) {
-  const navigatedTo: string[] = [];
-
+function renderInline({
+  source = { kind: "path", path: "/tmp/scans" },
+  fetchMock,
+  mode = "local",
+  onCancel,
+  onSubmitJob,
+  onFormChanged,
+  runtimeConfig = {
+    mode,
+    is_containerized: false,
+    detected_device: "cpu",
+    gpu_available: false,
+  },
+  submitError,
+  submitting,
+}: RenderInlineOptions = {}) {
   const defaultFetch = vi
     .fn()
     .mockImplementation((url: string, opts?: RequestInit) => {
@@ -92,22 +109,20 @@ function renderInline(
     mockFetch as unknown as typeof fetch;
 
   const result = renderWithProviders(
-    <Routes>
-      <Route
-        path="/"
-        element={
-          <JobConfigInline source={source} mode={mode} onCancel={onCancel} />
-        }
-      />
-      <Route
-        path="/jobs/:id"
-        element={<LocationCapture onLocation={(p) => navigatedTo.push(p)} />}
-      />
-    </Routes>,
+    <JobConfigInline
+      source={source}
+      mode={mode}
+      onCancel={onCancel}
+      onSubmitJob={onSubmitJob}
+      onFormChanged={onFormChanged}
+      runtimeConfig={runtimeConfig}
+      submitError={submitError}
+      submitting={submitting}
+    />,
     { route: "/" },
   );
 
-  return { ...result, navigatedTo, mockFetch };
+  return { ...result, mockFetch };
 }
 
 describe("defaultProjectName", () => {
@@ -153,7 +168,7 @@ describe("JobConfigInline", () => {
   });
 
   it("pre-fills project name from source basename", async () => {
-    renderInline({ kind: "path", path: "/tmp/my-book" });
+    renderInline({ source: { kind: "path", path: "/tmp/my-book" } });
     const nameInput = (await screen.findByLabelText(
       /project name/i,
     )) as HTMLInputElement;
@@ -161,7 +176,7 @@ describe("JobConfigInline", () => {
   });
 
   it("pre-fills project name as ocr-job-<short> for uploads", async () => {
-    renderInline({ kind: "upload", uploadId: "abcdef123456" });
+    renderInline({ source: { kind: "upload", uploadId: "abcdef123456" } });
     const nameInput = (await screen.findByLabelText(
       /project name/i,
     )) as HTMLInputElement;
@@ -178,97 +193,75 @@ describe("JobConfigInline", () => {
     expect(screen.queryByLabelText(/output directory/i)).toBeNull();
   });
 
-  it("POSTs /api/jobs with the expected body shape for path source", async () => {
+  it("emits the expected job form for path source submit", async () => {
     const user = userEvent.setup();
-    const { mockFetch } = renderInline({ kind: "path", path: "/tmp/scans" });
+    const onSubmitJob = vi.fn();
+    renderInline({
+      source: { kind: "path", path: "/tmp/scans" },
+      onSubmitJob,
+    });
     const submit = await screen.findByTestId("run-ocr-button");
     await user.click(submit);
 
     await waitFor(() => {
-      const postCalls = mockFetch.mock.calls.filter(
-        ([url, opts]: [string, RequestInit | undefined]) =>
-          url === "/api/jobs" && opts?.method === "POST",
-      );
-      expect(postCalls).toHaveLength(1);
-      const body = JSON.parse(
-        (postCalls[0][1] as RequestInit).body as string,
-      ) as Record<string, unknown>;
-      expect(body.name).toBe("scans");
-      expect(body.engine).toBe("doctr");
-      expect(body.language).toBe("en");
-      expect(body.source_path).toBe("/tmp/scans");
-      expect(body).not.toHaveProperty("upload_id");
-      expect(body).not.toHaveProperty("output_dir");
+      expect(onSubmitJob).toHaveBeenCalledTimes(1);
+      const form = onSubmitJob.mock.calls[0][0] as JobForm;
+      expect(form.name).toBe("scans");
+      expect(form.engine).toBe("doctr");
+      expect(form.language).toBe("en");
+      expect(form).not.toHaveProperty("source_path");
+      expect(form).not.toHaveProperty("upload_id");
+      expect(form).not.toHaveProperty("output_dir");
       // B-HOME-011 cleanup: no save_json / combined_txt knob in the body.
-      expect(body).not.toHaveProperty("save_json");
-      expect(body).not.toHaveProperty("combined_txt");
-      expect(body.device).toBe("auto");
-      expect(body.batch_pages).toBeNull();
-      expect(body.output).toEqual({ mode: "next_to_source" });
+      expect(form).not.toHaveProperty("save_json");
+      expect(form).not.toHaveProperty("combined_txt");
+      expect(form.device).toBe("auto");
+      expect(form.batch_pages).toBeNull();
+      expect(form.output).toEqual({ mode: "next_to_source" });
     });
   });
 
-  it("POSTs /api/jobs with upload_id for upload source", async () => {
+  it("emits a managed output job form for upload source submit", async () => {
     const user = userEvent.setup();
-    const { mockFetch } = renderInline(
-      { kind: "upload", uploadId: "upload-xyz" },
-      undefined,
-      "managed",
-    );
+    const onSubmitJob = vi.fn();
+    renderInline({
+      source: { kind: "upload", uploadId: "upload-xyz" },
+      mode: "managed",
+      onSubmitJob,
+    });
     const submit = await screen.findByTestId("run-ocr-button");
     await user.click(submit);
 
     await waitFor(() => {
-      const postCalls = mockFetch.mock.calls.filter(
+      expect(onSubmitJob).toHaveBeenCalledTimes(1);
+      const form = onSubmitJob.mock.calls[0][0] as JobForm;
+      expect(form).not.toHaveProperty("upload_id");
+      expect(form).not.toHaveProperty("source_path");
+      expect(form.output).toEqual({ mode: "managed" });
+    });
+  });
+
+  it("does not submit directly when onSubmitJob is provided", async () => {
+    const user = userEvent.setup();
+    const onSubmitJob = vi.fn();
+    const { mockFetch } = renderInline({ onSubmitJob });
+    const submit = await screen.findByTestId("run-ocr-button");
+    await user.click(submit);
+
+    await waitFor(() => {
+      expect(onSubmitJob).toHaveBeenCalledTimes(1);
+    });
+    expect(
+      mockFetch.mock.calls.some(
         ([url, opts]: [string, RequestInit | undefined]) =>
           url === "/api/jobs" && opts?.method === "POST",
-      );
-      expect(postCalls).toHaveLength(1);
-      const body = JSON.parse(
-        (postCalls[0][1] as RequestInit).body as string,
-      ) as Record<string, unknown>;
-      expect(body.upload_id).toBe("upload-xyz");
-      expect(body).not.toHaveProperty("source_path");
-      expect(body.output).toEqual({ mode: "managed" });
-    });
+      ),
+    ).toBe(false);
   });
 
-  it("navigates to /jobs/:id on successful submit", async () => {
-    const user = userEvent.setup();
-    const { navigatedTo } = renderInline();
-    const submit = await screen.findByTestId("run-ocr-button");
-    await user.click(submit);
-    await waitFor(() => {
-      expect(navigatedTo.some((p) => p.startsWith("/jobs/"))).toBe(true);
-    });
-  });
-
-  it("shows inline error when /api/jobs fails", async () => {
-    const user = userEvent.setup();
-    const fetchMock = vi
-      .fn()
-      .mockImplementation((url: string, opts?: RequestInit) => {
-        if (url === "/api/prefs") {
-          return Promise.resolve({
-            ok: true,
-            json: async () => ({ engine: "doctr", language: "en" }),
-          });
-        }
-        if (url === "/api/jobs" && opts?.method === "POST") {
-          return Promise.resolve({
-            ok: false,
-            text: async () => "bad request",
-          });
-        }
-        return Promise.resolve({ ok: false, json: async () => ({}) });
-      });
-    renderInline({ kind: "path", path: "/tmp/scans" }, fetchMock);
-    const submit = await screen.findByTestId("run-ocr-button");
-    await user.click(submit);
-
-    await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent(/bad request/i);
-    });
+  it("shows controlled submit error", async () => {
+    renderInline({ submitError: "bad request" });
+    expect(await screen.findByRole("alert")).toHaveTextContent(/bad request/i);
   });
 
   it("blocks submit when project name is empty", async () => {
@@ -283,12 +276,11 @@ describe("JobConfigInline", () => {
   it("calls onCancel when 'Use different files' is clicked", async () => {
     const user = userEvent.setup();
     const onCancel = vi.fn();
-    renderInline(
-      { kind: "path", path: "/tmp/scans" },
-      undefined,
-      "local",
+    renderInline({
+      source: { kind: "path", path: "/tmp/scans" },
+      mode: "local",
       onCancel,
-    );
+    });
     const cancel = await screen.findByTestId("job-config-inline-cancel");
     await user.click(cancel);
     expect(onCancel).toHaveBeenCalledTimes(1);
@@ -319,7 +311,10 @@ describe("JobConfigInline", () => {
         }
         return Promise.resolve({ ok: false, json: async () => ({}) });
       });
-    renderInline({ kind: "path", path: "/tmp/scans" }, fetchMock);
+    renderInline({
+      source: { kind: "path", path: "/tmp/scans" },
+      fetchMock,
+    });
 
     const engineSelect = (await screen.findByLabelText(
       /engine/i,
@@ -334,8 +329,9 @@ describe("JobConfigInline", () => {
     });
   });
 
-  it("submits the prefs-seeded engine/language in the POST body", async () => {
+  it("emits the prefs-seeded engine/language in the submitted form", async () => {
     const user = userEvent.setup();
+    const onSubmitJob = vi.fn();
     const fetchMock = vi
       .fn()
       .mockImplementation((url: string, opts?: RequestInit) => {
@@ -356,7 +352,11 @@ describe("JobConfigInline", () => {
         }
         return Promise.resolve({ ok: false, json: async () => ({}) });
       });
-    renderInline({ kind: "path", path: "/tmp/scans" }, fetchMock);
+    renderInline({
+      source: { kind: "path", path: "/tmp/scans" },
+      fetchMock,
+      onSubmitJob,
+    });
 
     // Wait for the seed to land before submitting.
     const engineSelect = (await screen.findByLabelText(
@@ -367,17 +367,36 @@ describe("JobConfigInline", () => {
     await user.click(await screen.findByTestId("run-ocr-button"));
 
     await waitFor(() => {
-      const postCalls = fetchMock.mock.calls.filter(
-        ([url, opts]: [string, RequestInit | undefined]) =>
-          url === "/api/jobs" && opts?.method === "POST",
+      expect(onSubmitJob).toHaveBeenCalledTimes(1);
+      const form = onSubmitJob.mock.calls[0][0] as JobForm;
+      expect(form.engine).toBe("tesseract");
+      expect(form.language).toBe("de");
+      const submitCalls = fetchMock.mock.calls.filter(
+        ([url]: [string, RequestInit | undefined]) => url === "/api/jobs",
       );
-      expect(postCalls).toHaveLength(1);
-      const body = JSON.parse(
-        (postCalls[0][1] as RequestInit).body as string,
-      ) as Record<string, unknown>;
-      expect(body.engine).toBe("tesseract");
-      expect(body.language).toBe("de");
+      expect(submitCalls).toHaveLength(0);
     });
+  });
+
+  it("emits form patches as fields change", async () => {
+    const user = userEvent.setup();
+    const onFormChanged = vi.fn();
+    renderInline({ onFormChanged });
+
+    const nameInput = await screen.findByLabelText(/project name/i);
+    await user.clear(nameInput);
+    await user.type(nameInput, "new scans");
+
+    await waitFor(() => {
+      expect(onFormChanged).toHaveBeenCalledWith({ name: "new scans" });
+    });
+  });
+
+  it("uses the controlled submitting state", async () => {
+    renderInline({ submitting: true });
+    const submit = await screen.findByTestId("run-ocr-button");
+    expect(submit).toBeDisabled();
+    expect(submit).toHaveTextContent(/run ocr/i);
   });
 
   // B-HOME-006: fresh prefs (empty response) must still show doctr as default.
@@ -397,7 +416,10 @@ describe("JobConfigInline", () => {
         }
         return Promise.resolve({ ok: false, json: async () => ({}) });
       });
-    renderInline({ kind: "path", path: "/tmp/scans" }, fetchMock);
+    renderInline({
+      source: { kind: "path", path: "/tmp/scans" },
+      fetchMock,
+    });
 
     const engineSelect = (await screen.findByLabelText(
       /engine/i,
@@ -427,7 +449,10 @@ describe("JobConfigInline", () => {
         }
         return Promise.resolve({ ok: false, json: async () => ({}) });
       });
-    renderInline({ kind: "path", path: "/tmp/scans" }, fetchMock);
+    renderInline({
+      source: { kind: "path", path: "/tmp/scans" },
+      fetchMock,
+    });
 
     const engineSelect = (await screen.findByLabelText(
       /engine/i,
