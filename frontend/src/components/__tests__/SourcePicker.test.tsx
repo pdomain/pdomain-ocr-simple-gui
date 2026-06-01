@@ -75,6 +75,18 @@ it("drop target is not an interactive button", () => {
   expect(drop).not.toHaveAttribute("tabindex");
 });
 
+it("hidden picker inputs are not keyboard focusable", () => {
+  const { container } = renderPicker();
+  expect(screen.getByTestId("source-picker-file-pick")).toHaveAttribute(
+    "tabindex",
+    "-1",
+  );
+  expect(container.querySelector("input[webkitdirectory]")).toHaveAttribute(
+    "tabindex",
+    "-1",
+  );
+});
+
 it("renders the dropped filename after a drop", () => {
   renderPicker();
   const file = new File(["x"], "scan-007.png", { type: "image/png" });

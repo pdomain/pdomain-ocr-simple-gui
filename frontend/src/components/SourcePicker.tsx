@@ -86,6 +86,7 @@ export function SourcePicker(props: SourcePickerProps) {
             multiple
             accept="image/*,.pdf,.tif,.tiff,.jp2,.zip"
             className="source-picker__hidden-input"
+            tabIndex={-1}
             onChange={(event) =>
               handleFiles(Array.from(event.target.files ?? []))
             }
@@ -95,6 +96,7 @@ export function SourcePicker(props: SourcePickerProps) {
             type="file"
             multiple
             className="source-picker__hidden-input"
+            tabIndex={-1}
             {...({ webkitdirectory: "" } as Record<string, string>)}
             onChange={(event) =>
               handleFiles(Array.from(event.target.files ?? []))

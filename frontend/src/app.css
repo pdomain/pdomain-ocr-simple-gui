@@ -98,7 +98,6 @@ body,
   justify-content: center;
   gap: 12px;
   text-align: center;
-  cursor: pointer;
   transition:
     border-color 0.15s,
     background 0.15s,
