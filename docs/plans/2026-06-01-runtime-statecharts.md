@@ -23,8 +23,11 @@
 
 - `frontend/package.json` and `frontend/pnpm-lock.yaml` — add `xstate` and `@xstate/react`.
 - `frontend/src/pages/HomePage.tsx` — owns `useMachine(jobCreationMachine)`, renders from the machine snapshot, and navigates after submit.
-- `frontend/src/components/SourcePicker.tsx` — becomes presentational for file/path selection; upload network work moves into the machine.
+- `frontend/src/components/SourcePicker.tsx` — becomes the richer dashed
+  drop-zone surface for file/folder/path selection; upload network work moves
+  into the machine.
 - `frontend/src/components/JobConfigInline.tsx` — keeps the form UI, emits form-change and submit events, and receives submit state/errors from the machine.
+- `frontend/src/app.css` — styles the richer source picker surface.
 - `frontend/src/pages/__tests__/HomePage.test.tsx` — update mocks for machine-owned config/upload.
 - `frontend/src/components/__tests__/JobConfigInline.test.tsx` — update submit tests to assert event payloads instead of direct fetch.
 
@@ -653,6 +656,7 @@ Expected: commit passes pre-commit hooks.
 - Modify: `frontend/src/pages/HomePage.tsx`
 - Modify: `frontend/src/components/SourcePicker.tsx`
 - Modify: `frontend/src/components/JobConfigInline.tsx`
+- Modify: `frontend/src/app.css`
 - Modify: `frontend/src/pages/__tests__/HomePage.test.tsx`
 - Modify: `frontend/src/components/__tests__/JobConfigInline.test.tsx`
 
@@ -683,6 +687,23 @@ Keep the existing tests for:
 - source chosen shows `JobConfigInline`
 - cancelling restores source selection
 
+Add these UI assertions to the local-host case:
+
+```tsx
+expect(screen.getByRole("button", { name: /browse folder/i })).toBeInTheDocument();
+expect(screen.getByRole("button", { name: /choose file/i })).toBeInTheDocument();
+expect(screen.getByText(/or paste a path/i)).toBeInTheDocument();
+expect(screen.getByRole("button", { name: /^open$/i })).toBeInTheDocument();
+expect(screen.getByText(/recent:/i)).toBeInTheDocument();
+```
+
+Add this assertion to the managed case:
+
+```tsx
+expect(screen.queryByText(/or paste a path/i)).toBeNull();
+expect(screen.queryByText(/recent:/i)).toBeNull();
+```
+
 - [ ] **Step 2: Run HomePage tests to verify failure**
 
 Run:
@@ -702,6 +723,8 @@ In `frontend/src/components/SourcePicker.tsx`, change props to this shape:
 export interface SourcePickerProps {
   allowDrop: boolean;
   allowPathInput: boolean;
+  allowFolderBrowse?: boolean;
+  recentPaths?: string[];
   pathHint?: string;
   uploadError?: string | null;
   onFilesSelected: (files: File[]) => void;
@@ -713,6 +736,61 @@ export interface SourcePickerProps {
 Remove the `uploadFiles(...)` helper and all `fetch("/api/uploads", ...)`
 calls from this component. In `handleFiles`, keep chosen-display state and call
 `props.onFilesSelected(files)`.
+
+Render the new source-entry surface with these elements:
+
+```tsx
+<div data-testid={APP_TEST_IDS.sourcePickerDropZone} role="button" tabIndex={0}>
+  <div aria-label="Source type" className="source-picker__mode-tabs">
+    <button type="button" aria-label="Folder source">...</button>
+    <button type="button" aria-label="File source">...</button>
+    <button type="button" aria-label="Archive source">...</button>
+  </div>
+  <h2>Drop a file or folder to start OCR</h2>
+  <p>PDF, multi-page TIFF, or a folder of images. Pages are queued and OCR'd in the background.</p>
+  <button type="button" onClick={openFolderPicker}>Browse folder...</button>
+  <button type="button" onClick={openFilePicker}>Choose file...</button>
+  <p>PDF · TIFF · JP2 · PNG · JPG · max 5 GB</p>
+</div>
+```
+
+Use two hidden inputs:
+
+```tsx
+<input
+  ref={fileInput}
+  data-testid={APP_TEST_IDS.sourcePickerFilePick}
+  type="file"
+  multiple
+  accept="image/*,.pdf,.tif,.tiff,.jp2,.zip"
+  onChange={(e) => void handleFiles(Array.from(e.target.files ?? []))}
+/>
+<input
+  ref={folderInput}
+  type="file"
+  multiple
+  {...({ webkitdirectory: "" } as Record<string, string>)}
+  onChange={(e) => void handleFiles(Array.from(e.target.files ?? []))}
+/>
+```
+
+When `allowPathInput` is true, render:
+
+```tsx
+<div className="source-picker__path-divider">OR PASTE A PATH</div>
+<form onSubmit={...}>
+  <Input data-testid={APP_TEST_IDS.sourcePickerPathInput} ... />
+  <Button type="submit">Open</Button>
+</form>
+{props.recentPaths?.length ? (
+  <div className="source-picker__recent">
+    <span>Recent:</span>
+    {props.recentPaths.map((path) => (
+      <button type="button" onClick={() => props.onPathChosen(path)}>{path}</button>
+    ))}
+  </div>
+) : null}
+```
 
 Render `props.uploadError` in the existing alert slot:
 
@@ -792,9 +870,20 @@ const clearSource = () => send({ type: "CLEAR_SOURCE" });
 ```
 
 Pass `uploadError`, `chooseFiles`, `choosePath`, and `clearSource` to
-`SourcePicker`. Pass `submitError`, `snapshot.matches("submittingJob")`,
+`SourcePicker`. For now pass a small static `recentPaths` list in local modes:
+
+```tsx
+const recentPaths = ["~/scans/belloc-survivals/jp2/", "belloc-survivals.zip", "manuscript-fragment.pdf"];
+```
+
+Pass `submitError`, `snapshot.matches("submittingJob")`,
 `runtimeConfig={config}`, `onFormChanged`, and `onSubmitJob` to
 `JobConfigInline`.
+
+Add CSS in `frontend/src/app.css` for `.source-picker__mode-tabs`,
+`.source-picker__path-divider`, `.source-picker__recent`, and the refreshed
+drop-zone layout. Match the screenshot direction: dark, quiet, dashed border,
+compact buttons, and no card nesting.
 
 - [ ] **Step 6: Run focused frontend tests**
 
@@ -813,7 +902,7 @@ Run:
 
 ```bash
 cd /workspaces/ocr-container/pdomain-ocr-simple-gui
-git add frontend/src/pages/HomePage.tsx frontend/src/components/SourcePicker.tsx frontend/src/components/JobConfigInline.tsx frontend/src/pages/__tests__/HomePage.test.tsx frontend/src/components/__tests__/JobConfigInline.test.tsx
+git add frontend/src/pages/HomePage.tsx frontend/src/components/SourcePicker.tsx frontend/src/components/JobConfigInline.tsx frontend/src/app.css frontend/src/pages/__tests__/HomePage.test.tsx frontend/src/components/__tests__/JobConfigInline.test.tsx
 git commit -m "feat(frontend): drive Home job creation with statechart" -m "Wire the existing Home UI to the runtime job creation machine."
 ```
 

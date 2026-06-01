@@ -37,6 +37,8 @@ are separate future slices.
 - Use a library-backed Python statechart to validate backend job lifecycle
   transitions before persisting state.
 - Keep the existing UI, API payloads, routes, styling, and test IDs.
+- Replace the basic source picker presentation with a richer drop-zone surface
+  while keeping the same machine events.
 - Model runtime source capability differences explicitly.
 - Connect runtime machines to the behavior coverage system.
 - Start a migration path where statecharts become the source of truth for
@@ -198,6 +200,29 @@ Tests can replace them with deterministic fakes through machine `provide(...)`.
 - files selected or dropped
 - path chosen
 - clear source
+
+The `SourcePicker` presentation uses a richer source-entry surface:
+
+- A large dashed drop target.
+- Three source-type icon toggles at the top of the drop target.
+- Primary actions for `Browse folder...` and `Choose file...`.
+- Supported-format text below the buttons.
+- A divider labelled `OR PASTE A PATH`.
+- A path input with an `Open` button.
+- Recent source shortcuts below the path input.
+
+Runtime profile controls which pieces render:
+
+- `local-host`: drop target, folder browse, file choose, path input, and recent
+  shortcuts.
+- `local-container`: drop target, folder browse, file choose, path input, and a
+  container/bind-mount hint.
+- `managed-server`: drop target and file choose only. Path input and recent
+  shortcuts are hidden.
+
+Folder browsing uses a hidden file input with the browser `webkitdirectory`
+attribute. Dragging a folder still arrives as a file list and sends the same
+`FILES_SELECTED` event as a normal file selection.
 
 `JobConfigInline` keeps its current form layout. It receives machine context and
 sends `JOB_FORM_CHANGED` plus `SUBMIT_JOB`. It no longer owns submit-side
