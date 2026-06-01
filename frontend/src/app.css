@@ -379,3 +379,31 @@ form > [class*="Field"] {
   font-family: var(--mono-font);
   line-height: 1.5;
 }
+
+/* Header jobs are click-owned by simple-gui's right panel.  Registry
+   pdomain-ui@0.3.0 still renders the JobsPill hover popover, so hide that
+   hover-only surface here while keeping the pill's click/count behavior. */
+.app-header__jobs-panel-owner [data-testid="jobs-pill-popover"] {
+  display: none !important;
+}
+
+.app-header__icon-button {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  font-family: var(--mono-font);
+  font-size: 11px;
+}
+
+/* pdomain-ui@0.3.0 leaves the right grid column at 0px unless the host sets
+   the shell variable.  Allocate the panel only while it exists. */
+[data-testid="app-shell"]:has([data-testid="right-panel"]) {
+  --shell-right-w: 420px;
+}

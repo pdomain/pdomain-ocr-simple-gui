@@ -37,9 +37,10 @@ bad path.
 
 | Element | Selector | Note |
 |---------|----------|------|
-| AppHeader outer `<header>` | `data-testid="app-header"` | `APP_TEST_IDS.appHeader` — hardcoded in pdomain-ui, local alias in M6 |
+| App header outer `<header>` | `data-testid="app-header"` | `APP_TEST_IDS.appHeader` |
 | Active-jobs count badge | `data-testid="jobs-pill-count"` | `APP_TEST_IDS.jobsPillCount` — only present when 1+ jobs running |
-| Jobs popover container | `data-testid="jobs-pill-popover"` | `APP_TEST_IDS.jobsPillPopover` |
+| Jobs popover container | `data-testid="jobs-pill-popover"` | `APP_TEST_IDS.jobsPillPopover` — disabled in simple-gui so hover does not own job details |
+| Jobs right panel | `data-testid="right-panel"` + `data-testid="jobs-drawer"` | Rendered by pdomain-ui when the Jobs button is clicked |
 | Shortcuts cheatsheet dialog | `data-testid="shortcuts-cheatsheet"` | `APP_TEST_IDS.shortcutsCheatsheet` — hardcoded in bundle, not in testids catalog |
 
 #### pdomain-ui catalog (`PD_UI_TEST_IDS`)
@@ -128,20 +129,25 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
 
 ---
 
-### B-SHELL-003 — Jobs-pill popover lists running jobs
+### B-SHELL-003 — Jobs button opens right-side jobs panel
 
 - **Flow(s):** —
 - **Trigger:** User clicks the jobs-pill button while 1+ jobs are active
 - **Preconditions:** At least one job is running/queued
-- **Observable output:** `data-testid="jobs-pill-popover"` appears; each job
-  row inside shows the job's title and progress percentage
+- **Observable output:** `data-testid="right-panel"` appears with a
+  `data-testid="jobs-drawer"` inside; each job row shows the job's title,
+  phase/progress message and progress percentage. Hovering the Jobs button
+  alone does **not** open `jobs-pill-popover`, preventing stale hover surfaces
+  from sticking after a job finishes.
 - **Backend / side-effects:** No additional backend call on click; data is from
-  the existing `useActiveJobs` cache (GET /api/jobs poll)
-- **Bad-state / error:** Pill clicked while idle (0 active jobs) → popover does
-  not open (or opens empty)
+  the existing `useActiveJobs` cache (GET /api/jobs poll). Clicking a drawer
+  row's "Open project" action navigates to `/jobs/<id>`.
+- **Bad-state / error:** Jobs button hovered while active → no panel opens.
+  Dismissing the drawer hides the right panel. All jobs complete / GET
+  `/api/jobs` returns empty → count badge disappears.
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** `tests/e2e/test_click_paths_app_shell.py::test_jobs_pill_popover_lists_running_job`
+- **Test:** `tests/e2e/test_click_paths_app_shell.py::test_jobs_button_opens_right_jobs_panel`
 
 ---
 

@@ -37,7 +37,9 @@ vi.mock("@pdomain/pdomain-ui/shell", () => ({
   AppShell: ({ main }: { main: React.ReactNode }) => (
     <div data-testid="app-shell-mock">{main}</div>
   ),
-  AppHeader: () => <div />,
+  JobsPill: () => <button type="button">Jobs</button>,
+  JobsDrawer: () => <div />,
+  RightPanel: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   SuiteSiblingsProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),

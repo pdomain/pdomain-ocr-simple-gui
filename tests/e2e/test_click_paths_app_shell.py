@@ -52,6 +52,7 @@ On-disk prefs location:
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import httpx
@@ -156,20 +157,20 @@ def test_active_jobs_count_badge_appears_with_running_job(page: Page, live_serve
         ),
     )
     # Wait for the 5-second refetch or trigger a manual navigation to reload.
-    page.reload()
+    page.goto(live_server_url)
     expect(page.get_by_test_id("home-page")).to_be_visible(timeout=15_000)
     # Badge must not be visible when no active jobs.
     expect(page.get_by_test_id("jobs-pill-count")).not_to_be_visible(timeout=10_000)
 
 
 # ---------------------------------------------------------------------------
-# B-SHELL-003 — Jobs-pill popover lists running jobs
+# B-SHELL-003 — Jobs button opens right-side jobs panel
 # ---------------------------------------------------------------------------
 
 
-def test_jobs_pill_popover_lists_running_job(page: Page, live_server_url: str) -> None:
-    """Covers: B-SHELL-003 — clicking the jobs pill opens the popover with
-    the running job listed.
+def test_jobs_button_opens_right_jobs_panel(page: Page, live_server_url: str) -> None:
+    """Covers: B-SHELL-003 — clicking the jobs button opens the right-side
+    jobs panel with the running job listed.
 
     Drives the running-job state with page.route() (same pattern as B-SHELL-002).
     """
@@ -179,6 +180,7 @@ def test_jobs_pill_popover_lists_running_job(page: Page, live_server_url: str) -
                 "project_id": "fake-running-job-002",
                 "name": "Running OCR Scan",
                 "state": "running",
+                "progress_message": "Processing page 3/5",
                 "page_count": 5,
                 "pages": [{"state": "succeeded"}] * 2 + [{"state": "running"}] * 3,
             }
@@ -193,23 +195,58 @@ def test_jobs_pill_popover_lists_running_job(page: Page, live_server_url: str) -
             body=running_payload,
         ),
     )
+    page.route(
+        "**/api/jobs/fake-running-job-002",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "project_id": "fake-running-job-002",
+                    "name": "Running OCR Scan",
+                    "state": "running",
+                    "progress_message": "Processing page 3/5",
+                    "page_count": 5,
+                    "pages_done": 2,
+                    "pages": [{"page_idx": 0, "page_name": "page-001", "state": "running"}],
+                }
+            ),
+        ),
+    )
 
     page.goto(live_server_url)
     expect(page.get_by_test_id("home-page")).to_be_visible(timeout=15_000)
 
     # Wait for the jobs-pill count badge to appear.
     expect(page.get_by_test_id("jobs-pill-count")).to_be_visible(timeout=10_000)
+    jobs_button = page.get_by_role("button", name=re.compile("Jobs"))
 
-    # Click the jobs pill button (the pill itself, not the count badge).
-    # The jobs-pill-count is the count badge inside the pill button.
-    page.get_by_test_id("jobs-pill-count").click()
+    # Bad-state / regression: hover alone must not open a sticky header popover
+    # or a right-side panel. The panel is click-owned by simple-gui.
+    jobs_button.hover()
+    expect(page.get_by_test_id("jobs-pill-popover")).not_to_be_visible(timeout=1_000)
+    expect(page.get_by_test_id("right-panel")).not_to_be_visible(timeout=1_000)
 
-    # Observable: popover appears with running job listed.
-    expect(page.get_by_test_id("jobs-pill-popover")).to_be_visible(timeout=5_000)
+    # Click path: the right-side panel opens and lists the running job.
+    jobs_button.click()
+    expect(page.get_by_test_id("right-panel")).to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("jobs-drawer")).to_be_visible(timeout=5_000)
+    expect(page.get_by_text("Running OCR Scan")).to_be_visible(timeout=5_000)
+    expect(page.get_by_text("Processing page 3/5")).to_be_visible(timeout=5_000)
+
+    # Dismiss path: drawer close hides the right panel.
+    page.get_by_role("button", name=re.compile("Dismiss drawer")).click()
+    expect(page.get_by_test_id("right-panel")).not_to_be_visible(timeout=5_000)
+
+    # Row action path: re-open, hover the row to reveal "Open project", click it.
+    jobs_button.click()
+    expect(page.get_by_test_id("jobs-drawer")).to_be_visible(timeout=5_000)
+    page.get_by_test_id("job-row").hover()
+    page.get_by_role("button", name=re.compile("Open project")).click()
+    expect(page).to_have_url(re.compile(r"/jobs/fake-running-job-002$"), timeout=5_000)
 
     # Bad-state: when GET /api/jobs returns empty list, the count badge disappears.
-    # (The popover is tied to the pill's open state; when no jobs are running the
-    # pill is in idle mode and the count badge is absent.)
+    # The panel is click-owned; when no jobs are running the count badge is absent.
     page.unroute("**/api/jobs")
     page.route(
         "**/api/jobs",
@@ -219,7 +256,7 @@ def test_jobs_pill_popover_lists_running_job(page: Page, live_server_url: str) -
             body="[]",
         ),
     )
-    page.reload()
+    page.goto(live_server_url)
     expect(page.get_by_test_id("home-page")).to_be_visible(timeout=15_000)
     # Count badge is absent when idle.
     expect(page.get_by_test_id("jobs-pill-count")).not_to_be_visible(timeout=10_000)

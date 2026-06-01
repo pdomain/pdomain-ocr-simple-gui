@@ -21,15 +21,19 @@
 //   hand-rolled fetch in ResultsPage. TODO(A9.4-polling): if backend gains a
 //   SSE/WebSocket endpoint, useLongJob could be retrofitted.
 //
-// Step 5 — AppHeader + useActiveJobs:
+// Step 5 — app header + useActiveJobs:
 // Polls GET /api/jobs every 5s, filters to state==="running", maps to
 // ActiveJob shape. No search affordance yet (simple-gui has no search feature).
 
+import { useState } from "react";
+import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import {
   AppShell,
-  AppHeader,
+  JobsPill,
+  JobsDrawer,
+  RightPanel,
   SuiteSiblingsProvider,
   ShortcutsHelpButton,
   SettingsSlot,
@@ -40,6 +44,7 @@ import type {
   InstalledApp,
   LaunchResult,
   ActiveJob,
+  Job,
 } from "@pdomain/pdomain-ui/shell";
 import { toast } from "sonner";
 import { ConfigProvider } from "./runtime/ConfigContext";
@@ -152,15 +157,26 @@ interface RawJob {
   name?: string;
   state: string;
   page_count?: number;
+  pages_done?: number;
   pages?: { state: string }[];
+  progress_message?: string | null;
 }
 
 /**
  * Polls /api/jobs every 5s and maps running jobs to the ActiveJob shape
- * expected by pdomain-ui AppHeader's JobsPill. Backend uses `state` field
+ * expected by pdomain-ui JobsPill. Backend uses `state` field
  * (not `status`). Returns count of running pages as pct where available.
  */
-function useActiveJobs(): ActiveJob[] {
+function progressForJob(job: RawJob): number {
+  const total = job.page_count ?? job.pages?.length ?? 0;
+  const done =
+    job.pages_done ??
+    job.pages?.filter((p) => p.state === "succeeded").length ??
+    0;
+  return total > 0 ? Math.round((done / total) * 100) : 0;
+}
+
+function useActiveJobs(): { headerJobs: ActiveJob[]; drawerJobs: Job[] } {
   const { data } = useQuery<RawJob[]>({
     queryKey: ["active-jobs"],
     queryFn: async () => {
@@ -172,12 +188,12 @@ function useActiveJobs(): ActiveJob[] {
     // Treat errors as empty list — don't surface loading state in header.
     throwOnError: false,
   });
-  return (data ?? [])
-    .filter((j) => j.state === "running" || j.state === "queued")
-    .map((j) => {
-      const total = j.page_count ?? j.pages?.length ?? 0;
-      const done = j.pages?.filter((p) => p.state === "succeeded").length ?? 0;
-      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const active = (data ?? []).filter(
+    (j) => j.state === "running" || j.state === "queued",
+  );
+  return {
+    headerJobs: active.map((j) => {
+      const pct = progressForJob(j);
       return {
         id: j.project_id,
         title: j.name ?? j.project_id,
@@ -185,7 +201,19 @@ function useActiveJobs(): ActiveJob[] {
         pct,
         project: j.project_id,
       };
-    });
+    }),
+    drawerJobs: active.map((j) => {
+      const pct = progressForJob(j);
+      return {
+        id: j.project_id,
+        project: j.name ?? j.project_id,
+        phase: j.progress_message ?? j.state,
+        pct,
+        status: j.state === "queued" ? "queued" : "running",
+        cancelable: false,
+      };
+    }),
+  };
 }
 
 function AppRoutes() {
@@ -200,8 +228,157 @@ function AppRoutes() {
   );
 }
 
+function SimpleGuiHeader({
+  activeJobs,
+  onJobsClick,
+  actions,
+}: {
+  activeJobs: ActiveJob[];
+  onJobsClick: () => void;
+  actions: ReactNode;
+}) {
+  return (
+    <header
+      data-testid="app-header"
+      style={{
+        height: 52,
+        flex: "0 0 auto",
+        background: "var(--bg-page)",
+        borderBottom: "1px solid var(--border-1)",
+        display: "grid",
+        gridTemplateColumns: "1fr minmax(220px, 520px) 1fr",
+        alignItems: "center",
+        padding: "0 20px",
+        gap: 20,
+      }}
+    >
+      <div
+        style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}
+      >
+        <div
+          aria-hidden
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: 6,
+            background: "var(--accent)",
+            color: "var(--accent-ink)",
+            display: "grid",
+            placeItems: "center",
+            fontFamily: "var(--mono-font)",
+            fontWeight: 700,
+            fontSize: 14,
+            flexShrink: 0,
+          }}
+        >
+          o
+        </div>
+        <span
+          style={{
+            color: "var(--ink-1)",
+            fontWeight: 600,
+            fontSize: 14,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          OCR Simple GUI
+        </span>
+      </div>
+      <button
+        type="button"
+        aria-label="Search"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          height: 32,
+          padding: "0 12px",
+          background: "var(--bg-sunk)",
+          border: "1px solid var(--border-2)",
+          borderRadius: 6,
+          color: "var(--ink-3)",
+          cursor: "default",
+          width: "100%",
+          textAlign: "left",
+          fontFamily: "var(--ui-font)",
+          fontSize: 12.5,
+        }}
+      >
+        Search...
+      </button>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          justifyContent: "flex-end",
+          minWidth: 0,
+        }}
+      >
+        {actions}
+        <div className="app-header__jobs-panel-owner">
+          <JobsPill
+            activeJobs={activeJobs}
+            onClick={onJobsClick}
+            onViewAll={onJobsClick}
+          />
+        </div>
+        <button
+          type="button"
+          data-testid="app-header-bell"
+          aria-label="Notifications"
+          className="app-header__icon-button"
+        >
+          !
+        </button>
+        <button
+          type="button"
+          data-testid="app-header-user"
+          aria-label="User menu"
+          className="app-header__icon-button"
+        >
+          u
+        </button>
+      </div>
+    </header>
+  );
+}
+
 function AppShellWithHeader() {
-  const activeJobs = useActiveJobs();
+  const { headerJobs, drawerJobs } = useActiveJobs();
+  const [jobsPanelOpen, setJobsPanelOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const jobsPanel = jobsPanelOpen ? (
+    <RightPanel width="420px">
+      {drawerJobs.length > 0 ? (
+        <JobsDrawer
+          activeJobs={drawerJobs}
+          mode="expanded"
+          onDismiss={() => setJobsPanelOpen(false)}
+          onToggleMode={() => setJobsPanelOpen(false)}
+          onViewAll={() => setJobsPanelOpen(true)}
+          onJobOpen={(jobId) => {
+            setJobsPanelOpen(false);
+            navigate(`/jobs/${jobId}`);
+          }}
+        />
+      ) : (
+        <div
+          data-testid="jobs-panel-empty"
+          style={{
+            padding: 16,
+            color: "var(--ink-3)",
+            fontSize: 12,
+          }}
+        >
+          No active jobs
+        </div>
+      )}
+    </RightPanel>
+  ) : undefined;
+
   return (
     <AppShell
       appId="pdomain-ocr-simple-gui"
@@ -211,10 +388,9 @@ function AppShellWithHeader() {
       launcherSlot="header"
       uiPrefsConfig={uiPrefsConfig}
       header={
-        // No onSearchClick — simple-gui has no search affordance yet.
-        <AppHeader
-          appName="OCR Simple GUI"
-          activeJobs={activeJobs}
+        <SimpleGuiHeader
+          activeJobs={headerJobs}
+          onJobsClick={() => setJobsPanelOpen((open) => !open)}
           actions={
             <>
               <SettingsSlot />
@@ -224,6 +400,7 @@ function AppShellWithHeader() {
         />
       }
       main={<AppRoutes />}
+      rightPanel={jobsPanel}
     />
   );
 }

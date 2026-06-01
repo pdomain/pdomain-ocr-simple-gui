@@ -1,8 +1,8 @@
 // Tests for App.tsx — AppShell renders without crashing + routing skeleton
 // Issue #226
 
-import { describe, it, expect, vi, beforeAll } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { makeTestQueryClient } from "../test/test-utils";
 import App from "../App";
@@ -10,10 +10,45 @@ import App from "../App";
 // Mock @pdomain/pdomain-ui/shell — we test App routing, not AppShell internals.
 // AppShell itself uses complex CSS and zustand stores that don't run well in jsdom.
 vi.mock("@pdomain/pdomain-ui/shell", () => ({
-  AppShell: ({ main }: { main: React.ReactNode }) => (
-    <div data-testid="app-shell-mock">{main}</div>
+  AppShell: ({
+    header,
+    main,
+    rightPanel,
+  }: {
+    header: React.ReactNode;
+    main: React.ReactNode;
+    rightPanel?: React.ReactNode;
+  }) => (
+    <div data-testid="app-shell-mock">
+      <div data-testid="app-shell-header-mock">{header}</div>
+      <div data-testid="app-shell-main-mock">{main}</div>
+      <div data-testid="app-shell-right-mock">{rightPanel}</div>
+    </div>
   ),
-  AppHeader: () => <div data-testid="app-header-mock" />,
+  JobsPill: ({
+    activeJobs = [],
+    onClick,
+  }: {
+    activeJobs?: unknown[];
+    onClick?: () => void;
+  }) => (
+    <button
+      type="button"
+      data-testid="app-header-jobs-button-mock"
+      data-job-count={String(activeJobs.length)}
+      onClick={onClick}
+    >
+      Jobs
+    </button>
+  ),
+  JobsDrawer: ({ activeJobs = [] }: { activeJobs?: { project: string }[] }) => (
+    <div data-testid="jobs-drawer-mock">
+      {activeJobs.map((job) => job.project).join(",")}
+    </div>
+  ),
+  RightPanel: ({ children }: { children: React.ReactNode }) => (
+    <aside data-testid="right-panel-mock">{children}</aside>
+  ),
   SuiteSiblingsProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
@@ -45,7 +80,7 @@ vi.mock("@pdomain/pdomain-ui/canvas", () => ({
 }));
 
 // Suppress jsdom fetch warnings in tests
-beforeAll(() => {
+beforeEach(() => {
   (globalThis as any).fetch = vi.fn().mockImplementation((url: string) => {
     // ConfigProvider fetches /api/config on mount — return a valid config so
     // HomePage renders rather than showing "Loading…".
@@ -53,6 +88,12 @@ beforeAll(() => {
       return Promise.resolve({
         ok: true,
         json: async () => ({ mode: "local", is_containerized: false }),
+      });
+    }
+    if (typeof url === "string" && url.includes("/api/jobs")) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [],
       });
     }
     return Promise.resolve({
@@ -85,7 +126,52 @@ describe("App", () => {
 
   it("AppShell mock receives a main prop", () => {
     renderApp();
-    expect(screen.getByTestId("app-shell-mock")).toBeInTheDocument();
+    expect(screen.getByTestId("app-shell-main-mock")).toBeInTheDocument();
+  });
+
+  it("opens a pdomain-ui right jobs panel from the header jobs button", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string) => {
+        if (typeof url === "string" && url.includes("/api/config")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ mode: "local", is_containerized: false }),
+          });
+        }
+        if (typeof url === "string" && url.includes("/api/jobs")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => [
+              {
+                project_id: "job-1",
+                name: "Scan batch",
+                state: "running",
+                page_count: 4,
+                pages_done: 1,
+                pages: [{ state: "succeeded" }, { state: "running" }],
+              },
+            ],
+          });
+        }
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({}),
+        });
+      },
+    );
+
+    renderApp();
+    const jobsButton = await screen.findByTestId("app-header-jobs-button-mock");
+    await waitFor(() => {
+      expect(jobsButton).toHaveAttribute("data-job-count", "1");
+    });
+
+    fireEvent.click(jobsButton);
+
+    expect(screen.getByTestId("right-panel-mock")).toBeInTheDocument();
+    expect(screen.getByTestId("jobs-drawer-mock")).toHaveTextContent(
+      "Scan batch",
+    );
   });
 
   // -------------------------------------------------------------------------

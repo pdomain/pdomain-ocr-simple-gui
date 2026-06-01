@@ -1,16 +1,15 @@
 /**
- * TDD tests for SettingsSlot wiring in AppHeader (B-SHELL-006/007).
+ * TDD tests for SettingsSlot wiring in the app header (B-SHELL-006/007).
  *
- * The app passes a custom `header` prop to AppShell.  The custom AppHeader
- * did not previously expose a settings gear.  Fix: add `<SettingsSlot />` to
- * AppHeader's `actions` prop alongside `<ShortcutsHelpButton />`.
+ * The app passes a custom `header` prop to AppShell.  The header must expose
+ * a settings gear via `<SettingsSlot />` alongside `<ShortcutsHelpButton />`.
  *
  * SettingsSlot calls `useSettingsModal().openModal()`, which is provided by
- * AppShell's SettingsModalContext.  Since AppHeader is a descendant of AppShell
- * (rendered inside the `header` slot), the context is available.
+ * AppShell's SettingsModalContext. Since the header is rendered inside the
+ * `header` slot, the context is available.
  *
  * These tests verify:
- *  - SettingsSlot is included in the AppHeader actions rendered by App.tsx.
+ *  - SettingsSlot is included in the header actions rendered by App.tsx.
  *  - Clicking the settings trigger opens the settings modal.
  *  - Clicking the close button closes the settings modal.
  *
@@ -29,7 +28,6 @@ import App from "../App";
 // module so that:
 //   - AppShell: renders header + main slots, and provides a minimal
 //     SettingsModalContext (open/openModal/closeModal).
-//   - AppHeader: renders its `actions` prop so we can assert SettingsSlot is present.
 //   - SettingsSlot: renders the settings-slot-trigger button.
 //   - SettingsModal: renders the settings-modal container (hidden when closed).
 //   - ShortcutsHelpButton: stub.
@@ -110,18 +108,13 @@ function MockAppShell({
   );
 }
 
-function MockAppHeader({
-  actions,
-}: {
-  actions?: React.ReactNode;
-  [k: string]: unknown;
-}) {
-  return <div data-testid="app-header-mock">{actions}</div>;
-}
-
 vi.mock("@pdomain/pdomain-ui/shell", () => ({
   AppShell: MockAppShell,
-  AppHeader: MockAppHeader,
+  JobsPill: () => <button type="button">Jobs</button>,
+  JobsDrawer: () => <div data-testid="jobs-drawer-mock" />,
+  RightPanel: ({ children }: { children: React.ReactNode }) => (
+    <aside data-testid="right-panel-mock">{children}</aside>
+  ),
   SettingsSlot: MockSettingsSlot,
   SuiteSiblingsProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
@@ -175,16 +168,16 @@ function renderApp() {
 // B-SHELL-006 — Settings trigger is present in the header
 // ---------------------------------------------------------------------------
 
-describe("SettingsSlot wiring in AppHeader (B-SHELL-006/007)", () => {
+describe("SettingsSlot wiring in the app header (B-SHELL-006/007)", () => {
   it("renders settings-slot-trigger inside the app header", async () => {
     renderApp();
     await waitFor(() =>
-      expect(screen.getByTestId("app-header-mock")).toBeInTheDocument(),
+      expect(screen.getByTestId("app-header")).toBeInTheDocument(),
     );
-    // SettingsSlot must be rendered inside the header via AppHeader.actions.
+    // SettingsSlot must be rendered inside the app-owned header actions.
     const trigger = screen.getByTestId("settings-slot-trigger");
     expect(trigger).toBeInTheDocument();
-    const header = screen.getByTestId("app-header-mock");
+    const header = screen.getByTestId("app-header");
     expect(header).toContainElement(trigger);
   });
 
