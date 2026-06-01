@@ -4,6 +4,21 @@ All notable changes to `pdomain-ocr-simple-gui` are documented here.
 
 ---
 
+## [Unreleased]
+
+### Dependencies
+
+- Bumped `pdomain-book-tools` floor to `>=0.17.0` (Page operational-field split).
+- Bumped `pdomain-ops` floor to `>=0.7.0`.
+
+### Test doubles
+
+- Removed stale pre-0.17 Page fields (`ocr_provenance`, `source`, `ocr_failed`,
+  `rotation_applied`, `image_path`) from `FakeStageDispatcher._page_dict_for`.
+  The fake now matches the real 0.17 `Page.to_dict()` output exactly.
+
+---
+
 ## [0.1.0a0] — 2026-05-17
 
 Initial alpha release — drag-and-drop OCR app serving as the Phase 3
