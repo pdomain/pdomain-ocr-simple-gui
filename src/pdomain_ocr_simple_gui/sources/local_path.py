@@ -6,7 +6,8 @@ import shutil
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import override
+
+from typing_extensions import override
 
 from pdomain_ocr_simple_gui.sources import (
     Source,
