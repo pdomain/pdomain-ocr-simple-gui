@@ -89,25 +89,37 @@ export function HomePage() {
       )}
       {mode === "local" && containerized && (
         <>
-          <h3 className="heading-13">Upload</h3>
-          <SourcePicker
-            allowDrop
-            allowPathInput={false}
-            onUploadComplete={(id) =>
-              setChosen({ kind: "upload", uploadId: id })
-            }
-            onPathChosen={() => {}}
-            onClear={clearChosen}
-          />
-          <h3 className="heading-13">Existing folder or zip</h3>
-          <SourcePicker
-            allowDrop={false}
-            allowPathInput
-            pathHint="Paths refer to the container filesystem (bind-mount your scans dir if needed)."
-            onUploadComplete={() => {}}
-            onPathChosen={(p) => setChosen({ kind: "path", path: p })}
-            onClear={clearChosen}
-          />
+          {/* Hide the upload picker once a path source is chosen, and vice versa.
+              Both pickers are visible when no source is chosen (chosen === null).
+              Once one source is chosen, only that source is visible. Clearing
+              (onClear → clearChosen) restores chosen to null → both reappear. */}
+          {chosen === null || chosen.kind === "upload" ? (
+            <>
+              <h3 className="heading-13">Upload</h3>
+              <SourcePicker
+                allowDrop
+                allowPathInput={false}
+                onUploadComplete={(id) =>
+                  setChosen({ kind: "upload", uploadId: id })
+                }
+                onPathChosen={() => {}}
+                onClear={clearChosen}
+              />
+            </>
+          ) : null}
+          {chosen === null || chosen.kind === "path" ? (
+            <>
+              <h3 className="heading-13">Existing folder or zip</h3>
+              <SourcePicker
+                allowDrop={false}
+                allowPathInput
+                pathHint="Paths refer to the container filesystem (bind-mount your scans dir if needed)."
+                onUploadComplete={() => {}}
+                onPathChosen={(p) => setChosen({ kind: "path", path: p })}
+                onClear={clearChosen}
+              />
+            </>
+          ) : null}
         </>
       )}
       {mode === "local" && !containerized && (

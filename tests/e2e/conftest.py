@@ -397,6 +397,28 @@ def live_server_url_cpu(e2e_data_root: Path) -> Generator[str, None, None]:
 
 
 @pytest.fixture(scope="session")
+def live_server_url_containerized(e2e_data_root: Path) -> Generator[str, None, None]:
+    """Start the app on a free port with PD_OCR_SIMPLE_GUI_IS_CONTAINERIZED=1.
+
+    Used for source-hide tests: in local+containerized mode, both an "Upload"
+    picker and an "Existing folder or zip" path picker are rendered.  Choosing
+    one hides the other (B-HOME-001 / B-HOME-003); clearing restores both
+    (B-HOME-004).
+    """
+    env = {
+        "PD_OCR_SIMPLE_GUI_PROJECTS_ROOT": str(e2e_data_root / "projects"),
+        "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(e2e_data_root / "outputs"),
+        "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(e2e_data_root / "jobs_meta"),
+        "PD_OCR_SIMPLE_GUI_UPLOAD_ROOT": str(e2e_data_root / "uploads"),
+        "PD_SUITE_DATA_DIR": str(e2e_data_root / "suite_data"),
+        "PDOMAIN_OCR_FAKE_DISPATCHER": "1",
+        # Force local+containerized so both pickers render.
+        "PD_OCR_SIMPLE_GUI_IS_CONTAINERIZED": "1",
+    }
+    yield from _boot_server(env)
+
+
+@pytest.fixture(scope="session")
 def live_server_url_real_ocr(e2e_data_root: Path) -> Generator[str, None, None]:
     """Live server running the REAL OCR engine on the GPU. Opt-in (real_ocr).
 

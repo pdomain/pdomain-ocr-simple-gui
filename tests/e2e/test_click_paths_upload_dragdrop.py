@@ -123,3 +123,38 @@ def test_drag_drop_upload_flow_reaches_results_with_page_rows(
     )
     sidecar_data = json.loads(sidecar.read_text(encoding="utf-8"))
     assert "text" in sidecar_data and "words" in sidecar_data, sidecar_data.keys()
+
+
+@pytest.mark.slow
+@pytest.mark.e2e
+def test_upload_hides_path_input_in_containerized_mode(
+    page: Page, live_server_url_containerized: str
+) -> None:
+    """B-HOME-001 source-hide: choosing upload hides the path input.
+
+    Covers: B-HOME-001 (choosing upload hides alternative path input)
+    Covers: B-HOME-004 (clearing chosen source restores both pickers)
+
+    In local+containerized mode, both an "Upload" picker and an "Existing folder
+    or zip" path picker are rendered. Once an upload source is chosen, the path
+    input must be hidden entirely. Clearing restores both pickers.
+    """
+    page.goto(live_server_url_containerized)
+    expect(page.get_by_test_id("home-page")).to_be_visible(timeout=10_000)
+
+    # Both pickers visible before choosing
+    expect(page.get_by_test_id("source-picker-drop")).to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("source-picker-path-input")).to_be_visible(timeout=5_000)
+
+    # Drop a file onto the upload zone (B-HOME-001)
+    _dispatch_drop(page, "source-picker-drop", "scan.png", _PNG_B64)
+    expect(page.get_by_test_id("source-picker-chosen")).to_be_visible(timeout=10_000)
+    expect(page.get_by_test_id("job-config-inline")).to_be_visible(timeout=10_000)
+
+    # After choosing upload: path input must be hidden
+    expect(page.get_by_test_id("source-picker-path-input")).to_be_hidden(timeout=5_000)
+
+    # Clearing restores both inputs (B-HOME-004)
+    page.get_by_test_id("source-picker-clear").click()
+    expect(page.get_by_test_id("source-picker-path-input")).to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("source-picker-drop")).to_be_visible(timeout=5_000)

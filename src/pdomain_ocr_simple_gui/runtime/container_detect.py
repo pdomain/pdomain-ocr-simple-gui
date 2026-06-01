@@ -18,7 +18,16 @@ def _read_init_cgroup() -> str:
 
 
 def detect_containerized() -> bool:
-    """Return True when the process is running inside a container."""
+    """Return True when the process is running inside a container.
+
+    An explicit ``PD_OCR_SIMPLE_GUI_IS_CONTAINERIZED=1`` override takes
+    precedence — useful for e2e test fixtures that need to exercise the
+    local+containerized rendering path without actually running inside a
+    container.
+    """
+    override = os.environ.get("PD_OCR_SIMPLE_GUI_IS_CONTAINERIZED", "")
+    if override.strip() in ("1", "true", "yes"):
+        return True
     if _DOCKERENV.exists():
         return True
     if _PODMAN_MARKER.exists():

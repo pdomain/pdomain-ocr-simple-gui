@@ -151,3 +151,42 @@ def test_invalid_output_config_is_rejected_and_shown(
     expect(alert).to_be_visible(timeout=10_000)
     expect(alert).to_contain_text("output")
     expect(page.get_by_test_id("home-page")).to_be_visible()
+
+
+@pytest.mark.slow
+@pytest.mark.e2e
+def test_path_hides_upload_picker_in_containerized_mode(
+    page: Page, live_server_url_containerized: str, tmp_path: Path
+) -> None:
+    """B-HOME-003 source-hide: choosing a path hides the upload picker.
+
+    Covers: B-HOME-003 (choosing path hides alternative upload picker)
+    Covers: B-HOME-004 (cancelling config form restores both pickers)
+
+    In local+containerized mode, choosing a path source must hide the "Upload"
+    drop zone. Clearing restores both pickers.
+    """
+    folder = tmp_path / "scans2"
+    folder.mkdir()
+    (folder / "page-001.png").write_bytes(_PNG_1X1)
+
+    page.goto(live_server_url_containerized)
+    expect(page.get_by_test_id("home-page")).to_be_visible(timeout=10_000)
+
+    # Both pickers visible before choosing
+    expect(page.get_by_test_id("source-picker-drop")).to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("source-picker-path-input")).to_be_visible(timeout=5_000)
+
+    # Enter a path (B-HOME-003)
+    path_input = page.get_by_test_id("source-picker-path-input")
+    path_input.fill(str(folder))
+    path_input.press("Enter")
+    expect(page.get_by_test_id("job-config-inline")).to_be_visible(timeout=10_000)
+
+    # After choosing path: upload drop zone must be hidden
+    expect(page.get_by_test_id("source-picker-drop")).to_be_hidden(timeout=5_000)
+
+    # Cancel the config form → resets chosen → both pickers restore (B-HOME-005)
+    page.get_by_test_id("job-config-inline-cancel").click()
+    expect(page.get_by_test_id("source-picker-drop")).to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("source-picker-path-input")).to_be_visible(timeout=5_000)

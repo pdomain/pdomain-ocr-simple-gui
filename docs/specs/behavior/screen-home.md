@@ -15,10 +15,12 @@ side-effects* are filled. Every record needs a good path and at least one
 bad path. *Observable output* is whatever the user perceives on this
 surface (DOM / toasts / route).
 
-> **STATUS: LOCKED.** Maintainer interview complete (2026-05-29). Records
-> reflect confirmed intent. `Regression: yes` is tagged on `B-HOME-004`,
-> `B-HOME-006`, `B-HOME-014` (the three fixes that restored intended
-> behavior); each references its fix commit.
+> **STATUS: UPDATED 2026-06-01.** Source-hide behavior added to `B-HOME-001`,
+> `B-HOME-003`, `B-HOME-004` (symmetric hide-on-chosen / restore-on-clear).
+> `B-HOME-006` clarified to state `DocTR` is the settings-driven default on a
+> fresh install. `Regression: yes` is tagged on `B-HOME-004`, `B-HOME-006`,
+> `B-HOME-014` (the three fixes that restored intended behavior); each references
+> its fix commit.
 
 ### On-disk artifacts (confirmed in `storage.py` + `routes/jobs.py`)
 
@@ -72,7 +74,11 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
 - **Observable output:** Drop zone switches to the "chosen" view
   (`data-testid="source-picker-chosen"`) showing `📁 <folder>` for a folder drop,
   the single filename for one file, or `<n> files`; the `JobConfigInline` form
-  (`data-testid="job-config-inline"`) appears below.
+  (`data-testid="job-config-inline"`) appears below. In `local+containerized`
+  mode (where both an "Upload" picker and an "Existing folder or zip" path picker
+  are rendered), choosing an upload source **hides the path picker** — only the
+  chosen picker remains visible alongside the `JobConfigInline` form. Clearing
+  the chosen source (`B-HOME-004`) restores both pickers.
 - **Backend / side-effects:** `POST /api/uploads` (multipart `files`) →
   `{ "upload_id": "<hex>" }`; files streamed into
   `<UPLOAD_ROOT>/<upload_id>/`; zips extracted in place. No `project.json`
@@ -114,7 +120,11 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   mode. Draft must be non-empty/non-whitespace (`pathDraft.trim()`).
 - **Observable output:** `JobConfigInline` appears with the chosen source
   `{kind: "path", path}`; the project-name default is derived from the path
-  basename (`defaultProjectName`).
+  basename (`defaultProjectName`). In `local+containerized` mode (where both an
+  "Upload" picker and a path picker are rendered), choosing a path source **hides
+  the "Upload" picker** — only the path picker remains visible alongside the
+  `JobConfigInline` form. This is symmetric with `B-HOME-001`. Clearing the
+  chosen source (`B-HOME-004`) restores both pickers.
 - **Backend / side-effects:** None at choose-time — the path is validated only
   later when `POST /api/jobs` runs `LocalPathSource.materialize()`.
 - **Bad-state / error:** Whitespace-only path → form submit is a no-op (no
@@ -131,7 +141,10 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
 - **Preconditions:** A source has been chosen (drop/pick), chosen view visible.
 - **Observable output:** Chosen view collapses back to the empty drop prompt;
   the file input is reset; `JobConfigInline` disappears (parent `onClear` →
-  `setChosen(null)`).
+  `setChosen(null)`). In `local+containerized` mode, where selecting one source
+  hides the alternative picker (see `B-HOME-001` / `B-HOME-003`), clearing also
+  **restores both pickers** — the full "Upload" and "Existing folder or zip"
+  inputs reappear so the user can choose a different source.
 - **Backend / side-effects:** For an **upload** source, the SourcePicker calls
   `DELETE /api/uploads/{upload_id}`, which removes `<UPLOAD_ROOT>/<upload_id>/`
   from disk (idempotent: 204 when nothing matches, 400 for an unsafe id). For a
@@ -172,9 +185,13 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   `APP_TEST_IDS.languageInput`).
 - **Preconditions:** `JobConfigInline` visible.
 - **Observable output:** On mount the form seeds engine + language from the
-  prefs response. `AppPrefs` exposes `default_engine` / `default_language`, so a
-  saved `default_engine: "tesseract"` makes the select start on `tesseract`.
-  Select/field then reflect any user change.
+  prefs response. `AppPrefs` exposes `default_engine` / `default_language`
+  (model default: `"doctr"` / `"en"`). On a **fresh install** with no persisted
+  prefs, the select shows `DocTR` with no user interaction needed — the
+  settings-driven default is `doctr`. A user-saved `default_engine: "tesseract"`
+  makes the select start on `tesseract`. Select/field then reflect any user
+  change. An empty or missing `default_engine` in the prefs response does not
+  overwrite the `"doctr"` init default.
 - **Backend / side-effects:** `GET /api/prefs` on form mount. The chosen
   `engine`/`language` ride along in the `POST /api/jobs` body and persist into
   `project.json` → `spec.engine` / `spec.language`.
