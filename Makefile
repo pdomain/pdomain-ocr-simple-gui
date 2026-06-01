@@ -50,7 +50,7 @@ setup: ## Sync deps + install pre-commit hooks + install Playwright chromium
 	@echo "🌐 Installing Playwright chromium..."
 	PLAYWRIGHT_BROWSERS_PATH=/cache/shared-ai/ms-playwright uv run --group e2e playwright install chromium || true
 	@echo "🪝 Setting up pre-commit hooks..."
-	uv run pre-commit install || true
+	@[ -n "$$(git config --get core.hooksPath 2>/dev/null)" ] || [ -f .git ] || uv run pre-commit install
 	@echo "✅ Setup complete!"
 
 install: setup ## Alias for setup
