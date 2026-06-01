@@ -1,3 +1,5 @@
+import { type JobCreationBehaviorId } from "./jobCreationBehavior";
+
 export interface RuntimeConfig {
   mode: "local" | "managed";
   is_containerized: boolean;
@@ -19,6 +21,11 @@ export type ChosenSource =
   | { kind: "path"; path: string }
   | { kind: "upload"; uploadId: string };
 
+export type JobOutputConfig =
+  | { mode: "next_to_source" }
+  | { mode: "specified"; path: string }
+  | { mode: "managed" };
+
 export interface JobForm {
   name: string;
   engine: "doctr" | "tesseract";
@@ -28,7 +35,7 @@ export interface JobForm {
   emit_illustration_placeholders: boolean;
   device: "auto" | "gpu" | "cpu";
   batch_pages: number | null;
-  output: { mode: "next_to_source" | "specified" | "managed"; path?: string };
+  output: JobOutputConfig;
 }
 
 export interface JobCreationContext {
@@ -39,7 +46,7 @@ export interface JobCreationContext {
   uploadError: string | null;
   submitError: string | null;
   submittedProjectId: string | null;
-  behaviorTrace: string[];
+  behaviorTrace: JobCreationBehaviorId[];
 }
 
 export type JobCreationEvent =

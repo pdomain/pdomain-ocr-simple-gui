@@ -10,8 +10,8 @@ export type JobCreationBehaviorId =
   (typeof JOB_CREATION_BEHAVIOR)[keyof typeof JOB_CREATION_BEHAVIOR];
 
 export function appendBehaviorTrace(
-  trace: string[],
+  trace: JobCreationBehaviorId[],
   id: JobCreationBehaviorId,
-): string[] {
+): JobCreationBehaviorId[] {
   return trace.includes(id) ? trace : [...trace, id];
 }
