@@ -67,17 +67,7 @@ export function SourcePicker(props: SourcePickerProps) {
       {props.allowDrop && (
         <div
           data-testid={APP_TEST_IDS.sourcePickerDropZone}
-          role="button"
-          aria-label="Drop source files"
-          tabIndex={0}
           className={`source-picker__drop${dragActive ? " source-picker__drop--active" : ""}`}
-          onClick={openFilePicker}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              openFilePicker();
-            }
-          }}
           onDragOver={(event) => {
             event.preventDefault();
             setDragActive(true);

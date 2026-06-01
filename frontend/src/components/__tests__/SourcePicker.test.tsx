@@ -52,20 +52,27 @@ it("emits onPathChosen for path input", () => {
   expect(onPathChosen).toHaveBeenCalledWith("/scans/book1");
 });
 
-it("clicking the dropzone triggers the hidden file input", () => {
+it("clicking Choose file triggers the hidden file input", () => {
   const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click");
   renderPicker();
-  fireEvent.click(screen.getByTestId("source-picker-drop"));
+  fireEvent.click(screen.getByRole("button", { name: /choose file/i }));
   expect(clickSpy).toHaveBeenCalled();
   clickSpy.mockRestore();
 });
 
-it("pressing Enter on the dropzone triggers the file input", () => {
+it("clicking Browse folder triggers the hidden folder input", () => {
   const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click");
   renderPicker();
-  fireEvent.keyDown(screen.getByTestId("source-picker-drop"), { key: "Enter" });
+  fireEvent.click(screen.getByRole("button", { name: /browse folder/i }));
   expect(clickSpy).toHaveBeenCalled();
   clickSpy.mockRestore();
+});
+
+it("drop target is not an interactive button", () => {
+  renderPicker();
+  const drop = screen.getByTestId("source-picker-drop");
+  expect(drop).not.toHaveAttribute("role", "button");
+  expect(drop).not.toHaveAttribute("tabindex");
 });
 
 it("renders the dropped filename after a drop", () => {
