@@ -149,17 +149,23 @@ body,
   background: color-mix(in srgb, var(--bg-surface) 72%, black);
 }
 
-.source-picker__mode-tabs button,
+.source-picker__mode-tabs span,
 .source-picker__recent button {
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
   color: var(--ink-2);
   font: inherit;
+}
+
+.source-picker__recent button {
   cursor: pointer;
 }
 
-.source-picker__mode-tabs button {
+.source-picker__mode-tabs span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 44px;
   min-height: 30px;
   padding: 0 8px;
@@ -167,7 +173,6 @@ body,
   font-weight: 600;
 }
 
-.source-picker__mode-tabs button:hover,
 .source-picker__recent button:hover {
   border-color: var(--border-3);
   background: var(--bg-sunk);

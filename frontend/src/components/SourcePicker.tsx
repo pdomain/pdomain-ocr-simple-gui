@@ -112,15 +112,9 @@ export function SourcePicker(props: SourcePickerProps) {
           />
 
           <div aria-label="Source type" className="source-picker__mode-tabs">
-            <button type="button" aria-label="Folder source">
-              DIR
-            </button>
-            <button type="button" aria-label="File source">
-              FILE
-            </button>
-            <button type="button" aria-label="Archive source">
-              ZIP
-            </button>
+            <span aria-hidden="true">DIR</span>
+            <span aria-hidden="true">FILE</span>
+            <span aria-hidden="true">ZIP</span>
           </div>
 
           {chosen === null ? (

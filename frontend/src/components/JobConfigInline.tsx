@@ -3,7 +3,13 @@
 // payload shape that JobConfigDialog produced. OutputConfigPanel is the sole
 // output-destination control; there is no separate outputDir field.
 
-import { useState, useEffect, type ChangeEvent, type FormEvent } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import {
   Button,
   Input,
@@ -94,28 +100,32 @@ export function JobConfigInline({
   const [batchPages, setBatchPages] = useState<string>("");
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  const sourceIsFolder = source.kind === "path";
+  const sourceKind = source.kind;
+  const sourceIsFolder = sourceKind === "path";
+  const sourceId = sourceKind === "path" ? source.path : source.uploadId;
+  const sourceKey = `${sourceKind}:${sourceId}`;
+  const sourceForDefaults = useMemo<ChosenSource>(
+    () =>
+      sourceKind === "path"
+        ? { kind: "path", path: sourceId }
+        : { kind: "upload", uploadId: sourceId },
+    [sourceId, sourceKind],
+  );
   const [outputConfig, setOutputConfig] = useState<OutputConfigValue>(() =>
     defaultOutputMode(source, mode),
   );
 
   // Reset output config + project name when source/mode changes
   useEffect(() => {
-    setOutputConfig(defaultOutputMode(source, mode));
-    const name = defaultProjectName(source);
+    const output = defaultOutputMode(sourceForDefaults, mode);
+    setOutputConfig(output);
+    const name = defaultProjectName(sourceForDefaults);
     setProjectName(name);
     onFormChanged?.({
       name,
-      output: defaultOutputMode(source, mode),
+      output,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    source.kind,
-    mode,
-    sourceIsFolder
-      ? (source as { path: string }).path
-      : (source as { uploadId: string }).uploadId,
-  ]);
+  }, [mode, onFormChanged, sourceForDefaults, sourceKey]);
 
   // Load engine/language defaults from prefs on mount
   useEffect(() => {
@@ -141,7 +151,7 @@ export function JobConfigInline({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [onFormChanged]);
 
   function buildForm(): JobForm {
     return {

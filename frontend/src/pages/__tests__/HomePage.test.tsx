@@ -281,3 +281,24 @@ it("local+containerized: clearing upload restores both source inputs", async () 
   expect(await screen.findByTestId("source-picker-drop")).toBeInTheDocument();
   expect(screen.getByTestId("source-picker-path-input")).toBeInTheDocument();
 });
+
+it("clearing an uploaded source deletes the staged upload", async () => {
+  installFetch({ mode: "local", is_containerized: true });
+  const user = userEvent.setup();
+  render(renderTree());
+
+  await screen.findByTestId("source-picker-drop");
+
+  const file = new File(["fake"], "scan.png", { type: "image/png" });
+  await user.upload(screen.getByTestId("source-picker-file-pick"), file);
+  await screen.findByTestId("job-config-inline");
+
+  await user.click(screen.getByTestId("mock-cancel"));
+
+  await waitFor(() => {
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "/api/uploads/test-upload-123",
+      { method: "DELETE" },
+    );
+  });
+});

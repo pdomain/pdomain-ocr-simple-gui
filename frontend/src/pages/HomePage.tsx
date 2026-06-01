@@ -32,7 +32,14 @@ export function HomePage() {
     (path: string) => send({ type: "PATH_CHOSEN", path }),
     [send],
   );
-  const clearSource = useCallback(() => send({ type: "CLEAR_SOURCE" }), [send]);
+  const clearSource = useCallback(async () => {
+    if (source?.kind === "upload") {
+      await fetch(`/api/uploads/${encodeURIComponent(source.uploadId)}`, {
+        method: "DELETE",
+      }).catch(() => {});
+    }
+    send({ type: "CLEAR_SOURCE" });
+  }, [send, source]);
   const changeJobForm = useCallback(
     (patch: Partial<JobForm>) => send({ type: "JOB_FORM_CHANGED", patch }),
     [send],

@@ -1,60 +1,51 @@
-// Tests for SourcePicker — A6.2
+// Tests for presentational SourcePicker source selection.
 import { fireEvent, render, screen } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { SourcePicker } from "../SourcePicker";
 
-function mockUploadFetch(uploadId = "u1") {
-  globalThis.fetch = (async () => ({
-    ok: true,
-    json: async () => ({ upload_id: uploadId }),
-  })) as unknown as typeof fetch;
-}
-
-it("calls onUploadComplete for a dropped file", async () => {
-  const onUploadComplete = vi.fn();
-  mockUploadFetch("u1");
-  render(
+function renderPicker(
+  props: Partial<ComponentProps<typeof SourcePicker>> = {},
+) {
+  return render(
     <SourcePicker
       allowDrop
-      allowPathInput
-      onUploadComplete={onUploadComplete}
+      allowPathInput={false}
+      onFilesSelected={() => {}}
       onPathChosen={() => {}}
+      {...props}
     />,
   );
+}
+
+it("calls onFilesSelected for a dropped file without fetching", () => {
+  const onFilesSelected = vi.fn();
+  const fetchSpy = vi.fn();
+  globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+  renderPicker({ allowPathInput: true, onFilesSelected });
   const drop = screen.getByTestId("source-picker-drop");
   const file = new File(["x"], "scan.png", { type: "image/png" });
   fireEvent.drop(drop, { dataTransfer: { files: [file] } });
-  await vi.waitFor(() => expect(onUploadComplete).toHaveBeenCalledWith("u1"));
+
+  expect(onFilesSelected).toHaveBeenCalledWith([file]);
+  expect(fetchSpy).not.toHaveBeenCalled();
 });
 
-it("dropzone has a generous min-height", () => {
-  render(
-    <SourcePicker
-      allowDrop
-      allowFilePick={false}
-      allowPathInput={false}
-      onUploadComplete={() => {}}
-      onPathChosen={() => {}}
-    />,
+it("dropzone keeps a generous min-height from CSS class", () => {
+  renderPicker();
+  expect(screen.getByTestId("source-picker-drop")).toHaveClass(
+    "source-picker__drop",
   );
-  const drop = screen.getByTestId("source-picker-drop") as HTMLElement;
-  // Style is applied inline; parse the minHeight attribute.
-  const minHeight = drop.style.minHeight;
-  expect(minHeight).toBeTruthy();
-  const value = parseInt(minHeight, 10);
-  expect(value).toBeGreaterThanOrEqual(100);
 });
 
 it("emits onPathChosen for path input", () => {
   const onPathChosen = vi.fn();
-  render(
-    <SourcePicker
-      allowDrop={false}
-      allowPathInput
-      onUploadComplete={() => {}}
-      onPathChosen={onPathChosen}
-      pathHint="Folder, image, or zip path"
-    />,
-  );
+  renderPicker({
+    allowDrop: false,
+    allowPathInput: true,
+    onPathChosen,
+    pathHint: "Folder, image, or zip path",
+  });
   const input = screen.getByTestId("source-picker-path-input");
   fireEvent.change(input, { target: { value: "/scans/book1" } });
   fireEvent.submit(input.closest("form")!);
@@ -62,239 +53,110 @@ it("emits onPathChosen for path input", () => {
 });
 
 it("clicking the dropzone triggers the hidden file input", () => {
-  mockUploadFetch();
   const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click");
-  render(
-    <SourcePicker
-      allowDrop
-      allowPathInput={false}
-      onUploadComplete={() => {}}
-      onPathChosen={() => {}}
-    />,
-  );
-  const drop = screen.getByTestId("source-picker-drop");
-  fireEvent.click(drop);
+  renderPicker();
+  fireEvent.click(screen.getByTestId("source-picker-drop"));
   expect(clickSpy).toHaveBeenCalled();
   clickSpy.mockRestore();
 });
 
 it("pressing Enter on the dropzone triggers the file input", () => {
   const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click");
-  render(
-    <SourcePicker
-      allowDrop
-      allowPathInput={false}
-      onUploadComplete={() => {}}
-      onPathChosen={() => {}}
-    />,
-  );
-  const drop = screen.getByTestId("source-picker-drop");
-  fireEvent.keyDown(drop, { key: "Enter" });
+  renderPicker();
+  fireEvent.keyDown(screen.getByTestId("source-picker-drop"), { key: "Enter" });
   expect(clickSpy).toHaveBeenCalled();
   clickSpy.mockRestore();
 });
 
-it("renders the dropped filename after a drop", async () => {
-  mockUploadFetch("u2");
-  render(
-    <SourcePicker
-      allowDrop
-      allowPathInput={false}
-      onUploadComplete={() => {}}
-      onPathChosen={() => {}}
-    />,
-  );
-  const drop = screen.getByTestId("source-picker-drop");
+it("renders the dropped filename after a drop", () => {
+  renderPicker();
   const file = new File(["x"], "scan-007.png", { type: "image/png" });
-  fireEvent.drop(drop, { dataTransfer: { files: [file] } });
-  expect(await screen.findByTestId("source-picker-chosen")).toHaveTextContent(
+  fireEvent.drop(screen.getByTestId("source-picker-drop"), {
+    dataTransfer: { files: [file] },
+  });
+  expect(screen.getByTestId("source-picker-chosen")).toHaveTextContent(
     "scan-007.png",
   );
 });
 
-it("lists every dropped file with a count header", async () => {
-  mockUploadFetch();
-  render(
-    <SourcePicker
-      allowDrop
-      allowPathInput={false}
-      onUploadComplete={() => {}}
-      onPathChosen={() => {}}
-    />,
-  );
-  const drop = screen.getByTestId("source-picker-drop");
+it("lists every dropped file with a count header", () => {
+  renderPicker();
   const files = [
     new File(["a"], "a.png", { type: "image/png" }),
     new File(["b"], "b.png", { type: "image/png" }),
     new File(["c"], "c.png", { type: "image/png" }),
   ];
-  fireEvent.drop(drop, { dataTransfer: { files } });
-  const chosen = await screen.findByTestId("source-picker-chosen");
-  expect(chosen.textContent).toContain("3 files");
-  expect(chosen.textContent).toContain("a.png");
-  expect(chosen.textContent).toContain("b.png");
-  expect(chosen.textContent).toContain("c.png");
-});
-
-it("clear button resets the display and fires onClear", async () => {
-  mockUploadFetch();
-  const onClear = vi.fn();
-  render(
-    <SourcePicker
-      allowDrop
-      allowPathInput={false}
-      onUploadComplete={() => {}}
-      onPathChosen={() => {}}
-      onClear={onClear}
-    />,
-  );
-  const drop = screen.getByTestId("source-picker-drop");
-  const file = new File(["x"], "scan.png", { type: "image/png" });
-  fireEvent.drop(drop, { dataTransfer: { files: [file] } });
-  const clearBtn = await screen.findByTestId("source-picker-clear");
-  fireEvent.click(clearBtn);
-  expect(onClear).toHaveBeenCalled();
-  expect(screen.queryByTestId("source-picker-chosen")).toBeNull();
-});
-
-// B-HOME-004 (Regression): clearing a chosen upload must delete its staging
-// dir server-side via DELETE /api/uploads/{upload_id} so orphan dirs do not
-// accumulate. A path source has no staging dir, so no DELETE is issued.
-it("clearing an uploaded source DELETEs its staging dir", async () => {
-  const calls: Array<{ url: string; method?: string }> = [];
-  globalThis.fetch = (async (url: string, opts?: RequestInit) => {
-    calls.push({ url, method: opts?.method });
-    if (url === "/api/uploads" && opts?.method !== "DELETE") {
-      return { ok: true, json: async () => ({ upload_id: "u-del-1" }) };
-    }
-    return { ok: true, json: async () => ({}) };
-  }) as unknown as typeof fetch;
-
-  render(
-    <SourcePicker
-      allowDrop
-      allowPathInput={false}
-      onUploadComplete={() => {}}
-      onPathChosen={() => {}}
-      onClear={() => {}}
-    />,
-  );
-  const drop = screen.getByTestId("source-picker-drop");
-  const file = new File(["x"], "scan.png", { type: "image/png" });
-  fireEvent.drop(drop, { dataTransfer: { files: [file] } });
-  const clearBtn = await screen.findByTestId("source-picker-clear");
-  fireEvent.click(clearBtn);
-
-  await vi.waitFor(() => {
-    expect(
-      calls.some(
-        (c) => c.url === "/api/uploads/u-del-1" && c.method === "DELETE",
-      ),
-    ).toBe(true);
+  fireEvent.drop(screen.getByTestId("source-picker-drop"), {
+    dataTransfer: { files },
   });
+  const chosen = screen.getByTestId("source-picker-chosen");
+  expect(chosen).toHaveTextContent("3 files");
+  expect(chosen).toHaveTextContent("a.png");
+  expect(chosen).toHaveTextContent("b.png");
+  expect(chosen).toHaveTextContent("c.png");
 });
 
-it("clearing a path-only picker issues NO DELETE (no staging dir)", async () => {
-  const calls: Array<{ url: string; method?: string }> = [];
-  globalThis.fetch = (async (url: string, opts?: RequestInit) => {
-    calls.push({ url, method: opts?.method });
-    return { ok: true, json: async () => ({}) };
-  }) as unknown as typeof fetch;
+it("clear button resets the display and fires onClear without deleting uploads", () => {
+  const onClear = vi.fn();
+  const fetchSpy = vi.fn();
+  globalThis.fetch = fetchSpy as unknown as typeof fetch;
+  renderPicker({ onClear });
 
-  render(
-    <SourcePicker
-      allowDrop={false}
-      allowPathInput
-      onUploadComplete={() => {}}
-      onPathChosen={() => {}}
-      onClear={() => {}}
-    />,
-  );
-  const input = screen.getByTestId("source-picker-path-input");
-  fireEvent.change(input, { target: { value: "/scans/book1" } });
-  fireEvent.submit(input.closest("form")!);
-  // No chosen view in a path-only picker; nothing to clear server-side.
-  expect(calls.some((c) => c.method === "DELETE")).toBe(false);
-});
-
-it("clicking the clear button does not re-open the file picker", async () => {
-  mockUploadFetch();
-  const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click");
-  render(
-    <SourcePicker
-      allowDrop
-      allowPathInput={false}
-      onUploadComplete={() => {}}
-      onPathChosen={() => {}}
-    />,
-  );
-  const drop = screen.getByTestId("source-picker-drop");
   const file = new File(["x"], "scan.png", { type: "image/png" });
-  fireEvent.drop(drop, { dataTransfer: { files: [file] } });
-  const clearBtn = await screen.findByTestId("source-picker-clear");
+  fireEvent.drop(screen.getByTestId("source-picker-drop"), {
+    dataTransfer: { files: [file] },
+  });
+  fireEvent.click(screen.getByTestId("source-picker-clear"));
+
+  expect(onClear).toHaveBeenCalledTimes(1);
+  expect(screen.queryByTestId("source-picker-chosen")).toBeNull();
+  expect(fetchSpy).not.toHaveBeenCalled();
+});
+
+it("clicking the clear button does not re-open the file picker", () => {
+  const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click");
+  renderPicker();
+  const file = new File(["x"], "scan.png", { type: "image/png" });
+  fireEvent.drop(screen.getByTestId("source-picker-drop"), {
+    dataTransfer: { files: [file] },
+  });
   clickSpy.mockClear();
-  fireEvent.click(clearBtn);
+  fireEvent.click(screen.getByTestId("source-picker-clear"));
   expect(clickSpy).not.toHaveBeenCalled();
   clickSpy.mockRestore();
 });
 
-it("shows upload error and does not call onUploadComplete when upload fails", async () => {
-  globalThis.fetch = (async () => ({
-    ok: false,
-    status: 500,
-    json: async () => ({}),
-  })) as unknown as typeof fetch;
-  const onUploadComplete = vi.fn();
-  render(
-    <SourcePicker
-      allowDrop
-      allowPathInput={false}
-      onUploadComplete={onUploadComplete}
-      onPathChosen={() => {}}
-    />,
+it("shows uploadError prop in the existing alert slot", () => {
+  renderPicker({ uploadError: "Upload failed." });
+  expect(screen.getByTestId("source-picker-upload-error")).toHaveTextContent(
+    "Upload failed.",
   );
-  const drop = screen.getByTestId("source-picker-drop");
-  const file = new File(["x"], "scan.png", { type: "image/png" });
-  fireEvent.drop(drop, { dataTransfer: { files: [file] } });
-  // Error message should appear and callback must not fire
-  await vi.waitFor(() => {
-    expect(
-      screen.getByTestId("source-picker-upload-error"),
-    ).toBeInTheDocument();
-  });
-  expect(onUploadComplete).not.toHaveBeenCalled();
 });
 
 it("does not emit onPathChosen for empty path", () => {
   const onPathChosen = vi.fn();
-  render(
-    <SourcePicker
-      allowDrop={false}
-      allowPathInput
-      onUploadComplete={() => {}}
-      onPathChosen={onPathChosen}
-    />,
-  );
+  renderPicker({
+    allowDrop: false,
+    allowPathInput: true,
+    onPathChosen,
+  });
   const input = screen.getByTestId("source-picker-path-input");
-  // Submit with blank value — should not fire
   fireEvent.change(input, { target: { value: "" } });
   fireEvent.submit(input.closest("form")!);
   expect(onPathChosen).not.toHaveBeenCalled();
 });
 
-it("does not show chosen state when zero files are dropped", async () => {
-  mockUploadFetch();
-  render(
-    <SourcePicker
-      allowDrop
-      allowPathInput={false}
-      onUploadComplete={() => {}}
-      onPathChosen={() => {}}
-    />,
-  );
-  const drop = screen.getByTestId("source-picker-drop");
-  // Drop with empty file list
-  fireEvent.drop(drop, { dataTransfer: { files: [] } });
-  // chosen panel should NOT appear
+it("does not show chosen state when zero files are dropped", () => {
+  renderPicker();
+  fireEvent.drop(screen.getByTestId("source-picker-drop"), {
+    dataTransfer: { files: [] },
+  });
   expect(screen.queryByTestId("source-picker-chosen")).toBeNull();
+});
+
+it("source type labels are non-interactive", () => {
+  renderPicker();
+  expect(screen.queryByRole("button", { name: /folder source/i })).toBeNull();
+  expect(screen.queryByRole("button", { name: /file source/i })).toBeNull();
+  expect(screen.queryByRole("button", { name: /archive source/i })).toBeNull();
 });
