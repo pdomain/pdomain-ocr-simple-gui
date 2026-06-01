@@ -9,7 +9,7 @@ import os
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import Response
@@ -71,7 +71,7 @@ def _write_job_meta(job_id: str, output_mode: str) -> None:
     """Persist a small output_mode sidecar JSON for job_id."""
     meta_dir = _jobs_meta_root() / job_id
     meta_dir.mkdir(parents=True, exist_ok=True)
-    (meta_dir / "output_mode.json").write_text(json.dumps({"mode": output_mode}), encoding="utf-8")
+    _ = (meta_dir / "output_mode.json").write_text(json.dumps({"mode": output_mode}), encoding="utf-8")
 
 
 def _read_job_meta_output_mode(job_id: str) -> str | None:
@@ -80,9 +80,12 @@ def _read_job_meta_output_mode(job_id: str) -> str | None:
     if not meta_file.exists():
         return None
     try:
-        data = json.loads(meta_file.read_text(encoding="utf-8"))
+        data = cast("object", json.loads(meta_file.read_text(encoding="utf-8")))
         if isinstance(data, dict):
-            return str(data["mode"])
+            typed_data = cast("dict[str, object]", data)
+            mode = typed_data.get("mode")
+            if mode is not None:
+                return str(mode)
     except Exception:  # sidecar read is best-effort; pass is intentional
         logger.exception(
             "Failed to read output_mode sidecar; returning None",
@@ -263,7 +266,7 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
     # race-free — no other coroutine can preempt between two sync statements.
     if _job_semaphore._value <= 0:  # asyncio.Semaphore internal; safe in single-threaded async
         raise HTTPException(status_code=429, detail="Too many concurrent jobs; try again later")
-    await _job_semaphore.acquire()
+    _ = await _job_semaphore.acquire()
 
     # Release the semaphore if any validation error prevents us from enqueuing.
     try:

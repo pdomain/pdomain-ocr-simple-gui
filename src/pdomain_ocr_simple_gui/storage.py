@@ -191,9 +191,9 @@ def write_output_page_files(
         return
     out.mkdir(parents=True, exist_ok=True)
     stem = Path(page_name).stem or page_name
-    (out / f"{stem}.txt").write_text(text, encoding="utf-8")
+    _ = (out / f"{stem}.txt").write_text(text, encoding="utf-8")
     if sidecar_payload is not None:
-        (out / f"{stem}.json").write_text(json.dumps(sidecar_payload, indent=2), encoding="utf-8")
+        _ = (out / f"{stem}.json").write_text(json.dumps(sidecar_payload, indent=2), encoding="utf-8")
 
 
 def write_output_combined_txt(spec: ProjectSpec, status: ProjectStatus) -> None:
@@ -215,7 +215,7 @@ def write_output_combined_txt(spec: ProjectSpec, status: ProjectStatus) -> None:
             parts.append(txt_path.read_text())
     combined = "\n\n".join(parts)
     stem = _safe_filename_stem(spec.name, "combined")
-    (out / f"{stem}.txt").write_text(combined, encoding="utf-8")
+    _ = (out / f"{stem}.txt").write_text(combined, encoding="utf-8")
 
 
 def list_projects() -> list[tuple[ProjectSpec, ProjectStatus]]:

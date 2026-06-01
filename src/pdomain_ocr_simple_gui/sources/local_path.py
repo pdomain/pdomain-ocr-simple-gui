@@ -6,6 +6,7 @@ import shutil
 import tempfile
 import zipfile
 from pathlib import Path
+from typing import override
 
 from pdomain_ocr_simple_gui.sources import (
     Source,
@@ -33,7 +34,7 @@ _IMAGE_EXTS = {
 _MAX_UNCOMPRESSED_BYTES = 2 * 1024**3  # 2 GiB
 
 
-def _get_allowlist() -> list[Path] | None:
+def get_allowlist() -> list[Path] | None:
     """Return the parsed SOURCE_ROOT_ALLOWLIST, or None when unset/empty."""
     raw = os.environ.get("SOURCE_ROOT_ALLOWLIST", "")
     if not raw.strip():
@@ -51,7 +52,7 @@ def _check_allowlist(resolved: Path) -> None:
 
     Does nothing when SOURCE_ROOT_ALLOWLIST is unset or empty.
     """
-    roots = _get_allowlist()
+    roots = get_allowlist()
     if roots is None:
         return
     resolved_str = str(resolved)
@@ -67,12 +68,15 @@ def _check_allowlist(resolved: Path) -> None:
             return
     raise ValueError(
         f"source path {resolved!r} is not within any allowed source root "
-        f"(SOURCE_ROOT_ALLOWLIST={os.environ.get('SOURCE_ROOT_ALLOWLIST', '')!r})"
+        + f"(SOURCE_ROOT_ALLOWLIST={os.environ.get('SOURCE_ROOT_ALLOWLIST', '')!r})"
     )
 
 
 class LocalPathSource(Source):
     """Source backed by a local filesystem path (folder, image, or zip)."""
+
+    _path: Path
+    _extract_root: Path | None
 
     def __init__(self, path: Path, extract_root: Path | None = None) -> None:
         self._path = Path(path).expanduser()
@@ -81,6 +85,7 @@ class LocalPathSource(Source):
         # symlink that escapes the allowed tree is caught here.
         _check_allowlist(self._path.resolve())
 
+    @override
     def materialize(self) -> Path:
         """Return the materialized folder, creating a temp dir if needed."""
         if not self._path.exists():
@@ -100,7 +105,7 @@ class LocalPathSource(Source):
                 dir=self._extract_root,
             )
         )
-        shutil.copy2(self._path, workdir / self._path.name)
+        _ = shutil.copy2(self._path, workdir / self._path.name)
         return workdir
 
     def _extract_zip(self) -> Path:

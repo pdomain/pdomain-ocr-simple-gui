@@ -80,9 +80,9 @@ async def post_upload(files: list[UploadFile]) -> UploadResponse:
                     total += len(chunk)
                     if total > max_total:
                         raise HTTPException(status_code=413, detail="upload exceeds size cap")
-                    tmp.write(chunk)
+                    _ = tmp.write(chunk)
                 tmp_path = Path(tmp.name)
-            tmp_path.rename(target)
+            _ = tmp_path.rename(target)
             if target.suffix.lower() == ".zip":
                 _extract_in_place(target)
         return UploadResponse(upload_id=upload_id)

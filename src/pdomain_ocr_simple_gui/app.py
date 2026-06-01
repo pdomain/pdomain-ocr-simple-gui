@@ -18,9 +18,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 
-    from pdomain_ops.gpu.local_stage import (
-        LocalStageDispatcher,  # pyright: ignore[reportMissingTypeStubs]
-    )
+    from pdomain_ops.gpu.local_stage import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
     from pdomain_ops.suite.prefs import PrefsAdapter  # pyright: ignore[reportMissingTypeStubs]
 
 logger = logging.getLogger(__name__)
@@ -47,15 +45,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _ = app
     global _prefs_adapter, _dispatcher  # noqa: PLW0603  # module-level singletons for FastAPI lifespan
     # Warn at startup when source paths are unrestricted.
-    from pdomain_ocr_simple_gui.sources.local_path import _get_allowlist
+    from pdomain_ocr_simple_gui.sources.local_path import get_allowlist
 
-    if _get_allowlist() is None:
-        logger.warning(
+    if get_allowlist() is None:
+        _msg = (
             "SOURCE_ROOT_ALLOWLIST is not set or empty — "
-            "LocalPathSource will accept any filesystem path. "
-            "Set SOURCE_ROOT_ALLOWLIST to a colon-separated list of allowed roots "
-            "to restrict access.",
+            + "LocalPathSource will accept any filesystem path. "
+            + "Set SOURCE_ROOT_ALLOWLIST to a colon-separated list of allowed roots "
+            + "to restrict access."
         )
+        logger.warning(_msg)
 
     try:
         from pdomain_ops.suite.prefs import LocalFilePrefs  # pyright: ignore[reportMissingTypeStubs]
@@ -69,8 +68,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         _prefs_adapter = None
     if os.environ.get("PDOMAIN_OCR_FAKE_DISPATCHER"):
         logger.warning(
-            "PDOMAIN_OCR_FAKE_DISPATCHER is set: using FakeStageDispatcher — "
-            "OCR output is FAKE. Do not use in production."
+            "PDOMAIN_OCR_FAKE_DISPATCHER is set: using FakeStageDispatcher — OCR output is FAKE. Do not use in production."
         )
         from pdomain_ocr_simple_gui.testing.fake_dispatcher import FakeStageDispatcher
 
@@ -164,12 +162,12 @@ def create_app() -> FastAPI:
         )
 
     @_app.get("/api/health")
-    async def health() -> dict[str, str]:
+    async def health() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
         """Health check endpoint."""
         return {"status": "ok"}
 
     @_app.get("/api/self/icons/{size}")
-    async def get_self_icon(size: int) -> Response:
+    async def get_self_icon(size: int) -> Response:  # pyright: ignore[reportUnusedFunction]
         """Serve this app's own icon for the given size (PNG)."""
         if size not in _ALLOWED_SELF_ICON_SIZES:
             raise HTTPException(
@@ -196,7 +194,7 @@ def create_app() -> FastAPI:
     # SPA catch-all — React Router owns all non-API paths.
     # MUST be registered last so it never shadows /api/* routes.
     @_app.get("/{full_path:path}", include_in_schema=False)
-    async def spa_fallback(full_path: str) -> FileResponse:
+    async def spa_fallback(full_path: str) -> FileResponse:  # pyright: ignore[reportUnusedFunction]
         """Serve the React SPA index.html for any unmatched path."""
         _ = full_path
         index = _FRONTEND_DIR / "index.html"

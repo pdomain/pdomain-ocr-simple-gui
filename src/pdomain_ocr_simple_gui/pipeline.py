@@ -15,7 +15,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, TypeAlias, cast
 
-from pdomain_ops.gpu.types import OcrBatchRequest
+from pdomain_ops.gpu.types import OcrBatchRequest  # pyright: ignore[reportMissingTypeStubs]
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +88,7 @@ def resolve_device(choice: str) -> str | None:
         return "cpu"
     if choice == "gpu":
         try:
-            from pdomain_ops.gpu.device import pick_device
+            from pdomain_ops.gpu.device import pick_device  # pyright: ignore[reportMissingTypeStubs]
 
             return pick_device()
         except (ImportError, ValueError, RuntimeError):
@@ -445,9 +445,7 @@ async def run_project(
 
                 # Apply post-OCR text normalizations (curly quotes, em-dashes)
                 try:
-                    from pdomain_book_tools.ocr import (
-                        apply_text_normalizations,  # pyright: ignore[reportAttributeAccessIssue]
-                    )
+                    from pdomain_book_tools.ocr import apply_text_normalizations
 
                     text = apply_text_normalizations(
                         text,
@@ -504,7 +502,7 @@ async def run_project(
             completed += len(chunk_indices)
 
         # Fire progress callback after each chunk
-        _persist_message(f"Processed {completed}/{total} pages")
+        _ = _persist_message(f"Processed {completed}/{total} pages")
         _, updated_status = read_project(spec.project_id)
         await status_callback(updated_status)
 

@@ -331,9 +331,7 @@ async def rerun_page(
         else:
             text = raw_text
         try:
-            from pdomain_book_tools.ocr import (
-                apply_text_normalizations,  # pyright: ignore[reportAttributeAccessIssue]
-            )
+            from pdomain_book_tools.ocr import apply_text_normalizations
 
             text = apply_text_normalizations(
                 text,

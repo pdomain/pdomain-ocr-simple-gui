@@ -31,7 +31,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from pdomain_ops.gpu.types import OcrBatchRequest
+from pdomain_ops.gpu.types import OcrBatchRequest  # pyright: ignore[reportMissingTypeStubs]
 
 
 def _bbox_dict(tl_x: float, tl_y: float, br_x: float, br_y: float) -> dict[str, object]:
@@ -202,6 +202,8 @@ class FakeStageDispatcher:
         When *text* is blank or whitespace-only.
     """
 
+    _text: str
+
     def __init__(self, text: str = "fake OCR output") -> None:
         """Initialise the fake dispatcher with a fixed output text."""
         if not text or not text.strip():
@@ -227,6 +229,6 @@ class FakeStageDispatcher:
         if isinstance(req, OcrBatchRequest):
             count = len(req.images)
         else:
-            images = getattr(req, "images", None)
-            count = len(images) if isinstance(images, (list, tuple)) else 1
+            images: object = getattr(req, "images", None)
+            count = len(cast("list[object]", images)) if isinstance(images, (list, tuple)) else 1
         return [_page_dict_for(self._text, page_index=i) for i in range(count)]

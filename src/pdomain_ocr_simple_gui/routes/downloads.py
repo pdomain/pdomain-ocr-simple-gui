@@ -102,7 +102,7 @@ def _should_include(path: Path, tokens: set[str]) -> bool:
 @router.get("/api/jobs/{job_id}/download")
 def download_job(
     job_id: str,
-    include: str = Query(
+    include: str = Query(  # pyright: ignore[reportCallInDefaultInitializer]
         "text,json",
         description="Comma- or plus-separated list of {text, json}. Default: text,json.",
     ),
@@ -126,7 +126,7 @@ def download_job(
             if not _should_include(path, tokens):
                 continue
             zf.write(path, arcname=path.relative_to(job_dir))
-    buf.seek(0)
+    _ = buf.seek(0)
     return StreamingResponse(
         buf,
         media_type="application/zip",
