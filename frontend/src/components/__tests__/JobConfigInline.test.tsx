@@ -68,9 +68,14 @@ function renderInline(
     .fn()
     .mockImplementation((url: string, opts?: RequestInit) => {
       if (url === "/api/prefs" && (!opts || opts.method !== "POST")) {
+        // Correct keys: AppPrefs exposes default_engine / default_language
+        // (not engine / language — those were the B-HOME-006 regression keys).
         return Promise.resolve({
           ok: true,
-          json: async () => ({ engine: "doctr", language: "en" }),
+          json: async () => ({
+            default_engine: "doctr",
+            default_language: "en",
+          }),
         });
       }
       if (url === "/api/jobs" && opts?.method === "POST") {
@@ -372,6 +377,64 @@ describe("JobConfigInline", () => {
       ) as Record<string, unknown>;
       expect(body.engine).toBe("tesseract");
       expect(body.language).toBe("de");
+    });
+  });
+
+  // B-HOME-006: fresh prefs (empty response) must still show doctr as default.
+  // This is the settings-driven default — AppPrefs.default_engine defaults to
+  // "doctr", so a fresh install with no persisted prefs must show doctr without
+  // user interaction.
+  it("shows doctr as default when prefs returns empty object (fresh install)", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, opts?: RequestInit) => {
+        if (url === "/api/prefs" && (!opts || opts.method !== "POST")) {
+          // Empty prefs response — simulates a fresh install with no saved defaults.
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({}),
+          });
+        }
+        return Promise.resolve({ ok: false, json: async () => ({}) });
+      });
+    renderInline({ kind: "path", path: "/tmp/scans" }, fetchMock);
+
+    const engineSelect = (await screen.findByLabelText(
+      /engine/i,
+    )) as HTMLSelectElement;
+
+    // After prefs fetch with empty body, the component must keep doctr (the
+    // hardcoded init default). An empty default_engine does not overwrite a
+    // valid doctr default.
+    await waitFor(() => {
+      expect(engineSelect.value).toBe("doctr");
+    });
+  });
+
+  // B-HOME-006: explicit default_engine=doctr in prefs → select shows doctr.
+  it("shows doctr as selected when prefs.default_engine is doctr", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, opts?: RequestInit) => {
+        if (url === "/api/prefs" && (!opts || opts.method !== "POST")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              default_engine: "doctr",
+              default_language: "en",
+            }),
+          });
+        }
+        return Promise.resolve({ ok: false, json: async () => ({}) });
+      });
+    renderInline({ kind: "path", path: "/tmp/scans" }, fetchMock);
+
+    const engineSelect = (await screen.findByLabelText(
+      /engine/i,
+    )) as HTMLSelectElement;
+
+    await waitFor(() => {
+      expect(engineSelect.value).toBe("doctr");
     });
   });
 });
