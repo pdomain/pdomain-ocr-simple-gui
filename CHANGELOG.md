@@ -8,8 +8,11 @@ All notable changes to `pdomain-ocr-simple-gui` are documented here.
 
 ### Dependencies
 
-- Bumped `pdomain-book-tools` floor to `>=0.17.0` (Page operational-field split).
-- Bumped `pdomain-ops` floor to `>=0.7.0`.
+- Bumped `pdomain-book-tools` floor to `>=0.18.0` (batch auto-rotation support).
+- Bumped `pdomain-ops` floor to `>=0.7.2`.
+- `frontend/knip.json`: added `src/jsx-dev-runtime-shim.ts` to `ignore` list;
+  the file is used via a vitest `resolve.alias` (not a direct import), so knip
+  cannot trace the usage without this explicit exemption.
 
 ### Test doubles
 
