@@ -158,6 +158,7 @@ filterwarnings = [
     "error",
     "ignore::pytest.PytestUnraisableExceptionWarning",
     "ignore::ResourceWarning:coverage.*",
+    'ignore:hf_xet\.download_files\(\) is deprecated:DeprecationWarning:hf_xet',
 ]
 markers = [
     "slow: marks tests as slow (excluded from default make test run)",
