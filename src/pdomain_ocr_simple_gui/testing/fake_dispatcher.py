@@ -176,12 +176,6 @@ def _page_dict_for(text: str, page_index: int = 0) -> dict[str, object]:
         "page_index": page_index,
         "bounding_box": _bbox_dict(0.0, 0.0, 1.0, 1.0),
         "items": [block],
-        "ocr_provenance": None,
-        "source": "ocr",
-        "ocr_failed": False,
-        "rotation_applied": 0,
-        "image_path": None,
-        "name": None,
     }
 
 

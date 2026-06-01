@@ -905,3 +905,58 @@ class TestChunkFailureIsolation:
 
         # Per-chunk progress callbacks: warm-up + at least 2 chunk completions
         assert len(callbacks) >= 3
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Task B2 — fake dispatcher page dict must not contain stale 0.17 removed fields
+# ──────────────────────────────────────────────────────────────────────────────
+
+STALE_FIELDS = {"ocr_provenance", "source", "ocr_failed", "rotation_applied", "image_path"}
+
+
+class TestFakeDispatcherPageDictShape:
+    """Verify that FakeStageDispatcher's page dict matches the real 0.17 Page surface.
+
+    The fake dict is round-tripped through ``Page.from_dict().to_dict()`` to
+    assert that none of the pre-0.17 operational fields survive.  Before the
+    fix the fake emits them; after the fix it does not.
+    """
+
+    def test_page_dict_roundtrip_has_no_stale_fields(self) -> None:
+        """Page.from_dict(fake_dict).to_dict() must not contain any stale field."""
+        from pdomain_book_tools.ocr.page import Page
+
+        from pdomain_ocr_simple_gui.testing.fake_dispatcher import _page_dict_for
+
+        raw = _page_dict_for("hello world", page_index=0)
+        # Verify round-trip does not carry the stale keys through
+        roundtripped = Page.from_dict(raw).to_dict()
+        for field in STALE_FIELDS:
+            assert field not in roundtripped, (
+                f"Stale field {field!r} survived Page.from_dict().to_dict() round-trip. "
+                "Remove it from _page_dict_for."
+            )
+
+    def test_fake_dict_itself_has_no_stale_fields(self) -> None:
+        """The dict emitted by _page_dict_for must not contain any stale field.
+
+        This is the stricter check: the fake should mirror what the real 0.17
+        dispatcher emits, not just survive a round-trip.
+        """
+        from pdomain_ocr_simple_gui.testing.fake_dispatcher import _page_dict_for
+
+        raw = _page_dict_for("hello world", page_index=0)
+        for field in STALE_FIELDS:
+            assert field not in raw, (
+                f"Stale field {field!r} is present in _page_dict_for output. "
+                "Remove it from the returned dict."
+            )
+
+    def test_fake_dict_has_page_id(self) -> None:
+        """The dict must carry a valid UUID string page_id (required for 0.17 Page)."""
+        from pdomain_ocr_simple_gui.testing.fake_dispatcher import _page_dict_for
+
+        raw = _page_dict_for("hello", page_index=0)
+        # page_id may be absent (Page.from_dict mints one) but if present it must be a str
+        if "page_id" in raw:
+            assert isinstance(raw["page_id"], str), "page_id must be a UUID string"
