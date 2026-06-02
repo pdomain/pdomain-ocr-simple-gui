@@ -1,6 +1,7 @@
 import { createActor, fromPromise, waitFor } from "xstate";
 import { describe, expect, it } from "vitest";
 import { jobCreationMachine } from "../jobCreationMachine";
+import type { ChosenSource, JobForm } from "../jobCreationTypes";
 
 function startMachine(config: {
   mode: "local" | "managed";
@@ -89,6 +90,70 @@ describe("jobCreationMachine flow", () => {
     await waitFor(actor, (state) => state.matches("submitted"));
     expect(actor.getSnapshot().context.submittedProjectId).toBe("job-123");
     expect(actor.getSnapshot().context.behaviorTrace).toContain("B-HOME-011");
+    actor.stop();
+  });
+
+  it("submits the final form payload from the submit event", async () => {
+    const createInputs: Array<{ source: ChosenSource; jobForm: JobForm }> = [];
+    const actor = createActor(
+      jobCreationMachine.provide({
+        actors: {
+          loadConfig: fromPromise(async () => ({
+            mode: "local",
+            is_containerized: false,
+            detected_device: "local",
+            gpu_available: true,
+          })),
+          uploadFiles: fromPromise(async () => ({ uploadId: "upload-123" })),
+          createJob: fromPromise(
+            async ({
+              input,
+            }: {
+              input: { source: ChosenSource; jobForm: JobForm };
+            }) => {
+              createInputs.push(input);
+              return { projectId: "job-123" };
+            },
+          ),
+        },
+      }),
+    );
+    actor.start();
+    await waitFor(actor, (state) =>
+      state.matches({ choosingSource: "localHost" }),
+    );
+    actor.send({ type: "PATH_CHOSEN", path: "/tmp/scans" });
+    await waitFor(actor, (state) => state.matches("configuringJob"));
+    actor.send({
+      type: "SUBMIT_JOB",
+      jobForm: {
+        name: "edited scans",
+        engine: "tesseract",
+        language: "fr",
+        straight_quotes: false,
+        em_dash_to_double_hyphen: false,
+        emit_illustration_placeholders: true,
+        device: "gpu",
+        batch_pages: 3,
+        output: { mode: "specified", path: "/tmp/out" },
+      },
+    });
+    await waitFor(actor, (state) => state.matches("submitted"));
+
+    expect(createInputs[0]).toMatchObject({
+      source: { kind: "path", path: "/tmp/scans" },
+      jobForm: {
+        name: "edited scans",
+        engine: "tesseract",
+        language: "fr",
+        straight_quotes: false,
+        em_dash_to_double_hyphen: false,
+        emit_illustration_placeholders: true,
+        device: "gpu",
+        batch_pages: 3,
+        output: { mode: "specified", path: "/tmp/out" },
+      },
+    });
     actor.stop();
   });
 

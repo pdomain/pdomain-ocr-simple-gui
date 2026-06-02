@@ -120,6 +120,12 @@ export const jobCreationMachine = setup({
           ? { ...context.jobForm, ...event.patch }
           : context.jobForm,
     }),
+    assignSubmitJobForm: assign({
+      jobForm: ({ context, event }) =>
+        event.type === "SUBMIT_JOB" && event.jobForm !== undefined
+          ? event.jobForm
+          : context.jobForm,
+    }),
   },
 }).createMachine({
   id: "jobCreation",
@@ -263,6 +269,7 @@ export const jobCreationMachine = setup({
         SUBMIT_JOB: {
           guard: "hasSource",
           target: "submittingJob",
+          actions: "assignSubmitJobForm",
         },
       },
     },

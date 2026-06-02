@@ -55,4 +55,4 @@ export type JobCreationEvent =
   | { type: "PATH_CHOSEN"; path: string }
   | { type: "CLEAR_SOURCE" }
   | { type: "JOB_FORM_CHANGED"; patch: Partial<JobForm> }
-  | { type: "SUBMIT_JOB" };
+  | { type: "SUBMIT_JOB"; jobForm?: JobForm };

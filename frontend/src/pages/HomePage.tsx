@@ -71,8 +71,7 @@ export function HomePage() {
   );
   const submitJob = useCallback(
     (form: JobForm) => {
-      send({ type: "JOB_FORM_CHANGED", patch: form });
-      send({ type: "SUBMIT_JOB" });
+      send({ type: "SUBMIT_JOB", jobForm: form });
     },
     [send],
   );
