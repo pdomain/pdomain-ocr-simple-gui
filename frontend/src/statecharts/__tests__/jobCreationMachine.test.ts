@@ -64,7 +64,10 @@ describe("jobCreationMachine flow", () => {
     await waitFor(actor, (state) =>
       state.matches({ choosingSource: "localContainer" }),
     );
-    actor.send({ type: "FILES_SELECTED", files: [new File(["x"], "scan.png")] });
+    actor.send({
+      type: "FILES_SELECTED",
+      files: [new File(["x"], "scan.png")],
+    });
     await waitFor(actor, (state) => state.matches("configuringJob"));
     expect(actor.getSnapshot().context.source).toEqual({
       kind: "upload",

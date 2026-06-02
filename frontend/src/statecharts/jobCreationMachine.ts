@@ -104,11 +104,8 @@ export const jobCreationMachine = setup({
       defaultUploadFiles(input),
     ),
     createJob: fromPromise(
-      ({
-        input,
-      }: {
-        input: { source: ChosenSource; jobForm: JobForm };
-      }) => defaultCreateJob(input),
+      ({ input }: { input: { source: ChosenSource; jobForm: JobForm } }) =>
+        defaultCreateJob(input),
     ),
   },
   guards: {
