@@ -109,6 +109,19 @@ def test_build_report_combines_machine_tested_ids_for_gate_and_rendering() -> No
     assert "| B-HOME-003 | yes | yes | yes | no |" in md
 
 
+def test_build_report_flags_unlinked_machine_metadata() -> None:
+    declared = {"B-HOME-001": Record("B-HOME-001", regression=False)}
+    report = build_report(
+        declared,
+        cited={"B-HOME-001"},
+        modeled={"B-HOME-999"},
+        machine_tested=set(),
+    )
+
+    assert report.unlinked == {"B-HOME-999"}
+    assert report.ok is False
+
+
 def test_scan_declared_finds_multi_segment_flow_id(tmp_path: Path) -> None:
     """Multi-segment IDs like F-UPLOAD-OCR-DOWNLOAD-01 are declared and scanned.
 
@@ -201,5 +214,4 @@ def test_scan_machine_tested_finds_ids_in_machine_covers_lines(tmp_path: Path) -
         "B-HOME-002",
         "B-HOME-003",
         "B-HOME-011",
-        "B-HOME-014",
     }

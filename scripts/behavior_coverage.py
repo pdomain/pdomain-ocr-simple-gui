@@ -67,28 +67,55 @@ def _is_test_path(path: Path) -> bool:
     )
 
 
+def _existing_roots(root: Path, candidates: tuple[Path, ...]) -> tuple[Path, ...]:
+    existing = tuple(path for path in candidates if path.exists())
+    return existing or (root,)
+
+
+def _machine_source_roots(root: Path) -> tuple[Path, ...]:
+    return _existing_roots(
+        root,
+        (
+            root / "frontend" / "src" / "statecharts",
+            root / "src",
+        ),
+    )
+
+
+def _machine_test_roots(root: Path) -> tuple[Path, ...]:
+    return _existing_roots(
+        root,
+        (
+            root / "frontend" / "src" / "statecharts" / "__tests__",
+            root / "tests",
+        ),
+    )
+
+
 def scan_machine_modeled(root: Path) -> set[str]:
     """Find behavior IDs exposed by frontend/backend machine metadata."""
     modeled: set[str] = set()
-    for path in sorted(root.rglob("*")):
-        if path.suffix not in {".py", ".ts"} or _is_test_path(path):
-            continue
-        text = path.read_text(encoding="utf-8")
-        if "BEHAVIOR" in text or "behavior_ids" in text:
-            modeled.update(ID_RE.findall(text))
+    for scan_root in _machine_source_roots(root):
+        for path in sorted(scan_root.rglob("*")):
+            if path.suffix not in {".py", ".ts"} or _is_test_path(path):
+                continue
+            text = path.read_text(encoding="utf-8")
+            if "BEHAVIOR" in text or "behavior_ids" in text:
+                modeled.update(ID_RE.findall(text))
     return modeled
 
 
 def scan_machine_tested(root: Path) -> set[str]:
     """Find every behavior ID cited by runtime machine tests."""
     machine_tested: set[str] = set()
-    for path in sorted(root.rglob("*")):
-        if path.suffix not in {".py", ".ts", ".tsx"} or path.name == _SELF_TEST:
-            continue
-        text = path.read_text(encoding="utf-8")
-        for line in text.splitlines():
-            if "Machine-Covers:" in line:
-                machine_tested.update(ID_RE.findall(line))
+    for scan_root in _machine_test_roots(root):
+        for path in sorted(scan_root.rglob("*")):
+            if path.suffix not in {".py", ".ts", ".tsx"} or not _is_test_path(path):
+                continue
+            text = path.read_text(encoding="utf-8")
+            for line in text.splitlines():
+                if "Machine-Covers:" in line:
+                    machine_tested.update(ID_RE.findall(line))
     return machine_tested
 
 
@@ -118,7 +145,7 @@ def build_report(
     machine_tested = set() if machine_tested is None else machine_tested
     tested = cited | machine_tested
     orphans = declared_ids - tested
-    unlinked = tested - declared_ids
+    unlinked = (tested | modeled) - declared_ids
     uncovered_regressions = {rid for rid in orphans if declared[rid].regression}
     return Report(
         declared=declared,
