@@ -531,6 +531,21 @@ async def run_project(
     # Final state — clear progress_message so stale text doesn't linger in
     # the polled GET /api/jobs/{id} response.
     _, final_status = read_project(spec.project_id)
+    pages_done = sum(1 for p in final_status.pages if p.state == "succeeded")
+    combined_status = final_status.model_copy(
+        update={
+            "page_count": total,
+            "pages_done": pages_done,
+            "progress_message": None,
+        },
+    )
+
+    # combined.txt is ALWAYS written (canonical + output mirror) before the
+    # terminal state is persisted. If final output writes fail, the job is
+    # still running so the caller can validly transition it to failed.
+    write_combined_txt(spec, combined_status)
+    write_output_combined_txt(spec, combined_status)
+
     all_done = all(p.state == "succeeded" for p in final_status.pages)
     terminal_event = "succeed" if all_done else "fail"
     final_state = cast("ApiJobState", assert_job_transition(final_status.state, terminal_event))
@@ -538,13 +553,8 @@ async def run_project(
         project_id=spec.project_id,
         state=final_state,
         page_count=total,
-        pages_done=sum(1 for p in final_status.pages if p.state == "succeeded"),
+        pages_done=pages_done,
         pages=final_status.pages,
         progress_message=None,
     )
     write_project(spec, terminal_status)
-
-    # combined.txt is ALWAYS written (canonical + output mirror) — the
-    # combined download + previews depend on it (B-HOME-011 cleanup).
-    write_combined_txt(spec, terminal_status)
-    write_output_combined_txt(spec, terminal_status)

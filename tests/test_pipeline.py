@@ -464,6 +464,47 @@ class TestRunProject:
         _, final_status = read_project(spec.project_id)
         assert final_status.state == "succeeded"
 
+    async def test_combined_output_failure_does_not_persist_success_terminal_state(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        """Combined output failures must happen before terminal success is persisted."""
+        import pytest
+
+        import pdomain_ocr_simple_gui.storage as storage_mod
+
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+
+        src = tmp_path / "source"
+        src.mkdir()
+        (src / "page0.png").write_bytes(b"fake-png")
+
+        spec = _make_spec(tmp_path, source_path=str(src))
+        storage_mod.write_project(
+            spec,
+            ProjectStatus(
+                project_id=spec.project_id,
+                state="queued",
+                page_count=1,
+                pages_done=0,
+                pages=[PageResult(page_idx=0, page_name="page0.png", state="queued")],
+            ),
+        )
+
+        def _raise_combined_write(spec: ProjectSpec, status: ProjectStatus) -> None:
+            raise RuntimeError("combined write failed")
+
+        monkeypatch.setattr(storage_mod, "write_combined_txt", _raise_combined_write)
+
+        with pytest.raises(RuntimeError, match="combined write failed"):
+            await run_project(spec, _make_single_batch_dispatcher(EMPTY_PAGE_DICT), AsyncMock())
+
+        _, persisted = storage_mod.read_project(spec.project_id)
+        assert persisted.state == "running"
+
     async def test_calls_run_ocr_batch_for_images(self, tmp_path: Path, monkeypatch) -> None:
         """run_project calls dispatcher.run_ocr_batch for all image files."""
 
