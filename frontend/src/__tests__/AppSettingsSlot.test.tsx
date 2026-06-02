@@ -111,15 +111,21 @@ function MockAppShell({
 vi.mock("@pdomain/pdomain-ui/shell", () => ({
   AppShell: MockAppShell,
   JobsPill: () => <button type="button">Jobs</button>,
-  JobsDrawer: () => <div data-testid="jobs-drawer-mock" />,
-  RightPanel: ({ children }: { children: React.ReactNode }) => (
-    <aside data-testid="right-panel-mock">{children}</aside>
-  ),
   SettingsSlot: MockSettingsSlot,
   SuiteSiblingsProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
   ShortcutsHelpButton: () => <div data-testid="shortcuts-help-button-mock" />,
+  useUtilityDock: () => ({
+    toggle: () => undefined,
+    active: null,
+    pinned: false,
+    width: 420,
+    open: () => undefined,
+    close: () => undefined,
+    setPinned: () => undefined,
+    setWidth: () => undefined,
+  }),
 }));
 
 vi.mock("@pdomain/pdomain-ui/hooks", () => ({

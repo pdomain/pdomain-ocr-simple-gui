@@ -24,19 +24,23 @@
 // Step 5 — app header + useActiveJobs:
 // Polls GET /api/jobs every 5s, filters to state==="running", maps to
 // ActiveJob shape. No search affordance yet (simple-gui has no search feature).
+//
+// @pdomain/pdomain-ui 0.4.0 — utility dock migration:
+// JobsPill hover popover removed upstream. JobsPill.onClick now wires to
+// useUtilityDock().toggle('jobs') so the dock's built-in jobs surface opens.
+// RightPanel + JobsDrawer manual jobs panel removed; AppShell owns the dock.
+// ShortcutsHelpButton already inside AppShell (via header slot) — no change.
 
-import { useState } from "react";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import {
   AppShell,
   JobsPill,
-  JobsDrawer,
-  RightPanel,
   SuiteSiblingsProvider,
   ShortcutsHelpButton,
   SettingsSlot,
+  useUtilityDock,
 } from "@pdomain/pdomain-ui/shell";
 import { ShortcutsProvider } from "@pdomain/pdomain-ui/hooks";
 import type {
@@ -44,7 +48,6 @@ import type {
   InstalledApp,
   LaunchResult,
   ActiveJob,
-  Job,
 } from "@pdomain/pdomain-ui/shell";
 import { toast } from "sonner";
 import { ConfigProvider } from "./runtime/ConfigContext";
@@ -177,7 +180,7 @@ function progressForJob(job: RawJob): number {
   return total > 0 ? Math.round((done / total) * 100) : 0;
 }
 
-function useActiveJobs(): { headerJobs: ActiveJob[]; drawerJobs: Job[] } {
+function useActiveJobs(): ActiveJob[] {
   const { data } = useQuery<RawJob[]>({
     queryKey: ["active-jobs"],
     queryFn: async () => {
@@ -192,29 +195,16 @@ function useActiveJobs(): { headerJobs: ActiveJob[]; drawerJobs: Job[] } {
   const active = (data ?? []).filter(
     (j) => j.state === "running" || j.state === "queued",
   );
-  return {
-    headerJobs: active.map((j) => {
-      const pct = progressForJob(j);
-      return {
-        id: j.project_id,
-        title: j.name ?? j.project_id,
-        phase: j.state,
-        pct,
-        project: j.project_id,
-      };
-    }),
-    drawerJobs: active.map((j) => {
-      const pct = progressForJob(j);
-      return {
-        id: j.project_id,
-        project: j.name ?? j.project_id,
-        phase: j.progress_message ?? j.state,
-        pct,
-        status: j.state === "queued" ? "queued" : "running",
-        cancelable: false,
-      };
-    }),
-  };
+  return active.map((j) => {
+    const pct = progressForJob(j);
+    return {
+      id: j.project_id,
+      title: j.name ?? j.project_id,
+      phase: j.state,
+      pct,
+      project: j.project_id,
+    };
+  });
 }
 
 function AppRoutes() {
@@ -230,15 +220,22 @@ function AppRoutes() {
   );
 }
 
+/**
+ * SimpleGuiHeader — custom header rendered inside AppShell's header slot.
+ *
+ * JobsPill.onClick is wired to useUtilityDock().toggle('jobs') so the
+ * utility dock's built-in jobs surface opens. AppShell provides the
+ * UtilityDockContext — this component is always inside AppShell.
+ */
 function SimpleGuiHeader({
   activeJobs,
-  onJobsClick,
   actions,
 }: {
   activeJobs: ActiveJob[];
-  onJobsClick: () => void;
   actions: ReactNode;
 }) {
+  const { toggle } = useUtilityDock();
+
   return (
     <header
       data-testid="app-header"
@@ -320,11 +317,7 @@ function SimpleGuiHeader({
       >
         {actions}
         <div className="app-header__jobs-panel-owner">
-          <JobsPill
-            activeJobs={activeJobs}
-            onClick={onJobsClick}
-            onViewAll={onJobsClick}
-          />
+          <JobsPill activeJobs={activeJobs} onClick={() => toggle("jobs")} />
         </div>
         <button
           type="button"
@@ -348,38 +341,7 @@ function SimpleGuiHeader({
 }
 
 function AppShellWithHeader() {
-  const { headerJobs, drawerJobs } = useActiveJobs();
-  const [jobsPanelOpen, setJobsPanelOpen] = useState(false);
-  const navigate = useNavigate();
-
-  const jobsPanel = jobsPanelOpen ? (
-    <RightPanel width="420px">
-      {drawerJobs.length > 0 ? (
-        <JobsDrawer
-          activeJobs={drawerJobs}
-          mode="expanded"
-          onDismiss={() => setJobsPanelOpen(false)}
-          onToggleMode={() => setJobsPanelOpen(false)}
-          onViewAll={() => setJobsPanelOpen(true)}
-          onJobOpen={(jobId) => {
-            setJobsPanelOpen(false);
-            navigate(`/jobs/${jobId}`);
-          }}
-        />
-      ) : (
-        <div
-          data-testid="jobs-panel-empty"
-          style={{
-            padding: 16,
-            color: "var(--ink-3)",
-            fontSize: 12,
-          }}
-        >
-          No active jobs
-        </div>
-      )}
-    </RightPanel>
-  ) : undefined;
+  const activeJobs = useActiveJobs();
 
   return (
     <AppShell
@@ -391,8 +353,7 @@ function AppShellWithHeader() {
       uiPrefsConfig={uiPrefsConfig}
       header={
         <SimpleGuiHeader
-          activeJobs={headerJobs}
-          onJobsClick={() => setJobsPanelOpen((open) => !open)}
+          activeJobs={activeJobs}
           actions={
             <>
               <SettingsSlot />
@@ -402,7 +363,6 @@ function AppShellWithHeader() {
         />
       }
       main={<AppRoutes />}
-      rightPanel={jobsPanel}
     />
   );
 }

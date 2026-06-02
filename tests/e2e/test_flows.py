@@ -314,7 +314,7 @@ def test_prefs_roundtrip_flow(
     trigger = page.get_by_test_id("settings-slot-trigger")
     expect(trigger).to_be_visible(timeout=5_000)
     trigger.click()
-    expect(page.get_by_test_id("settings-modal")).to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("slide-over-panel")).to_be_visible(timeout=5_000)
 
     # B-SHELL-008: click Light theme.
     page.get_by_test_id("settings-appearance-theme-light").click()
@@ -337,8 +337,8 @@ def test_prefs_roundtrip_flow(
     page.wait_for_timeout(500)
 
     # B-SHELL-007: close settings modal.
-    page.get_by_test_id("settings-modal-close").click()
-    expect(page.get_by_test_id("settings-modal")).not_to_be_visible(timeout=5_000)
+    page.get_by_test_id("slide-over-panel-close").click()
+    expect(page.get_by_test_id("slide-over-panel")).not_to_be_visible(timeout=5_000)
 
     # API: both prefs persisted.
     prefs = httpx.get(f"{live_server_url}/api/prefs", timeout=5.0).json()
@@ -371,7 +371,7 @@ def test_prefs_roundtrip_flow(
     )
 
     # End-state assertions: no settings modal visible, no error toast.
-    expect(page.get_by_test_id("settings-modal")).not_to_be_visible()
+    expect(page.get_by_test_id("slide-over-panel")).not_to_be_visible()
     expect(page.locator("[data-sonner-toast]")).to_have_count(0)
 
 

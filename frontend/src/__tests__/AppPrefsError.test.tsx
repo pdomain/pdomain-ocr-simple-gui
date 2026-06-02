@@ -33,18 +33,27 @@ vi.mock("sonner", () => ({
 }));
 
 // ---- pdomain-ui/shell mock (needed because App.tsx imports it) ----
+// useUtilityDock is called by SimpleGuiHeader (pdomain-ui 0.4.0 utility dock).
 vi.mock("@pdomain/pdomain-ui/shell", () => ({
   AppShell: ({ main }: { main: React.ReactNode }) => (
     <div data-testid="app-shell-mock">{main}</div>
   ),
   JobsPill: () => <button type="button">Jobs</button>,
-  JobsDrawer: () => <div />,
-  RightPanel: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   SuiteSiblingsProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
   ShortcutsHelpButton: () => <div />,
   SettingsSlot: () => <div data-testid="settings-slot-trigger-mock" />,
+  useUtilityDock: () => ({
+    toggle: () => undefined,
+    active: null,
+    pinned: false,
+    width: 420,
+    open: () => undefined,
+    close: () => undefined,
+    setPinned: () => undefined,
+    setWidth: () => undefined,
+  }),
 }));
 
 vi.mock("@pdomain/pdomain-ui/hooks", () => ({

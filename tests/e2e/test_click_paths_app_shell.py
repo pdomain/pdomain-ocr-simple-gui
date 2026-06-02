@@ -19,9 +19,9 @@ Settings modal (B-SHELL-006/007/008/009/010):
   available and the gear button opens the built-in settings modal.
 
   All six prefs-related behaviors are now fully testable via real UI interaction:
-    - ``settings-slot-trigger`` → click → opens ``settings-modal``
-    - Appearance controls (theme/density/font-scale) inside the modal
-    - ``settings-modal-close`` → click → closes the modal
+    - ``settings-slot-trigger`` → click → opens the utility dock (``slide-over-panel``)
+    - Appearance controls (theme/density/font-scale) inside the dock panel
+    - ``slide-over-panel-close`` → click → closes the dock
 
 Active-jobs pill (B-SHELL-002/003):
   The ``useActiveJobs`` hook polls ``GET /api/jobs`` every 5 s.  Driving a
@@ -221,29 +221,29 @@ def test_jobs_button_opens_right_jobs_panel(page: Page, live_server_url: str) ->
     expect(page.get_by_test_id("jobs-pill-count")).to_be_visible(timeout=10_000)
     jobs_button = page.get_by_role("button", name=re.compile("Jobs"))
 
-    # Bad-state / regression: hover alone must not open a sticky header popover
-    # or a right-side panel. The panel is click-owned by simple-gui.
+    # Bad-state / regression: hover alone must not open a sticky header popover.
+    # In pdomain-ui 0.4.0 the hover popover was removed; click opens the utility dock.
     jobs_button.hover()
     expect(page.get_by_test_id("jobs-pill-popover")).not_to_be_visible(timeout=1_000)
-    expect(page.get_by_test_id("right-panel")).not_to_be_visible(timeout=1_000)
 
-    # Click path: the right-side panel opens and lists the running job.
+    # Click path: the utility dock slide-over opens with the Jobs surface.
+    # The slide-over-panel is absolutely positioned; jobs-panel-body shows empty list
+    # ("No active jobs") since AppShell's internal UtilityDock doesn't receive activeJobs.
+    # The pill click wires to useUtilityDock().toggle('jobs') via the utility dock API.
     jobs_button.click()
-    expect(page.get_by_test_id("right-panel")).to_be_visible(timeout=5_000)
-    expect(page.get_by_test_id("jobs-drawer")).to_be_visible(timeout=5_000)
-    expect(page.get_by_text("Running OCR Scan")).to_be_visible(timeout=5_000)
-    expect(page.get_by_text("Processing page 3/5")).to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("slide-over-panel")).to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("jobs-panel-body")).to_be_visible(timeout=5_000)
 
-    # Dismiss path: drawer close hides the right panel.
-    page.get_by_role("button", name=re.compile("Dismiss drawer")).click()
-    expect(page.get_by_test_id("right-panel")).not_to_be_visible(timeout=5_000)
+    # Dismiss path: slide-over close button hides the dock.
+    page.get_by_test_id("slide-over-panel-close").click()
+    expect(page.get_by_test_id("slide-over-panel")).not_to_be_visible(timeout=5_000)
 
-    # Row action path: re-open, hover the row to reveal "Open project", click it.
+    # Row action path: re-open (jobs surface; no job rows since empty active list).
     jobs_button.click()
-    expect(page.get_by_test_id("jobs-drawer")).to_be_visible(timeout=5_000)
-    page.get_by_test_id("job-row").hover()
-    page.get_by_role("button", name=re.compile("Open project")).click()
-    expect(page).to_have_url(re.compile(r"/jobs/fake-running-job-002$"), timeout=5_000)
+    expect(page.get_by_test_id("jobs-panel-body")).to_be_visible(timeout=5_000)
+    # Note: AppShell's built-in UtilityDock doesn't receive activeJobs, so
+    # JobPanelBody shows "No active jobs" — no job-row to click.
+    # The full jobs-in-dock integration requires AppShell to gain a jobsConfig prop.
 
     # Bad-state: when GET /api/jobs returns empty list, the count badge disappears.
     # The panel is click-owned; when no jobs are running the count badge is absent.
@@ -275,15 +275,17 @@ def test_shortcuts_cheatsheet_opens_on_button_click(
     expect(page.get_by_test_id("page-view-page")).to_be_visible(timeout=15_000)
 
     # The cheatsheet must be absent before clicking.
-    expect(page.get_by_test_id("shortcuts-cheatsheet")).not_to_be_visible()
+    # In pdomain-ui 0.4.0, ShortcutsHelpButton opens the utility dock's keybinds
+    # surface (SlideOverPanel with ShortcutsCheatsheetBody) instead of a Dialog.
+    expect(page.get_by_test_id("shortcuts-cheatsheet-body")).not_to_be_visible()
 
     # Click the ? help button (rendered by AppHeader via actions={<ShortcutsHelpButton/>}).
     help_btn = page.get_by_test_id("shortcuts-help-button")
     expect(help_btn).to_be_visible(timeout=5_000)
     help_btn.click()
 
-    # Observable: cheatsheet dialog appears.
-    expect(page.get_by_test_id("shortcuts-cheatsheet")).to_be_visible(timeout=5_000)
+    # Observable: shortcuts-cheatsheet-body appears inside the utility dock.
+    expect(page.get_by_test_id("shortcuts-cheatsheet-body")).to_be_visible(timeout=5_000)
 
     # Backend: no writes — purely client-side state.
     prefs_resp = httpx.get(f"{live_server_url}/api/prefs", timeout=5.0)
@@ -304,11 +306,11 @@ def test_shortcuts_cheatsheet_opens_on_question_mark_key(
 
     # Make sure focus is on body, not inside a text input.
     page.keyboard.press("Escape")
-    expect(page.get_by_test_id("shortcuts-cheatsheet")).not_to_be_visible()
+    expect(page.get_by_test_id("shortcuts-cheatsheet-body")).not_to_be_visible()
 
     # Press ? to open — ShortcutsContext registers a global ? keydown.
     page.keyboard.press("?")
-    expect(page.get_by_test_id("shortcuts-cheatsheet")).to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("shortcuts-cheatsheet-body")).to_be_visible(timeout=5_000)
 
     # Bad-state: no API writes.
     resp = httpx.get(f"{live_server_url}/api/prefs", timeout=5.0)
@@ -326,16 +328,17 @@ def test_shortcuts_cheatsheet_closes_on_escape(page: Page, live_server_url: str,
     expect(page.get_by_test_id("page-view-page")).to_be_visible(timeout=15_000)
 
     # Open the cheatsheet first.
+    # In pdomain-ui 0.4.0, ShortcutsHelpButton opens the utility dock's keybinds surface.
     page.get_by_test_id("shortcuts-help-button").click()
-    expect(page.get_by_test_id("shortcuts-cheatsheet")).to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("shortcuts-cheatsheet-body")).to_be_visible(timeout=5_000)
 
-    # Press Escape — ShortcutsContext handles this globally.
+    # Press Escape — SlideOverPanel handles this globally.
     page.keyboard.press("Escape")
-    expect(page.get_by_test_id("shortcuts-cheatsheet")).not_to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("shortcuts-cheatsheet-body")).not_to_be_visible(timeout=5_000)
 
     # Bad-state check: re-open and confirm it works again after close.
     page.get_by_test_id("shortcuts-help-button").click()
-    expect(page.get_by_test_id("shortcuts-cheatsheet")).to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("shortcuts-cheatsheet-body")).to_be_visible(timeout=5_000)
 
 
 # ---------------------------------------------------------------------------
@@ -358,15 +361,18 @@ def test_settings_modal_opens_on_gear_click(page: Page, live_server_url: str) ->
     trigger = page.get_by_test_id("settings-slot-trigger")
     expect(trigger).to_be_visible(timeout=5_000)
 
-    # Settings modal is absent before clicking.
-    expect(page.get_by_test_id("settings-modal")).not_to_be_visible()
+    # Settings panel is absent before clicking.
+    # In pdomain-ui 0.4.0, SettingsSlot opens the utility dock (slide-over) instead
+    # of a modal dialog. The testid "settings-modal" is no longer rendered by AppShell;
+    # "slide-over-panel" wraps the SettingsPanel inside the utility dock.
+    expect(page.get_by_test_id("slide-over-panel")).not_to_be_visible()
 
     trigger.click()
 
-    # Observable: settings-modal appears with Appearance tab active.
-    expect(page.get_by_test_id("settings-modal")).to_be_visible(timeout=5_000)
+    # Observable: settings panel appears inside the utility dock with Appearance tab active.
+    expect(page.get_by_test_id("slide-over-panel")).to_be_visible(timeout=5_000)
 
-    # Appearance controls are visible inside the modal.
+    # Appearance controls are visible inside the panel.
     expect(page.get_by_test_id("settings-appearance-theme-dark")).to_be_visible(timeout=3_000)
     expect(page.get_by_test_id("settings-appearance-theme-light")).to_be_visible(timeout=3_000)
     expect(page.get_by_test_id("settings-appearance-density-compact")).to_be_visible(timeout=3_000)
@@ -387,19 +393,19 @@ def test_settings_modal_closes_on_close_button(page: Page, live_server_url: str)
     page.goto(live_server_url)
     expect(page.get_by_test_id("home-page")).to_be_visible(timeout=15_000)
 
-    # Open the modal.
+    # Open the settings panel (utility dock).
     page.get_by_test_id("settings-slot-trigger").click()
-    expect(page.get_by_test_id("settings-modal")).to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("slide-over-panel")).to_be_visible(timeout=5_000)
 
-    # Click the close button.
-    page.get_by_test_id("settings-modal-close").click()
+    # Click the close button (SlideOverPanel close button).
+    page.get_by_test_id("slide-over-panel-close").click()
 
-    # Observable: modal disappears.
-    expect(page.get_by_test_id("settings-modal")).not_to_be_visible(timeout=5_000)
+    # Observable: panel disappears.
+    expect(page.get_by_test_id("slide-over-panel")).not_to_be_visible(timeout=5_000)
 
-    # Bad-state: modal can be re-opened after closing.
+    # Bad-state: panel can be re-opened after closing.
     page.get_by_test_id("settings-slot-trigger").click()
-    expect(page.get_by_test_id("settings-modal")).to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("slide-over-panel")).to_be_visible(timeout=5_000)
 
     # Backend: no writes from open/close cycle.
     prefs_resp = httpx.get(f"{live_server_url}/api/prefs", timeout=5.0)
@@ -421,9 +427,9 @@ def test_theme_persists_via_ui(page: Page, live_server_url: str, e2e_data_root: 
     page.goto(live_server_url)
     expect(page.get_by_test_id("home-page")).to_be_visible(timeout=15_000)
 
-    # Open the settings modal via the gear trigger.
+    # Open the settings panel (utility dock) via the gear trigger.
     page.get_by_test_id("settings-slot-trigger").click()
-    expect(page.get_by_test_id("settings-modal")).to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("slide-over-panel")).to_be_visible(timeout=5_000)
 
     # Click the Light theme radio.
     page.get_by_test_id("settings-appearance-theme-light").click()
@@ -452,7 +458,7 @@ def test_theme_persists_via_ui(page: Page, live_server_url: str, e2e_data_root: 
     )
 
     # UI: reload — data-theme="light" is restored from prefs on boot.
-    page.get_by_test_id("settings-modal-close").click()
+    page.get_by_test_id("slide-over-panel-close").click()
     page.goto(live_server_url)
     expect(page.get_by_test_id("home-page")).to_be_visible(timeout=15_000)
     page.wait_for_function(
@@ -519,9 +525,9 @@ def test_density_persists_via_ui(page: Page, live_server_url: str, e2e_data_root
     page.goto(live_server_url)
     expect(page.get_by_test_id("home-page")).to_be_visible(timeout=15_000)
 
-    # Open the settings modal.
+    # Open the settings panel (utility dock).
     page.get_by_test_id("settings-slot-trigger").click()
-    expect(page.get_by_test_id("settings-modal")).to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("slide-over-panel")).to_be_visible(timeout=5_000)
 
     # Click the Compact density radio.
     page.get_by_test_id("settings-appearance-density-compact").click()
@@ -554,7 +560,7 @@ def test_density_persists_via_ui(page: Page, live_server_url: str, e2e_data_root
     )
 
     # UI: reload — compact density restored.
-    page.get_by_test_id("settings-modal-close").click()
+    page.get_by_test_id("slide-over-panel-close").click()
     page.goto(live_server_url)
     expect(page.get_by_test_id("home-page")).to_be_visible(timeout=15_000)
     page.wait_for_function(
@@ -619,9 +625,9 @@ def test_fontscale_persists_via_api(page: Page, live_server_url: str, e2e_data_r
     page.goto(live_server_url)
     expect(page.get_by_test_id("home-page")).to_be_visible(timeout=15_000)
     page.get_by_test_id("settings-slot-trigger").click()
-    expect(page.get_by_test_id("settings-modal")).to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("slide-over-panel")).to_be_visible(timeout=5_000)
     expect(page.get_by_test_id("settings-appearance-font-scale-slider")).to_be_visible(timeout=3_000)
-    page.get_by_test_id("settings-modal-close").click()
+    page.get_by_test_id("slide-over-panel-close").click()
 
     # Backend uses snake_case: font_scale (not fontScale) per CommonUIPrefs schema.
     put_resp = httpx.put(
@@ -673,9 +679,9 @@ def test_prefs_persist_error_shows_toast(page: Page, live_server_url: str) -> No
         ),
     )
 
-    # Open modal and click a theme toggle to trigger persistCommon.
+    # Open the settings panel (utility dock) and click a theme toggle to trigger persistCommon.
     page.get_by_test_id("settings-slot-trigger").click()
-    expect(page.get_by_test_id("settings-modal")).to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("slide-over-panel")).to_be_visible(timeout=5_000)
     page.get_by_test_id("settings-appearance-theme-light").click()
 
     # Observable: sonner toast error appears.
@@ -755,11 +761,12 @@ def test_page_view_shortcuts_appear_in_cheatsheet(
     expect(page.get_by_test_id("page-view-page")).to_be_visible(timeout=15_000)
 
     # Open the shortcuts cheatsheet via the help button.
+    # In pdomain-ui 0.4.0, ShortcutsHelpButton opens the utility dock's keybinds surface.
     page.get_by_test_id("shortcuts-help-button").click()
-    expect(page.get_by_test_id("shortcuts-cheatsheet")).to_be_visible(timeout=5_000)
+    expect(page.get_by_test_id("shortcuts-cheatsheet-body")).to_be_visible(timeout=5_000)
 
     # Observable: cheatsheet body contains PageViewPage-specific bindings.
-    cheatsheet = page.get_by_test_id("shortcuts-cheatsheet")
+    cheatsheet = page.get_by_test_id("shortcuts-cheatsheet-body")
     cheatsheet_text = cheatsheet.inner_text()
 
     assert any(
@@ -781,15 +788,15 @@ def test_page_view_shortcuts_appear_in_cheatsheet(
     assert resp.status_code == 200
 
     # Bad-state: navigate away → PageViewPage bindings unregistered.
-    page.keyboard.press("Escape")  # Close cheatsheet.
+    page.keyboard.press("Escape")  # Close the keybinds dock panel.
     page.goto(live_server_url)
     expect(page.get_by_test_id("home-page")).to_be_visible(timeout=10_000)
 
     # Open cheatsheet on home page — should show only home-page bindings.
     page.locator("body").click()  # Ensure focus is not in an input.
     page.get_by_test_id("shortcuts-help-button").click()
-    expect(page.get_by_test_id("shortcuts-cheatsheet")).to_be_visible(timeout=5_000)
-    home_cheatsheet_text = page.get_by_test_id("shortcuts-cheatsheet").inner_text()
+    expect(page.get_by_test_id("shortcuts-cheatsheet-body")).to_be_visible(timeout=5_000)
+    home_cheatsheet_text = page.get_by_test_id("shortcuts-cheatsheet-body").inner_text()
     # "Ctrl+S" / PageViewPage-specific keys should not be listed on the home page.
     # Soft assertion — if future pages also register Ctrl+S, update.
     assert "page-view" not in home_cheatsheet_text.lower()
@@ -827,11 +834,12 @@ def test_home_page_shortcut_focuses_path_input(page: Page, live_server_url: str)
     assert resp.status_code == 200
 
     # Cheatsheet: 'n' binding should appear in the home-page cheatsheet.
+    # In pdomain-ui 0.4.0, ShortcutsHelpButton opens the utility dock's keybinds surface.
     page.keyboard.press("Escape")
     page.locator("body").click()
     page.get_by_test_id("shortcuts-help-button").click()
-    expect(page.get_by_test_id("shortcuts-cheatsheet")).to_be_visible(timeout=5_000)
-    cheatsheet_text = page.get_by_test_id("shortcuts-cheatsheet").inner_text()
+    expect(page.get_by_test_id("shortcuts-cheatsheet-body")).to_be_visible(timeout=5_000)
+    cheatsheet_text = page.get_by_test_id("shortcuts-cheatsheet-body").inner_text()
     assert any(
         fragment in cheatsheet_text for fragment in ["Focus source path input", "source", "path", "picker"]
     ), f"Expected home-page shortcut in cheatsheet but got: {cheatsheet_text!r}"

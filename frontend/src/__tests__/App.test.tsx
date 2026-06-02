@@ -7,22 +7,24 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { makeTestQueryClient } from "../test/test-utils";
 import App from "../App";
 
+// Spy for useUtilityDock().toggle — lets tests assert the jobs dock surface
+// is opened when the jobs button is clicked.
+const mockToggle = vi.fn();
+
 // Mock @pdomain/pdomain-ui/shell — we test App routing, not AppShell internals.
 // AppShell itself uses complex CSS and zustand stores that don't run well in jsdom.
+// useUtilityDock is called by SimpleGuiHeader (wires JobsPill.onClick to toggle('jobs')).
 vi.mock("@pdomain/pdomain-ui/shell", () => ({
   AppShell: ({
     header,
     main,
-    rightPanel,
   }: {
     header: React.ReactNode;
     main: React.ReactNode;
-    rightPanel?: React.ReactNode;
   }) => (
     <div data-testid="app-shell-mock">
       <div data-testid="app-shell-header-mock">{header}</div>
       <div data-testid="app-shell-main-mock">{main}</div>
-      <div data-testid="app-shell-right-mock">{rightPanel}</div>
     </div>
   ),
   JobsPill: ({
@@ -41,19 +43,21 @@ vi.mock("@pdomain/pdomain-ui/shell", () => ({
       Jobs
     </button>
   ),
-  JobsDrawer: ({ activeJobs = [] }: { activeJobs?: { project: string }[] }) => (
-    <div data-testid="jobs-drawer-mock">
-      {activeJobs.map((job) => job.project).join(",")}
-    </div>
-  ),
-  RightPanel: ({ children }: { children: React.ReactNode }) => (
-    <aside data-testid="right-panel-mock">{children}</aside>
-  ),
   SuiteSiblingsProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
   ShortcutsHelpButton: () => <div data-testid="shortcuts-help-button-mock" />,
   SettingsSlot: () => <div data-testid="settings-slot-trigger-mock" />,
+  useUtilityDock: () => ({
+    toggle: mockToggle,
+    active: null,
+    pinned: false,
+    width: 420,
+    open: vi.fn(),
+    close: vi.fn(),
+    setPinned: vi.fn(),
+    setWidth: vi.fn(),
+  }),
 }));
 
 vi.mock("@pdomain/pdomain-ui/hooks", () => ({
@@ -81,6 +85,7 @@ vi.mock("@pdomain/pdomain-ui/canvas", () => ({
 
 // Suppress jsdom fetch warnings in tests
 beforeEach(() => {
+  mockToggle.mockClear();
   (globalThis as any).fetch = vi.fn().mockImplementation((url: string) => {
     // ConfigProvider fetches /api/config on mount — return a valid config so
     // HomePage renders rather than showing "Loading…".
@@ -129,7 +134,10 @@ describe("App", () => {
     expect(screen.getByTestId("app-shell-main-mock")).toBeInTheDocument();
   });
 
-  it("opens a pdomain-ui right jobs panel from the header jobs button", async () => {
+  it("clicking the jobs pill calls useUtilityDock().toggle('jobs')", async () => {
+    // pdomain-ui 0.4.0: JobsPill.onClick is wired to useUtilityDock().toggle('jobs').
+    // The utility dock is now AppShell's built-in right-side surface; the old
+    // RightPanel + JobsDrawer pattern has been removed.
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
       (url: string) => {
         if (typeof url === "string" && url.includes("/api/config")) {
@@ -168,10 +176,7 @@ describe("App", () => {
 
     fireEvent.click(jobsButton);
 
-    expect(screen.getByTestId("right-panel-mock")).toBeInTheDocument();
-    expect(screen.getByTestId("jobs-drawer-mock")).toHaveTextContent(
-      "Scan batch",
-    );
+    expect(mockToggle).toHaveBeenCalledWith("jobs");
   });
 
   // -------------------------------------------------------------------------
