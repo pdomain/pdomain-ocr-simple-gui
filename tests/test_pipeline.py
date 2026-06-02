@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock
 
 from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
@@ -239,7 +239,7 @@ class TestExtractWords:
         assert [w["text"] for w in words] == ["Hello"]
 
     def test_empty_for_page_with_no_words(self) -> None:
-        page = {"type": "Page", "items": []}
+        page: dict[str, Any] = {"type": "Page", "items": []}
         assert extract_words(page) == []
 
 
@@ -345,6 +345,58 @@ class TestCollectImages:
 
 
 class TestRunProject:
+    async def test_project_state_transitions_use_lifecycle_adapter(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        """run_project validates queued->running->terminal via lifecycle adapter."""
+        import pdomain_ocr_simple_gui.pipeline as pipeline_mod
+        from pdomain_ocr_simple_gui.storage import read_project, write_project
+
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+
+        src = tmp_path / "source"
+        src.mkdir()
+        (src / "page0.png").write_bytes(b"fake-png")
+
+        spec = _make_spec(tmp_path, source_path=str(src))
+        write_project(
+            spec,
+            ProjectStatus(
+                project_id=spec.project_id,
+                state="queued",
+                page_count=1,
+                pages_done=0,
+                pages=[PageResult(page_idx=0, page_name="page0.png", state="queued")],
+            ),
+        )
+
+        transitions: list[tuple[str, str]] = []
+
+        def _fake_assert_job_transition(current: str, event: str) -> str:
+            transitions.append((current, event))
+            if (current, event) == ("queued", "start"):
+                return "running"
+            if (current, event) == ("running", "succeed"):
+                return "succeeded"
+            raise AssertionError(f"unexpected lifecycle transition: {(current, event)!r}")
+
+        monkeypatch.setattr(
+            pipeline_mod,
+            "assert_job_transition",
+            _fake_assert_job_transition,
+            raising=False,
+        )
+
+        await run_project(spec, _make_single_batch_dispatcher(EMPTY_PAGE_DICT), AsyncMock())
+
+        _, final_status = read_project(spec.project_id)
+        assert final_status.state == "succeeded"
+        assert transitions == [("queued", "start"), ("running", "succeed")]
+
     async def test_calls_run_ocr_batch_for_images(self, tmp_path: Path, monkeypatch) -> None:
         """run_project calls dispatcher.run_ocr_batch for all image files."""
 
@@ -396,7 +448,7 @@ class TestRunProject:
         await run_project(spec, mock_dispatcher, _cb)
 
         # All 2 pages processed across 1 or more batch calls
-        total_pages_batched = sum(len(r.images) for r in batch_calls)  # type: ignore[union-attr]
+        total_pages_batched = sum(len(cast("Any", r).images) for r in batch_calls)
         assert total_pages_batched == 2
         # 1 warm-up callback + 1 completion callback per chunk + 1 "Writing
         # outputs" callback (combined.txt is now always written).
@@ -480,10 +532,10 @@ class TestRunProject:
         await run_project(spec, mock_dispatcher, AsyncMock())
 
         assert len(captured_reqs) == 1
-        req = captured_reqs[0]
-        assert req.engine == spec.engine  # type: ignore[union-attr]
-        assert req.language == spec.language  # type: ignore[union-attr]
-        assert req.images == [b"fake-image-bytes"]  # type: ignore[union-attr]
+        req = cast("Any", captured_reqs[0])
+        assert req.engine == spec.engine
+        assert req.language == spec.language
+        assert req.images == [b"fake-image-bytes"]
 
     async def test_extracts_text_from_page_dict(self, tmp_path: Path, monkeypatch) -> None:
         """run_project extracts text from the page dict and writes it."""

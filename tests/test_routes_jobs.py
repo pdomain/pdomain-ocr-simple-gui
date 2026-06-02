@@ -354,7 +354,7 @@ class TestPipelineIntegration:
         from pdomain_ops.gpu import LocalStageDispatcher
 
         client, source_path = client_with_source
-        received_dispatchers: list = []
+        received_dispatchers: list[object] = []
 
         async def _capture(spec, dispatcher, status_callback) -> None:
             received_dispatchers.append(dispatcher)
@@ -502,6 +502,46 @@ class TestCanonicalJobStates:
 class TestRerunJob:
     """Tests for POST /api/jobs/{project_id}/rerun."""
 
+    async def test_rerun_terminal_job_resets_via_lifecycle_adapter(
+        self,
+        client_with_source,
+        monkeypatch,
+    ) -> None:
+        """Terminal job rerun applies the lifecycle rerun event before resetting."""
+        import pdomain_ocr_simple_gui.routes.jobs as jobs_route
+
+        client, source_path = client_with_source
+
+        with patch("pdomain_ocr_simple_gui.routes.jobs.run_project", _make_done_status_callback("")):
+            post_resp = await client.post(
+                "/api/jobs",
+                json={**JOB_PAYLOAD, "source_path": source_path},
+            )
+        project_id = post_resp.json()["project_id"]
+        assert (await client.get(f"/api/jobs/{project_id}")).json()["state"] == "succeeded"
+
+        transitions: list[tuple[str, str]] = []
+
+        def _fake_assert_job_transition(current: str, event: str) -> str:
+            transitions.append((current, event))
+            return "queued"
+
+        async def _noop_run(spec, dispatcher, cb):
+            pass
+
+        monkeypatch.setattr(
+            jobs_route,
+            "assert_job_transition",
+            _fake_assert_job_transition,
+            raising=False,
+        )
+        with patch("pdomain_ocr_simple_gui.routes.jobs.run_project", _noop_run):
+            rerun_resp = await client.post(f"/api/jobs/{project_id}/rerun")
+
+        assert rerun_resp.status_code == 202
+        assert rerun_resp.json()["state"] == "queued"
+        assert transitions == [("succeeded", "rerun_requested")]
+
     async def test_rerun_returns_queued_state(self, client_with_source) -> None:
         """POST /api/jobs/:id/rerun resets status to queued."""
         client, source_path = client_with_source
@@ -598,6 +638,51 @@ class TestRerunJob:
         resp = await async_client.post("/api/jobs/absolutely-does-not-exist/rerun")
         assert resp.status_code == 404
         assert "not found" in resp.json()["detail"].lower()
+
+    async def test_rerun_running_job_is_rejected(self, tmp_path, monkeypatch) -> None:
+        """Non-terminal jobs must not silently reset to queued on rerun."""
+        from datetime import UTC, datetime
+
+        from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
+        from pdomain_ocr_simple_gui.storage import write_project
+
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+
+        source = tmp_path / "source"
+        source.mkdir()
+        (source / "page0.png").write_bytes(b"fake-png")
+
+        spec = ProjectSpec(
+            project_id="rerun-running-001",
+            name="Running",
+            source_path=str(source),
+            output_dir=str(tmp_path / "output"),
+            engine="doctr",
+            language="en",
+            created_at=datetime.now(UTC),
+            last_opened_at=datetime.now(UTC),
+        )
+        write_project(
+            spec,
+            ProjectStatus(
+                project_id=spec.project_id,
+                state="running",
+                page_count=1,
+                pages_done=0,
+                pages=[PageResult(page_idx=0, page_name="page0.png", state="running")],
+            ),
+        )
+
+        async def _noop_pipeline_run_job(spec):
+            pass
+
+        monkeypatch.setattr("pdomain_ocr_simple_gui.routes.jobs._pipeline_run_job", _noop_pipeline_run_job)
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.post(f"/api/jobs/{spec.project_id}/rerun")
+
+        assert resp.status_code == 400
 
 
 class TestUploadIdSource:

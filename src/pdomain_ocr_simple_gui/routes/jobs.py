@@ -23,6 +23,7 @@ from pdomain_ocr_simple_gui.runtime.mode import Mode, read_mode
 from pdomain_ocr_simple_gui.sources import SourceError
 from pdomain_ocr_simple_gui.sources.local_path import LocalPathSource
 from pdomain_ocr_simple_gui.sources.uploaded_files import UploadedFilesSource
+from pdomain_ocr_simple_gui.statecharts.job_lifecycle import InvalidJobTransition, assert_job_transition
 from pdomain_ocr_simple_gui.storage import (
     delete_project,
     list_projects,
@@ -57,6 +58,7 @@ _job_semaphore: asyncio.Semaphore = asyncio.Semaphore(_max_concurrent_jobs())
 _DEFAULT_OUTPUT_ROOT = Path.home() / ".local/share/pdomain-ocr-simple-gui/outputs"
 _DEFAULT_UPLOAD_ROOT = Path.home() / ".local/share/pdomain-ocr-simple-gui/uploads"
 _DEFAULT_JOBS_META_ROOT = Path.home() / ".local/share/pdomain-ocr-simple-gui/jobs"
+ApiJobState = Literal["queued", "running", "succeeded", "failed", "cancelled"]
 
 
 def _jobs_meta_root() -> Path:
@@ -191,23 +193,25 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
     try:
         # Seed initial page list from collected images
         images = await collect_images(spec.source_path)
+        _, current_status = read_project(spec.project_id)
+        seed_state: ApiJobState = current_status.state
+        seed_error: str | None = None
+        if not images:
+            seed_state = cast("ApiJobState", assert_job_transition(current_status.state, "fail"))
+            seed_error = (
+                "No supported image files found in source; supported types are "
+                "PNG, JPEG, TIFF, JPEG 2000, WebP."
+            )
         init_pages = [
             PageResult(page_idx=i, page_name=img.name, state="queued") for i, img in enumerate(images)
         ]
         init_status = ProjectStatus(
             project_id=spec.project_id,
-            state="queued" if images else "failed",
+            state=seed_state,
             page_count=len(images),
             pages_done=0,
             pages=init_pages,
-            error=(
-                None
-                if images
-                else (
-                    "No supported image files found in source; supported types are "
-                    "PNG, JPEG, TIFF, JPEG 2000, WebP."
-                )
-            ),
+            error=seed_error,
         )
         write_project(spec, init_status)
 
@@ -229,9 +233,14 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
         )
         try:
             _, current = read_project(spec.project_id)
+            failed_state = (
+                current.state
+                if current.state == "failed"
+                else cast("ApiJobState", assert_job_transition(current.state, "fail"))
+            )
             err_status = ProjectStatus(
                 project_id=spec.project_id,
-                state="failed",
+                state=failed_state,
                 page_count=current.page_count,
                 pages_done=current.pages_done,
                 pages=current.pages,
@@ -311,9 +320,10 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
             created_at=now,
             last_opened_at=now,
         )
+        queued_state = cast("ApiJobState", assert_job_transition("new", "queue"))
         status = ProjectStatus(
             project_id=project_id,
-            state="queued",
+            state=queued_state,
             page_count=0,
             pages_done=0,
             pages=[],
@@ -445,6 +455,10 @@ async def rerun_job(project_id: str, background_tasks: BackgroundTasks) -> dict[
         spec, status = read_project(project_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Project not found") from exc
+    try:
+        reset_state = cast("ApiJobState", assert_job_transition(status.state, "rerun_requested"))
+    except InvalidJobTransition as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     # Reset all pages to queued
     reset_pages = [
@@ -457,7 +471,7 @@ async def rerun_job(project_id: str, background_tasks: BackgroundTasks) -> dict[
     ]
     reset_status = ProjectStatus(
         project_id=project_id,
-        state="queued",
+        state=reset_state,
         page_count=status.page_count,
         pages_done=0,
         pages=reset_pages,
@@ -466,7 +480,7 @@ async def rerun_job(project_id: str, background_tasks: BackgroundTasks) -> dict[
 
     # Re-enqueue the pipeline
     background_tasks.add_task(_pipeline_run_job, spec)
-    return {"project_id": project_id, "state": "queued"}
+    return {"project_id": project_id, "state": reset_state}
 
 
 def _remove_from_recent_projects(project_id: str) -> None:

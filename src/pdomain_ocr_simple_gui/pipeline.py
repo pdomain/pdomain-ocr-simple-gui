@@ -13,9 +13,11 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, TypeAlias, cast
+from typing import TYPE_CHECKING, Literal, Protocol, TypeAlias, cast
 
 from pdomain_ops.gpu.types import OcrBatchRequest  # pyright: ignore[reportMissingTypeStubs]
+
+from pdomain_ocr_simple_gui.statecharts.job_lifecycle import assert_job_transition
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +50,7 @@ _DEFAULT_BATCH_PAGES: int = 8
 JsonPrimitive: TypeAlias = str | int | float | bool | None
 JsonValue: TypeAlias = JsonPrimitive | list["JsonValue"] | dict[str, "JsonValue"]
 JsonObject: TypeAlias = dict[str, JsonValue]
+ApiJobState: TypeAlias = Literal["queued", "running", "succeeded", "failed", "cancelled"]
 
 
 class OCRDispatcher(Protocol):
@@ -364,9 +367,10 @@ async def run_project(
 
     # Mark project as running
     _, current_status = read_project(spec.project_id)
+    running_state = cast("ApiJobState", assert_job_transition(current_status.state, "start"))
     running_status = ProjectStatus(
         project_id=spec.project_id,
-        state="running",
+        state=running_state,
         page_count=total,
         pages_done=0,
         pages=current_status.pages,
@@ -517,7 +521,8 @@ async def run_project(
     # the polled GET /api/jobs/{id} response.
     _, final_status = read_project(spec.project_id)
     all_done = all(p.state == "succeeded" for p in final_status.pages)
-    final_state = "succeeded" if all_done else "failed"
+    terminal_event = "succeed" if all_done else "fail"
+    final_state = cast("ApiJobState", assert_job_transition(running_state, terminal_event))
     terminal_status = ProjectStatus(
         project_id=spec.project_id,
         state=final_state,
