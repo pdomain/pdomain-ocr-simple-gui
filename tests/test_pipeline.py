@@ -397,6 +397,58 @@ class TestRunProject:
         assert final_status.state == "succeeded"
         assert transitions == [("queued", "start"), ("running", "succeed")]
 
+    async def test_page_updates_do_not_persist_terminal_project_state_before_final_transition(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        """Per-page completion must not terminalize the project before final lifecycle validation."""
+        import pdomain_ocr_simple_gui.pipeline as pipeline_mod
+        from pdomain_ocr_simple_gui.storage import read_project, write_project
+
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+
+        src = tmp_path / "source"
+        src.mkdir()
+        (src / "page0.png").write_bytes(b"fake-png")
+
+        spec = _make_spec(tmp_path, source_path=str(src))
+        write_project(
+            spec,
+            ProjectStatus(
+                project_id=spec.project_id,
+                state="queued",
+                page_count=1,
+                pages_done=0,
+                pages=[PageResult(page_idx=0, page_name="page0.png", state="queued")],
+            ),
+        )
+
+        def _fake_assert_job_transition(current: str, event: str) -> str:
+            if event == "start":
+                assert current == "queued"
+                return "running"
+            if event == "succeed":
+                _, persisted = read_project(spec.project_id)
+                assert persisted.state == "running"
+                assert current == persisted.state
+                return "succeeded"
+            raise AssertionError(f"unexpected lifecycle transition: {(current, event)!r}")
+
+        monkeypatch.setattr(
+            pipeline_mod,
+            "assert_job_transition",
+            _fake_assert_job_transition,
+            raising=False,
+        )
+
+        await run_project(spec, _make_single_batch_dispatcher(EMPTY_PAGE_DICT), AsyncMock())
+
+        _, final_status = read_project(spec.project_id)
+        assert final_status.state == "succeeded"
+
     async def test_calls_run_ocr_batch_for_images(self, tmp_path: Path, monkeypatch) -> None:
         """run_project calls dispatcher.run_ocr_batch for all image files."""
 

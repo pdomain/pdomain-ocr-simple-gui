@@ -377,6 +377,13 @@ async def run_project(
     )
     write_project(spec, running_status)
 
+    def _update_page_result_while_running(page_result: PageResult) -> None:
+        """Update a page without letting page aggregation terminalize the project."""
+        update_page_result(spec, page_result)
+        _, updated_status = read_project(spec.project_id)
+        if updated_status.state != running_state:
+            write_project(spec, updated_status.model_copy(update={"state": running_state}))
+
     # Warm-up message before any batch starts — DocTR's first run may pull
     # ~200 MB of weights from Hugging Face plus a GPU model load.
     warm_status = _persist_message(
@@ -395,8 +402,7 @@ async def run_project(
 
         # Mark chunk pages as running
         for idx, img_path in zip(chunk_indices, chunk_images, strict=True):
-            update_page_result(
-                spec,
+            _update_page_result_while_running(
                 PageResult(page_idx=idx, page_name=img_path.name, state="running"),
             )
 
@@ -476,8 +482,7 @@ async def run_project(
                     sidecar_payload,
                 )
 
-                update_page_result(
-                    spec,
+                _update_page_result_while_running(
                     PageResult(
                         page_idx=idx,
                         page_name=img_path.name,
@@ -494,8 +499,7 @@ async def run_project(
             )
             # Mark all pages in the failed chunk as failed
             for idx, img_path in zip(chunk_indices, chunk_images, strict=True):
-                update_page_result(
-                    spec,
+                _update_page_result_while_running(
                     PageResult(
                         page_idx=idx,
                         page_name=img_path.name,
@@ -522,7 +526,7 @@ async def run_project(
     _, final_status = read_project(spec.project_id)
     all_done = all(p.state == "succeeded" for p in final_status.pages)
     terminal_event = "succeed" if all_done else "fail"
-    final_state = cast("ApiJobState", assert_job_transition(running_state, terminal_event))
+    final_state = cast("ApiJobState", assert_job_transition(final_status.state, terminal_event))
     terminal_status = ProjectStatus(
         project_id=spec.project_id,
         state=final_state,
