@@ -11,7 +11,10 @@ import {
   JOB_CREATION_BEHAVIOR,
   appendBehaviorTrace,
 } from "./jobCreationBehavior";
-import { normalizeEngine } from "../runtime/ocrEngines";
+import {
+  normalizeEngine,
+  normalizeEngineLanguage,
+} from "../runtime/ocrEngines";
 
 function defaultJobForm(): JobForm {
   return {
@@ -127,9 +130,11 @@ export const jobCreationMachine = setup({
           event.type === "SUBMIT_JOB" && event.jobForm !== undefined
             ? event.jobForm
             : context.jobForm;
+        const nextEngine = normalizeEngine(context.config, nextForm.engine);
         return {
           ...nextForm,
-          engine: normalizeEngine(context.config, nextForm.engine),
+          engine: nextEngine,
+          language: normalizeEngineLanguage(nextEngine, nextForm.language),
         };
       },
     }),

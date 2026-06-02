@@ -20,7 +20,10 @@ from pdomain_ocr_simple_gui.models import AppPrefs, PageResult, ProjectSpec, Pro
 from pdomain_ocr_simple_gui.output.config import OutputConfig, OutputConfigError, resolve_output_dir
 from pdomain_ocr_simple_gui.pipeline import collect_images, run_project
 from pdomain_ocr_simple_gui.runtime.mode import Mode, read_mode
-from pdomain_ocr_simple_gui.runtime.ocr_engines import is_engine_request_available
+from pdomain_ocr_simple_gui.runtime.ocr_engines import (
+    is_engine_request_available,
+    resolve_engine_language,
+)
 from pdomain_ocr_simple_gui.sources import SourceError
 from pdomain_ocr_simple_gui.sources.local_path import LocalPathSource
 from pdomain_ocr_simple_gui.sources.uploaded_files import UploadedFilesSource
@@ -290,6 +293,7 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
         )
         if not engine_available:
             raise HTTPException(status_code=400, detail=f"engine: {engine_reason}")
+        resolved_language = resolve_engine_language(body.engine, body.language)
 
         if body.output is not None:
             # New path: resolve source via Source adapter, then resolve output via OutputConfig.
@@ -319,7 +323,7 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
             source_path=resolved_source_path,
             output_dir=resolved_output_dir,
             engine=body.engine,
-            language=body.language,
+            language=resolved_language,
             straight_quotes=body.straight_quotes,
             em_dash_to_double_hyphen=body.em_dash_to_double_hyphen,
             emit_illustration_placeholders=body.emit_illustration_placeholders,

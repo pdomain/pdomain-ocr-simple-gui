@@ -611,6 +611,43 @@ class TestPostPageRerun:
         data = resp.json()
         assert data["state"] == "succeeded"
 
+    async def test_tesseract_rerun_resolves_english_alias_before_dispatch(
+        self,
+        async_client: AsyncClient,
+        project_with_image: tuple[str, Path],
+        monkeypatch,
+    ) -> None:
+        from unittest.mock import AsyncMock, patch
+
+        from pdomain_ocr_simple_gui.runtime import ocr_engines
+        from pdomain_ocr_simple_gui.runtime.ocr_engines import OcrEngineStatus
+
+        project_id, _ = project_with_image
+        monkeypatch.setattr(
+            ocr_engines,
+            "detect_tesseract",
+            lambda: OcrEngineStatus(
+                id="tesseract",
+                label="Tesseract",
+                available=True,
+                languages=("eng", "osd"),
+            ),
+        )
+
+        fake_result = AsyncMock()
+        fake_result.metadata = {"pages": [{"type": "Page", "items": []}]}
+        mock_dispatcher = AsyncMock()
+        mock_dispatcher.run_stage = AsyncMock(return_value=fake_result)
+
+        with patch("pdomain_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
+            resp = await async_client.post(
+                f"/api/pages/{project_id}/0/rerun",
+                json={"engine": "tesseract"},
+            )
+
+        assert resp.status_code == 200
+        assert mock_dispatcher.run_stage.call_args.kwargs["language"] == "eng"
+
     async def test_rerun_rejects_unavailable_tesseract_before_marking_page_running(
         self,
         async_client: AsyncClient,

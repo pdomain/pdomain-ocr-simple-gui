@@ -242,6 +242,35 @@ describe("JobConfigInline", () => {
     });
   });
 
+  it("submits Tesseract English as eng while leaving the field as en", async () => {
+    const user = userEvent.setup();
+    const onSubmitJob = vi.fn();
+    renderInline({
+      source: { kind: "path", path: "/tmp/scans" },
+      onSubmitJob,
+      runtimeConfig: makeRuntimeConfig({ tesseractAvailable: true }),
+    });
+
+    const engineSelect = (await screen.findByLabelText(
+      /engine/i,
+    )) as HTMLSelectElement;
+    const langInput = (await screen.findByLabelText(
+      /language/i,
+    )) as HTMLInputElement;
+    await user.selectOptions(engineSelect, "tesseract");
+    expect(langInput.value).toBe("en");
+
+    await user.click(await screen.findByTestId("run-ocr-button"));
+
+    await waitFor(() => {
+      expect(onSubmitJob).toHaveBeenCalledTimes(1);
+      const form = onSubmitJob.mock.calls[0][0] as JobForm;
+      expect(form.engine).toBe("tesseract");
+      expect(form.language).toBe("eng");
+      expect(langInput.value).toBe("en");
+    });
+  });
+
   it("emits a managed output job form for upload source submit", async () => {
     const user = userEvent.setup();
     const onSubmitJob = vi.fn();

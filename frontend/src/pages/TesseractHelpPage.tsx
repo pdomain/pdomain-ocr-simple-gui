@@ -23,10 +23,9 @@ brew install tesseract`}</code>
         </pre>
         <h2>Language codes</h2>
         <p>
-          Tesseract commonly uses three-letter language codes such as{" "}
-          <code>eng</code>. If OCR fails for <code>en</code>, set the Language
-          field to <code>eng</code> or install language data that matches the
-          code you enter.
+          This simple GUI currently supports English only for Tesseract. The app
+          accepts <code>en</code> in the job form and sends Tesseract the code{" "}
+          <code>eng</code>.
         </p>
         <h2>Custom tessdata</h2>
         <p>

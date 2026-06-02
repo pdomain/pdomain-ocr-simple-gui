@@ -24,7 +24,11 @@ import type {
   JobForm,
   RuntimeConfig,
 } from "../statecharts/jobCreationTypes";
-import { availableEngineOptions, normalizeEngine } from "../runtime/ocrEngines";
+import {
+  availableEngineOptions,
+  normalizeEngine,
+  normalizeEngineLanguage,
+} from "../runtime/ocrEngines";
 
 interface PrefsResponse {
   // AppPrefs (GET /api/prefs) exposes default_engine / default_language —
@@ -190,7 +194,7 @@ export function JobConfigInline({
     return {
       name: projectName,
       engine,
-      language,
+      language: normalizeEngineLanguage(engine, language),
       straight_quotes: straightQuotes,
       em_dash_to_double_hyphen: emDashDoubleHyphen,
       emit_illustration_placeholders: emitIllustrationPlaceholders,
@@ -299,6 +303,12 @@ export function JobConfigInline({
             placeholder="en"
             data-testid={APP_TEST_IDS.languageInput}
           />
+          {engine === "tesseract" ? (
+            <p className="job-config-inline__field-note">
+              English only for now. The app sends Tesseract code{" "}
+              <code>eng</code>.
+            </p>
+          ) : null}
         </Field>
 
         <Toggle

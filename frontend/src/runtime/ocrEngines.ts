@@ -36,3 +36,14 @@ export function normalizeEngine(
 ): EngineId {
   return engineIsAvailable(config, engine) ? engine : "doctr";
 }
+
+export function normalizeEngineLanguage(
+  engine: EngineId,
+  language: string,
+): string {
+  const trimmed = language.trim();
+  if (engine === "tesseract" && trimmed.toLowerCase() === "en") {
+    return "eng";
+  }
+  return trimmed;
+}

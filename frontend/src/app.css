@@ -189,6 +189,12 @@ body,
   font-size: 12px;
 }
 
+.job-config-inline__field-note {
+  margin: 6px 0 0;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
 .job-config-inline__help-link a,
 .help-page__back {
   color: var(--accent);

@@ -20,7 +20,10 @@ from pdomain_ocr_simple_gui.pipeline import (
     first_page_dict,
     resolve_device,
 )
-from pdomain_ocr_simple_gui.runtime.ocr_engines import is_engine_request_available
+from pdomain_ocr_simple_gui.runtime.ocr_engines import (
+    is_engine_request_available,
+    resolve_engine_language,
+)
 from pdomain_ocr_simple_gui.storage import (
     read_page_sidecar,
     read_project,
@@ -287,6 +290,7 @@ async def rerun_page(
     )
     if not engine_available:
         raise HTTPException(status_code=400, detail=f"engine: {engine_reason}")
+    resolved_language = resolve_engine_language(engine, spec.language)
 
     dispatcher = get_dispatcher()
     if dispatcher is None:
@@ -309,7 +313,7 @@ async def rerun_page(
             page_id,
             image_path=str(image_path),
             engine=engine,
-            language=spec.language,
+            language=resolved_language,
             device=resolve_device(spec.device),
         )
         page_dict = first_page_dict(stage_result.metadata)

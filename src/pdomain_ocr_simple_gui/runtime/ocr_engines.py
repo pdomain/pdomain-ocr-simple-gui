@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 EngineId = Literal["doctr", "tesseract"]
+TESSERACT_LANGUAGE_ALIASES = {
+    "en": "eng",
+}
 
 
 @dataclass(frozen=True)
@@ -89,20 +92,29 @@ def detect_ocr_engines() -> list[dict[str, object]]:
     ]
 
 
+def resolve_engine_language(engine: EngineId, language: str) -> str:
+    """Resolve app language aliases to the engine-specific language code."""
+    normalized = language.strip()
+    if engine == "tesseract":
+        return TESSERACT_LANGUAGE_ALIASES.get(normalized.lower(), normalized)
+    return normalized
+
+
 def is_engine_request_available(engine: EngineId, language: str) -> tuple[bool, str | None]:
     """Validate the requested engine/language before queueing OCR work."""
     if engine == "doctr":
         return True, None
 
+    resolved_language = resolve_engine_language(engine, language)
     status = detect_tesseract()
     if not status.available:
         return False, status.reason
 
-    if language and language not in status.languages:
+    if resolved_language and resolved_language not in status.languages:
         available = ", ".join(status.languages)
         return (
             False,
-            f"Tesseract language '{language}' is unavailable. Installed languages: {available}.",
+            f"Tesseract language '{resolved_language}' is unavailable. Installed languages: {available}.",
         )
 
     return True, None

@@ -67,6 +67,44 @@ class TestPostJob:
         assert resp.status_code == 400
         assert resp.json()["detail"] == ("engine: Tesseract is installed but language 'en' is unavailable.")
 
+    async def test_tesseract_job_resolves_english_alias_before_persisting(
+        self, client_with_source, monkeypatch
+    ) -> None:
+        from pdomain_ocr_simple_gui.runtime import ocr_engines
+        from pdomain_ocr_simple_gui.runtime.ocr_engines import OcrEngineStatus
+        from pdomain_ocr_simple_gui.storage import read_project
+
+        client, source_path = client_with_source
+        monkeypatch.setattr(
+            ocr_engines,
+            "detect_tesseract",
+            lambda: OcrEngineStatus(
+                id="tesseract",
+                label="Tesseract",
+                available=True,
+                languages=("eng", "osd"),
+            ),
+        )
+
+        async def _noop_pipeline(spec) -> None:
+            _ = spec
+
+        with patch("pdomain_ocr_simple_gui.routes.jobs._pipeline_run_job", _noop_pipeline):
+            resp = await client.post(
+                "/api/jobs",
+                json={
+                    **JOB_PAYLOAD,
+                    "source_path": source_path,
+                    "engine": "tesseract",
+                    "language": "en",
+                },
+            )
+
+        assert resp.status_code == 202
+        spec, _ = read_project(resp.json()["project_id"])
+        assert spec.engine == "tesseract"
+        assert spec.language == "eng"
+
     async def test_created_job_is_retrievable(self, async_client: AsyncClient) -> None:
         resp = await async_client.post("/api/jobs", json=JOB_PAYLOAD)
         project_id = resp.json()["project_id"]
