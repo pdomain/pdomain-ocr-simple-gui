@@ -179,3 +179,13 @@ it("source type labels are non-interactive", () => {
   expect(screen.queryByRole("button", { name: /file source/i })).toBeNull();
   expect(screen.queryByRole("button", { name: /archive source/i })).toBeNull();
 });
+
+it("uses icon source type indicators instead of visible text labels", () => {
+  renderPicker();
+  expect(screen.getByLabelText("Folder source")).toBeInTheDocument();
+  expect(screen.getByLabelText("File source")).toBeInTheDocument();
+  expect(screen.getByLabelText("Archive source")).toBeInTheDocument();
+  expect(screen.queryByText("DIR")).toBeNull();
+  expect(screen.queryByText("FILE")).toBeNull();
+  expect(screen.queryByText("ZIP")).toBeNull();
+});

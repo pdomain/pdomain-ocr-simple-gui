@@ -55,6 +55,7 @@ function makeQueryClient() {
 function installFetch(cfg: {
   mode: "local" | "managed";
   is_containerized: boolean;
+  recentProjects?: Array<Record<string, unknown>>;
 }) {
   globalThis.fetch = vi
     .fn()
@@ -72,7 +73,7 @@ function installFetch(cfg: {
       if (url === "/api/prefs") {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ recent_projects: [] }),
+          json: async () => ({ recent_projects: cfg.recentProjects ?? [] }),
         });
       }
       if (url === "/api/uploads" && opts?.method === "POST") {
@@ -167,7 +168,54 @@ it("local + not containerized shows drop, file pick, and path together", async (
   ).toBeInTheDocument();
   expect(screen.getByText(/or paste a path/i)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /^open$/i })).toBeInTheDocument();
-  expect(screen.getByText(/recent:/i)).toBeInTheDocument();
+  expect(screen.queryByText(/recent:/i)).toBeNull();
+});
+
+it("source picker recent paths render from prefs source_path values", async () => {
+  installFetch({
+    mode: "local",
+    is_containerized: false,
+    recentProjects: [
+      {
+        project_id: "job-1",
+        name: "Belloc",
+        source_path: "/Users/jess/scans/belloc",
+      },
+      {
+        project_id: "job-2",
+        name: "Fragment",
+        source_path: "/Users/jess/scans/fragment.pdf",
+      },
+    ],
+  });
+  render(renderTree());
+
+  expect(await screen.findByText(/recent:/i)).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "/Users/jess/scans/belloc" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "/Users/jess/scans/fragment.pdf" }),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("belloc-survivals.zip")).toBeNull();
+});
+
+it("source picker hides recent paths when prefs has projects without source paths", async () => {
+  installFetch({
+    mode: "local",
+    is_containerized: false,
+    recentProjects: [
+      {
+        project_id: "job-1",
+        name: "Belloc",
+      },
+    ],
+  });
+  render(renderTree());
+
+  await screen.findByTestId("source-picker-drop");
+  expect(screen.queryByText(/recent:/i)).toBeNull();
+  expect(screen.queryByText("belloc-survivals.zip")).toBeNull();
 });
 
 it("managed shows upload-only with no path affordances", async () => {

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from httpx import ASGITransport, AsyncClient
 
@@ -56,6 +56,48 @@ class TestPostJob:
         status = get_resp.json()
         assert status["project_id"] == project_id
         assert status["state"] in ("queued", "running", "succeeded", "failed", "cancelled")
+
+    async def test_create_job_adds_source_path_to_recent_projects(
+        self, async_client: AsyncClient, monkeypatch
+    ) -> None:
+        from pdomain_ops.suite.types import UIPrefs
+
+        import pdomain_ocr_simple_gui.app as app_mod
+
+        ui_prefs = UIPrefs()
+        ui_prefs.apps["pdomain-ocr-simple-gui"] = {
+            "recent_projects": [
+                {
+                    "project_id": "old-job",
+                    "name": "Old Job",
+                    "source_path": "/tmp/old-source",
+                }
+            ]
+        }
+        mock_adapter = MagicMock()
+        mock_adapter.read.return_value = ui_prefs
+        mock_adapter.write_app.return_value = None
+        monkeypatch.setattr(app_mod, "_prefs_adapter", mock_adapter)
+
+        async def _noop_pipeline(spec) -> None:
+            _ = spec
+
+        with patch("pdomain_ocr_simple_gui.routes.jobs._pipeline_run_job", _noop_pipeline):
+            resp = await async_client.post("/api/jobs", json=JOB_PAYLOAD)
+
+        assert resp.status_code == 202
+        project_id = resp.json()["project_id"]
+        mock_adapter.write_app.assert_called_once()
+        app_id, stored = mock_adapter.write_app.call_args.args
+        assert app_id == "pdomain-ocr-simple-gui"
+        recent_projects = stored["recent_projects"]
+        assert recent_projects[0]["project_id"] == project_id
+        assert recent_projects[0]["name"] == JOB_PAYLOAD["name"]
+        assert recent_projects[0]["source_path"] == JOB_PAYLOAD["source_path"]
+        assert recent_projects[0]["output_dir"] == JOB_PAYLOAD["output_dir"]
+        assert recent_projects[0]["engine"] == JOB_PAYLOAD["engine"]
+        assert recent_projects[0]["status"] == "queued"
+        assert recent_projects[1]["project_id"] == "old-job"
 
 
 class TestGetJob:

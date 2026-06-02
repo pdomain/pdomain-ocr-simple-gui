@@ -2,6 +2,7 @@
 // jobCreationMachine runtime statechart.
 import { useCallback, useEffect, useMemo } from "react";
 import { useMachine } from "@xstate/react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { SourcePicker } from "../components/SourcePicker";
 import { RecentProjectsList } from "../components/RecentProjectsList";
@@ -12,17 +13,41 @@ import type { JobForm } from "../statecharts/jobCreationTypes";
 import { useShortcuts } from "@pdomain/pdomain-ui/hooks";
 import type { ShortcutBinding } from "@pdomain/pdomain-ui/hooks";
 
-const recentPaths = [
-  "~/scans/belloc-survivals/jp2/",
-  "belloc-survivals.zip",
-  "manuscript-fragment.pdf",
-];
+interface RecentProjectPrefs {
+  source_path?: unknown;
+}
+
+interface PrefsResponse {
+  recent_projects?: RecentProjectPrefs[];
+}
+
+function recentSourcePathsFromPrefs(prefs: PrefsResponse | null): string[] {
+  const paths = prefs?.recent_projects
+    ?.map((project) => project.source_path)
+    .filter((path): path is string => typeof path === "string")
+    .map((path) => path.trim())
+    .filter((path) => path.length > 0);
+  return Array.from(new Set(paths ?? [])).slice(0, 5);
+}
 
 export function HomePage() {
   const [snapshot, send] = useMachine(jobCreationMachine);
   const navigate = useNavigate();
   const { config, profile, source, uploadError, submitError } =
     snapshot.context;
+  const { data: prefs } = useQuery<PrefsResponse | null>({
+    queryKey: ["home-source-picker-prefs"],
+    queryFn: async () => {
+      const response = await fetch("/api/prefs");
+      if (!response.ok) return null;
+      return (await response.json()) as PrefsResponse;
+    },
+    retry: false,
+  });
+  const recentPaths = useMemo(
+    () => recentSourcePathsFromPrefs(prefs ?? null),
+    [prefs],
+  );
 
   const chooseFiles = useCallback(
     (files: File[]) => send({ type: "FILES_SELECTED", files }),

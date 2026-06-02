@@ -35,6 +35,7 @@ from pdomain_ocr_simple_gui.storage import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
+_APP_ID = "pdomain-ocr-simple-gui"
 
 # ---------------------------------------------------------------------------
 # Concurrent-jobs semaphore
@@ -329,6 +330,7 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
             pages=[],
         )
         write_project(spec, status)
+        _add_to_recent_projects(spec, status)
         background_tasks.add_task(_pipeline_run_job_with_semaphore, spec)
     except Exception:
         # Release the slot we acquired — the job will not run.
@@ -491,12 +493,50 @@ def _remove_from_recent_projects(project_id: str) -> None:
         adapter = get_prefs_adapter()
         if adapter is None:
             return
-        raw = adapter.read().apps.get("pdomain-ocr-simple-gui", {})
+        raw = adapter.read().apps.get(_APP_ID, {})
         prefs = AppPrefs.model_validate(raw) if raw else AppPrefs()
         prefs.recent_projects = [p for p in prefs.recent_projects if p.get("project_id") != project_id]
-        adapter.write_app("pdomain-ocr-simple-gui", prefs.model_dump())
+        adapter.write_app(_APP_ID, prefs.model_dump())
     except Exception:  # recent-projects prefs update is best-effort
         logger.exception(
             "Failed to remove project from recent-projects prefs",
             extra={"context": f"project_id={project_id!r}"},
+        )
+
+
+def _add_to_recent_projects(spec: ProjectSpec, status: ProjectStatus) -> None:
+    """Add a created project to prefs recent_projects (best-effort, no-op on error)."""
+    try:
+        from pdomain_ocr_simple_gui.app import get_prefs_adapter
+
+        adapter = get_prefs_adapter()
+        if adapter is None:
+            return
+
+        raw = adapter.read().apps.get(_APP_ID, {})
+        prefs = AppPrefs.model_validate(raw) if raw else AppPrefs()
+        entry: dict[str, object] = {
+            "project_id": spec.project_id,
+            "name": spec.name,
+            "source_path": spec.source_path,
+            "output_dir": spec.output_dir,
+            "last_opened_at": spec.last_opened_at.isoformat(),
+            "page_count": status.page_count,
+            "engine": spec.engine,
+            "status": status.state,
+        }
+        prefs.recent_projects = [
+            entry,
+            *[
+                project
+                for project in prefs.recent_projects
+                if project.get("project_id") != spec.project_id
+                and project.get("source_path") != spec.source_path
+            ],
+        ][:10]
+        adapter.write_app(_APP_ID, prefs.model_dump())
+    except Exception:  # recent-projects prefs update is best-effort
+        logger.exception(
+            "Failed to add project to recent-projects prefs",
+            extra={"context": f"project_id={spec.project_id!r}"},
         )

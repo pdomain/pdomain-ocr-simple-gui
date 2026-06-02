@@ -2,6 +2,7 @@
 // uploads is owned by HomePage's jobCreationMachine.
 import { useRef, useState } from "react";
 import { Button, Field, Input } from "@pdomain/pdomain-ui/primitives";
+import { FileArchive, FileText, FolderOpen } from "lucide-react";
 import { APP_TEST_IDS } from "../lib/testids";
 
 export interface SourcePickerProps {
@@ -104,9 +105,15 @@ export function SourcePicker(props: SourcePickerProps) {
           />
 
           <div aria-label="Source type" className="source-picker__mode-tabs">
-            <span aria-hidden="true">DIR</span>
-            <span aria-hidden="true">FILE</span>
-            <span aria-hidden="true">ZIP</span>
+            <span aria-label="Folder source">
+              <FolderOpen aria-hidden="true" size={18} strokeWidth={1.8} />
+            </span>
+            <span aria-label="File source">
+              <FileText aria-hidden="true" size={18} strokeWidth={1.8} />
+            </span>
+            <span aria-label="Archive source">
+              <FileArchive aria-hidden="true" size={18} strokeWidth={1.8} />
+            </span>
           </div>
 
           {chosen === null ? (
