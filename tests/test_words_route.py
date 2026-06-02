@@ -125,7 +125,7 @@ def test_words_route_after_fake_pipeline_run(tmp_path: Path, monkeypatch: pytest
 
     initial_status = ProjectStatus(
         project_id=project_id,
-        state="running",
+        state="queued",
         page_count=1,
         pages_done=0,
         pages=[PageResult(page_idx=0, page_name="page_001.png", state="queued")],
