@@ -24,6 +24,7 @@ function startMachine(config: {
 }
 
 describe("jobCreationMachine runtime profiles", () => {
+  // Machine-Covers: B-HOME-014
   it("enters localHost when local and not containerized", async () => {
     const actor = startMachine({ mode: "local", is_containerized: false });
     await waitFor(actor, (state) =>
@@ -57,6 +58,7 @@ describe("jobCreationMachine runtime profiles", () => {
 });
 
 describe("jobCreationMachine flow", () => {
+  // Machine-Covers: B-HOME-002
   it("uploads files, stores the upload source, and emits behavior trace", async () => {
     const actor = startMachine({ mode: "local", is_containerized: true });
     await waitFor(actor, (state) =>
@@ -72,6 +74,7 @@ describe("jobCreationMachine flow", () => {
     actor.stop();
   });
 
+  // Machine-Covers: B-HOME-003 B-HOME-011
   it("submits a job and stores the returned project id", async () => {
     const actor = startMachine({ mode: "local", is_containerized: false });
     await waitFor(actor, (state) =>

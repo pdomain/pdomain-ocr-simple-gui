@@ -73,4 +73,5 @@ def test_invalid_starting_state_raises_invalid_job_transition() -> None:
 
 
 def test_lifecycle_behavior_mapping_uses_documented_ids() -> None:
+    """Machine-Covers: B-HOME-011"""
     assert JOB_LIFECYCLE_BEHAVIOR[("new", "queue", "queued")] == ("B-HOME-011",)

@@ -2,73 +2,73 @@
 
 Run `make behavior-coverage` to regenerate.
 
-| ID | Regression | Status |
-|----|------------|--------|
-| B-HOME-001 | no | test-written |
-| B-HOME-002 | no | test-written |
-| B-HOME-003 | no | test-written |
-| B-HOME-004 | yes | test-written |
-| B-HOME-005 | no | test-written |
-| B-HOME-006 | yes | test-written |
-| B-HOME-007 | no | test-written |
-| B-HOME-008 | no | test-written |
-| B-HOME-009 | no | test-written |
-| B-HOME-010 | no | test-written |
-| B-HOME-011 | no | test-written |
-| B-HOME-012 | no | test-written |
-| B-HOME-013 | no | test-written |
-| B-HOME-014 | yes | test-written |
-| B-HOME-015 | no | test-written |
-| B-HOME-016 | no | test-written |
-| B-HOME-017 | no | test-written |
-| B-HOME-018 | no | test-written |
-| B-HOME-019 | no | test-written |
-| B-HOME-020 | no | test-written |
-| B-PAGEVIEW-001 | no | test-written |
-| B-PAGEVIEW-002 | no | test-written |
-| B-PAGEVIEW-003 | no | test-written |
-| B-PAGEVIEW-004 | no | test-written |
-| B-PAGEVIEW-005 | no | test-written |
-| B-PAGEVIEW-006 | no | test-written |
-| B-PAGEVIEW-007 | no | test-written |
-| B-PAGEVIEW-008 | no | test-written |
-| B-PAGEVIEW-009 | no | test-written |
-| B-PAGEVIEW-010 | no | test-written |
-| B-PAGEVIEW-011 | no | test-written |
-| B-PAGEVIEW-012 | yes | test-written |
-| B-PAGEVIEW-013 | yes | test-written |
-| B-PAGEVIEW-014 | no | test-written |
-| B-PAGEVIEW-015 | yes | test-written |
-| B-PAGEVIEW-016 | no | test-written |
-| B-PAGEVIEW-017 | no | test-written |
-| B-RESULTS-001 | no | test-written |
-| B-RESULTS-002 | no | test-written |
-| B-RESULTS-003 | no | test-written |
-| B-RESULTS-004 | yes | test-written |
-| B-RESULTS-005 | no | test-written |
-| B-RESULTS-006 | no | test-written |
-| B-RESULTS-007 | no | test-written |
-| B-RESULTS-008 | no | test-written |
-| B-RESULTS-009 | yes | test-written |
-| B-RESULTS-010 | no | test-written |
-| B-RESULTS-011 | yes | test-written |
-| B-RESULTS-012 | yes | test-written |
-| B-RESULTS-013 | no | test-written |
-| B-RESULTS-014 | yes | test-written |
-| B-SHELL-001 | no | test-written |
-| B-SHELL-002 | no | test-written |
-| B-SHELL-003 | no | test-written |
-| B-SHELL-004 | no | test-written |
-| B-SHELL-005 | no | test-written |
-| B-SHELL-006 | no | test-written |
-| B-SHELL-007 | no | test-written |
-| B-SHELL-008 | yes | test-written |
-| B-SHELL-009 | yes | test-written |
-| B-SHELL-010 | yes | test-written |
-| B-SHELL-011 | no | test-written |
-| B-SHELL-012 | no | test-written |
-| B-SHELL-013 | no | test-written |
-| F-NOTFOUND-01 | yes | test-written |
-| F-PREFS-ROUNDTRIP-01 | yes | test-written |
-| F-RERUN-01 | yes | test-written |
-| F-UPLOAD-OCR-DOWNLOAD-01 | no | test-written |
+| ID | Regression | Documented | Modeled | Tested |
+|----|------------|------------|---------|--------|
+| B-HOME-001 | no | yes | no | yes |
+| B-HOME-002 | no | yes | yes | yes |
+| B-HOME-003 | no | yes | yes | yes |
+| B-HOME-004 | yes | yes | yes | yes |
+| B-HOME-005 | no | yes | no | yes |
+| B-HOME-006 | yes | yes | no | yes |
+| B-HOME-007 | no | yes | no | yes |
+| B-HOME-008 | no | yes | no | yes |
+| B-HOME-009 | no | yes | no | yes |
+| B-HOME-010 | no | yes | no | yes |
+| B-HOME-011 | no | yes | yes | yes |
+| B-HOME-012 | no | yes | no | yes |
+| B-HOME-013 | no | yes | no | yes |
+| B-HOME-014 | yes | yes | yes | yes |
+| B-HOME-015 | no | yes | no | yes |
+| B-HOME-016 | no | yes | no | yes |
+| B-HOME-017 | no | yes | no | yes |
+| B-HOME-018 | no | yes | no | yes |
+| B-HOME-019 | no | yes | no | yes |
+| B-HOME-020 | no | yes | no | yes |
+| B-PAGEVIEW-001 | no | yes | no | yes |
+| B-PAGEVIEW-002 | no | yes | no | yes |
+| B-PAGEVIEW-003 | no | yes | no | yes |
+| B-PAGEVIEW-004 | no | yes | no | yes |
+| B-PAGEVIEW-005 | no | yes | no | yes |
+| B-PAGEVIEW-006 | no | yes | no | yes |
+| B-PAGEVIEW-007 | no | yes | no | yes |
+| B-PAGEVIEW-008 | no | yes | no | yes |
+| B-PAGEVIEW-009 | no | yes | no | yes |
+| B-PAGEVIEW-010 | no | yes | no | yes |
+| B-PAGEVIEW-011 | no | yes | no | yes |
+| B-PAGEVIEW-012 | yes | yes | no | yes |
+| B-PAGEVIEW-013 | yes | yes | no | yes |
+| B-PAGEVIEW-014 | no | yes | no | yes |
+| B-PAGEVIEW-015 | yes | yes | no | yes |
+| B-PAGEVIEW-016 | no | yes | no | yes |
+| B-PAGEVIEW-017 | no | yes | no | yes |
+| B-RESULTS-001 | no | yes | no | yes |
+| B-RESULTS-002 | no | yes | no | yes |
+| B-RESULTS-003 | no | yes | no | yes |
+| B-RESULTS-004 | yes | yes | no | yes |
+| B-RESULTS-005 | no | yes | no | yes |
+| B-RESULTS-006 | no | yes | no | yes |
+| B-RESULTS-007 | no | yes | no | yes |
+| B-RESULTS-008 | no | yes | no | yes |
+| B-RESULTS-009 | yes | yes | no | yes |
+| B-RESULTS-010 | no | yes | no | yes |
+| B-RESULTS-011 | yes | yes | no | yes |
+| B-RESULTS-012 | yes | yes | no | yes |
+| B-RESULTS-013 | no | yes | no | yes |
+| B-RESULTS-014 | yes | yes | no | yes |
+| B-SHELL-001 | no | yes | no | yes |
+| B-SHELL-002 | no | yes | no | yes |
+| B-SHELL-003 | no | yes | no | yes |
+| B-SHELL-004 | no | yes | no | yes |
+| B-SHELL-005 | no | yes | no | yes |
+| B-SHELL-006 | no | yes | no | yes |
+| B-SHELL-007 | no | yes | no | yes |
+| B-SHELL-008 | yes | yes | no | yes |
+| B-SHELL-009 | yes | yes | no | yes |
+| B-SHELL-010 | yes | yes | no | yes |
+| B-SHELL-011 | no | yes | no | yes |
+| B-SHELL-012 | no | yes | no | yes |
+| B-SHELL-013 | no | yes | no | yes |
+| F-NOTFOUND-01 | yes | yes | no | yes |
+| F-PREFS-ROUNDTRIP-01 | yes | yes | no | yes |
+| F-RERUN-01 | yes | yes | no | yes |
+| F-UPLOAD-OCR-DOWNLOAD-01 | no | yes | no | yes |

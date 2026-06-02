@@ -57,10 +57,47 @@ def scan_cited(tests_dir: Path) -> set[str]:
     return cited
 
 
+def _is_test_path(path: Path) -> bool:
+    return (
+        path.name == _SELF_TEST
+        or path.name.startswith("test_")
+        or ".test." in path.name
+        or "__tests__" in path.parts
+        or "tests" in path.parts
+    )
+
+
+def scan_machine_modeled(root: Path) -> set[str]:
+    """Find behavior IDs exposed by frontend/backend machine metadata."""
+    modeled: set[str] = set()
+    for path in sorted(root.rglob("*")):
+        if path.suffix not in {".py", ".ts"} or _is_test_path(path):
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "BEHAVIOR" in text or "behavior_ids" in text:
+            modeled.update(ID_RE.findall(text))
+    return modeled
+
+
+def scan_machine_tested(root: Path) -> set[str]:
+    """Find every behavior ID cited by runtime machine tests."""
+    machine_tested: set[str] = set()
+    for path in sorted(root.rglob("*")):
+        if path.suffix not in {".py", ".ts", ".tsx"} or path.name == _SELF_TEST:
+            continue
+        text = path.read_text(encoding="utf-8")
+        for line in text.splitlines():
+            if "Machine-Covers:" in line:
+                machine_tested.update(ID_RE.findall(line))
+    return machine_tested
+
+
 @dataclass(frozen=True)
 class Report:
     declared: dict[str, Record]
     cited: set[str]
+    modeled: set[str]
+    machine_tested: set[str]
     orphans: set[str]
     unlinked: set[str]
     uncovered_regressions: set[str]
@@ -70,14 +107,24 @@ class Report:
         return not self.unlinked and not self.uncovered_regressions
 
 
-def build_report(declared: dict[str, Record], cited: set[str]) -> Report:
+def build_report(
+    declared: dict[str, Record],
+    cited: set[str],
+    modeled: set[str] | None = None,
+    machine_tested: set[str] | None = None,
+) -> Report:
     declared_ids = set(declared)
-    orphans = declared_ids - cited
-    unlinked = cited - declared_ids
+    modeled = set() if modeled is None else modeled
+    machine_tested = set() if machine_tested is None else machine_tested
+    tested = cited | machine_tested
+    orphans = declared_ids - tested
+    unlinked = tested - declared_ids
     uncovered_regressions = {rid for rid in orphans if declared[rid].regression}
     return Report(
         declared=declared,
         cited=cited,
+        modeled=modeled,
+        machine_tested=machine_tested,
         orphans=orphans,
         unlinked=unlinked,
         uncovered_regressions=uncovered_regressions,
@@ -90,14 +137,16 @@ def render_markdown(report: Report) -> str:
         "",
         "Run `make behavior-coverage` to regenerate.",
         "",
-        "| ID | Regression | Status |",
-        "|----|------------|--------|",
+        "| ID | Regression | Documented | Modeled | Tested |",
+        "|----|------------|------------|---------|--------|",
     ]
+    tested = report.cited | report.machine_tested
     for rid in sorted(report.declared):
         rec = report.declared[rid]
-        status = "test-written" if rid in report.cited else "specified"
         reg = "yes" if rec.regression else "no"
-        lines.append(f"| {rid} | {reg} | {status} |")
+        modeled = "yes" if rid in report.modeled else "no"
+        tested_status = "yes" if rid in tested else "no"
+        lines.append(f"| {rid} | {reg} | yes | {modeled} | {tested_status} |")
     if report.unlinked:
         lines += ["", "## Unlinked citations (FAIL — typo/stale)", ""]
         lines += [f"- {rid}" for rid in sorted(report.unlinked)]
@@ -113,7 +162,9 @@ def main(argv: list[str] | None = None) -> int:
     tests_dir = root / "tests"
     declared = scan_declared(docs_dir)
     cited = scan_cited(tests_dir)
-    report = build_report(declared, cited)
+    modeled = scan_machine_modeled(root)
+    machine_tested = scan_machine_tested(root)
+    report = build_report(declared, cited, modeled, machine_tested)
     (docs_dir / "coverage.md").write_text(render_markdown(report), encoding="utf-8")
     if not report.ok:
         print("BEHAVIOR COVERAGE GATE FAILED", file=sys.stderr)
@@ -125,7 +176,8 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
         return 1
-    print(f"behavior coverage OK: {len(declared)} records, {len(cited)} cited")
+    tested = cited | machine_tested
+    print(f"behavior coverage OK: {len(declared)} records, {len(modeled)} modeled, {len(tested)} tested")
     return 0
 
 
