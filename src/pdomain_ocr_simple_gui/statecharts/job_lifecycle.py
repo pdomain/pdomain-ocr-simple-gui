@@ -44,8 +44,8 @@ JOB_LIFECYCLE_BEHAVIOR: dict[tuple[str, str, str], tuple[str, ...]] = {
 
 def transition_job_state(current: str, event: str) -> str:
     """Apply a lifecycle event and return the next job state."""
-    machine = JobLifecycleMachine(start_value=current)
     try:
+        machine = JobLifecycleMachine(start_value=current)
         machine.send(event)
     except Exception as exc:
         raise InvalidJobTransition(f"cannot apply {event!r} from {current!r}") from exc
