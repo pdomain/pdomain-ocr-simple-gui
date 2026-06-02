@@ -11,6 +11,7 @@ import {
   JOB_CREATION_BEHAVIOR,
   appendBehaviorTrace,
 } from "./jobCreationBehavior";
+import { normalizeEngine } from "../runtime/ocrEngines";
 
 function defaultJobForm(): JobForm {
   return {
@@ -121,10 +122,16 @@ export const jobCreationMachine = setup({
           : context.jobForm,
     }),
     assignSubmitJobForm: assign({
-      jobForm: ({ context, event }) =>
-        event.type === "SUBMIT_JOB" && event.jobForm !== undefined
-          ? event.jobForm
-          : context.jobForm,
+      jobForm: ({ context, event }) => {
+        const nextForm =
+          event.type === "SUBMIT_JOB" && event.jobForm !== undefined
+            ? event.jobForm
+            : context.jobForm;
+        return {
+          ...nextForm,
+          engine: normalizeEngine(context.config, nextForm.engine),
+        };
+      },
     }),
   },
 }).createMachine({

@@ -65,6 +65,32 @@ interface RenderInlineOptions {
   submitting?: boolean;
 }
 
+function makeRuntimeConfig({
+  mode = "local",
+  tesseractAvailable = true,
+}: {
+  mode?: "local" | "managed";
+  tesseractAvailable?: boolean;
+} = {}): RuntimeConfig {
+  return {
+    mode,
+    is_containerized: false,
+    detected_device: "cpu",
+    gpu_available: false,
+    ocr_engines: [
+      { id: "doctr", label: "DocTR", available: true, reason: null },
+      {
+        id: "tesseract",
+        label: "Tesseract",
+        available: tesseractAvailable,
+        reason: tesseractAvailable
+          ? null
+          : "Tesseract language data is unavailable.",
+      },
+    ],
+  };
+}
+
 function renderInline({
   source = { kind: "path", path: "/tmp/scans" },
   fetchMock,
@@ -72,12 +98,7 @@ function renderInline({
   onCancel,
   onSubmitJob,
   onFormChanged,
-  runtimeConfig = {
-    mode,
-    is_containerized: false,
-    detected_device: "cpu",
-    gpu_available: false,
-  },
+  runtimeConfig = makeRuntimeConfig({ mode }),
   submitError,
   submitting,
 }: RenderInlineOptions = {}) {
@@ -314,6 +335,7 @@ describe("JobConfigInline", () => {
     renderInline({
       source: { kind: "path", path: "/tmp/scans" },
       fetchMock,
+      runtimeConfig: makeRuntimeConfig({ tesseractAvailable: true }),
     });
 
     const engineSelect = (await screen.findByLabelText(
@@ -356,6 +378,7 @@ describe("JobConfigInline", () => {
       source: { kind: "path", path: "/tmp/scans" },
       fetchMock,
       onSubmitJob,
+      runtimeConfig: makeRuntimeConfig({ tesseractAvailable: true }),
     });
 
     // Wait for the seed to land before submitting.
@@ -460,6 +483,55 @@ describe("JobConfigInline", () => {
 
     await waitFor(() => {
       expect(engineSelect.value).toBe("doctr");
+    });
+  });
+
+  it("hides Tesseract and shows setup link when Tesseract is unavailable", async () => {
+    renderInline({
+      runtimeConfig: makeRuntimeConfig({ tesseractAvailable: false }),
+    });
+
+    const engineSelect = (await screen.findByLabelText(
+      /engine/i,
+    )) as HTMLSelectElement;
+
+    expect(engineSelect.value).toBe("doctr");
+    expect(screen.queryByRole("option", { name: /tesseract/i })).toBeNull();
+    expect(
+      screen.getByRole("link", { name: /want to use tesseract/i }),
+    ).toHaveAttribute("href", "/help/tesseract");
+  });
+
+  it("falls back to DocTR when prefs default to unavailable Tesseract", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, opts?: RequestInit) => {
+        if (url === "/api/prefs" && (!opts || opts.method !== "POST")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              default_engine: "tesseract",
+              default_language: "fr",
+            }),
+          });
+        }
+        return Promise.resolve({ ok: false, json: async () => ({}) });
+      });
+    renderInline({
+      fetchMock,
+      runtimeConfig: makeRuntimeConfig({ tesseractAvailable: false }),
+    });
+
+    const engineSelect = (await screen.findByLabelText(
+      /engine/i,
+    )) as HTMLSelectElement;
+    const langInput = (await screen.findByLabelText(
+      /language/i,
+    )) as HTMLInputElement;
+
+    await waitFor(() => {
+      expect(engineSelect.value).toBe("doctr");
+      expect(langInput.value).toBe("fr");
     });
   });
 });

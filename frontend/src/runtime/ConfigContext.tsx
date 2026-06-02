@@ -19,6 +19,14 @@ export interface RuntimeConfig {
   is_containerized: boolean;
   detected_device: string;
   gpu_available: boolean;
+  ocr_engines?: OcrEngineConfig[];
+}
+
+export interface OcrEngineConfig {
+  id: "doctr" | "tesseract";
+  label: string;
+  available: boolean;
+  reason: string | null;
 }
 
 export interface ConfigStatus {

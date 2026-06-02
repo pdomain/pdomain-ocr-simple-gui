@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from pdomain_ocr_simple_gui.runtime.container_detect import detect_containerized
 from pdomain_ocr_simple_gui.runtime.mode import read_mode
+from pdomain_ocr_simple_gui.runtime.ocr_engines import detect_ocr_engines
 
 router = APIRouter()
 
@@ -17,6 +18,7 @@ class ConfigResponse(BaseModel):
     is_containerized: bool
     detected_device: str
     gpu_available: bool
+    ocr_engines: list[dict[str, object]]
 
 
 def _detect_device() -> str:
@@ -42,4 +44,5 @@ def get_config() -> ConfigResponse:
         is_containerized=detect_containerized(),
         detected_device=device,
         gpu_available=device != "cpu",
+        ocr_engines=detect_ocr_engines(),
     )

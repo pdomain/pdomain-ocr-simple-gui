@@ -184,6 +184,17 @@ body,
   color: var(--ink-1);
 }
 
+.job-config-inline__help-link {
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+
+.job-config-inline__help-link a,
+.help-page__back {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
 .source-picker__actions {
   display: flex;
   flex-wrap: wrap;
@@ -651,4 +662,38 @@ form > [class*="Field"] {
    the shell variable.  Allocate the panel only while it exists. */
 [data-testid="app-shell"]:has([data-testid="right-panel"]) {
   --shell-right-w: 420px;
+}
+
+.help-page {
+  width: 100%;
+  padding: 32px;
+}
+
+.help-page__body {
+  max-width: 760px;
+}
+
+.help-page h1 {
+  margin: 16px 0 12px;
+  color: var(--ink-1);
+  font-size: 24px;
+}
+
+.help-page h2 {
+  margin: 24px 0 8px;
+  color: var(--ink-1);
+  font-size: 16px;
+}
+
+.help-page p {
+  color: var(--ink-2);
+  line-height: 1.55;
+}
+
+.help-page pre {
+  overflow-x: auto;
+  padding: 12px;
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  background: var(--bg-sunk);
 }

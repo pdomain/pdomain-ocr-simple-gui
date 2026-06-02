@@ -20,6 +20,7 @@ from pdomain_ocr_simple_gui.pipeline import (
     first_page_dict,
     resolve_device,
 )
+from pdomain_ocr_simple_gui.runtime.ocr_engines import is_engine_request_available
 from pdomain_ocr_simple_gui.storage import (
     read_page_sidecar,
     read_project,
@@ -279,6 +280,14 @@ async def rerun_page(
     if not image_path.exists():
         raise HTTPException(status_code=404, detail="Image file not found")
 
+    engine = body.engine if (body and body.engine) else spec.engine
+    engine_available, engine_reason = is_engine_request_available(
+        engine,
+        spec.language,
+    )
+    if not engine_available:
+        raise HTTPException(status_code=400, detail=f"engine: {engine_reason}")
+
     dispatcher = get_dispatcher()
     if dispatcher is None:
         dispatcher = LocalStageDispatcher()
@@ -294,7 +303,6 @@ async def rerun_page(
     page_id = f"{spec.project_id}/{page_idx}"
 
     try:
-        engine = body.engine if (body and body.engine) else spec.engine
         # Await the async stage dispatcher — non-blocking, yields control to the event loop
         stage_result = await dispatcher.run_stage(
             "ocr",

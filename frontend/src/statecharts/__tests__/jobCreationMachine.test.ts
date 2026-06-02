@@ -14,6 +14,15 @@ function startMachine(config: {
           ...config,
           detected_device: "cpu",
           gpu_available: false,
+          ocr_engines: [
+            { id: "doctr", label: "DocTR", available: true, reason: null },
+            {
+              id: "tesseract",
+              label: "Tesseract",
+              available: true,
+              reason: null,
+            },
+          ],
         })),
         uploadFiles: fromPromise(async () => ({ uploadId: "upload-123" })),
         createJob: fromPromise(async () => ({ projectId: "job-123" })),
@@ -103,6 +112,15 @@ describe("jobCreationMachine flow", () => {
             is_containerized: false,
             detected_device: "local",
             gpu_available: true,
+            ocr_engines: [
+              { id: "doctr", label: "DocTR", available: true, reason: null },
+              {
+                id: "tesseract",
+                label: "Tesseract",
+                available: true,
+                reason: null,
+              },
+            ],
           })),
           uploadFiles: fromPromise(async () => ({ uploadId: "upload-123" })),
           createJob: fromPromise(
@@ -157,6 +175,66 @@ describe("jobCreationMachine flow", () => {
     actor.stop();
   });
 
+  it("normalizes an unavailable submitted engine before creating the job", async () => {
+    const createInputs: Array<{ source: ChosenSource; jobForm: JobForm }> = [];
+    const actor = createActor(
+      jobCreationMachine.provide({
+        actors: {
+          loadConfig: fromPromise(async () => ({
+            mode: "local" as const,
+            is_containerized: false,
+            detected_device: "cpu",
+            gpu_available: false,
+            ocr_engines: [
+              { id: "doctr", label: "DocTR", available: true, reason: null },
+              {
+                id: "tesseract",
+                label: "Tesseract",
+                available: false,
+                reason: "Tesseract language data is unavailable.",
+              },
+            ],
+          })),
+          uploadFiles: fromPromise(async () => ({ uploadId: "upload-123" })),
+          createJob: fromPromise(
+            async ({
+              input,
+            }: {
+              input: { source: ChosenSource; jobForm: JobForm };
+            }) => {
+              createInputs.push(input);
+              return { projectId: "job-123" };
+            },
+          ),
+        },
+      }),
+    );
+    actor.start();
+    await waitFor(actor, (state) =>
+      state.matches({ choosingSource: "localHost" }),
+    );
+    actor.send({ type: "PATH_CHOSEN", path: "/tmp/scans" });
+    await waitFor(actor, (state) => state.matches("configuringJob"));
+    actor.send({
+      type: "SUBMIT_JOB",
+      jobForm: {
+        name: "edited scans",
+        engine: "tesseract",
+        language: "en",
+        straight_quotes: true,
+        em_dash_to_double_hyphen: true,
+        emit_illustration_placeholders: false,
+        device: "auto",
+        batch_pages: null,
+        output: { mode: "managed" },
+      },
+    });
+    await waitFor(actor, (state) => state.matches("submitted"));
+
+    expect(createInputs[0].jobForm.engine).toBe("doctr");
+    actor.stop();
+  });
+
   it("preserves source and form context when submit fails", async () => {
     const actor = createActor(
       jobCreationMachine.provide({
@@ -166,6 +244,15 @@ describe("jobCreationMachine flow", () => {
             is_containerized: false,
             detected_device: "cpu",
             gpu_available: false,
+            ocr_engines: [
+              { id: "doctr", label: "DocTR", available: true, reason: null },
+              {
+                id: "tesseract",
+                label: "Tesseract",
+                available: true,
+                reason: null,
+              },
+            ],
           })),
           uploadFiles: fromPromise(async () => ({ uploadId: "upload-123" })),
           createJob: fromPromise(async () => {

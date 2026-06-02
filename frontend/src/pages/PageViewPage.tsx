@@ -24,6 +24,8 @@ import {
   PageViewerWithZoom,
   type ZoomHandle,
 } from "../components/PageViewerWithZoom";
+import { useConfig } from "../runtime/ConfigContext";
+import { engineIsAvailable } from "../runtime/ocrEngines";
 
 interface PageData {
   page_idx: number;
@@ -102,6 +104,8 @@ function KeyButton({
 export default function PageViewPage() {
   const { id, idx } = useParams<{ id: string; idx: string }>();
   const navigate = useNavigate();
+  const runtimeConfig = useConfig();
+  const tesseractAvailable = engineIsAvailable(runtimeConfig, "tesseract");
 
   const pageIdx = parseInt(idx ?? "0", 10);
 
@@ -272,6 +276,7 @@ export default function PageViewPage() {
     loading,
     saveStatus,
     rerunStatus,
+    tesseractAvailable,
     id,
     handleSave,
     handleRerun,
@@ -285,6 +290,7 @@ export default function PageViewPage() {
     loading,
     saveStatus,
     rerunStatus,
+    tesseractAvailable,
     id,
     handleSave,
     handleRerun,
@@ -349,7 +355,8 @@ export default function PageViewPage() {
         },
         when: () =>
           !shortcutCtxRef.current.loading &&
-          shortcutCtxRef.current.rerunStatus === "idle",
+          shortcutCtxRef.current.rerunStatus === "idle" &&
+          shortcutCtxRef.current.tesseractAvailable,
       },
       {
         keys: "mod+shift+r",
@@ -471,18 +478,20 @@ export default function PageViewPage() {
           >
             {rerunStatus === "running" ? "Re-running…" : "Re-run DocTR"}
           </KeyButton>
-          <KeyButton
-            shortcutKeys="mod+shift+r"
-            variant="primary"
-            onClick={() => {
-              void handleRerun("tesseract");
-            }}
-            disabled={rerunStatus === "running" || loading}
-            aria-label="Re-run with Tesseract"
-            data-testid={APP_TEST_IDS.pageRerunTesseract}
-          >
-            Re-run Tesseract
-          </KeyButton>
+          {tesseractAvailable ? (
+            <KeyButton
+              shortcutKeys="mod+shift+r"
+              variant="primary"
+              onClick={() => {
+                void handleRerun("tesseract");
+              }}
+              disabled={rerunStatus === "running" || loading}
+              aria-label="Re-run with Tesseract"
+              data-testid={APP_TEST_IDS.pageRerunTesseract}
+            >
+              Re-run Tesseract
+            </KeyButton>
+          ) : null}
           <KeyButton
             shortcutKeys="mod+shift+t"
             variant="primary"

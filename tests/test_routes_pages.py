@@ -580,6 +580,7 @@ class TestPostPageRerun:
         self,
         async_client: AsyncClient,
         project_with_image: tuple[str, Path],
+        monkeypatch,
     ) -> None:
         """Rerun with an explicit engine override returns 200.
 
@@ -595,6 +596,10 @@ class TestPostPageRerun:
         fake_result.metadata = {"pages": [{"type": "Page", "items": []}]}
         mock_dispatcher = AsyncMock()
         mock_dispatcher.run_stage = AsyncMock(return_value=fake_result)
+        monkeypatch.setattr(
+            "pdomain_ocr_simple_gui.routes.pages.is_engine_request_available",
+            lambda engine, language: (True, None),
+        )
 
         with patch("pdomain_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
             resp = await async_client.post(
@@ -605,6 +610,32 @@ class TestPostPageRerun:
         assert resp.status_code == 200
         data = resp.json()
         assert data["state"] == "succeeded"
+
+    async def test_rerun_rejects_unavailable_tesseract_before_marking_page_running(
+        self,
+        async_client: AsyncClient,
+        project_with_image: tuple[str, Path],
+        monkeypatch,
+    ) -> None:
+        project_id, _ = project_with_image
+        monkeypatch.setattr(
+            "pdomain_ocr_simple_gui.routes.pages.is_engine_request_available",
+            lambda engine, language: (
+                False,
+                "Tesseract is installed but language 'en' is unavailable.",
+            ),
+        )
+
+        resp = await async_client.post(
+            f"/api/pages/{project_id}/0/rerun",
+            json={"engine": "tesseract"},
+        )
+
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == ("engine: Tesseract is installed but language 'en' is unavailable.")
+        get_resp = await async_client.get(f"/api/pages/{project_id}/0")
+        assert get_resp.status_code == 200
+        assert get_resp.json()["state"] == "succeeded"
 
     async def test_rerun_returns_failed_state_on_error(
         self,

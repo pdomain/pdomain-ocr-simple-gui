@@ -24,6 +24,7 @@ import type {
   JobForm,
   RuntimeConfig,
 } from "../statecharts/jobCreationTypes";
+import { availableEngineOptions, normalizeEngine } from "../runtime/ocrEngines";
 
 interface PrefsResponse {
   // AppPrefs (GET /api/prefs) exposes default_engine / default_language —
@@ -82,6 +83,10 @@ export function JobConfigInline({
   onSubmitJob,
 }: JobConfigInlineProps) {
   const gpuAvailable = runtimeConfig?.gpu_available ?? false;
+  const engineOptions = availableEngineOptions(runtimeConfig);
+  const tesseractAvailable = engineOptions.some(
+    (option) => option.id === "tesseract",
+  );
 
   const [projectName, setProjectName] = useState<string>(() =>
     source === null ? "" : defaultProjectName(source),
@@ -144,6 +149,14 @@ export function JobConfigInline({
     sourceKey,
   ]);
 
+  useEffect(() => {
+    const nextEngine = normalizeEngine(runtimeConfig, engine);
+    if (nextEngine !== engine) {
+      setEngine(nextEngine);
+      onFormChanged?.({ engine: nextEngine });
+    }
+  }, [engine, onFormChanged, runtimeConfig]);
+
   // Load engine/language defaults from prefs on mount
   useEffect(() => {
     let cancelled = false;
@@ -153,7 +166,10 @@ export function JobConfigInline({
         const data = (await res.json()) as PrefsResponse;
         if (cancelled) return;
         if (data.default_engine) {
-          const nextEngine = data.default_engine as JobForm["engine"];
+          const nextEngine = normalizeEngine(
+            runtimeConfig,
+            data.default_engine as JobForm["engine"],
+          );
           setEngine(nextEngine);
           onFormChanged?.({ engine: nextEngine });
         }
@@ -168,7 +184,7 @@ export function JobConfigInline({
     return () => {
       cancelled = true;
     };
-  }, [onFormChanged]);
+  }, [onFormChanged, runtimeConfig]);
 
   function buildForm(): JobForm {
     return {
@@ -263,8 +279,11 @@ export function JobConfigInline({
             aria-label="Engine"
             data-testid={APP_TEST_IDS.engineSelect}
           >
-            <option value="doctr">DocTR</option>
-            <option value="tesseract">Tesseract</option>
+            {engineOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </Field>
 
@@ -445,6 +464,11 @@ export function JobConfigInline({
             {submitting ? "Run OCR →…" : "Run OCR →"}
           </Button>
         </div>
+        {!tesseractAvailable ? (
+          <p className="job-config-inline__help-link">
+            <a href="/help/tesseract">Want to use Tesseract?</a>
+          </p>
+        ) : null}
       </form>
     </section>
   );

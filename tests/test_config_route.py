@@ -14,6 +14,18 @@ def test_config_route_local_not_containerized(monkeypatch) -> None:
         "pdomain_ocr_simple_gui.routes.config._detect_device",
         lambda: "cpu",
     )
+    monkeypatch.setattr(
+        "pdomain_ocr_simple_gui.routes.config.detect_ocr_engines",
+        lambda: [
+            {"id": "doctr", "label": "DocTR", "available": True, "reason": None},
+            {
+                "id": "tesseract",
+                "label": "Tesseract",
+                "available": False,
+                "reason": "Tesseract language data is unavailable.",
+            },
+        ],
+    )
     client = TestClient(create_app())
     resp = client.get("/api/config")
     assert resp.status_code == 200
@@ -22,6 +34,15 @@ def test_config_route_local_not_containerized(monkeypatch) -> None:
         "is_containerized": False,
         "detected_device": "cpu",
         "gpu_available": False,
+        "ocr_engines": [
+            {"id": "doctr", "label": "DocTR", "available": True, "reason": None},
+            {
+                "id": "tesseract",
+                "label": "Tesseract",
+                "available": False,
+                "reason": "Tesseract language data is unavailable.",
+            },
+        ],
     }
 
 
@@ -35,6 +56,13 @@ def test_config_route_managed_containerized(monkeypatch) -> None:
         "pdomain_ocr_simple_gui.routes.config._detect_device",
         lambda: "local",
     )
+    monkeypatch.setattr(
+        "pdomain_ocr_simple_gui.routes.config.detect_ocr_engines",
+        lambda: [
+            {"id": "doctr", "label": "DocTR", "available": True, "reason": None},
+            {"id": "tesseract", "label": "Tesseract", "available": True, "reason": None},
+        ],
+    )
     client = TestClient(create_app())
     resp = client.get("/api/config")
     assert resp.status_code == 200
@@ -43,6 +71,10 @@ def test_config_route_managed_containerized(monkeypatch) -> None:
         "is_containerized": True,
         "detected_device": "local",
         "gpu_available": True,
+        "ocr_engines": [
+            {"id": "doctr", "label": "DocTR", "available": True, "reason": None},
+            {"id": "tesseract", "label": "Tesseract", "available": True, "reason": None},
+        ],
     }
 
 

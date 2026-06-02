@@ -20,6 +20,7 @@ from pdomain_ocr_simple_gui.models import AppPrefs, PageResult, ProjectSpec, Pro
 from pdomain_ocr_simple_gui.output.config import OutputConfig, OutputConfigError, resolve_output_dir
 from pdomain_ocr_simple_gui.pipeline import collect_images, run_project
 from pdomain_ocr_simple_gui.runtime.mode import Mode, read_mode
+from pdomain_ocr_simple_gui.runtime.ocr_engines import is_engine_request_available
 from pdomain_ocr_simple_gui.sources import SourceError
 from pdomain_ocr_simple_gui.sources.local_path import LocalPathSource
 from pdomain_ocr_simple_gui.sources.uploaded_files import UploadedFilesSource
@@ -283,6 +284,12 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
         mode = read_mode()
         project_id = str(uuid.uuid4())
         now = datetime.now(UTC)
+        engine_available, engine_reason = is_engine_request_available(
+            body.engine,
+            body.language,
+        )
+        if not engine_available:
+            raise HTTPException(status_code=400, detail=f"engine: {engine_reason}")
 
         if body.output is not None:
             # New path: resolve source via Source adapter, then resolve output via OutputConfig.

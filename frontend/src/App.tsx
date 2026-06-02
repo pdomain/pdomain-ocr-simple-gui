@@ -51,6 +51,7 @@ import { ConfigProvider } from "./runtime/ConfigContext";
 import { HomePage } from "./pages/HomePage";
 import ResultsPage from "./pages/ResultsPage";
 import PageViewPage from "./pages/PageViewPage";
+import TesseractHelpPage from "./pages/TesseractHelpPage";
 
 /**
  * onPersistError — surfaces a sonner toast when PUT /api/prefs fails.
@@ -224,6 +225,7 @@ function AppRoutes() {
       <Route path="/new-job" element={<HomePage />} />
       <Route path="/jobs/:id" element={<ResultsPage />} />
       <Route path="/jobs/:id/pages/:idx" element={<PageViewPage />} />
+      <Route path="/help/tesseract" element={<TesseractHelpPage />} />
     </Routes>
   );
 }

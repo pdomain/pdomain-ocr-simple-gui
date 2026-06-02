@@ -48,6 +48,25 @@ class TestPostJob:
         assert "project_id" in data
         assert len(data["project_id"]) > 0
 
+    async def test_rejects_unavailable_tesseract_before_queueing(
+        self, async_client: AsyncClient, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(
+            "pdomain_ocr_simple_gui.routes.jobs.is_engine_request_available",
+            lambda engine, language: (
+                False,
+                "Tesseract is installed but language 'en' is unavailable.",
+            ),
+        )
+
+        resp = await async_client.post(
+            "/api/jobs",
+            json={**JOB_PAYLOAD, "engine": "tesseract", "language": "en"},
+        )
+
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == ("engine: Tesseract is installed but language 'en' is unavailable.")
+
     async def test_created_job_is_retrievable(self, async_client: AsyncClient) -> None:
         resp = await async_client.post("/api/jobs", json=JOB_PAYLOAD)
         project_id = resp.json()["project_id"]

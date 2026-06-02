@@ -5,6 +5,7 @@ import React from "react";
 import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { ConfigProvider } from "../../runtime/ConfigContext";
 
 // ---------------------------------------------------------------------------
 // Mocks shared across all cases
@@ -259,10 +260,36 @@ function makeJobStatus(pageCount = 3, state = "done") {
   };
 }
 
-function renderPageView(projectId = "proj-abc", pageIdx = 0) {
+function renderPageView(
+  projectId = "proj-abc",
+  pageIdx = 0,
+  { tesseractAvailable = true }: { tesseractAvailable?: boolean } = {},
+) {
   const mockFetch = vi
     .fn()
     .mockImplementation((url: string, opts?: RequestInit) => {
+      if (url.includes("/api/config")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            mode: "local",
+            is_containerized: false,
+            detected_device: "cpu",
+            gpu_available: false,
+            ocr_engines: [
+              { id: "doctr", label: "DocTR", available: true, reason: null },
+              {
+                id: "tesseract",
+                label: "Tesseract",
+                available: tesseractAvailable,
+                reason: tesseractAvailable
+                  ? null
+                  : "Tesseract language data is unavailable.",
+              },
+            ],
+          }),
+        });
+      }
       if (url.includes("/api/jobs/") && !url.includes("/pages/")) {
         return Promise.resolve({
           ok: true,
@@ -317,9 +344,11 @@ function renderPageView(projectId = "proj-abc", pageIdx = 0) {
     mockFetch,
     ...render(
       <MemoryRouter initialEntries={[`/jobs/${projectId}/pages/${pageIdx}`]}>
-        <Routes>
-          <Route path="/jobs/:id/pages/:idx" element={<PageViewPage />} />
-        </Routes>
+        <ConfigProvider>
+          <Routes>
+            <Route path="/jobs/:id/pages/:idx" element={<PageViewPage />} />
+          </Routes>
+        </ConfigProvider>
       </MemoryRouter>,
     ),
   };
@@ -351,9 +380,11 @@ function stubFetchWithWords(words: unknown[] = []) {
 function renderWithRoute(jobId: string, idx: number) {
   return render(
     <MemoryRouter initialEntries={[`/jobs/${jobId}/pages/${idx}`]}>
-      <Routes>
-        <Route path="/jobs/:id/pages/:idx" element={<PageViewPage />} />
-      </Routes>
+      <ConfigProvider>
+        <Routes>
+          <Route path="/jobs/:id/pages/:idx" element={<PageViewPage />} />
+        </Routes>
+      </ConfigProvider>
     </MemoryRouter>,
   );
 }
@@ -539,6 +570,19 @@ describe("PageViewPage", () => {
       };
       expect(body.engine).toBe("tesseract");
     });
+  });
+
+  it("hides Tesseract rerun when Tesseract is unavailable", async () => {
+    renderPageView("proj-abc", 0, { tesseractAvailable: false });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /re-run with doctr/i }),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("button", { name: /re-run with tesseract/i }),
+    ).toBeNull();
   });
 
   it("textarea updates after rerun completes", async () => {
@@ -750,6 +794,26 @@ describe("PageViewPage", () => {
     (globalThis as any).fetch = vi
       .fn()
       .mockImplementation((url: string, opts?: RequestInit) => {
+        if (url.includes("/api/config")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              mode: "local",
+              is_containerized: false,
+              detected_device: "cpu",
+              gpu_available: false,
+              ocr_engines: [
+                { id: "doctr", label: "DocTR", available: true, reason: null },
+                {
+                  id: "tesseract",
+                  label: "Tesseract",
+                  available: true,
+                  reason: null,
+                },
+              ],
+            }),
+          });
+        }
         if (url.includes("/api/jobs/")) {
           return Promise.resolve({
             ok: true,
@@ -796,6 +860,26 @@ describe("PageViewPage", () => {
     (globalThis as any).fetch = vi
       .fn()
       .mockImplementation((url: string, opts?: RequestInit) => {
+        if (url.includes("/api/config")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              mode: "local",
+              is_containerized: false,
+              detected_device: "cpu",
+              gpu_available: false,
+              ocr_engines: [
+                { id: "doctr", label: "DocTR", available: true, reason: null },
+                {
+                  id: "tesseract",
+                  label: "Tesseract",
+                  available: true,
+                  reason: null,
+                },
+              ],
+            }),
+          });
+        }
         if (url.includes("/api/jobs/")) {
           return Promise.resolve({
             ok: true,
@@ -898,6 +982,26 @@ describe("PageViewPage", () => {
     (globalThis as any).fetch = vi
       .fn()
       .mockImplementation((url: string, opts?: RequestInit) => {
+        if (url.includes("/api/config")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              mode: "local",
+              is_containerized: false,
+              detected_device: "cpu",
+              gpu_available: false,
+              ocr_engines: [
+                { id: "doctr", label: "DocTR", available: true, reason: null },
+                {
+                  id: "tesseract",
+                  label: "Tesseract",
+                  available: true,
+                  reason: null,
+                },
+              ],
+            }),
+          });
+        }
         if (url.includes("/api/jobs/")) {
           return Promise.resolve({
             ok: true,
