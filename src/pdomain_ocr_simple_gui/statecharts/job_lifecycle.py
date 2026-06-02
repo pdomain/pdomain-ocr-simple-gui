@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, cast, final
 
 from statemachine import State, StateMachine
+from statemachine.exceptions import StateMachineError
 
 JobState = Literal["new", "queued", "running", "succeeded", "failed", "cancelled"]
 JobLifecycleEvent = Literal[
@@ -13,12 +14,14 @@ JobLifecycleEvent = Literal[
     "cancel",
     "rerun_requested",
 ]
+JOB_STATES: tuple[JobState, ...] = ("new", "queued", "running", "succeeded", "failed", "cancelled")
 
 
 class InvalidJobTransition(ValueError):  # noqa: N818
     """Raised when a job lifecycle event cannot be applied."""
 
 
+@final
 class JobLifecycleMachine(StateMachine):
     """Runtime statechart for backend job lifecycle transitions."""
 
@@ -42,16 +45,19 @@ JOB_LIFECYCLE_BEHAVIOR: dict[tuple[str, str, str], tuple[str, ...]] = {
 }
 
 
-def transition_job_state(current: str, event: str) -> str:
+def transition_job_state(current: JobState, event: JobLifecycleEvent) -> JobState:
     """Apply a lifecycle event and return the next job state."""
     try:
         machine = JobLifecycleMachine(start_value=current)
-        machine.send(event)
-    except Exception as exc:
+        machine.send(event)  # pyright: ignore[reportUnknownMemberType] python-statemachine dispatch is dynamic.
+    except StateMachineError as exc:
         raise InvalidJobTransition(f"cannot apply {event!r} from {current!r}") from exc
-    return str(machine.current_state_value)
+    next_state = cast("object", machine.current_state_value)
+    if next_state not in JOB_STATES:
+        raise InvalidJobTransition(f"invalid statechart result {next_state!r}")
+    return next_state
 
 
-def assert_job_transition(current: str, event: str) -> str:
+def assert_job_transition(current: JobState, event: JobLifecycleEvent) -> JobState:
     """Validate a lifecycle event and return the next job state."""
     return transition_job_state(current, event)

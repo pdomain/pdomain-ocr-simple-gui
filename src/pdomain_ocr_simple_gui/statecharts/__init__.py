@@ -1,6 +1,8 @@
 from pdomain_ocr_simple_gui.statecharts.job_lifecycle import (
     JOB_LIFECYCLE_BEHAVIOR,
     InvalidJobTransition,
+    JobLifecycleEvent,
+    JobState,
     assert_job_transition,
     transition_job_state,
 )
@@ -8,6 +10,8 @@ from pdomain_ocr_simple_gui.statecharts.job_lifecycle import (
 __all__ = (
     "JOB_LIFECYCLE_BEHAVIOR",
     "InvalidJobTransition",
+    "JobLifecycleEvent",
+    "JobState",
     "assert_job_transition",
     "transition_job_state",
 )
