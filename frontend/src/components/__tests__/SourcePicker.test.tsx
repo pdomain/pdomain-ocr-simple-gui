@@ -132,6 +132,30 @@ it("clear button resets the display and fires onClear without deleting uploads",
   expect(fetchSpy).not.toHaveBeenCalled();
 });
 
+it("resetToken clears the selected upload display", () => {
+  const { rerender } = renderPicker({ resetToken: 0 });
+
+  const file = new File(["x"], "scan.png", { type: "image/png" });
+  fireEvent.drop(screen.getByTestId("source-picker-drop"), {
+    dataTransfer: { files: [file] },
+  });
+  expect(screen.getByTestId("source-picker-chosen")).toHaveTextContent(
+    "scan.png",
+  );
+
+  rerender(
+    <SourcePicker
+      allowDrop
+      allowPathInput={false}
+      resetToken={1}
+      onFilesSelected={() => {}}
+      onPathChosen={() => {}}
+    />,
+  );
+
+  expect(screen.queryByTestId("source-picker-chosen")).toBeNull();
+});
+
 it("clicking the clear button does not re-open the file picker", () => {
   const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click");
   renderPicker();
@@ -188,4 +212,85 @@ it("uses icon source type indicators instead of visible text labels", () => {
   expect(screen.queryByText("DIR")).toBeNull();
   expect(screen.queryByText("FILE")).toBeNull();
   expect(screen.queryByText("ZIP")).toBeNull();
+});
+
+it("marks the selected source type icon for regular files", () => {
+  renderPicker();
+  const file = new File(["x"], "scan-007.jp2", { type: "image/jp2" });
+  fireEvent.change(screen.getByTestId("source-picker-file-pick"), {
+    target: { files: [file] },
+  });
+  expect(screen.getByLabelText("File source")).toHaveAttribute(
+    "data-selected",
+    "true",
+  );
+  expect(screen.getByLabelText("Folder source")).toHaveAttribute(
+    "data-selected",
+    "false",
+  );
+  expect(screen.getByLabelText("Archive source")).toHaveAttribute(
+    "data-selected",
+    "false",
+  );
+});
+
+it("marks the archive icon for zip uploads", () => {
+  renderPicker();
+  const file = new File(["x"], "book.zip", { type: "application/zip" });
+  fireEvent.change(screen.getByTestId("source-picker-file-pick"), {
+    target: { files: [file] },
+  });
+  expect(screen.getByLabelText("Archive source")).toHaveAttribute(
+    "data-selected",
+    "true",
+  );
+});
+
+it("marks the folder icon for folder uploads", () => {
+  renderPicker();
+  const file = new File(["x"], "page.png", { type: "image/png" });
+  Object.defineProperty(file, "webkitRelativePath", {
+    value: "book/page.png",
+  });
+  fireEvent.change(screen.getByTestId("source-picker-file-pick"), {
+    target: { files: [file] },
+  });
+  expect(screen.getByLabelText("Folder source")).toHaveAttribute(
+    "data-selected",
+    "true",
+  );
+});
+
+it("adds files to the current file selection", () => {
+  const onFilesSelected = vi.fn();
+  renderPicker({ onFilesSelected });
+  const input = screen.getByTestId("source-picker-file-pick");
+  const first = new File(["a"], "a.jp2", { type: "image/jp2" });
+  const second = new File(["b"], "b.jp2", { type: "image/jp2" });
+
+  fireEvent.change(input, { target: { files: [first] } });
+  fireEvent.change(input, { target: { files: [second] } });
+
+  expect(onFilesSelected).toHaveBeenLastCalledWith([first, second]);
+  expect(screen.getByTestId("source-picker-chosen")).toHaveTextContent(
+    "2 files selected",
+  );
+  expect(
+    screen.getByRole("button", { name: /add files/i }),
+  ).toBeInTheDocument();
+});
+
+it("removes individual files from the current file selection", () => {
+  const onFilesSelected = vi.fn();
+  renderPicker({ onFilesSelected });
+  const input = screen.getByTestId("source-picker-file-pick");
+  const first = new File(["a"], "a.jp2", { type: "image/jp2" });
+  const second = new File(["b"], "b.jp2", { type: "image/jp2" });
+
+  fireEvent.change(input, { target: { files: [first, second] } });
+  fireEvent.click(screen.getByRole("button", { name: /remove a\.jp2/i }));
+
+  expect(onFilesSelected).toHaveBeenLastCalledWith([second]);
+  expect(screen.queryByText("a.jp2")).toBeNull();
+  expect(screen.getByText("b.jp2")).toBeInTheDocument();
 });

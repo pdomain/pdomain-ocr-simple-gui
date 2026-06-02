@@ -56,6 +56,7 @@ function installFetch(cfg: {
   mode: "local" | "managed";
   is_containerized: boolean;
   recentProjects?: Array<Record<string, unknown>>;
+  uploadPromise?: Promise<unknown>;
 }) {
   globalThis.fetch = vi
     .fn()
@@ -77,6 +78,7 @@ function installFetch(cfg: {
         });
       }
       if (url === "/api/uploads" && opts?.method === "POST") {
+        if (cfg.uploadPromise) return cfg.uploadPromise;
         return Promise.resolve({
           ok: true,
           json: async () => ({ upload_id: "test-upload-123" }),
@@ -242,18 +244,19 @@ it("shows an error state (not infinite loading) when /api/config fails", async (
   expect(await screen.findByTestId("source-picker-drop")).toBeInTheDocument();
 });
 
-it("JobConfigInline is hidden until a source is chosen", async () => {
+it("JobConfigInline is visible before a source is chosen", async () => {
   installFetch({ mode: "local", is_containerized: false });
   render(renderTree());
   await screen.findByTestId("source-picker-drop");
-  expect(screen.queryByTestId("job-config-inline")).toBeNull();
+  expect(screen.getByTestId("job-config-inline")).toBeInTheDocument();
 });
 
-it("JobConfigInline appears after a path is chosen, and clears on cancel", async () => {
+it("JobConfigInline stays visible after a path is chosen, and source clears on cancel", async () => {
   installFetch({ mode: "local", is_containerized: false });
   const user = userEvent.setup();
   render(renderTree());
 
+  expect(await screen.findByTestId("job-config-inline")).toBeInTheDocument();
   const pathInput = await screen.findByTestId("source-picker-path-input");
   await user.type(pathInput, "/tmp/scans");
   await user.click(screen.getByRole("button", { name: /^open$/i }));
@@ -261,7 +264,8 @@ it("JobConfigInline appears after a path is chosen, and clears on cancel", async
   expect(await screen.findByTestId("job-config-inline")).toBeInTheDocument();
 
   await user.click(screen.getByTestId("mock-cancel"));
-  expect(screen.queryByTestId("job-config-inline")).toBeNull();
+  expect(screen.getByTestId("job-config-inline")).toBeInTheDocument();
+  expect(screen.getByTestId("source-picker-drop")).toBeInTheDocument();
 });
 
 it("navigates to the submitted job when the machine submit succeeds", async () => {
@@ -295,6 +299,24 @@ it("local+containerized: choosing upload hides the path input", async () => {
   expect(screen.queryByTestId("source-picker-path-input")).toBeNull();
 });
 
+it("local+containerized: pending upload hides the path input immediately", async () => {
+  installFetch({
+    mode: "local",
+    is_containerized: true,
+    uploadPromise: new Promise(() => {}),
+  });
+  const user = userEvent.setup();
+  render(renderTree());
+
+  expect(await screen.findByTestId("source-picker-drop")).toBeInTheDocument();
+  expect(screen.getByTestId("source-picker-path-input")).toBeInTheDocument();
+
+  const file = new File(["fake"], "scan.png", { type: "image/png" });
+  await user.upload(screen.getByTestId("source-picker-file-pick"), file);
+
+  expect(screen.queryByTestId("source-picker-path-input")).toBeNull();
+});
+
 it("local+containerized: choosing path hides the upload drop zone", async () => {
   installFetch({ mode: "local", is_containerized: true });
   const user = userEvent.setup();
@@ -321,6 +343,7 @@ it("local+containerized: clearing upload restores both source inputs", async () 
   const file = new File(["fake"], "scan.png", { type: "image/png" });
   await user.upload(screen.getByTestId("source-picker-file-pick"), file);
   await screen.findByTestId("job-config-inline");
+  expect(screen.getByText("scan.png")).toBeInTheDocument();
 
   expect(screen.queryByTestId("source-picker-path-input")).toBeNull();
 
@@ -328,6 +351,7 @@ it("local+containerized: clearing upload restores both source inputs", async () 
 
   expect(await screen.findByTestId("source-picker-drop")).toBeInTheDocument();
   expect(screen.getByTestId("source-picker-path-input")).toBeInTheDocument();
+  expect(screen.queryByText("scan.png")).toBeNull();
 });
 
 it("clearing an uploaded source deletes the staged upload", async () => {

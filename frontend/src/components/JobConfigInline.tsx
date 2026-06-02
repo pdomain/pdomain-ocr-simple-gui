@@ -36,8 +36,8 @@ interface PrefsResponse {
 export type { ChosenSource } from "../statecharts/jobCreationTypes";
 
 export interface JobConfigInlineProps {
-  /** Structured source required because this form only renders after selection. */
-  source: ChosenSource;
+  /** Structured source; null means options are editable but submit is blocked. */
+  source: ChosenSource | null;
   mode?: "local" | "managed";
   runtimeConfig?: RuntimeConfig | null;
   submitError?: string | null;
@@ -48,10 +48,10 @@ export interface JobConfigInlineProps {
 }
 
 function defaultOutputMode(
-  source: ChosenSource,
+  source: ChosenSource | null,
   mode: "local" | "managed",
 ): OutputConfigValue {
-  if (source.kind === "path" && mode === "local") {
+  if (source?.kind === "path" && mode === "local") {
     return { mode: "next_to_source" };
   }
   return { mode: "managed" };
@@ -84,8 +84,9 @@ export function JobConfigInline({
   const gpuAvailable = runtimeConfig?.gpu_available ?? false;
 
   const [projectName, setProjectName] = useState<string>(() =>
-    defaultProjectName(source),
+    source === null ? "" : defaultProjectName(source),
   );
+  const [projectNameTouched, setProjectNameTouched] = useState(false);
   const [engine, setEngine] = useState<JobForm["engine"]>("doctr");
   const [language, setLanguage] = useState<string>("en");
   const [straightQuotes, setStraightQuotes] = useState<boolean>(true);
@@ -100,32 +101,48 @@ export function JobConfigInline({
   const [batchPages, setBatchPages] = useState<string>("");
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  const sourceKind = source.kind;
+  const sourceKind = source?.kind ?? null;
   const sourceIsFolder = sourceKind === "path";
-  const sourceId = sourceKind === "path" ? source.path : source.uploadId;
-  const sourceKey = `${sourceKind}:${sourceId}`;
-  const sourceForDefaults = useMemo<ChosenSource>(
+  const sourceId =
+    source?.kind === "path" ? source.path : (source?.uploadId ?? "");
+  const sourceKey = sourceKind === null ? "none" : `${sourceKind}:${sourceId}`;
+  const sourceForDefaults = useMemo<ChosenSource | null>(
     () =>
-      sourceKind === "path"
-        ? { kind: "path", path: sourceId }
-        : { kind: "upload", uploadId: sourceId },
+      sourceKind === null
+        ? null
+        : sourceKind === "path"
+          ? { kind: "path", path: sourceId }
+          : { kind: "upload", uploadId: sourceId },
     [sourceId, sourceKind],
   );
   const [outputConfig, setOutputConfig] = useState<OutputConfigValue>(() =>
     defaultOutputMode(source, mode),
   );
+  const [outputTouched, setOutputTouched] = useState(false);
 
   // Reset output config + project name when source/mode changes
   useEffect(() => {
+    if (sourceForDefaults === null) return;
     const output = defaultOutputMode(sourceForDefaults, mode);
-    setOutputConfig(output);
     const name = defaultProjectName(sourceForDefaults);
-    setProjectName(name);
-    onFormChanged?.({
-      name,
-      output,
-    });
-  }, [mode, onFormChanged, sourceForDefaults, sourceKey]);
+    const patch: Partial<JobForm> = {};
+    if (!outputTouched) {
+      setOutputConfig(output);
+      patch.output = output;
+    }
+    if (!projectNameTouched) {
+      setProjectName(name);
+      patch.name = name;
+    }
+    if (Object.keys(patch).length > 0) onFormChanged?.(patch);
+  }, [
+    mode,
+    onFormChanged,
+    outputTouched,
+    projectNameTouched,
+    sourceForDefaults,
+    sourceKey,
+  ]);
 
   // Load engine/language defaults from prefs on mount
   useEffect(() => {
@@ -172,6 +189,10 @@ export function JobConfigInline({
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (source === null) {
+      setValidationError("Choose a source first.");
+      return;
+    }
     if (!projectName.trim()) {
       setValidationError("Project name is required.");
       return;
@@ -190,7 +211,7 @@ export function JobConfigInline({
         <h3 id="job-config-inline-heading" className="heading-13">
           Configure OCR job
         </h3>
-        {onCancel && (
+        {source !== null && onCancel && (
           <Button
             variant="ghost"
             type="button"
@@ -221,6 +242,7 @@ export function JobConfigInline({
             type="text"
             value={projectName}
             onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              setProjectNameTouched(true);
               setProjectName(e.target.value);
               onFormChanged?.({ name: e.target.value });
             }}
@@ -407,6 +429,7 @@ export function JobConfigInline({
           sourceIsFolder={sourceIsFolder}
           value={outputConfig}
           onChange={(nextOutput) => {
+            setOutputTouched(true);
             setOutputConfig(nextOutput);
             onFormChanged?.({ output: nextOutput });
           }}
@@ -416,7 +439,7 @@ export function JobConfigInline({
           <Button
             type="submit"
             variant="primary"
-            disabled={submitting || !projectName.trim()}
+            disabled={submitting || source === null || !projectName.trim()}
             data-testid={APP_TEST_IDS.runOcrButton}
           >
             {submitting ? "Run OCR →…" : "Run OCR →"}

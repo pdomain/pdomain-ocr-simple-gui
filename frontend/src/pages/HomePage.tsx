@@ -1,6 +1,6 @@
 // HomePage renders the source-selection and job-configuration flow from the
 // jobCreationMachine runtime statechart.
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMachine } from "@xstate/react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -32,6 +32,7 @@ function recentSourcePathsFromPrefs(prefs: PrefsResponse | null): string[] {
 
 export function HomePage() {
   const [snapshot, send] = useMachine(jobCreationMachine);
+  const [sourcePickerResetToken, setSourcePickerResetToken] = useState(0);
   const navigate = useNavigate();
   const { config, profile, source, uploadError, submitError } =
     snapshot.context;
@@ -50,8 +51,15 @@ export function HomePage() {
   );
 
   const chooseFiles = useCallback(
-    (files: File[]) => send({ type: "FILES_SELECTED", files }),
-    [send],
+    (files: File[]) => {
+      if (source?.kind === "upload") {
+        void fetch(`/api/uploads/${encodeURIComponent(source.uploadId)}`, {
+          method: "DELETE",
+        }).catch(() => {});
+      }
+      send({ type: "FILES_SELECTED", files });
+    },
+    [send, source],
   );
   const choosePath = useCallback(
     (path: string) => send({ type: "PATH_CHOSEN", path }),
@@ -64,6 +72,7 @@ export function HomePage() {
       }).catch(() => {});
     }
     send({ type: "CLEAR_SOURCE" });
+    setSourcePickerResetToken((value) => value + 1);
   }, [send, source]);
   const changeJobForm = useCallback(
     (patch: Partial<JobForm>) => send({ type: "JOB_FORM_CHANGED", patch }),
@@ -127,6 +136,7 @@ export function HomePage() {
   if (profile === null || config === null) return <div>Loading...</div>;
 
   const mode = config.mode;
+  const uploading = snapshot.matches("uploading");
   const localPathHint =
     profile.kind === "local-container"
       ? "Paths refer to the container filesystem (bind-mount your scans dir if needed)."
@@ -138,6 +148,7 @@ export function HomePage() {
           allowDrop
           allowPathInput={false}
           uploadError={uploadError}
+          resetToken={sourcePickerResetToken}
           onFilesSelected={chooseFiles}
           onPathChosen={choosePath}
           onClear={clearSource}
@@ -145,20 +156,21 @@ export function HomePage() {
       )}
       {profile.kind === "local-container" && (
         <>
-          {source === null || source.kind === "upload" ? (
+          {source === null || source.kind === "upload" || uploading ? (
             <>
               <h3 className="heading-13">Upload</h3>
               <SourcePicker
                 allowDrop
                 allowPathInput={false}
                 uploadError={uploadError}
+                resetToken={sourcePickerResetToken}
                 onFilesSelected={chooseFiles}
                 onPathChosen={choosePath}
                 onClear={clearSource}
               />
             </>
           ) : null}
-          {source === null || source.kind === "path" ? (
+          {(source === null && !uploading) || source?.kind === "path" ? (
             <>
               <h3 className="heading-13">Existing folder or zip</h3>
               <SourcePicker
@@ -167,6 +179,7 @@ export function HomePage() {
                 pathHint={localPathHint}
                 recentPaths={recentPaths}
                 uploadError={uploadError}
+                resetToken={sourcePickerResetToken}
                 onFilesSelected={chooseFiles}
                 onPathChosen={choosePath}
                 onClear={clearSource}
@@ -182,23 +195,22 @@ export function HomePage() {
           pathHint={localPathHint}
           recentPaths={recentPaths}
           uploadError={uploadError}
+          resetToken={sourcePickerResetToken}
           onFilesSelected={chooseFiles}
           onPathChosen={choosePath}
           onClear={clearSource}
         />
       )}
-      {source !== null && (
-        <JobConfigInline
-          source={source}
-          mode={mode}
-          runtimeConfig={config}
-          submitError={submitError}
-          submitting={snapshot.matches("submittingJob")}
-          onCancel={clearSource}
-          onFormChanged={changeJobForm}
-          onSubmitJob={submitJob}
-        />
-      )}
+      <JobConfigInline
+        source={source}
+        mode={mode}
+        runtimeConfig={config}
+        submitError={submitError}
+        submitting={snapshot.matches("submittingJob")}
+        onCancel={clearSource}
+        onFormChanged={changeJobForm}
+        onSubmitJob={submitJob}
+      />
       <RecentProjectsList />
     </div>
   );

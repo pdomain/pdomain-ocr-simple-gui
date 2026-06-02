@@ -1,6 +1,6 @@
 // SourcePicker is a presentational source-entry surface. Runtime work such as
 // uploads is owned by HomePage's jobCreationMachine.
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Field, Input } from "@pdomain/pdomain-ui/primitives";
 import { FileArchive, FileText, FolderOpen } from "lucide-react";
 import { APP_TEST_IDS } from "../lib/testids";
@@ -12,14 +12,16 @@ export interface SourcePickerProps {
   recentPaths?: string[];
   pathHint?: string;
   uploadError?: string | null;
+  resetToken?: unknown;
   onFilesSelected: (files: File[]) => void;
   onPathChosen: (path: string) => void;
   onClear?: () => void;
 }
 
 interface ChosenDescription {
+  kind: "folder" | "files" | "archive";
   folder: string | null;
-  names: string[];
+  files: File[];
 }
 
 function describeFiles(files: File[]): ChosenDescription {
@@ -27,10 +29,29 @@ function describeFiles(files: File[]): ChosenDescription {
     (files[0] as File & { webkitRelativePath?: string })?.webkitRelativePath ??
     "";
   const folder = firstRel.includes("/") ? firstRel.split("/")[0]! : null;
+  const kind =
+    folder !== null
+      ? "folder"
+      : files.length === 1 && files[0]?.name.toLowerCase().endsWith(".zip")
+        ? "archive"
+        : "files";
   return {
+    kind,
     folder,
-    names: files.map((file) => file.name),
+    files,
   };
+}
+
+function selectedKind(chosen: ChosenDescription | null) {
+  return chosen?.kind ?? null;
+}
+
+function chosenTitle(chosen: ChosenDescription): string {
+  if (chosen.kind === "folder") return chosen.folder ?? "Folder selected";
+  if (chosen.kind === "archive")
+    return chosen.files[0]?.name ?? "Archive selected";
+  const count = chosen.files.length;
+  return `${count} file${count === 1 ? "" : "s"} selected`;
 }
 
 export function SourcePicker(props: SourcePickerProps) {
@@ -42,10 +63,22 @@ export function SourcePicker(props: SourcePickerProps) {
 
   const allowFolderBrowse = props.allowFolderBrowse ?? props.allowDrop;
 
+  useEffect(() => {
+    setChosen(null);
+    if (fileInput.current) fileInput.current.value = "";
+    if (folderInput.current) folderInput.current.value = "";
+  }, [props.resetToken]);
+
   const handleFiles = (files: File[]) => {
     if (!files.length) return;
-    setChosen(describeFiles(files));
-    props.onFilesSelected(files);
+    const nextSelection = describeFiles(files);
+    const nextFiles =
+      chosen?.kind === "files" && nextSelection.kind === "files"
+        ? [...chosen.files, ...files]
+        : files;
+    const next = describeFiles(nextFiles);
+    setChosen(next);
+    props.onFilesSelected(next.files);
   };
 
   const openFilePicker = () => {
@@ -62,6 +95,22 @@ export function SourcePicker(props: SourcePickerProps) {
     if (folderInput.current) folderInput.current.value = "";
     props.onClear?.();
   };
+
+  const removeFileAt = (index: number) => {
+    if (chosen === null || chosen.kind !== "files") return;
+    const nextFiles = chosen.files.filter(
+      (_, fileIndex) => fileIndex !== index,
+    );
+    if (!nextFiles.length) {
+      handleClear();
+      return;
+    }
+    const next = describeFiles(nextFiles);
+    setChosen(next);
+    props.onFilesSelected(next.files);
+  };
+
+  const currentKind = selectedKind(chosen);
 
   return (
     <div className="source-picker">
@@ -105,13 +154,22 @@ export function SourcePicker(props: SourcePickerProps) {
           />
 
           <div aria-label="Source type" className="source-picker__mode-tabs">
-            <span aria-label="Folder source">
+            <span
+              aria-label="Folder source"
+              data-selected={currentKind === "folder" ? "true" : "false"}
+            >
               <FolderOpen aria-hidden="true" size={18} strokeWidth={1.8} />
             </span>
-            <span aria-label="File source">
+            <span
+              aria-label="File source"
+              data-selected={currentKind === "files" ? "true" : "false"}
+            >
               <FileText aria-hidden="true" size={18} strokeWidth={1.8} />
             </span>
-            <span aria-label="Archive source">
+            <span
+              aria-label="Archive source"
+              data-selected={currentKind === "archive" ? "true" : "false"}
+            >
               <FileArchive aria-hidden="true" size={18} strokeWidth={1.8} />
             </span>
           </div>
@@ -156,33 +214,55 @@ export function SourcePicker(props: SourcePickerProps) {
               onClick={(event) => event.stopPropagation()}
             >
               <div className="source-picker__chosen-header">
-                <strong>
-                  {chosen.folder !== null
-                    ? chosen.folder
-                    : chosen.names.length === 1
-                      ? chosen.names[0]
-                      : `${chosen.names.length} files`}
-                </strong>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  data-testid="source-picker-clear"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleClear();
-                  }}
-                  aria-label="Clear selection"
-                >
-                  Clear
-                </Button>
+                <strong>{chosenTitle(chosen)}</strong>
+                <div className="source-picker__chosen-actions">
+                  {chosen.kind === "files" ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openFilePicker();
+                      }}
+                    >
+                      Add files...
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    data-testid="source-picker-clear"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleClear();
+                    }}
+                    aria-label="Clear selection"
+                  >
+                    Clear
+                  </Button>
+                </div>
               </div>
-              {chosen.names.length > 1 && (
-                <ul>
-                  {chosen.names.map((name, index) => (
-                    <li key={`${name}-${index}`}>{name}</li>
+              {chosen.kind === "files" ? (
+                <ul className="source-picker__file-list">
+                  {chosen.files.map((file, index) => (
+                    <li key={`${file.name}-${file.size}-${index}`}>
+                      <span className="source-picker__file-name">
+                        {file.name}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${file.name}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          removeFileAt(index);
+                        }}
+                      >
+                        X
+                      </button>
+                    </li>
                   ))}
                 </ul>
-              )}
+              ) : null}
             </div>
           )}
           {props.uploadError !== null && props.uploadError !== undefined && (
@@ -201,7 +281,7 @@ export function SourcePicker(props: SourcePickerProps) {
         </div>
       )}
 
-      {props.allowPathInput && (
+      {props.allowPathInput && chosen === null && (
         <>
           <div className="source-picker__path-divider">OR PASTE A PATH</div>
           <form
