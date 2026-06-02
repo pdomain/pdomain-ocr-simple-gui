@@ -227,23 +227,29 @@ def test_jobs_button_opens_right_jobs_panel(page: Page, live_server_url: str) ->
     expect(page.get_by_test_id("jobs-pill-popover")).not_to_be_visible(timeout=1_000)
 
     # Click path: the utility dock slide-over opens with the Jobs surface.
-    # The slide-over-panel is absolutely positioned; jobs-panel-body shows empty list
-    # ("No active jobs") since AppShell's internal UtilityDock doesn't receive activeJobs.
-    # The pill click wires to useUtilityDock().toggle('jobs') via the utility dock API.
+    # pdomain-ui 0.5.0: AppShell now accepts `jobs.activeJobs` which feeds real job
+    # rows into the dock JobsPanelBody (replacing the "No active jobs" empty state).
+    # App.tsx passes all jobs from GET /api/jobs via the new jobs prop.
     jobs_button.click()
     expect(page.get_by_test_id("slide-over-panel")).to_be_visible(timeout=5_000)
     expect(page.get_by_test_id("jobs-panel-body")).to_be_visible(timeout=5_000)
+
+    # Observable (0.5.0): a real job row appears in the dock surface.
+    # data-testid="job-row" is rendered by pdomain-ui JobRow for each active job.
+    expect(page.get_by_test_id("job-row").first).to_be_visible(timeout=5_000)
+
+    # The Open button (data-testid="job-row-open") is present on the completed row
+    # and navigates to /jobs/:id when clicked. It appears on succeeded/done jobs.
+    # Since the intercepted job has state=running, it shows the progress bar, not Open.
 
     # Dismiss path: slide-over close button hides the dock.
     page.get_by_test_id("slide-over-panel-close").click()
     expect(page.get_by_test_id("slide-over-panel")).not_to_be_visible(timeout=5_000)
 
-    # Row action path: re-open (jobs surface; no job rows since empty active list).
+    # Row action path: re-open — job row still visible (jobs route still intercepted).
     jobs_button.click()
     expect(page.get_by_test_id("jobs-panel-body")).to_be_visible(timeout=5_000)
-    # Note: AppShell's built-in UtilityDock doesn't receive activeJobs, so
-    # JobPanelBody shows "No active jobs" — no job-row to click.
-    # The full jobs-in-dock integration requires AppShell to gain a jobsConfig prop.
+    expect(page.get_by_test_id("job-row").first).to_be_visible(timeout=5_000)
 
     # Bad-state: when GET /api/jobs returns empty list, the count badge disappears.
     # The panel is click-owned; when no jobs are running the count badge is absent.

@@ -30,10 +30,17 @@
 // useUtilityDock().toggle('jobs') so the dock's built-in jobs surface opens.
 // RightPanel + JobsDrawer manual jobs panel removed; AppShell owns the dock.
 // ShortcutsHelpButton already inside AppShell (via header slot) — no change.
+//
+// @pdomain/pdomain-ui 0.5.0 — AppShell jobs prop:
+// AppShell now accepts `jobs?: AppShellJobsProps` which feeds live job rows
+// into the dock's Jobs surface (replacing the empty state). useActiveJobs()
+// now returns both ActiveJob[] (for JobsPill count) and Job[] (for the dock).
+// onJobOpen navigates to /jobs/:id. No cancel/pause API exists in simple-gui,
+// so onJobCancel and onJobPauseResume are omitted (both fully optional).
 
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import {
   AppShell,
   JobsPill,
@@ -48,6 +55,9 @@ import type {
   InstalledApp,
   LaunchResult,
   ActiveJob,
+  AppShellJobsProps,
+  Job,
+  JobStatus,
 } from "@pdomain/pdomain-ui/shell";
 import { toast } from "sonner";
 import { ConfigProvider } from "./runtime/ConfigContext";
@@ -167,6 +177,27 @@ interface RawJob {
 }
 
 /**
+ * Maps a backend job state string to the pdomain-ui JobStatus union.
+ * Backend values: queued | running | succeeded | failed | cancelled.
+ * JobStatus union:  queued | running | paused  | succeeded | done | failed.
+ * "cancelled" has no JobStatus equivalent — treat as "failed" for display.
+ */
+function toJobStatus(state: string): JobStatus {
+  if (
+    state === "queued" ||
+    state === "running" ||
+    state === "paused" ||
+    state === "succeeded" ||
+    state === "done" ||
+    state === "failed"
+  ) {
+    return state;
+  }
+  // "cancelled" → "failed" (closest terminal state with dock support)
+  return "failed";
+}
+
+/**
  * Polls /api/jobs every 5s and maps running jobs to the ActiveJob shape
  * expected by pdomain-ui JobsPill. Backend uses `state` field
  * (not `status`). Returns count of running pages as pct where available.
@@ -180,7 +211,25 @@ function progressForJob(job: RawJob): number {
   return total > 0 ? Math.round((done / total) * 100) : 0;
 }
 
-function useActiveJobs(): ActiveJob[] {
+/** Return value of useActiveJobs — both shapes needed by different consumers. */
+interface ActiveJobsResult {
+  /** For JobsPill pill/count display (ActiveJob shape). */
+  pill: ActiveJob[];
+  /** For AppShell.jobs dock surface (Job shape). */
+  dock: Job[];
+}
+
+/**
+ * Polls GET /api/jobs every 5 s.
+ *
+ * Returns two mapped arrays:
+ * - `pill`: ActiveJob[] for JobsPill (in-flight only — queued|running).
+ * - `dock`: Job[] for AppShell.jobs.activeJobs (all jobs that have state).
+ *
+ * simple-gui has no cancel or pause API, so cancelable is always false.
+ * onJobOpen navigates to /jobs/:id via the caller's useNavigate hook.
+ */
+function useActiveJobs(): ActiveJobsResult {
   const { data } = useQuery<RawJob[]>({
     queryKey: ["active-jobs"],
     queryFn: async () => {
@@ -192,10 +241,11 @@ function useActiveJobs(): ActiveJob[] {
     // Treat errors as empty list — don't surface loading state in header.
     throwOnError: false,
   });
-  const active = (data ?? []).filter(
+  const all = data ?? [];
+  const inFlight = all.filter(
     (j) => j.state === "running" || j.state === "queued",
   );
-  return active.map((j) => {
+  const pill: ActiveJob[] = inFlight.map((j) => {
     const pct = progressForJob(j);
     return {
       id: j.project_id,
@@ -205,6 +255,18 @@ function useActiveJobs(): ActiveJob[] {
       project: j.project_id,
     };
   });
+  const dock: Job[] = all.map((j) => {
+    const pct = progressForJob(j);
+    return {
+      id: j.project_id,
+      project: j.name ?? j.project_id,
+      phase: j.state,
+      pct,
+      status: toJobStatus(j.state),
+      cancelable: false,
+    };
+  });
+  return { pill, dock };
 }
 
 function AppRoutes() {
@@ -341,7 +403,19 @@ function SimpleGuiHeader({
 }
 
 function AppShellWithHeader() {
-  const activeJobs = useActiveJobs();
+  const { pill, dock } = useActiveJobs();
+  const navigate = useNavigate();
+
+  /**
+   * onJobOpen — opens the ResultsPage for a completed job.
+   * simple-gui has no cancel/pause API; those callbacks are omitted.
+   */
+  const jobsProps: AppShellJobsProps = {
+    activeJobs: dock,
+    onJobOpen: (jobId: string) => {
+      navigate(`/jobs/${jobId}`);
+    },
+  };
 
   return (
     <AppShell
@@ -351,9 +425,10 @@ function AppShellWithHeader() {
       deployMode="local"
       launcherSlot="header"
       uiPrefsConfig={uiPrefsConfig}
+      jobs={jobsProps}
       header={
         <SimpleGuiHeader
-          activeJobs={activeJobs}
+          activeJobs={pill}
           actions={
             <>
               <SettingsSlot />

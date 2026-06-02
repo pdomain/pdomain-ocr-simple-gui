@@ -11,22 +11,64 @@ import App from "../App";
 // is opened when the jobs button is clicked.
 const mockToggle = vi.fn();
 
+/** Minimal Job shape mirroring pdomain-ui Job for test assertions. */
+interface MockJob {
+  id: string;
+  project: string;
+  status: string;
+}
+
+/** Minimal AppShellJobsProps shape for test assertions. */
+interface MockAppShellJobsProps {
+  activeJobs?: MockJob[];
+  onJobOpen?: (jobId: string) => void;
+}
+
 // Mock @pdomain/pdomain-ui/shell — we test App routing, not AppShell internals.
 // AppShell itself uses complex CSS and zustand stores that don't run well in jsdom.
 // useUtilityDock is called by SimpleGuiHeader (wires JobsPill.onClick to toggle('jobs')).
+//
+// pdomain-ui 0.5.0: AppShell now accepts a `jobs` prop (AppShellJobsProps).
+// The mock renders job rows into a data-testid="jobs-dock-surface" div so
+// tests can assert real job data flows through to the dock surface.
 vi.mock("@pdomain/pdomain-ui/shell", () => ({
   AppShell: ({
     header,
     main,
+    jobs,
   }: {
     header: React.ReactNode;
     main: React.ReactNode;
-  }) => (
-    <div data-testid="app-shell-mock">
-      <div data-testid="app-shell-header-mock">{header}</div>
-      <div data-testid="app-shell-main-mock">{main}</div>
-    </div>
-  ),
+    jobs?: MockAppShellJobsProps;
+  }) => {
+    const jobRows = jobs?.activeJobs ?? [];
+    return (
+      <div
+        data-testid="app-shell-mock"
+        data-jobs-count={String(jobRows.length)}
+      >
+        <div data-testid="app-shell-header-mock">{header}</div>
+        <div data-testid="app-shell-main-mock">{main}</div>
+        {/* Simulated Jobs dock surface — renders one row per active job */}
+        <div data-testid="jobs-dock-surface">
+          {jobRows.map((job) => (
+            <div key={job.id} data-testid="job-row" data-job-id={job.id}>
+              <span data-testid="job-row-project">{job.project}</span>
+              <span data-testid="job-row-status">{job.status}</span>
+              {/* Open button matches pdomain-ui JobRow data-testid contract */}
+              <button
+                type="button"
+                data-testid="job-row-open"
+                onClick={() => jobs?.onJobOpen?.(job.id)}
+              >
+                Open
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  },
   JobsPill: ({
     activeJobs = [],
     onClick,
@@ -177,6 +219,77 @@ describe("App", () => {
     fireEvent.click(jobsButton);
 
     expect(mockToggle).toHaveBeenCalledWith("jobs");
+  });
+
+  // -------------------------------------------------------------------------
+  // pdomain-ui 0.5.0 — AppShell jobs prop wiring
+  // -------------------------------------------------------------------------
+
+  it("passes live jobs to AppShell.jobs.activeJobs — dock shows real job row", async () => {
+    // pdomain-ui 0.5.0: AppShell.jobs.activeJobs feeds the dock Jobs surface.
+    // This test proves simple-gui maps backend jobs to the Job shape and the
+    // dock renders a real job row (not the empty state).
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string) => {
+        if (typeof url === "string" && url.includes("/api/config")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ mode: "local", is_containerized: false }),
+          });
+        }
+        if (typeof url === "string" && url.includes("/api/jobs")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => [
+              {
+                project_id: "proj-abc",
+                name: "My scan",
+                state: "succeeded",
+                page_count: 3,
+                pages_done: 3,
+              },
+            ],
+          });
+        }
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({}),
+        });
+      },
+    );
+
+    renderApp();
+
+    // Wait for the dock to render a row with data-testid="job-row"
+    const jobRow = await screen.findByTestId("job-row");
+    expect(jobRow).toBeInTheDocument();
+    expect(jobRow).toHaveAttribute("data-job-id", "proj-abc");
+
+    // Project name appears in the row
+    expect(screen.getByTestId("job-row-project")).toHaveTextContent("My scan");
+
+    // Status is correctly mapped from backend "succeeded" → JobStatus "succeeded"
+    expect(screen.getByTestId("job-row-status")).toHaveTextContent("succeeded");
+
+    // Open button is present (job-row-open testid matches pdomain-ui JobRow contract)
+    expect(screen.getByTestId("job-row-open")).toBeInTheDocument();
+  });
+
+  it("AppShell.jobs.activeJobs is empty when no jobs are running", async () => {
+    // When the backend returns an empty list, the dock surface shows no rows
+    // (the empty state). Confirm data-jobs-count reflects this.
+    renderApp();
+
+    const shell = await screen.findByTestId("app-shell-mock");
+    // Dock starts with 0 jobs — may update once /api/jobs resolves
+    await waitFor(() => {
+      expect(shell).toHaveAttribute("data-jobs-count", "0");
+    });
+
+    // jobs-dock-surface renders but contains no job-row elements
+    const dockSurface = screen.getByTestId("jobs-dock-surface");
+    expect(dockSurface).toBeInTheDocument();
+    expect(screen.queryAllByTestId("job-row")).toHaveLength(0);
   });
 
   // -------------------------------------------------------------------------
