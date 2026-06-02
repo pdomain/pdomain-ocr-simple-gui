@@ -341,7 +341,6 @@ async def run_project(
     from pdomain_ocr_simple_gui.models import PageResult, ProjectStatus
     from pdomain_ocr_simple_gui.storage import (
         read_project,
-        update_page_result,
         write_combined_txt,
         write_output_combined_txt,
         write_output_page_files,
@@ -379,10 +378,18 @@ async def run_project(
 
     def _update_page_result_while_running(page_result: PageResult) -> None:
         """Update a page without letting page aggregation terminalize the project."""
-        update_page_result(spec, page_result)
-        _, updated_status = read_project(spec.project_id)
-        if updated_status.state != running_state:
-            write_project(spec, updated_status.model_copy(update={"state": running_state}))
+        stored_spec, current = read_project(spec.project_id)
+        next_pages = [
+            page if page.page_idx != page_result.page_idx else page_result for page in current.pages
+        ]
+        next_status = current.model_copy(
+            update={
+                "state": running_state,
+                "pages_done": sum(1 for page in next_pages if page.state == "succeeded"),
+                "pages": next_pages,
+            },
+        )
+        write_project(stored_spec, next_status)
 
     # Warm-up message before any batch starts — DocTR's first run may pull
     # ~200 MB of weights from Hugging Face plus a GPU model load.

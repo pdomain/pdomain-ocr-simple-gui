@@ -404,6 +404,7 @@ class TestRunProject:
     ) -> None:
         """Per-page completion must not terminalize the project before final lifecycle validation."""
         import pdomain_ocr_simple_gui.pipeline as pipeline_mod
+        import pdomain_ocr_simple_gui.storage as storage_mod
         from pdomain_ocr_simple_gui.storage import read_project, write_project
 
         root = tmp_path / "projects"
@@ -426,7 +427,19 @@ class TestRunProject:
             ),
         )
 
+        terminal_transition_validated = False
+        terminal_states = {"succeeded", "failed", "cancelled"}
+        original_write_project = storage_mod.write_project
+
+        def _guarded_write_project(spec: ProjectSpec, status: ProjectStatus) -> None:
+            if not terminal_transition_validated and status.state in terminal_states:
+                raise AssertionError(
+                    f"terminal project state {status.state!r} written before lifecycle validation",
+                )
+            original_write_project(spec, status)
+
         def _fake_assert_job_transition(current: str, event: str) -> str:
+            nonlocal terminal_transition_validated
             if event == "start":
                 assert current == "queued"
                 return "running"
@@ -434,9 +447,11 @@ class TestRunProject:
                 _, persisted = read_project(spec.project_id)
                 assert persisted.state == "running"
                 assert current == persisted.state
+                terminal_transition_validated = True
                 return "succeeded"
             raise AssertionError(f"unexpected lifecycle transition: {(current, event)!r}")
 
+        monkeypatch.setattr(storage_mod, "write_project", _guarded_write_project)
         monkeypatch.setattr(
             pipeline_mod,
             "assert_job_transition",
