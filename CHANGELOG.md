@@ -96,11 +96,7 @@ reference consumer for `pdomain-ocr-ops`' `LocalStageDispatcher`.
   asserts `.txt` output; marked `@pytest.mark.slow @pytest.mark.e2e`
 - Excluded from `make test` (`-m "not slow"` via `addopts`); included in `make ci`
 - Version confirmed `0.1.0a0` in `pyproject.toml`
-- Actual publish to `pdomain-index-pip` is deferred pending that repo's publish
-  workflow being bootstrapped (see `pd-index` rename plan)
+- Release publishing is active. Releases are tag-derived via `hatch-vcs`,
+  published as GitHub Release artifacts, and indexed by `pdomain-index-pip`.
 
 ---
-
-> **Note:** Publish step (`uv tool install pdomain-ocr-simple-gui` from `pdomain-index-pip`)
-> is blocked on `pdomain-index-pip` existing with a functional CI publish workflow.
-> Tag `v0.1.0a0` and wheel upload will follow once the index is operational.
