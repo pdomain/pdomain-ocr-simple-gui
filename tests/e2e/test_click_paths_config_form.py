@@ -63,11 +63,17 @@ def test_config_form_seeds_engine_from_prefs_and_persists_choice(
     form, asserts the engine select STARTS on 'tesseract' (the regression: it
     used to ignore default_engine and start on doctr), then submits and asserts
     spec.engine == 'tesseract' persisted to project.json.
+
+    The simple GUI keeps Tesseract English-only (commit 55749e2), so the seeded
+    default_language is 'en' — which the form maps to Tesseract's 'eng' code at
+    submit (normalizeEngineLanguage). Seeding a non-English language for
+    Tesseract is an unsupported combination the backend rejects, so this test
+    asserts the supported English path persists spec.language == 'eng'.
     """
     # Seed a saved engine default.
     put = httpx.put(
         f"{live_server_url}/api/prefs",
-        json={"default_engine": "tesseract", "default_language": "fr"},
+        json={"default_engine": "tesseract", "default_language": "en"},
         timeout=5.0,
     )
     put.raise_for_status()
@@ -84,7 +90,7 @@ def test_config_form_seeds_engine_from_prefs_and_persists_choice(
     # default_* keys (regression was: it read the wrong keys → always doctr/en).
     engine_select = page.get_by_test_id("engine-select")
     expect(engine_select).to_have_value("tesseract", timeout=10_000)
-    expect(page.get_by_test_id("language-input")).to_have_value("fr")
+    expect(page.get_by_test_id("language-input")).to_have_value("en")
 
     page.get_by_test_id("run-ocr-button").click()
     expect(page.get_by_test_id("results-page")).to_be_visible(timeout=10_000)
@@ -97,7 +103,8 @@ def test_config_form_seeds_engine_from_prefs_and_persists_choice(
     # Backend effect (disk): project.json spec.engine == tesseract.
     spec = _read_spec(e2e_data_root, project_id)
     assert spec["engine"] == "tesseract", spec
-    assert spec["language"] == "fr", spec
+    # The form maps English to Tesseract's 'eng' code at submit.
+    assert spec["language"] == "eng", spec
 
 
 @pytest.mark.slow

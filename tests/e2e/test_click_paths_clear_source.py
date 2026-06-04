@@ -34,7 +34,11 @@ def test_clearing_upload_deletes_staging_dir(
 ) -> None:
     """B-HOME-004 (Regression): clearing a chosen upload removes its staging dir.
 
-    Observable: the chosen view collapses and the config form disappears.
+    Observable: the chosen view collapses; the config form returns to its
+    no-source state (the "Use different files" cancel affordance disappears).
+    Since commit 3ef73f1 ("keep OCR options visible before source") the form is
+    always rendered, so clearing collapses the chosen view rather than
+    unmounting the form.
     Backend effect: DELETE /api/uploads/{id} removes
     <UPLOAD_ROOT>/<upload_id>/ — the staging dir is gone from disk.
     """
@@ -51,8 +55,10 @@ def test_clearing_upload_deletes_staging_dir(
         page.get_by_test_id("source-picker-file-pick").set_input_files(str(img))
     upload_id = resp_info.value.json()["upload_id"]
 
-    # The config form appears once the upload completes; staging dir exists.
-    expect(page.get_by_test_id("job-config-inline")).to_be_visible(timeout=10_000)
+    # The committed-source state is reachable once the upload completes (the
+    # cancel affordance only renders while a source is committed); staging dir
+    # exists.
+    expect(page.get_by_test_id("job-config-inline-cancel")).to_be_visible(timeout=10_000)
     staging = uploads_root / upload_id
     assert staging.is_dir(), f"staging dir {staging} should exist after upload"
 
@@ -62,8 +68,10 @@ def test_clearing_upload_deletes_staging_dir(
     ):
         page.get_by_test_id("source-picker-clear").click()
 
-    # Observable: config form gone, chosen view collapsed.
-    expect(page.get_by_test_id("job-config-inline")).to_be_hidden()
+    # Observable: chosen view collapsed; the form returns to its no-source state
+    # (cancel affordance gone, submit disabled). The form itself stays mounted.
+    expect(page.get_by_test_id("job-config-inline-cancel")).to_be_hidden()
+    expect(page.get_by_test_id("run-ocr-button")).to_be_disabled()
     expect(page.get_by_test_id("source-picker-chosen")).to_be_hidden()
 
     # Backend effect (disk): the staging dir is gone.
@@ -77,10 +85,14 @@ def test_clearing_upload_deletes_staging_dir(
 @pytest.mark.slow
 @pytest.mark.e2e
 def test_cancel_config_form_returns_to_picker(page: Page, live_server_url: str, tmp_path: Path) -> None:
-    """B-HOME-005: 'Use different files' hides the config form (picker stays).
+    """B-HOME-005: 'Use different files' returns to the picker-only state.
 
-    Observable: the job-config-inline form disappears and the source picker
-    drop zone is still present. No backend call is made by cancel itself.
+    Since commit 3ef73f1 ("keep OCR options visible before source") the config
+    form is always rendered; cancelling clears the chosen source rather than
+    unmounting the form. Observable: the cancel button ("Use different files")
+    disappears (it only renders while a source is committed) and the Run OCR
+    submit becomes disabled, while the source picker drop zone stays present.
+    No backend call is made by cancel itself.
     """
     img = tmp_path / "scan.png"
     img.write_bytes(_PNG_1X1)
@@ -89,19 +101,28 @@ def test_cancel_config_form_returns_to_picker(page: Page, live_server_url: str, 
     expect(page.get_by_test_id("home-page")).to_be_visible(timeout=10_000)
     page.get_by_test_id("source-picker-file-pick").set_input_files(str(img))
     expect(page.get_by_test_id("job-config-inline")).to_be_visible(timeout=10_000)
+    expect(page.get_by_test_id("job-config-inline-cancel")).to_be_visible(timeout=10_000)
 
     page.get_by_test_id("job-config-inline-cancel").click()
 
-    expect(page.get_by_test_id("job-config-inline")).to_be_hidden()
+    # The form stays mounted, but returns to the no-source state: the cancel
+    # affordance is gone and Run OCR is disabled until a source is re-chosen.
+    expect(page.get_by_test_id("job-config-inline")).to_be_visible()
+    expect(page.get_by_test_id("job-config-inline-cancel")).to_be_hidden()
+    expect(page.get_by_test_id("run-ocr-button")).to_be_disabled()
     expect(page.get_by_test_id("source-picker-drop")).to_be_visible()
 
 
 @pytest.mark.slow
 @pytest.mark.e2e
 def test_empty_upload_makes_no_request_and_no_form(page: Page, live_server_url: str) -> None:
-    """B-HOME-015: dropping zero files makes no upload request, shows no form.
+    """B-HOME-015: dropping zero files makes no upload request, commits no source.
 
-    Observable: neither the chosen view nor the config form appears.
+    Observable: no chosen view appears and the config form stays in its
+    no-source state (no "Use different files" cancel affordance, Run OCR
+    disabled). Since commit 3ef73f1 ("keep OCR options visible before source")
+    the form is always rendered, so the observable for "nothing was chosen" is
+    the absence of the committed-source affordances, not the form unmounting.
     Backend effect: no POST /api/uploads is issued (asserted by watching for
     the absence of an upload request during the drop).
     """
@@ -127,8 +148,9 @@ def test_empty_upload_makes_no_request_and_no_form(page: Page, live_server_url: 
     )
     page.wait_for_timeout(500)
 
-    # Observable: no chosen view, no config form.
+    # Observable: no chosen view; the form stays in its no-source state.
     expect(page.get_by_test_id("source-picker-chosen")).to_be_hidden()
-    expect(page.get_by_test_id("job-config-inline")).to_be_hidden()
+    expect(page.get_by_test_id("job-config-inline-cancel")).to_be_hidden()
+    expect(page.get_by_test_id("run-ocr-button")).to_be_disabled()
     # Backend effect: no upload request fired.
     assert upload_requests == [], f"empty drop must not POST /api/uploads, got {upload_requests!r}"

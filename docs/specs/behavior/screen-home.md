@@ -140,8 +140,12 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   (`data-testid="source-picker-clear"`).
 - **Preconditions:** A source has been chosen (drop/pick), chosen view visible.
 - **Observable output:** Chosen view collapses back to the empty drop prompt;
-  the file input is reset; `JobConfigInline` disappears (parent `onClear` →
-  `setChosen(null)`). In `local+containerized` mode, where selecting one source
+  the file input is reset; the config form returns to its no-source state — the
+  "Use different files" cancel affordance disappears and Run OCR is disabled.
+  Since commit `3ef73f1` ("keep OCR options visible before source") the
+  `JobConfigInline` section is **always rendered**, so clearing collapses the
+  chosen view rather than unmounting the form (parent `onClear` →
+  `CLEAR_SOURCE`). In `local+containerized` mode, where selecting one source
   hides the alternative picker (see `B-HOME-001` / `B-HOME-003`), clearing also
   **restores both pickers** — the full "Upload" and "Existing folder or zip"
   inputs reappear so the user can choose a different source.
@@ -163,14 +167,19 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
 - **Flow(s):** —
 - **Trigger:** User clicks "Use different files"
   (`data-testid="job-config-inline-cancel"`).
-- **Preconditions:** `JobConfigInline` is visible (a source was chosen).
-- **Observable output:** The config form disappears; HomePage returns to the
-  source-picker-only state (`handleCancel` → `setChosen(null)`).
+- **Preconditions:** A source is committed, so the cancel affordance is rendered
+  (`job-config-inline-cancel` only renders while `source !== null`).
+- **Observable output:** The chosen source is cleared and the form returns to
+  its no-source state: the "Use different files" cancel button disappears and
+  Run OCR (`run-ocr-button`) becomes disabled. Since commit `3ef73f1` ("keep OCR
+  options visible before source") the `JobConfigInline` section is **always
+  rendered** — cancel clears the source (`onCancel` → `CLEAR_SOURCE`) rather
+  than unmounting the form.
 - **Backend / side-effects:** None. (The cancel button on the config form does
   not itself clear the SourcePicker's staged upload; clearing the picker —
   `B-HOME-004` — is what deletes the staging dir.)
-- **Bad-state / error:** Clicking cancel with no source chosen is impossible —
-  the form is only rendered after a source is chosen.
+- **Bad-state / error:** The cancel affordance is absent when no source is
+  committed, so clicking it with no source chosen is not reachable.
 - **Tier(s):** A
 - **Regression:** no
 - **Test:** —
@@ -194,7 +203,11 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   overwrite the `"doctr"` init default.
 - **Backend / side-effects:** `GET /api/prefs` on form mount. The chosen
   `engine`/`language` ride along in the `POST /api/jobs` body and persist into
-  `project.json` → `spec.engine` / `spec.language`.
+  `project.json` → `spec.engine` / `spec.language`. Tesseract is English-only in
+  the simple GUI (commit `55749e2`): at submit, `normalizeEngineLanguage` maps
+  English (`en`) to Tesseract's `eng` code, so a Tesseract job persists
+  `spec.language == "eng"`. A non-English language with Tesseract is an
+  unsupported combination the backend rejects (`language '<x>' is unavailable`).
 - **Bad-state / error:** `GET /api/prefs` failure → defaults kept (`doctr`/`en`),
   no error shown (`.catch()` swallows — non-fatal, the user can still pick).
 - **Tier(s):** A
@@ -403,8 +416,12 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
 - **Trigger:** A drop/file-pick that yields an empty file list (e.g. dropping
   nothing, or cancelling the OS file dialog).
 - **Preconditions:** A drop-capable `SourcePicker` rendered.
-- **Observable output:** The chosen view does NOT appear and `JobConfigInline`
-  does NOT render — `handleFiles` returns early on `!files.length`.
+- **Observable output:** The chosen view does NOT appear and no source is
+  committed — `handleFiles` returns early on `!files.length`. Since commit
+  `3ef73f1` ("keep OCR options visible before source") the `JobConfigInline`
+  section is always rendered, so the observable for "nothing was chosen" is the
+  absence of the committed-source affordances (the "Use different files" cancel
+  button) with Run OCR disabled — not the form unmounting.
 - **Backend / side-effects:** No `POST /api/uploads` request is made; no
   staging dir is created.
 - **Bad-state / error:** This IS the bad path of an upload trigger; the
@@ -462,8 +479,11 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
 - **Preconditions:** A drop-capable `SourcePicker`.
 - **Observable output:** The SourcePicker renders the upload-error alert
   (`data-testid="source-picker-upload-error"`, `role="alert"`) — the chosen
-  view shows the description but no `upload_id` is set, so `JobConfigInline`
-  does not appear.
+  view shows the description but no `upload_id` is set, so no source is
+  committed. Since commit `3ef73f1` ("keep OCR options visible before source")
+  the `JobConfigInline` section is always rendered, so the observable is the
+  absence of the committed-source affordances (the "Use different files" cancel
+  button) with Run OCR disabled.
 - **Backend / side-effects:** `POST /api/uploads` returns **413** ("upload
   exceeds size cap" or "too many files"); the partially-written staging dir is
   cleaned up (`shutil.rmtree(staging, ignore_errors=True)`), so no orphan

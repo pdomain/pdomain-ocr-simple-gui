@@ -95,8 +95,11 @@ def test_oversize_upload_shows_error_alert(page: Page, live_server_url: str, tmp
     The live server's byte cap is large, so the 413 is driven by intercepting
     /api/uploads → 413 (faking the dependency). The pure backend 413 contract
     is also covered by tests/test_uploads.py::test_size_cap. Observable here:
-    the source-picker-upload-error alert appears and NO config form renders
-    (no upload_id was set).
+    the source-picker-upload-error alert appears and no source is committed
+    (no upload_id was set). Since commit 3ef73f1 ("keep OCR options visible
+    before source") the config form is always rendered, so the observable for
+    "no source committed" is the absence of the committed-source affordances
+    (the "Use different files" cancel button), with Run OCR disabled.
     """
     img = tmp_path / "scan.png"
     img.write_bytes(_PNG_1X1)
@@ -111,9 +114,11 @@ def test_oversize_upload_shows_error_alert(page: Page, live_server_url: str, tmp
 
     page.get_by_test_id("source-picker-file-pick").set_input_files(str(img))
 
-    # Observable (bad path): upload error alert; no config form.
+    # Observable (bad path): upload error alert; no source committed (form stays
+    # in its no-source state — cancel affordance absent, Run OCR disabled).
     expect(page.get_by_test_id("source-picker-upload-error")).to_be_visible(timeout=10_000)
-    expect(page.get_by_test_id("job-config-inline")).to_be_hidden()
+    expect(page.get_by_test_id("job-config-inline-cancel")).to_be_hidden()
+    expect(page.get_by_test_id("run-ocr-button")).to_be_disabled()
 
 
 @pytest.mark.slow
