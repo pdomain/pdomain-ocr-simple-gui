@@ -92,4 +92,16 @@ export const APP_TEST_IDS = {
   toggleStraightQuotes: "toggle-straight-quotes",
   toggleEmDash: "toggle-em-dash",
   toggleIllustrationPlaceholders: "toggle-illustration-placeholders",
+  // ---- Settings: Jobs-location panel ----------------------------------------
+  // Injected into pdomain-ui's SettingsModal via AppShell.settingsPanels.
+  // The panel id is "jobs"; pdomain-ui renders the tab as
+  // "settings-modal-tab-jobs" and the body as "settings-modal-panel-jobs".
+  settingsJobsLocationPanel: "settings-modal-panel-jobs",
+  settingsJobsLocationTab: "settings-modal-tab-jobs",
+  settingsJobsLocationCurrent: "settings-jobs-location-current",
+  settingsJobsLocationInput: "settings-jobs-location-input",
+  settingsJobsLocationSave: "settings-jobs-location-save",
+  settingsJobsLocationReset: "settings-jobs-location-reset",
+  settingsJobsLocationError: "settings-jobs-location-error",
+  settingsJobsLocationSaved: "settings-jobs-location-saved",
 } as const;

@@ -58,6 +58,7 @@ import type {
   AppShellJobsProps,
   Job,
   JobStatus,
+  SettingsPanelDescriptor,
 } from "@pdomain/pdomain-ui/shell";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -66,6 +67,20 @@ import { HomePage } from "./pages/HomePage";
 import ResultsPage from "./pages/ResultsPage";
 import PageViewPage from "./pages/PageViewPage";
 import TesseractHelpPage from "./pages/TesseractHelpPage";
+import { JobsLocationSettings } from "./components/JobsLocationSettings";
+
+/**
+ * App-injected settings panels, appended after pdomain-ui's built-in
+ * Appearance tab. The "jobs" panel lets the user choose where new OCR jobs
+ * are stored (env > pref > default resolution lives in the backend).
+ */
+const settingsPanels: SettingsPanelDescriptor[] = [
+  {
+    id: "jobs",
+    label: "Jobs",
+    content: <JobsLocationSettings />,
+  },
+];
 
 /**
  * onPersistError — surfaces a sonner toast when PUT /api/prefs fails.
@@ -446,6 +461,7 @@ function AppShellWithHeader() {
       deployMode="local"
       launcherSlot="header"
       uiPrefsConfig={uiPrefsConfig}
+      settingsPanels={settingsPanels}
       jobs={jobsProps}
       header={
         <SimpleGuiHeader

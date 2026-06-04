@@ -16,16 +16,53 @@ logger = logging.getLogger(__name__)
 
 _PROJECTS_ROOT_DEFAULT: Path = Path.home() / ".local" / "share" / "pdomain-suite" / "simple-gui" / "projects"
 
+_APP_ID = "pdomain-ocr-simple-gui"
+
+
+def _jobs_location_pref() -> str:
+    """Return the saved ``jobs_location`` pref, or "" when unset/unavailable.
+
+    Reads through the same prefs adapter the ``/api/prefs`` route uses.  Lazily
+    imports ``get_prefs_adapter`` to avoid an import cycle (app → routes →
+    storage).  Any failure (no adapter, malformed prefs) degrades to "" so
+    resolution falls back to the shipped default.
+    """
+    try:
+        from pdomain_ocr_simple_gui.app import get_prefs_adapter
+
+        adapter = get_prefs_adapter()
+        if adapter is None:
+            return ""
+        raw = adapter.read().apps.get(_APP_ID, {})
+        value = raw.get("jobs_location", "") if isinstance(raw, dict) else ""
+        return value if isinstance(value, str) else ""
+    except Exception:  # prefs are optional — never break storage resolution
+        logger.exception(
+            "Failed to read jobs_location pref; using env/default",
+            extra={"context": "_jobs_location_pref()"},
+        )
+        return ""
+
 
 def _projects_root() -> Path:
     """Return the projects root directory.
 
-    Reads ``PD_OCR_SIMPLE_GUI_PROJECTS_ROOT`` from the environment so that the
-    test suite (and CI) can redirect storage without touching the real home
-    directory.  Falls back to the shipped default when the var is not set.
+    Resolution precedence, evaluated per call so a saved pref applies
+    immediately (no restart):
+
+    1. ``PD_OCR_SIMPLE_GUI_PROJECTS_ROOT`` env var — wins when set. This keeps
+       the test suite / CI isolation guard authoritative.
+    2. The ``jobs_location`` app pref — when non-empty, expanded (``~``) and
+       resolved to an absolute path.
+    3. The shipped default under the user data dir.
     """
     raw = os.environ.get("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT")
-    return Path(raw) if raw else _PROJECTS_ROOT_DEFAULT
+    if raw:
+        return Path(raw)
+    pref = _jobs_location_pref()
+    if pref:
+        return Path(pref).expanduser().resolve()
+    return _PROJECTS_ROOT_DEFAULT
 
 
 JSONValue: TypeAlias = str | int | float | bool | None | list["JSONValue"] | dict[str, "JSONValue"]

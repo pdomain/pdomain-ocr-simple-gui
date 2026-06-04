@@ -2,34 +2,65 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException
 
 from pdomain_ocr_simple_gui.auth import require_token
-from pdomain_ocr_simple_gui.models import AppPrefs
+from pdomain_ocr_simple_gui.models import AppPrefs, AppPrefsResponse
 
 router = APIRouter(prefix="/api/prefs", tags=["prefs"])
 
 _APP_ID = "pdomain-ocr-simple-gui"
 
 
-@router.get("", response_model=AppPrefs, dependencies=[Depends(require_token)])
-async def get_prefs() -> AppPrefs:
-    """Return the app prefs, or defaults if no adapter/data present."""
+def _validate_jobs_location(value: str) -> None:
+    """Validate a non-empty jobs_location: it must be creatable and writable.
+
+    Empty is always valid (means: fall back to env var / shipped default).
+    A non-empty value is expanded (``~``), resolved, ``mkdir(parents=True,
+    exist_ok=True)``-ed, and probed for writability.  Raises HTTPException 400
+    with a clear message on any failure so the PUT handler can surface it.
+    """
+    if not value:
+        return
+    target = Path(value).expanduser().resolve()
+    try:
+        target.mkdir(parents=True, exist_ok=True)
+        probe = target / ".pd-ocr-write-probe"
+        _ = probe.write_text("")
+        probe.unlink(missing_ok=True)
+    except OSError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"jobs location is not writable: {target} ({exc.strerror or exc})",
+        ) from exc
+
+
+@router.get("", response_model=AppPrefsResponse, dependencies=[Depends(require_token)])
+async def get_prefs() -> AppPrefsResponse:
+    """Return the app prefs (plus the resolved effective jobs location)."""
     from pdomain_ocr_simple_gui.app import get_prefs_adapter
+    from pdomain_ocr_simple_gui.storage import _projects_root
 
     adapter = get_prefs_adapter()
     if adapter is None:
-        return AppPrefs()
-    raw = adapter.read().apps.get(_APP_ID, {})
-    if not raw:
-        return AppPrefs()
-    return AppPrefs.model_validate(raw)
+        base = AppPrefs()
+    else:
+        raw = adapter.read().apps.get(_APP_ID, {})
+        base = AppPrefs.model_validate(raw) if raw else AppPrefs()
+    return AppPrefsResponse(
+        **base.model_dump(),
+        effective_jobs_location=str(_projects_root()),
+    )
 
 
 @router.put("", response_model=AppPrefs, dependencies=[Depends(require_token)])
 async def put_prefs(body: AppPrefs) -> AppPrefs:
     """Persist app prefs via adapter (best-effort if no adapter)."""
     from pdomain_ocr_simple_gui.app import get_prefs_adapter
+
+    _validate_jobs_location(body.jobs_location)
 
     adapter = get_prefs_adapter()
     if adapter is not None:

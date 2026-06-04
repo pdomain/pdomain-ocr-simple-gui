@@ -82,3 +82,19 @@ class AppPrefs(BaseModel):
     combined_txt_default: bool = True
     recent_projects: list[dict[str, object]] = []
     ui_prefs: CommonUIPrefs | None = None
+    # Where new OCR jobs/projects are stored. Empty = use env var or default.
+    # Precedence at resolution time: env var > this pref > shipped default.
+    # Switch-not-migrate: changing this affects NEW jobs only; existing jobs
+    # in the previous location are not moved.
+    jobs_location: str = ""
+
+
+class AppPrefsResponse(AppPrefs):
+    """GET /api/prefs response — AppPrefs plus the resolved effective root.
+
+    ``effective_jobs_location`` is a read-only echo of the projects root the
+    backend would use *right now* (after applying env > pref > default
+    precedence).  It is never persisted; PUT accepts a plain ``AppPrefs``.
+    """
+
+    effective_jobs_location: str = ""
