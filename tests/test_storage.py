@@ -311,3 +311,26 @@ class TestListProjectsTestJobFilter:
         assert real_id in returned_ids
         # Sanity: real_id does NOT start with the prefix
         assert not real_id.startswith(TEST_JOB_PREFIX)
+
+
+class TestIsTestJobAllPrefixes:
+    """is_test_job() must return True for every known e2e fixture prefix."""
+
+    def test_all_known_prefixes_are_test_jobs(self) -> None:
+        """Every prefix in TEST_JOB_PREFIXES is recognised by is_test_job()."""
+        from pdomain_ocr_simple_gui._testjobs import TEST_JOB_PREFIXES, is_test_job
+
+        for prefix in TEST_JOB_PREFIXES:
+            assert is_test_job(prefix + "abc123"), f"is_test_job returned False for prefix {prefix!r}"
+
+    def test_real_uuid_is_not_a_test_job(self) -> None:
+        """A plain UUID-like id is not a test job."""
+        from pdomain_ocr_simple_gui._testjobs import is_test_job
+
+        assert not is_test_job("a1b2c3d4-1234-5678-abcd-ef0123456789")
+
+    def test_non_prefixed_id_is_not_a_test_job(self) -> None:
+        """A regular non-prefixed id is not a test job."""
+        from pdomain_ocr_simple_gui._testjobs import is_test_job
+
+        assert not is_test_job("real-job-unique-77")
