@@ -114,7 +114,9 @@ def test_running_job_no_actions_yet(page: Page, live_server_url: str, e2e_data_r
     page.route(poll_route, lambda route: route.fulfill(status=200, body=json.dumps(body)))
     page.goto(f"{live_server_url}/jobs/{project_id}")
     expect(page.get_by_test_id("results-page")).to_be_visible(timeout=15_000)
-    expect(page.get_by_test_id("download-results-button")).to_have_count(0)
+    # Task 9: download-results-button replaced by two explicit buttons.
+    expect(page.get_by_test_id("download-images-text")).to_have_count(0)
+    expect(page.get_by_test_id("download-images-text-json")).to_have_count(0)
     expect(page.get_by_test_id("rerun-all-button")).to_have_count(0)
     page.unroute(poll_route)
 

@@ -168,9 +168,11 @@ def test_upload_ocr_download_flow(
     # --- Leg 3: Download (B-RESULTS-006) — seeded managed job ---
     # (See module docstring: FakeDispatcher does not produce managed-mode jobs
     # from a file-picker upload without UI interaction with OutputConfigPanel.)
+    # Task 9: replaced single download-results-button + checkboxes with two
+    # explicit buttons.  Use download-images-text-json (images + text + JSON).
     page.goto(f"{live_server_url}/jobs/{seeded_managed_job_id}")
     expect(page.get_by_test_id("results-page")).to_be_visible(timeout=15_000)
-    btn = page.get_by_test_id("download-results-button")
+    btn = page.get_by_test_id("download-images-text-json")
     expect(btn).to_be_visible(timeout=10_000)
 
     with page.expect_download(timeout=10_000) as dl_info:
