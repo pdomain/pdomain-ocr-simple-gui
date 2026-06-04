@@ -1,16 +1,19 @@
-"""Purge ephemeral e2e test-job artifacts from the projects root.
+"""Purge ephemeral e2e test-job artifacts from the projects, output, and jobs-meta roots.
 
-Removes any directory under ``PROJECTS_ROOT`` whose name matches the
-e2e test-job prefix (``e2etestjob-``), and drops matching ids from the
-prefs ``recent_projects`` list.
+Removes any directory under each root whose name matches a known e2e
+test-job prefix, and drops matching ids from the prefs ``recent_projects`` list.
 
 Usage (manual)::
 
     python -m pdomain_ocr_simple_gui.scripts.purge_test_jobs
 
-The ``PROJECTS_ROOT`` is resolved from the
-``PD_OCR_SIMPLE_GUI_PROJECTS_ROOT`` env var (same as the backend), or
-the installed default.  Pass ``--dry-run`` to preview without deleting.
+Roots are resolved from env vars (same as the backend) or installed defaults:
+
+- ``PD_OCR_SIMPLE_GUI_PROJECTS_ROOT``
+- ``PD_OCR_SIMPLE_GUI_OUTPUT_ROOT``
+- ``PD_OCR_SIMPLE_GUI_JOBS_META_ROOT``
+
+Pass ``--dry-run`` to preview without deleting.
 """
 
 from __future__ import annotations
@@ -28,12 +31,26 @@ logger = logging.getLogger(__name__)
 _APP_ID = "pdomain-ocr-simple-gui"
 
 _DEFAULT_PROJECTS_ROOT: Path = Path.home() / ".local" / "share" / "pdomain-suite" / "simple-gui" / "projects"
+_DEFAULT_OUTPUT_ROOT: Path = Path.home() / ".local" / "share" / "pdomain-ocr-simple-gui" / "outputs"
+_DEFAULT_JOBS_META_ROOT: Path = Path.home() / ".local" / "share" / "pdomain-ocr-simple-gui" / "jobs"
 
 
 def _default_projects_root() -> Path:
     """Return the projects root, honouring the env var the backend uses."""
     raw = os.environ.get("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT")
     return Path(raw) if raw else _DEFAULT_PROJECTS_ROOT
+
+
+def _default_output_root() -> Path:
+    """Return the output root, honouring the env var the backend uses."""
+    raw = os.environ.get("PD_OCR_SIMPLE_GUI_OUTPUT_ROOT")
+    return Path(raw) if raw else _DEFAULT_OUTPUT_ROOT
+
+
+def _default_jobs_meta_root() -> Path:
+    """Return the jobs-meta root, honouring the env var the backend uses."""
+    raw = os.environ.get("PD_OCR_SIMPLE_GUI_JOBS_META_ROOT")
+    return Path(raw) if raw else _DEFAULT_JOBS_META_ROOT
 
 
 class _PrefsAdapterProtocol(Protocol):
@@ -48,17 +65,46 @@ class _PrefsAdapterProtocol(Protocol):
         ...
 
 
+def _purge_root(root: Path, *, dry_run: bool) -> set[str]:
+    """Remove test-job dirs from a single root; return set of removed ids."""
+    from pdomain_ocr_simple_gui._testjobs import is_test_job
+
+    if not root.exists():
+        logger.debug("root does not exist; nothing to purge: %s", root)
+        return set()
+
+    removed: set[str] = set()
+    for entry in sorted(root.iterdir()):
+        if not entry.is_dir():
+            continue
+        if not is_test_job(entry.name):
+            continue
+        removed.add(entry.name)
+        if dry_run:
+            logger.info("[dry-run] would remove: %s", entry)
+        else:
+            logger.info("Removing test job dir: %s", entry)
+            shutil.rmtree(entry)
+    return removed
+
+
 def purge(
     projects_root: Path | None = None,
+    output_root: Path | None = None,
+    jobs_meta_root: Path | None = None,
     prefs_adapter: _PrefsAdapterProtocol | None = None,
     *,
     dry_run: bool = False,
 ) -> list[str]:
-    """Remove all e2etestjob-* dirs and clean prefs recent_projects.
+    """Remove all test-job dirs and clean prefs recent_projects.
 
     Args:
         projects_root: Override the projects root directory.  Defaults to
-            the env-var-resolved default (same logic as the backend).
+            the env-var-resolved default (``PD_OCR_SIMPLE_GUI_PROJECTS_ROOT``).
+        output_root: Override the output root directory.  Defaults to
+            the env-var-resolved default (``PD_OCR_SIMPLE_GUI_OUTPUT_ROOT``).
+        jobs_meta_root: Override the jobs-meta root directory.  Defaults to
+            the env-var-resolved default (``PD_OCR_SIMPLE_GUI_JOBS_META_ROOT``).
         prefs_adapter: Optional ``PrefsAdapter``-compatible object for
             reading/writing recent_projects.  When ``None`` the function
             attempts to construct a ``LocalFilePrefs`` from the default
@@ -69,29 +115,19 @@ def purge(
             removed ids.
 
     Returns:
-        List of project_id strings that were (or would be) removed.
+        Deduplicated list of project_id strings that were (or would be) removed
+        across all three roots.
     """
-    from pdomain_ocr_simple_gui._testjobs import is_test_job
+    p_root = projects_root if projects_root is not None else _default_projects_root()
+    o_root = output_root if output_root is not None else _default_output_root()
+    j_root = jobs_meta_root if jobs_meta_root is not None else _default_jobs_meta_root()
 
-    root = projects_root if projects_root is not None else _default_projects_root()
+    removed_ids: set[str] = set()
+    removed_ids |= _purge_root(p_root, dry_run=dry_run)
+    removed_ids |= _purge_root(o_root, dry_run=dry_run)
+    removed_ids |= _purge_root(j_root, dry_run=dry_run)
 
-    if not root.exists():
-        logger.debug("projects_root does not exist; nothing to purge: %s", root)
-        return []
-
-    removed: list[str] = []
-    for entry in sorted(root.iterdir()):
-        if not entry.is_dir():
-            continue
-        if not is_test_job(entry.name):
-            continue
-        removed.append(entry.name)
-        if dry_run:
-            logger.info("[dry-run] would remove: %s", entry)
-        else:
-            logger.info("Removing test job dir: %s", entry)
-            shutil.rmtree(entry)
-
+    removed = sorted(removed_ids)
     if removed:
         _drop_from_prefs(removed, prefs_adapter, dry_run=dry_run)
 
@@ -117,8 +153,19 @@ def _drop_from_prefs(
 
         remove_set = set(ids_to_remove)
         raw_prefs = adapter.read()
-        # UIPrefs has an .apps dict; guard with getattr for duck-type safety
-        apps_dict: dict[str, object] = getattr(raw_prefs, "apps", {})
+
+        # Narrow to UIPrefs to get typed .apps access; fall back to safe empty
+        # dict on any other type so the prefs step is skipped harmlessly.
+        try:
+            from pdomain_ops.suite.prefs import UIPrefs  # pyright: ignore[reportMissingTypeStubs]
+        except ImportError:
+            logger.warning("pdomain_ops not available; skipping prefs cleanup")
+            return
+        if not isinstance(raw_prefs, UIPrefs):
+            logger.debug("Prefs object is not UIPrefs (%r); skipping cleanup", type(raw_prefs))
+            return
+        apps_dict: dict[str, dict[str, object]] = raw_prefs.apps  # type: ignore[assignment]
+
         app_data = apps_dict.get(_APP_ID)
         if not app_data or not isinstance(app_data, dict):
             return
