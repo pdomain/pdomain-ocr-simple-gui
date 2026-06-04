@@ -1093,6 +1093,22 @@ describe("PageViewPage", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Task 10: OCR textarea fills panel height — no rows attribute
+  // ---------------------------------------------------------------------------
+
+  it("ocr-text textarea has no rows attribute (fills panel via PageSplitView)", async () => {
+    // Task 10: drop rows={40}; textarea fills the editor slot height via
+    // pdomain-ui 0.6.0 PageSplitView's fill rule.  The data-testid="ocr-text"
+    // attribute lets tests and e2e selectors target it precisely.
+    renderPageView("proj-abc", 0);
+    await waitFor(() => {
+      const ta = screen.getByTestId("ocr-text");
+      expect(ta).toBeInTheDocument();
+      expect(ta).not.toHaveAttribute("rows");
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Task 9: mirrored download shortcuts — download-images-text / -text-json
   // ---------------------------------------------------------------------------
 
