@@ -72,6 +72,19 @@ def _assert_suite_data_dir_is_tmp(suite_data_dir: str) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _assert_under_tmp(path: Path, tmp_root: Path) -> None:
+    """Raise RuntimeError when *path* does not resolve under *tmp_root*.
+
+    Called from e2e seeding fixtures before writing any artifact to disk so
+    that a misconfigured data-root cannot accidentally write into a real user
+    directory.  Both the exact root and any descendant are accepted.
+    """
+    resolved = Path(path).resolve()
+    root_resolved = tmp_root.resolve()
+    if resolved != root_resolved and root_resolved not in resolved.parents:
+        raise RuntimeError(f"e2e fixture refusing to write outside tmpdir: {resolved}")
+
+
 def _free_port() -> int:
     """Return an ephemeral free TCP port on localhost."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -144,7 +157,9 @@ def e2e_data_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Session-scoped temporary directory for all e2e server data."""
     root: Path = tmp_path_factory.mktemp("e2e_server_data")
     for subdir in ("projects", "outputs", "jobs_meta", "uploads", "suite_data", "suite_data_real"):
-        (root / subdir).mkdir(parents=True, exist_ok=True)
+        subpath = root / subdir
+        subpath.mkdir(parents=True, exist_ok=True)
+        _assert_under_tmp(subpath, root)
     return root
 
 
@@ -299,6 +314,9 @@ def seeded_job_id(e2e_data_root: Path) -> str:
     projects_root = e2e_data_root / "projects"
     outputs_root = e2e_data_root / "outputs"
     jobs_meta_root = e2e_data_root / "jobs_meta"
+    _assert_under_tmp(projects_root, e2e_data_root)
+    _assert_under_tmp(outputs_root, e2e_data_root)
+    _assert_under_tmp(jobs_meta_root, e2e_data_root)
 
     out_dir = str(outputs_root / project_id)
     _write_project_json(projects_root, project_id, output_dir=out_dir)
