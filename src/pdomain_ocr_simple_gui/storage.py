@@ -10,6 +10,7 @@ import shutil
 from pathlib import Path
 from typing import TypeAlias, cast
 
+from pdomain_ocr_simple_gui._testjobs import is_test_job
 from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
 
 logger = logging.getLogger(__name__)
@@ -225,6 +226,8 @@ def list_projects() -> list[tuple[ProjectSpec, ProjectStatus]]:
         return []
     results: list[tuple[ProjectSpec, ProjectStatus]] = []
     for proj_dir in sorted(root.iterdir()):
+        if is_test_job(proj_dir.name):
+            continue
         proj_file = proj_dir / "project.json"
         if proj_file.exists():
             try:

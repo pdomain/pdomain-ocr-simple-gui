@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from httpx import ASGITransport, AsyncClient
@@ -1019,3 +1021,116 @@ class TestOutputModeRoundTrip:
         # Core fields must still be present and correct
         assert data["project_id"] == project_id
         assert data["state"] in {"queued", "running", "succeeded", "failed", "cancelled"}
+
+
+class TestListJobsTestJobFilter:
+    """GET /api/jobs must never surface e2etestjob-* project ids."""
+
+    async def test_excludes_test_job_from_listing(self, projects_root: Path, monkeypatch) -> None:
+        """Seed a test job and a real job; GET /api/jobs returns only the real one."""
+        from pdomain_ocr_simple_gui._testjobs import TEST_JOB_PREFIX
+        from pdomain_ocr_simple_gui.models import ProjectSpec, ProjectStatus
+        from pdomain_ocr_simple_gui.storage import write_project
+
+        # Seed e2etestjob-x
+        test_id = TEST_JOB_PREFIX + "x"
+        test_spec = ProjectSpec(
+            project_id=test_id,
+            name="Test Job X",
+            source_path="/tmp/src",
+            output_dir="/tmp/out",
+            engine="doctr",
+            language="en",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            last_opened_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        test_status = ProjectStatus(
+            project_id=test_id,
+            state="succeeded",
+            page_count=0,
+            pages_done=0,
+            pages=[],
+        )
+        write_project(test_spec, test_status)
+
+        # Seed real-y
+        real_id = "real-y"
+        real_spec = ProjectSpec(
+            project_id=real_id,
+            name="Real Job Y",
+            source_path="/tmp/src",
+            output_dir="/tmp/out",
+            engine="doctr",
+            language="en",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            last_opened_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        real_status = ProjectStatus(
+            project_id=real_id,
+            state="succeeded",
+            page_count=0,
+            pages_done=0,
+            pages=[],
+        )
+        write_project(real_spec, real_status)
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.get("/api/jobs")
+
+        assert resp.status_code == 200
+        ids = [item["project_id"] for item in resp.json()]
+        assert real_id in ids
+        assert test_id not in ids
+
+    async def test_add_test_job_to_recent_projects_is_noop(self, projects_root: Path, monkeypatch) -> None:
+        """Creating a test-prefixed job must NOT write it to prefs recent_projects."""
+        from unittest.mock import MagicMock
+
+        from pdomain_ops.suite.types import UIPrefs
+
+        import pdomain_ocr_simple_gui.app as app_mod
+        from pdomain_ocr_simple_gui._testjobs import TEST_JOB_PREFIX
+
+        ui_prefs = UIPrefs()
+        ui_prefs.apps["pdomain-ocr-simple-gui"] = {"recent_projects": []}
+        mock_adapter = MagicMock()
+        mock_adapter.read.return_value = ui_prefs
+        mock_adapter.write_app.return_value = None
+        monkeypatch.setattr(app_mod, "_prefs_adapter", mock_adapter)
+
+        # Build a test-prefixed spec/status pair
+        from datetime import UTC, datetime
+
+        from pdomain_ocr_simple_gui.models import ProjectSpec, ProjectStatus
+
+        test_id = TEST_JOB_PREFIX + "noop-prefs"
+        spec = ProjectSpec(
+            project_id=test_id,
+            name="Test Job",
+            source_path="/tmp/src",
+            output_dir="/tmp/out",
+            engine="doctr",
+            language="en",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            last_opened_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        status = ProjectStatus(
+            project_id=test_id,
+            state="queued",
+            page_count=0,
+            pages_done=0,
+            pages=[],
+        )
+
+        from pdomain_ocr_simple_gui.routes.jobs import _add_to_recent_projects
+
+        _add_to_recent_projects(spec, status)
+
+        # write_app must NOT have been called with a list containing test_id
+        for call in mock_adapter.write_app.call_args_list:
+            prefs_dict = call[0][1]  # second positional arg
+            recent = prefs_dict.get("recent_projects", [])
+            for entry in recent:
+                assert entry.get("project_id") != test_id, (
+                    f"Test job {test_id!r} must never appear in recent_projects"
+                )

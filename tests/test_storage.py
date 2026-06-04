@@ -226,3 +226,88 @@ class TestDeleteProject:
     def test_delete_missing_is_noop(self, projects_root: Path) -> None:
         # Should not raise
         delete_project("does-not-exist")
+
+
+class TestListProjectsTestJobFilter:
+    """list_projects() must never surface e2etestjob-* directories."""
+
+    def test_excludes_test_job_prefix_dirs(self, projects_root: Path, tmp_path: Path) -> None:
+        """Directories starting with TEST_JOB_PREFIX are excluded from listing."""
+        from pdomain_ocr_simple_gui._testjobs import TEST_JOB_PREFIX
+
+        # Write a test job (should be excluded)
+        test_id = TEST_JOB_PREFIX + "abc"
+        test_spec = ProjectSpec(
+            project_id=test_id,
+            name="Test Job",
+            source_path=str(tmp_path / "source"),
+            output_dir=str(tmp_path / "output"),
+            engine="doctr",
+            language="en",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            last_opened_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        test_status = ProjectStatus(
+            project_id=test_id,
+            state="succeeded",
+            page_count=0,
+            pages_done=0,
+            pages=[],
+        )
+        write_project(test_spec, test_status)
+
+        # Write a real job (should be included)
+        real_id = "real-job-1"
+        real_spec = ProjectSpec(
+            project_id=real_id,
+            name="Real Job",
+            source_path=str(tmp_path / "source"),
+            output_dir=str(tmp_path / "output"),
+            engine="doctr",
+            language="en",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            last_opened_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        real_status = ProjectStatus(
+            project_id=real_id,
+            state="succeeded",
+            page_count=0,
+            pages_done=0,
+            pages=[],
+        )
+        write_project(real_spec, real_status)
+
+        results = list_projects()
+        returned_ids = [s.project_id for s, _ in results]
+        assert real_id in returned_ids
+        assert test_id not in returned_ids
+
+    def test_real_job_passes_through(self, projects_root: Path, tmp_path: Path) -> None:
+        """A project_id not starting with TEST_JOB_PREFIX is always included."""
+        from pdomain_ocr_simple_gui._testjobs import TEST_JOB_PREFIX
+
+        real_id = "real-job-unique-99"
+        real_spec = ProjectSpec(
+            project_id=real_id,
+            name="Real Job",
+            source_path=str(tmp_path / "source"),
+            output_dir=str(tmp_path / "output"),
+            engine="doctr",
+            language="en",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            last_opened_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        real_status = ProjectStatus(
+            project_id=real_id,
+            state="succeeded",
+            page_count=0,
+            pages_done=0,
+            pages=[],
+        )
+        write_project(real_spec, real_status)
+
+        results = list_projects()
+        returned_ids = [s.project_id for s, _ in results]
+        assert real_id in returned_ids
+        # Sanity: real_id does NOT start with the prefix
+        assert not real_id.startswith(TEST_JOB_PREFIX)
