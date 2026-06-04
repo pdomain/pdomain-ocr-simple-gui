@@ -20,17 +20,12 @@ from pdomain_ocr_simple_gui.storage import (
     write_txt,
 )
 
-# A realistic, non-pytest-tmp source path.  The runtime test-job filter hides
-# any job whose source is under a pytest tmp dir, so fixtures that stand in for
-# *real* user jobs must use a source path that is NOT under /tmp/pytest-*.
-_REAL_SOURCE = "/home/user/scans/source"
-
 
 def _make_spec(tmp_path: Path) -> ProjectSpec:
     return ProjectSpec(
         project_id="test-proj-id-001",
         name="Test Project",
-        source_path=_REAL_SOURCE,
+        source_path=str(tmp_path / "source"),
         output_dir=str(tmp_path / "output"),
         engine="doctr",
         language="en",
@@ -193,7 +188,7 @@ class TestListProjects:
             ProjectSpec(
                 project_id=pid,
                 name=f"Project {pid}",
-                source_path=_REAL_SOURCE,
+                source_path=str(tmp_path / "source"),
                 output_dir=str(tmp_path / "output"),
                 engine="doctr",
                 language="en",
@@ -233,103 +228,20 @@ class TestDeleteProject:
         delete_project("does-not-exist")
 
 
-class TestListProjectsTestJobFilter:
-    """list_projects() must never surface e2etestjob-* directories."""
+class TestListProjectsNoFiltering:
+    """list_projects() must return EVERY project in the active root.
 
-    def test_excludes_test_job_prefix_dirs(self, projects_root: Path, tmp_path: Path) -> None:
-        """Directories starting with TEST_JOB_PREFIX are excluded from listing."""
-        from pdomain_ocr_simple_gui._testjobs import TEST_JOB_PREFIX
-
-        # Write a test job (should be excluded)
-        test_id = TEST_JOB_PREFIX + "abc"
-        test_spec = ProjectSpec(
-            project_id=test_id,
-            name="Test Job",
-            source_path=str(tmp_path / "source"),
-            output_dir=str(tmp_path / "output"),
-            engine="doctr",
-            language="en",
-            created_at=datetime(2026, 1, 1, tzinfo=UTC),
-            last_opened_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        test_status = ProjectStatus(
-            project_id=test_id,
-            state="succeeded",
-            page_count=0,
-            pages_done=0,
-            pages=[],
-        )
-        write_project(test_spec, test_status)
-
-        # Write a real job (should be included)
-        real_id = "real-job-1"
-        real_spec = ProjectSpec(
-            project_id=real_id,
-            name="Real Job",
-            source_path=_REAL_SOURCE,
-            output_dir=str(tmp_path / "output"),
-            engine="doctr",
-            language="en",
-            created_at=datetime(2026, 1, 1, tzinfo=UTC),
-            last_opened_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        real_status = ProjectStatus(
-            project_id=real_id,
-            state="succeeded",
-            page_count=0,
-            pages_done=0,
-            pages=[],
-        )
-        write_project(real_spec, real_status)
-
-        results = list_projects()
-        returned_ids = [s.project_id for s, _ in results]
-        assert real_id in returned_ids
-        assert test_id not in returned_ids
-
-    def test_real_job_passes_through(self, projects_root: Path, tmp_path: Path) -> None:
-        """A project_id not starting with TEST_JOB_PREFIX is always included."""
-        from pdomain_ocr_simple_gui._testjobs import TEST_JOB_PREFIX
-
-        real_id = "real-job-unique-99"
-        real_spec = ProjectSpec(
-            project_id=real_id,
-            name="Real Job",
-            source_path=_REAL_SOURCE,
-            output_dir=str(tmp_path / "output"),
-            engine="doctr",
-            language="en",
-            created_at=datetime(2026, 1, 1, tzinfo=UTC),
-            last_opened_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        real_status = ProjectStatus(
-            project_id=real_id,
-            state="succeeded",
-            page_count=0,
-            pages_done=0,
-            pages=[],
-        )
-        write_project(real_spec, real_status)
-
-        results = list_projects()
-        returned_ids = [s.project_id for s, _ in results]
-        assert real_id in returned_ids
-        # Sanity: real_id does NOT start with the prefix
-        assert not real_id.startswith(TEST_JOB_PREFIX)
-
-
-class TestListProjectsSourcePathFilter:
-    """list_projects() must hide UUID-named jobs whose source is under pytest tmp.
-
-    These are the real leaked jobs: no e2etestjob- prefix, but a
-    ``spec.source_path`` under ``/tmp/pytest-*`` left behind by smoke / e2e
-    tests that booted the server without isolated roots.
+    There is no runtime test-job filter: separation of test jobs from real
+    jobs is by *location* (isolated data roots enforced by the test
+    isolation fixture + conftest guard), never by inspecting project ids or
+    source paths at listing time.  This guards against regressing to a
+    runtime filter that would hide legitimately-created jobs.
     """
 
-    def _write(self, projects_root: Path, *, pid: str, source_path: str) -> None:
+    def _write(self, *, pid: str, source_path: str) -> None:
         spec = ProjectSpec(
             project_id=pid,
-            name="e2e-smoke",
+            name="job",
             source_path=source_path,
             output_dir="",
             engine="doctr",
@@ -340,24 +252,26 @@ class TestListProjectsSourcePathFilter:
         status = ProjectStatus(project_id=pid, state="succeeded", page_count=0, pages_done=0, pages=[])
         write_project(spec, status)
 
-    def test_uuid_job_with_pytest_tmp_source_is_hidden(self, projects_root: Path, tmp_path: Path) -> None:
-        """A UUID job whose source is under /tmp/pytest-* must not be listed."""
-        leaked_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
-        self._write(
-            projects_root,
-            pid=leaked_id,
-            source_path="/tmp/pytest-of-vscode/pytest-411/test_e2e0/source",
-        )
-        real_id = "real-uuid-1234"
-        self._write(
-            projects_root,
-            pid=real_id,
-            source_path="/home/user/scans/real_source",
-        )
+    def test_test_prefixed_dir_is_listed(self, projects_root: Path, tmp_path: Path) -> None:
+        """A project id matching the test-job prefix is NOT filtered out."""
+        from pdomain_ocr_simple_gui._testjobs import TEST_JOB_PREFIX
+
+        prefixed_id = TEST_JOB_PREFIX + "abc"
+        self._write(pid=prefixed_id, source_path=str(tmp_path / "source"))
 
         returned_ids = [s.project_id for s, _ in list_projects()]
+        assert prefixed_id in returned_ids
+
+    def test_uuid_job_with_pytest_tmp_source_is_listed(self, projects_root: Path, tmp_path: Path) -> None:
+        """A UUID job whose source is under /tmp/pytest-* is NOT filtered out."""
+        leaked_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+        self._write(pid=leaked_id, source_path="/tmp/pytest-of-vscode/pytest-411/test_e2e0/source")
+        real_id = "real-uuid-1234"
+        self._write(pid=real_id, source_path="/home/user/scans/real_source")
+
+        returned_ids = [s.project_id for s, _ in list_projects()]
+        assert leaked_id in returned_ids
         assert real_id in returned_ids
-        assert leaked_id not in returned_ids
 
 
 class TestIsTestJobAllPrefixes:

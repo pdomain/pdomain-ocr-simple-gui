@@ -1023,16 +1023,20 @@ class TestOutputModeRoundTrip:
         assert data["state"] in {"queued", "running", "succeeded", "failed", "cancelled"}
 
 
-class TestListJobsTestJobFilter:
-    """GET /api/jobs must never surface e2etestjob-* project ids."""
+class TestListJobsNoFiltering:
+    """GET /api/jobs must surface EVERY project in the active root.
 
-    async def test_excludes_test_job_from_listing(self, projects_root: Path, monkeypatch) -> None:
-        """Seed a test job and a real job; GET /api/jobs returns only the real one."""
+    Test/real separation is by isolated data root (location), never by a
+    runtime filter inspecting project ids or source paths.  These tests
+    guard against regressing to such a filter.
+    """
+
+    async def test_lists_all_jobs_including_test_signatures(self, projects_root: Path, monkeypatch) -> None:
+        """Seed a test-prefixed job and a plain job; GET /api/jobs returns both."""
         from pdomain_ocr_simple_gui._testjobs import TEST_JOB_PREFIX
         from pdomain_ocr_simple_gui.models import ProjectSpec, ProjectStatus
         from pdomain_ocr_simple_gui.storage import write_project
 
-        # Seed e2etestjob-x
         test_id = TEST_JOB_PREFIX + "x"
         test_spec = ProjectSpec(
             project_id=test_id,
@@ -1053,7 +1057,6 @@ class TestListJobsTestJobFilter:
         )
         write_project(test_spec, test_status)
 
-        # Seed real-y
         real_id = "real-y"
         real_spec = ProjectSpec(
             project_id=real_id,
@@ -1080,10 +1083,10 @@ class TestListJobsTestJobFilter:
         assert resp.status_code == 200
         ids = [item["project_id"] for item in resp.json()]
         assert real_id in ids
-        assert test_id not in ids
+        assert test_id in ids
 
-    async def test_add_test_job_to_recent_projects_is_noop(self, projects_root: Path, monkeypatch) -> None:
-        """Creating a test-prefixed job must NOT write it to prefs recent_projects."""
+    async def test_add_to_recent_projects_records_any_job(self, projects_root: Path, monkeypatch) -> None:
+        """_add_to_recent_projects writes the job to prefs regardless of its id."""
         from unittest.mock import MagicMock
 
         from pdomain_ops.suite.types import UIPrefs
@@ -1098,15 +1101,15 @@ class TestListJobsTestJobFilter:
         mock_adapter.write_app.return_value = None
         monkeypatch.setattr(app_mod, "_prefs_adapter", mock_adapter)
 
-        # Build a test-prefixed spec/status pair
         from datetime import UTC, datetime
 
         from pdomain_ocr_simple_gui.models import ProjectSpec, ProjectStatus
 
-        test_id = TEST_JOB_PREFIX + "noop-prefs"
+        # Even a test-prefixed id is recorded — no runtime filter.
+        job_id = TEST_JOB_PREFIX + "recorded-prefs"
         spec = ProjectSpec(
-            project_id=test_id,
-            name="Test Job",
+            project_id=job_id,
+            name="Job",
             source_path="/tmp/src",
             output_dir="/tmp/out",
             engine="doctr",
@@ -1115,7 +1118,7 @@ class TestListJobsTestJobFilter:
             last_opened_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
         status = ProjectStatus(
-            project_id=test_id,
+            project_id=job_id,
             state="queued",
             page_count=0,
             pages_done=0,
@@ -1126,11 +1129,9 @@ class TestListJobsTestJobFilter:
 
         _add_to_recent_projects(spec, status)
 
-        # write_app must NOT have been called with a list containing test_id
+        recorded_ids: list[str] = []
         for call in mock_adapter.write_app.call_args_list:
             prefs_dict = call[0][1]  # second positional arg
-            recent = prefs_dict.get("recent_projects", [])
-            for entry in recent:
-                assert entry.get("project_id") != test_id, (
-                    f"Test job {test_id!r} must never appear in recent_projects"
-                )
+            for entry in prefs_dict.get("recent_projects", []):
+                recorded_ids.append(entry.get("project_id"))
+        assert job_id in recorded_ids

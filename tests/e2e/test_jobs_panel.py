@@ -203,51 +203,31 @@ def test_trash_button_deletes_row_and_backend(page: Page, live_server_url: str, 
 
 
 # ---------------------------------------------------------------------------
-# TASK 15 — e2etestjob-* filter: test jobs never appear in jobs dock or recent list
+# No runtime filtering — every job in the active (isolated) root is listed.
+# Test/real separation is by data-root location, not by inspecting ids/paths.
 # ---------------------------------------------------------------------------
 
 
-def test_e2etestjob_never_appears_in_get_jobs(page: Page, live_server_url: str, seeded_job_id: str) -> None:
-    """Task 15: e2etestjob-* projects are excluded from GET /api/jobs.
+def test_seeded_job_appears_in_get_jobs(page: Page, live_server_url: str, seeded_job_id: str) -> None:
+    """A seeded job in the active root appears in GET /api/jobs — no filter.
 
-    The backend's list_jobs() route calls is_test_job() and filters out all
-    e2etestjob-* prefixed project ids.  Even though seeded_job_id exists on
-    disk, it must NOT appear in the listing.
+    There is no runtime test-job filter; ``list_jobs()`` returns every
+    project in the (isolated) projects root, including ids carrying a test
+    signature.
     """
-    assert seeded_job_id.startswith("e2etestjob-"), (
-        f"Expected e2etestjob-* prefix on seeded_job_id, got {seeded_job_id!r}"
-    )
-
     jobs_resp = httpx.get(f"{live_server_url}/api/jobs", timeout=10.0)
     assert jobs_resp.status_code == 200
     all_ids = [j.get("project_id") for j in jobs_resp.json()]
-    assert seeded_job_id not in all_ids, f"Test-job {seeded_job_id!r} leaked into GET /api/jobs: {all_ids}"
+    assert seeded_job_id in all_ids, f"Seeded {seeded_job_id!r} missing from GET /api/jobs: {all_ids}"
 
 
-def test_e2etestjob_never_appears_in_recent_projects(
-    page: Page, live_server_url: str, seeded_job_id: str
-) -> None:
-    """Task 15: e2etestjob-* projects are excluded from recent_projects prefs.
-
-    The backend's _add_to_recent_projects() guards against test-job ids.
-    The seeded job was never added to prefs; this test confirms that.
-    """
-    prefs_resp = httpx.get(f"{live_server_url}/api/prefs", timeout=10.0)
-    assert prefs_resp.status_code == 200
-    recent_ids = [p.get("project_id") for p in prefs_resp.json().get("recent_projects", [])]
-    assert seeded_job_id not in recent_ids, (
-        f"Test-job {seeded_job_id!r} leaked into recent_projects prefs: {recent_ids}"
-    )
-
-
-def test_directly_seeded_testjob_filtered_from_listing(
+def test_directly_seeded_job_appears_in_listing(
     page: Page, live_server_url: str, e2e_data_root: Path
 ) -> None:
-    """Task 15: e2etestjob-* project seeded directly in projects_root is filtered.
+    """A project seeded directly in projects_root appears in GET /api/jobs.
 
-    Seeds a fresh e2etestjob-* project (simulating the 'seed directly in
-    projects root' scenario from the task), then confirms it does NOT appear in
-    GET /api/jobs or GET /api/prefs recent_projects.
+    Seeds a fresh project directly in the projects root and confirms it
+    appears in GET /api/jobs — no runtime filter hides it.
     """
     from tests.e2e.conftest import (
         _guard_seeded_roots,
@@ -267,14 +247,8 @@ def test_directly_seeded_testjob_filtered_from_listing(
     _write_output_txt(outputs_root, test_id)
     _write_job_meta(jobs_meta_root, test_id, mode="next_to_source")
 
-    # GET /api/jobs must exclude the directly-seeded test job.
+    # GET /api/jobs must include the directly-seeded job.
     jobs_resp = httpx.get(f"{live_server_url}/api/jobs", timeout=10.0)
     assert jobs_resp.status_code == 200
     all_ids = [j.get("project_id") for j in jobs_resp.json()]
-    assert test_id not in all_ids, f"Directly-seeded {test_id!r} leaked into GET /api/jobs: {all_ids}"
-
-    # GET /api/prefs must exclude the directly-seeded test job from recent_projects.
-    prefs_resp = httpx.get(f"{live_server_url}/api/prefs", timeout=10.0)
-    assert prefs_resp.status_code == 200
-    recent_ids = [p.get("project_id") for p in prefs_resp.json().get("recent_projects", [])]
-    assert test_id not in recent_ids, f"Directly-seeded {test_id!r} leaked into recent_projects: {recent_ids}"
+    assert test_id in all_ids, f"Directly-seeded {test_id!r} missing from GET /api/jobs: {all_ids}"
