@@ -223,12 +223,23 @@ def reset_prefs(live_server_url: str) -> None:
     any test that mutates prefs via PUT /api/prefs would otherwise pollute
     subsequent tests assigned to the same worker.
 
-    This fixture calls PUT /api/prefs with an empty payload (AppPrefs
-    defaults) immediately before each test so every test starts from a
-    known clean state.  It is autouse so no individual test needs to
-    opt in.
+    This fixture PUTs the FULL AppPrefs defaults immediately before each
+    test so every test starts from a known clean state.  It is autouse so
+    no individual test needs to opt in.
+
+    NOTE: it must send an explicit full-defaults body, NOT an empty ``{}``.
+    PUT /api/prefs read-modify-merges a partial body (the clobber-proof
+    fix), so an empty payload is a no-op that would leak prefs across tests
+    on the same xdist worker.  Sending every field at its default value is
+    what actually resets the stored prefs.
     """
-    httpx.put(f"{live_server_url}/api/prefs", json={}, timeout=5.0)
+    from pdomain_ocr_simple_gui.models import AppPrefs
+
+    httpx.put(
+        f"{live_server_url}/api/prefs",
+        json=AppPrefs().model_dump(mode="json"),
+        timeout=5.0,
+    )
 
 
 # ---------------------------------------------------------------------------

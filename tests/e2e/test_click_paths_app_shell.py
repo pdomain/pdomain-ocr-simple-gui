@@ -743,11 +743,22 @@ def test_prefs_survive_reload(page: Page, live_server_url: str, e2e_data_root: P
         timeout=5_000,
     )
 
-    # Bad-state: reset prefs → defaults on next reload.
-    httpx.put(f"{live_server_url}/api/prefs", json={}, timeout=5.0)
+    # Invariant: an EMPTY PUT is a no-op merge and must NOT reset prefs.
+    # (PUT /api/prefs read-modify-merges a partial body, so {} preserves all
+    # saved fields — see the clobber-proof fix in routes/prefs.put_prefs.)
+    httpx.put(f"{live_server_url}/api/prefs", json={}, timeout=5.0).raise_for_status()
+    prefs_after_empty = httpx.get(f"{live_server_url}/api/prefs", timeout=5.0).json()
+    assert prefs_after_empty.get("ui_prefs", {}).get("theme") == "light"
+
+    # Bad-state: reset theme back to the default by sending it EXPLICITLY.
+    httpx.put(
+        f"{live_server_url}/api/prefs",
+        json={"ui_prefs": {"theme": "dark", "density": "normal", "fontScale": 1.0}},
+        timeout=5.0,
+    ).raise_for_status()
     page.goto(live_server_url)
     expect(page.get_by_test_id("home-page")).to_be_visible(timeout=15_000)
-    # After reset the default theme (dark or no attribute) is restored.
+    # After the explicit reset the default theme (dark / no attribute) is restored.
     page.wait_for_function(
         "() => document.documentElement.getAttribute('data-theme') !== 'light'",
         timeout=5_000,

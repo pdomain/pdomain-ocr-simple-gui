@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { makeTestQueryClient } from "../test/test-utils";
-import App from "../App";
+import App, { uiPrefsConfig } from "../App";
 
 // Spy for useUtilityDock().toggle — lets tests assert the jobs dock surface
 // is opened when the jobs button is clicked.
@@ -390,5 +390,103 @@ describe("App", () => {
     );
     // AppShell still renders — the route just matches nothing (no crash)
     expect(screen.getByTestId("app-shell-mock")).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// uiPrefsConfig persist wiring — clobber-proof PUT /api/prefs shapes
+//
+// Regression: persistApp previously sent `{app_prefs: ...}` (a wrapper key the
+// flat AppPrefs backend silently dropped), so every app-pref change saved an
+// all-defaults body and wiped siblings. persistCommon sent `{ui_prefs: ...}`
+// (correct field name) but a partial body still reset app fields under the old
+// replace-on-write backend. These tests pin the wire shapes and prove a second
+// persist never drops the first persist's fields (backend now merges).
+// ---------------------------------------------------------------------------
+describe("uiPrefsConfig persist wiring", () => {
+  /**
+   * Build a fetch mock that emulates the backend read-modify-merge for
+   * PUT /api/prefs: it keeps a stored prefs object, merges each partial PUT
+   * body into it, and serves it back from GET. Returns the store + spy.
+   */
+  function makeMergingFetch() {
+    const store: Record<string, unknown> = {
+      default_engine: "doctr",
+      default_language: "en",
+      ui_prefs: null,
+    };
+    const puts: Record<string, unknown>[] = [];
+    const fetchMock = vi.fn((url: string, opts?: RequestInit) => {
+      if (typeof url === "string" && url.includes("/api/prefs")) {
+        if (opts?.method === "PUT") {
+          const body = JSON.parse(String(opts.body)) as Record<string, unknown>;
+          puts.push(body);
+          // Emulate backend merge: partial body keys win, siblings survive.
+          Object.assign(store, body);
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ ...store }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ ...store }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
+    });
+    return { store, puts, fetchMock };
+  }
+
+  it("persistApp PUTs FLAT app fields (no app_prefs wrapper)", async () => {
+    const { puts, fetchMock } = makeMergingFetch();
+    (globalThis as any).fetch = fetchMock;
+
+    await uiPrefsConfig.persistApp?.({ default_engine: "tesseract" } as never);
+
+    expect(puts).toHaveLength(1);
+    // The body must be the flat field — NOT {app_prefs: {...}}.
+    expect(puts[0]).toEqual({ default_engine: "tesseract" });
+    expect(puts[0]).not.toHaveProperty("app_prefs");
+  });
+
+  it("persistCommon PUTs the ui_prefs slice under the real ui_prefs key", async () => {
+    const { puts, fetchMock } = makeMergingFetch();
+    (globalThis as any).fetch = fetchMock;
+
+    await uiPrefsConfig.persistCommon?.({
+      theme: "dark",
+      density: "normal",
+      fontScale: 1.0,
+    } as never);
+
+    expect(puts).toHaveLength(1);
+    expect(puts[0]).toEqual({
+      ui_prefs: { theme: "dark", density: "normal", fontScale: 1.0 },
+    });
+  });
+
+  it("persistApp then persistCommon: neither drops the other's field", async () => {
+    const { store, fetchMock } = makeMergingFetch();
+    (globalThis as any).fetch = fetchMock;
+
+    // 1) Save an app pref.
+    await uiPrefsConfig.persistApp?.({ default_engine: "tesseract" } as never);
+    // 2) Save a common (appearance) pref.
+    await uiPrefsConfig.persistCommon?.({
+      theme: "dark",
+      density: "normal",
+      fontScale: 1.0,
+    } as never);
+
+    // Both must coexist in the merged store after the second persist.
+    expect(store.default_engine).toBe("tesseract");
+    expect(store.ui_prefs).toEqual({
+      theme: "dark",
+      density: "normal",
+      fontScale: 1.0,
+    });
   });
 });

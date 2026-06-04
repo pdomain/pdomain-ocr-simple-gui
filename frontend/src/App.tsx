@@ -98,8 +98,13 @@ function handlePersistError(err: unknown): void {
   });
 }
 
-/** Minimal UIPrefs config — reads/writes from /api/prefs app prefs. */
-const uiPrefsConfig: UIPrefsConfig = {
+/**
+ * Minimal UIPrefs config — reads/writes from /api/prefs app prefs.
+ *
+ * Exported so App.test.tsx can drive persistApp/persistCommon directly and
+ * assert the PUT body shape (the AppShell mock never invokes these).
+ */
+export const uiPrefsConfig: UIPrefsConfig = {
   load: async () => {
     try {
       const res = await fetch("/api/prefs");
@@ -135,6 +140,10 @@ const uiPrefsConfig: UIPrefsConfig = {
   },
   onPersistError: handlePersistError,
   persistCommon: async (prefs) => {
+    // `ui_prefs` is a REAL field on the backend AppPrefs model (the common
+    // theme/density/fontScale slice), so this object shape is correct — do
+    // NOT unwrap it. The backend read-modify-merges this partial body, so
+    // sending only ui_prefs no longer resets sibling app prefs to defaults.
     const res = await fetch("/api/prefs", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -145,10 +154,16 @@ const uiPrefsConfig: UIPrefsConfig = {
     }
   },
   persistApp: async (appPrefs) => {
+    // Send the app-pref slice as FLAT fields — the backend PUT /api/prefs
+    // expects a flat AppPrefs body, NOT an `{app_prefs: ...}` wrapper. The
+    // wrapper key was silently ignored by Pydantic (extra=ignore), so the
+    // backend saw an all-defaults body and clobbered every saved pref. The
+    // backend now read-modify-merges partial bodies, so sending only the
+    // changed app fields is safe and preserves siblings.
     const res = await fetch("/api/prefs", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ app_prefs: appPrefs }),
+      body: JSON.stringify(appPrefs),
     });
     if (!res.ok) {
       throw new Error(`PUT /api/prefs failed: ${res.status}`);
