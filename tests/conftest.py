@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -12,6 +13,83 @@ from httpx import ASGITransport, AsyncClient
 
 from pdomain_ocr_simple_gui.app import app
 from pdomain_ocr_simple_gui.testing.fake_dispatcher import FakeStageDispatcher
+
+# ---------------------------------------------------------------------------
+# Session-wide isolation guard
+#
+# Ensures that NO test in ANY module can accidentally write to the real
+# home-dir storage roots.  If a test or the smoke-test subprocess forgets to
+# set its own roots, these session-scoped defaults kick in and redirect ALL
+# data roots (projects / output / jobs-meta / uploads / suite data) to a
+# per-session tmpdir.  Then a hard guard FAILS the whole session if any
+# resolved data root still points outside the pytest tmp tree.
+#
+# Critically, the defaulting step does NOT override a value already set in the
+# environment — so the e2e conftest (which passes its own session-scoped tmp
+# roots into the server subprocess) and the smoke test (which does the same)
+# both keep their explicit roots.  Any root that IS set in this process's
+# os.environ must still resolve under tmp or the guard aborts the session.
+# ---------------------------------------------------------------------------
+
+# Every env var the app / suite reads to locate on-disk data.
+_DATA_ROOT_VARS: dict[str, str] = {
+    "PD_OCR_SIMPLE_GUI_PROJECTS_ROOT": "projects",
+    "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": "outputs",
+    "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": "jobs_meta",
+    "PD_OCR_SIMPLE_GUI_UPLOAD_ROOT": "uploads",
+    "PD_SUITE_DATA_DIR": "suite_data",
+}
+
+
+def _is_under_tmp_tree(path: Path, *tmp_roots: Path) -> bool:
+    """Return True if *path* lives under the OS tmp dir or any pytest tmp root."""
+    import tempfile
+
+    resolved = path.resolve()
+    candidates = [Path(tempfile.gettempdir()).resolve(), *(r.resolve() for r in tmp_roots)]
+    for base in candidates:
+        if resolved == base or base in resolved.parents:
+            return True
+    # Fall back to a path-segment check (covers tmp dirs the platform reports
+    # differently than tempfile.gettempdir(), e.g. /tmp vs /private/tmp).
+    return resolved.parts[:2] == ("/", "tmp") or "pytest" in str(resolved)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _isolate_storage_roots(tmp_path_factory: pytest.TempPathFactory) -> None:
+    """Default all data roots to a session tmp dir, then HARD-GUARD against leaks.
+
+    Step 1 (default): any data-root env var that is unset is pointed at a
+    per-session tmpdir.  Already-set vars are left untouched so explicit
+    per-session overrides (e2e conftest, smoke test) win.
+
+    Step 2 (guard): every resolved data root is verified to live under the
+    pytest tmp tree.  If any root points outside tmp — i.e. at the real
+    home-dir storage — the fixture raises and the whole session fails fast.
+    No test, anywhere, may resolve a data root to the real home dir.
+    """
+    session_root: Path = tmp_path_factory.mktemp("session_storage_isolation")
+    base_temp: Path = tmp_path_factory.getbasetemp()
+
+    for var, subdir in _DATA_ROOT_VARS.items():
+        if var not in os.environ:
+            p = session_root / subdir
+            p.mkdir(parents=True, exist_ok=True)
+            os.environ[var] = str(p)
+
+    leaked: list[str] = []
+    for var in _DATA_ROOT_VARS:
+        raw = os.environ.get(var, "")
+        if not raw:
+            continue
+        if not _is_under_tmp_tree(Path(raw), session_root, base_temp):
+            leaked.append(f"{var}={raw!r}")
+    if leaked:
+        raise RuntimeError(
+            "Storage-isolation guard: data root(s) resolve OUTSIDE the pytest tmp "
+            "tree — tests would write to real home-dir storage. Offending vars: " + "; ".join(leaked)
+        )
+
 
 # ---------------------------------------------------------------------------
 # Storage root

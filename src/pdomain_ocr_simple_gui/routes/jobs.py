@@ -358,7 +358,7 @@ async def list_jobs() -> list[ProjectStatus]:
     return [
         status.model_copy(update={"name": spec.name, "output_dir": spec.output_dir})
         for spec, status in projects
-        if not is_test_job(spec.project_id)
+        if not is_test_job(spec.project_id, spec.source_path)
     ]
 
 
@@ -519,7 +519,7 @@ def _remove_from_recent_projects(project_id: str) -> None:
 
 def _add_to_recent_projects(spec: ProjectSpec, status: ProjectStatus) -> None:
     """Add a created project to prefs recent_projects (best-effort, no-op on error)."""
-    if is_test_job(spec.project_id):
+    if is_test_job(spec.project_id, spec.source_path):
         return
     try:
         from pdomain_ocr_simple_gui.app import get_prefs_adapter

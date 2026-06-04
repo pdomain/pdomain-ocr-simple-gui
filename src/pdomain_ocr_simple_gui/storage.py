@@ -226,18 +226,25 @@ def list_projects() -> list[tuple[ProjectSpec, ProjectStatus]]:
         return []
     results: list[tuple[ProjectSpec, ProjectStatus]] = []
     for proj_dir in sorted(root.iterdir()):
+        # Cheap prefix check before any IO; the full content-based signature
+        # (source_path under pytest tmp) needs the spec, applied after read.
         if is_test_job(proj_dir.name):
             continue
         proj_file = proj_dir / "project.json"
         if proj_file.exists():
             try:
                 spec, status = read_project(proj_dir.name)
-                results.append((spec, status))
             except Exception:  # skip unreadable project dirs; listing must not fail
                 logger.exception(
                     "Skipping unreadable project directory during listing",
                     extra={"context": f"read_project({proj_dir.name!r})"},
                 )
+                continue
+            # Hide leaked test artifacts (UUID-named jobs whose source is under
+            # a pytest tmp dir) — defense in depth against future leaks.
+            if is_test_job(spec.project_id, spec.source_path):
+                continue
+            results.append((spec, status))
     return results
 
 

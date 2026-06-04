@@ -20,12 +20,17 @@ from pdomain_ocr_simple_gui.storage import (
     write_txt,
 )
 
+# A realistic, non-pytest-tmp source path.  The runtime test-job filter hides
+# any job whose source is under a pytest tmp dir, so fixtures that stand in for
+# *real* user jobs must use a source path that is NOT under /tmp/pytest-*.
+_REAL_SOURCE = "/home/user/scans/source"
+
 
 def _make_spec(tmp_path: Path) -> ProjectSpec:
     return ProjectSpec(
         project_id="test-proj-id-001",
         name="Test Project",
-        source_path=str(tmp_path / "source"),
+        source_path=_REAL_SOURCE,
         output_dir=str(tmp_path / "output"),
         engine="doctr",
         language="en",
@@ -188,7 +193,7 @@ class TestListProjects:
             ProjectSpec(
                 project_id=pid,
                 name=f"Project {pid}",
-                source_path=str(tmp_path / "source"),
+                source_path=_REAL_SOURCE,
                 output_dir=str(tmp_path / "output"),
                 engine="doctr",
                 language="en",
@@ -261,7 +266,7 @@ class TestListProjectsTestJobFilter:
         real_spec = ProjectSpec(
             project_id=real_id,
             name="Real Job",
-            source_path=str(tmp_path / "source"),
+            source_path=_REAL_SOURCE,
             output_dir=str(tmp_path / "output"),
             engine="doctr",
             language="en",
@@ -290,7 +295,7 @@ class TestListProjectsTestJobFilter:
         real_spec = ProjectSpec(
             project_id=real_id,
             name="Real Job",
-            source_path=str(tmp_path / "source"),
+            source_path=_REAL_SOURCE,
             output_dir=str(tmp_path / "output"),
             engine="doctr",
             language="en",
@@ -311,6 +316,48 @@ class TestListProjectsTestJobFilter:
         assert real_id in returned_ids
         # Sanity: real_id does NOT start with the prefix
         assert not real_id.startswith(TEST_JOB_PREFIX)
+
+
+class TestListProjectsSourcePathFilter:
+    """list_projects() must hide UUID-named jobs whose source is under pytest tmp.
+
+    These are the real leaked jobs: no e2etestjob- prefix, but a
+    ``spec.source_path`` under ``/tmp/pytest-*`` left behind by smoke / e2e
+    tests that booted the server without isolated roots.
+    """
+
+    def _write(self, projects_root: Path, *, pid: str, source_path: str) -> None:
+        spec = ProjectSpec(
+            project_id=pid,
+            name="e2e-smoke",
+            source_path=source_path,
+            output_dir="",
+            engine="doctr",
+            language="en",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            last_opened_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        status = ProjectStatus(project_id=pid, state="succeeded", page_count=0, pages_done=0, pages=[])
+        write_project(spec, status)
+
+    def test_uuid_job_with_pytest_tmp_source_is_hidden(self, projects_root: Path, tmp_path: Path) -> None:
+        """A UUID job whose source is under /tmp/pytest-* must not be listed."""
+        leaked_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+        self._write(
+            projects_root,
+            pid=leaked_id,
+            source_path="/tmp/pytest-of-vscode/pytest-411/test_e2e0/source",
+        )
+        real_id = "real-uuid-1234"
+        self._write(
+            projects_root,
+            pid=real_id,
+            source_path="/home/user/scans/real_source",
+        )
+
+        returned_ids = [s.project_id for s, _ in list_projects()]
+        assert real_id in returned_ids
+        assert leaked_id not in returned_ids
 
 
 class TestIsTestJobAllPrefixes:

@@ -8,6 +8,7 @@ Marked ``slow`` and ``e2e``:
 
 from __future__ import annotations
 
+import os
 import shutil
 import socket
 import subprocess
@@ -62,6 +63,24 @@ def test_e2e_job_completes(tmp_path: Path) -> None:
     port = _free_port()
     base_url = f"http://127.0.0.1:{port}"
 
+    # Isolated data roots — never write to the real home-dir storage.
+    isolated_projects = tmp_path / "projects"
+    isolated_output = tmp_path / "output_root"
+    isolated_jobs_meta = tmp_path / "jobs_meta"
+    isolated_uploads = tmp_path / "uploads"
+    isolated_suite = tmp_path / "suite_data"
+    for p in (isolated_projects, isolated_output, isolated_jobs_meta, isolated_uploads, isolated_suite):
+        p.mkdir()
+
+    server_env = {
+        **os.environ,
+        "PD_OCR_SIMPLE_GUI_PROJECTS_ROOT": str(isolated_projects),
+        "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(isolated_output),
+        "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(isolated_jobs_meta),
+        "PD_OCR_SIMPLE_GUI_UPLOAD_ROOT": str(isolated_uploads),
+        "PD_SUITE_DATA_DIR": str(isolated_suite),
+    }
+
     # Start the server as a subprocess
     proc = subprocess.Popen(
         [
@@ -74,6 +93,7 @@ def test_e2e_job_completes(tmp_path: Path) -> None:
             "--port",
             str(port),
         ],
+        env=server_env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -121,20 +141,14 @@ def test_e2e_job_completes(tmp_path: Path) -> None:
             )
         assert state == "succeeded", f"Expected state=succeeded, got {state!r}. Full status: {final_status}"
 
-        # If succeeded, assert at least one .txt file was written
+        # If succeeded, assert at least one .txt file was written to the isolated roots.
+        # We check both the explicit output_dir and the isolated projects root (the pipeline
+        # may write to either or both depending on the OutputConfig mode).
         if final_status.get("state") == "succeeded":
-            txt_files = list(output_dir.rglob("*.txt")) or list(
-                (
-                    Path.home()
-                    / ".local"
-                    / "share"
-                    / "pdomain-suite"
-                    / "simple-gui"
-                    / "projects"
-                    / project_id
-                ).rglob("*.txt")
+            txt_files = list(output_dir.rglob("*.txt")) or list(isolated_projects.rglob("*.txt"))
+            assert txt_files, (
+                "Job state=done but no .txt files found in output_dir or isolated project storage"
             )
-            assert txt_files, "Job state=done but no .txt files found in output_dir or project storage"
 
     finally:
         proc.terminate()
