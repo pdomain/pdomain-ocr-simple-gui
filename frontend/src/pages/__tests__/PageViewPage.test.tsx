@@ -1091,6 +1091,20 @@ describe("PageViewPage", () => {
     const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
     expect(textarea.value).toBe(originalText);
   });
+
+  // ---------------------------------------------------------------------------
+  // Task 9: mirrored download shortcuts — download-images-text / -text-json
+  // ---------------------------------------------------------------------------
+
+  it("renders download-images-text and download-images-text-json shortcut buttons", async () => {
+    // Task 9: PageViewPage mirrors ResultsPage's two explicit download buttons.
+    // Testids match the download-images-text / download-images-text-json contract.
+    renderPageView("proj-abc", 0);
+    await waitFor(() => {
+      expect(screen.getByTestId("download-images-text")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("download-images-text-json")).toBeInTheDocument();
+  });
 });
 
 describe("PageViewPage — word overlay wiring", () => {

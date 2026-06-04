@@ -77,6 +77,8 @@ export const APP_TEST_IDS = {
   resultsRerunError: "results-rerun-error",
   downloadFilterText: "download-filter-text",
   downloadFilterJson: "download-filter-json",
+  downloadImagesText: "download-images-text",
+  downloadImagesTextJson: "download-images-text-json",
   recentProjectsList: "recent-projects-list",
   engineSelect: "engine-select",
   languageInput: "language-input",

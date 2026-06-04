@@ -1,6 +1,7 @@
 // Results page — M4 task #230, M6 task #233
 // Screen 3: live polling job status + page list
 // A7.2: download button for managed output mode.
+// Task 9: replaced include-filter checkboxes with two explicit download buttons.
 //
 // Polling is handled by useOcrJob (frontend/src/api/useOcrJob.ts), a thin
 // adapter that wraps useLongJob from @pdomain/pdomain-ui/stores. The
@@ -25,12 +26,6 @@ export default function ResultsPage() {
   const [rerunPending, setRerunPending] = useState(false);
   const [rerunError, setRerunError] = useState<string | null>(null);
   const [pathCopied, setPathCopied] = useState(false);
-
-  // Download include-filter (managed mode only). Images are always included by
-  // the backend; these toggles drive the text/json members of the ZIP via the
-  // ?include= query param (B-RESULTS-006). Both default on (legacy behaviour).
-  const [includeText, setIncludeText] = useState(true);
-  const [includeJson, setIncludeJson] = useState(true);
 
   // rerunKey is bumped after a successful rerun POST so useOcrJob sees a new
   // jobId and restarts polling (useLongJob stops when state reaches done/error).
@@ -164,13 +159,6 @@ export default function ResultsPage() {
   const isFailed = state === "failed";
   const showDownload = state === "succeeded" && output_mode === "managed";
 
-  // Assemble the download include-filter from the toggles. Images are always
-  // included server-side; text/json are gated by these tokens (B-RESULTS-006).
-  const includeTokens = [
-    ...(includeText ? ["text"] : []),
-    ...(includeJson ? ["json"] : []),
-  ];
-
   return (
     <div data-testid={APP_TEST_IDS.resultsPage} className="results-page">
       <header className="results-page__header">
@@ -236,47 +224,32 @@ export default function ResultsPage() {
         </div>
       )}
 
+      {/* Task 9: two explicit download buttons replace the checkbox fieldset.
+          Images are always included server-side; the buttons select which
+          supplementary files are added to the zip. */}
       {showDownload && (
         <div className="results-page__download">
-          <fieldset className="results-page__download-filter">
-            <legend>Include in download</legend>
-            <label>
-              <input
-                type="checkbox"
-                checked={includeText}
-                data-testid={APP_TEST_IDS.downloadFilterText}
-                onChange={(e) => {
-                  setIncludeText(e.target.checked);
-                }}
-              />
-              Text (.txt)
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={includeJson}
-                data-testid={APP_TEST_IDS.downloadFilterJson}
-                onChange={(e) => {
-                  setIncludeJson(e.target.checked);
-                }}
-              />
-              JSON (.json)
-            </label>
-            <span className="results-page__download-note">
-              Images are always included.
-            </span>
-          </fieldset>
           <Button
             variant="primary"
-            disabled={includeTokens.length === 0}
-            data-testid={APP_TEST_IDS.downloadResultsButton}
+            data-testid="download-images-text"
             onClick={() => {
               window.location.assign(
-                `/api/jobs/${id ?? ""}/download?include=${includeTokens.join(",")}`,
+                `/api/jobs/${id ?? ""}/download?include=text`,
               );
             }}
           >
-            Download results (.zip)
+            Download (images + text)
+          </Button>
+          <Button
+            variant="primary"
+            data-testid="download-images-text-json"
+            onClick={() => {
+              window.location.assign(
+                `/api/jobs/${id ?? ""}/download?include=${encodeURIComponent("text,json")}`,
+              );
+            }}
+          >
+            Download (images + text + JSON)
           </Button>
         </div>
       )}

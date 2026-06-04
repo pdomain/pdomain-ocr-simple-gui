@@ -369,10 +369,11 @@ export default function PageViewPage() {
           !shortcutCtxRef.current.loading &&
           shortcutCtxRef.current.rerunStatus === "idle",
       },
-      // Export
+      // Export — Task 9: two explicit downloads (text; text+JSON).
+      // JSON-only shortcut removed (no corresponding button in the UI).
       {
         keys: "mod+shift+t",
-        label: "Download .txt",
+        label: "Download images + text",
         group: "Export",
         handler: () => {
           window.location.href = `/api/jobs/${shortcutCtxRef.current.id ?? ""}/download?include=text`;
@@ -380,20 +381,11 @@ export default function PageViewPage() {
         when: () => !shortcutCtxRef.current.loading,
       },
       {
-        keys: "mod+shift+j",
-        label: "Download .json",
-        group: "Export",
-        handler: () => {
-          window.location.href = `/api/jobs/${shortcutCtxRef.current.id ?? ""}/download?include=json`;
-        },
-        when: () => !shortcutCtxRef.current.loading,
-      },
-      {
         keys: "mod+d",
-        label: "Download .zip",
+        label: "Download images + text + JSON",
         group: "Export",
         handler: () => {
-          window.location.href = `/api/jobs/${shortcutCtxRef.current.id ?? ""}/download?include=text,json`;
+          window.location.href = `/api/jobs/${shortcutCtxRef.current.id ?? ""}/download?include=${encodeURIComponent("text,json")}`;
         },
         when: () => !shortcutCtxRef.current.loading,
       },
@@ -492,41 +484,32 @@ export default function PageViewPage() {
               Re-run Tesseract
             </KeyButton>
           ) : null}
+          {/* Task 9: two explicit download buttons mirror ResultsPage's UI.
+              Keyboard shortcut mod+shift+t fires the text-only download;
+              mod+d fires the text+JSON download. */}
           <KeyButton
             shortcutKeys="mod+shift+t"
             variant="primary"
-            data-testid={APP_TEST_IDS.pageDownloadText}
+            data-testid="download-images-text"
             onClick={() => {
               window.location.href = `/api/jobs/${id ?? ""}/download?include=text`;
             }}
             disabled={loading}
-            aria-label="Download text only"
+            aria-label="Download images + text"
           >
-            ⤓ .txt
-          </KeyButton>
-          <KeyButton
-            shortcutKeys="mod+shift+j"
-            variant="primary"
-            data-testid={APP_TEST_IDS.pageDownloadJson}
-            onClick={() => {
-              window.location.href = `/api/jobs/${id ?? ""}/download?include=json`;
-            }}
-            disabled={loading}
-            aria-label="Download JSON sidecars only"
-          >
-            ⤓ .json
+            ⤓ images + text
           </KeyButton>
           <KeyButton
             shortcutKeys="mod+d"
             variant="primary"
-            data-testid={APP_TEST_IDS.pageDownloadBoth}
+            data-testid="download-images-text-json"
             onClick={() => {
-              window.location.href = `/api/jobs/${id ?? ""}/download?include=text,json`;
+              window.location.href = `/api/jobs/${id ?? ""}/download?include=${encodeURIComponent("text,json")}`;
             }}
             disabled={loading}
-            aria-label="Download text and JSON zip"
+            aria-label="Download images + text + JSON"
           >
-            ⤓ .zip
+            ⤓ images + text + JSON
           </KeyButton>
         </>
       }

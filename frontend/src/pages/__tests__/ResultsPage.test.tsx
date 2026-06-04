@@ -358,8 +358,8 @@ describe("ResultsPage", () => {
     });
   });
 
-  // A7.2: download button tests
-  it("shows download button when output_mode is managed and state is succeeded", async () => {
+  // A7.2: download button tests (updated for Task 9 two-button UI)
+  it("shows download buttons when output_mode is managed and state is succeeded", async () => {
     renderResultsPage("proj-abc", () =>
       vi.fn().mockResolvedValue({
         ok: true,
@@ -368,11 +368,12 @@ describe("ResultsPage", () => {
       }),
     );
     await waitFor(() => {
-      expect(screen.getByTestId("download-results-button")).toBeInTheDocument();
+      expect(screen.getByTestId("download-images-text")).toBeInTheDocument();
     });
+    expect(screen.getByTestId("download-images-text-json")).toBeInTheDocument();
   });
 
-  it("hides download button when output_mode is next_to_source", async () => {
+  it("hides download buttons when output_mode is next_to_source", async () => {
     renderResultsPage("proj-abc", () =>
       vi.fn().mockResolvedValue({
         ok: true,
@@ -384,15 +385,20 @@ describe("ResultsPage", () => {
       expect(screen.getByText("test-project")).toBeInTheDocument();
     });
     expect(
-      screen.queryByTestId("download-results-button"),
+      screen.queryByTestId("download-images-text"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("download-images-text-json"),
     ).not.toBeInTheDocument();
   });
 
   // ---------------------------------------------------------------------------
-  // Download include-filter UI — B-RESULTS-006 / B-RESULTS-007
+  // Download buttons — explicit two-button UI (Task 9)
   // ---------------------------------------------------------------------------
 
-  it("renders text + json filter toggles alongside the managed download button", async () => {
+  it("renders two explicit download buttons (no checkboxes) in managed mode", async () => {
+    // Task 9: replace checkbox fieldset with two explicit download buttons.
+    // No checkbox role should be present; two named buttons take their place.
     renderResultsPage("proj-abc", () =>
       vi.fn().mockResolvedValue({
         ok: true,
@@ -402,19 +408,55 @@ describe("ResultsPage", () => {
       }),
     );
     await waitFor(() => {
-      expect(screen.getByTestId("download-results-button")).toBeInTheDocument();
+      expect(screen.getByTestId("download-images-text")).toBeInTheDocument();
     });
-    expect(screen.getByTestId("download-filter-text")).toBeInTheDocument();
-    expect(screen.getByTestId("download-filter-json")).toBeInTheDocument();
+    expect(screen.getByTestId("download-images-text-json")).toBeInTheDocument();
+    // No checkboxes — the fieldset/include toggles are gone.
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    // Old single download button is gone.
+    expect(
+      screen.queryByTestId("download-results-button"),
+    ).not.toBeInTheDocument();
   });
 
-  it("download include param reflects the chosen filter toggles", async () => {
-    // B-RESULTS-006: deselecting JSON drives include=text (not the hardcoded
-    // text,json). The handler must assemble include from the toggles.
-    const user = userEvent.setup();
+  it("download-images-text button assigns ?include=text URL", async () => {
+    // Task 9: "Download (images + text)" drives include=text.
     const assignSpy = vi.fn();
     const original = window.location;
-    // jsdom forbids reassigning location.assign directly; redefine on a stub.
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...original, assign: assignSpy },
+    });
+    try {
+      renderResultsPage("proj-abc", () =>
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () =>
+            fixtures.jobStatus("succeeded", { outputMode: "managed" }),
+        }),
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId("download-images-text")).toBeInTheDocument();
+      });
+      const user = userEvent.setup();
+      await user.click(screen.getByTestId("download-images-text"));
+      expect(assignSpy).toHaveBeenCalledTimes(1);
+      const url = assignSpy.mock.calls[0]?.[0] as string;
+      expect(url).toContain("include=text");
+      expect(url).not.toContain("json");
+    } finally {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: original,
+      });
+    }
+  });
+
+  it("download-images-text-json button assigns ?include=text,json URL", async () => {
+    // Task 9: "Download (images + text + JSON)" drives include=text,json.
+    const assignSpy = vi.fn();
+    const original = window.location;
     Object.defineProperty(window, "location", {
       configurable: true,
       value: { ...original, assign: assignSpy },
@@ -430,16 +472,14 @@ describe("ResultsPage", () => {
       );
       await waitFor(() => {
         expect(
-          screen.getByTestId("download-results-button"),
+          screen.getByTestId("download-images-text-json"),
         ).toBeInTheDocument();
       });
-      // Turn JSON off; leave text on.
-      await user.click(screen.getByTestId("download-filter-json"));
-      await user.click(screen.getByTestId("download-results-button"));
+      const user = userEvent.setup();
+      await user.click(screen.getByTestId("download-images-text-json"));
       expect(assignSpy).toHaveBeenCalledTimes(1);
       const url = assignSpy.mock.calls[0]?.[0] as string;
-      expect(url).toContain("include=text");
-      expect(url).not.toContain("json");
+      expect(url).toContain("include=text%2Cjson");
     } finally {
       Object.defineProperty(window, "location", {
         configurable: true,
@@ -448,7 +488,7 @@ describe("ResultsPage", () => {
     }
   });
 
-  it("hides download button when state is not succeeded", async () => {
+  it("hides download buttons when state is not succeeded", async () => {
     renderResultsPage("proj-abc", () =>
       vi.fn().mockResolvedValue({
         ok: true,
@@ -463,7 +503,10 @@ describe("ResultsPage", () => {
       expect(screen.getByTestId("progress-bar")).toBeInTheDocument();
     });
     expect(
-      screen.queryByTestId("download-results-button"),
+      screen.queryByTestId("download-images-text"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("download-images-text-json"),
     ).not.toBeInTheDocument();
   });
 
