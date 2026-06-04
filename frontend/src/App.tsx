@@ -59,6 +59,7 @@ import type {
   Job,
   JobStatus,
 } from "@pdomain/pdomain-ui/shell";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ConfigProvider } from "./runtime/ConfigContext";
 import { HomePage } from "./pages/HomePage";
@@ -405,6 +406,23 @@ function SimpleGuiHeader({
 function AppShellWithHeader() {
   const { pill, dock } = useActiveJobs();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  /**
+   * deleteJob — calls DELETE /api/jobs/{id} then invalidates the active-jobs
+   * query so the dock refreshes and the deleted row disappears.
+   *
+   * pdomain-ui 0.6.0: AppShellJobsProps.onJobDelete renders a trash button on
+   * finished/failed job rows. This wires that button to the backend purge
+   * endpoint (same one used by the e2e fixture cleanup script).
+   */
+  async function deleteJob(id: string): Promise<void> {
+    try {
+      await fetch(`/api/jobs/${id}`, { method: "DELETE" });
+    } finally {
+      await queryClient.invalidateQueries({ queryKey: ["active-jobs"] });
+    }
+  }
 
   /**
    * onJobOpen — opens the ResultsPage for a completed job.
@@ -414,6 +432,9 @@ function AppShellWithHeader() {
     activeJobs: dock,
     onJobOpen: (jobId: string) => {
       navigate(`/jobs/${jobId}`);
+    },
+    onJobDelete: (jobId: string) => {
+      void deleteJob(jobId);
     },
   };
 

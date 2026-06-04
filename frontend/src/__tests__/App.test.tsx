@@ -22,6 +22,7 @@ interface MockJob {
 interface MockAppShellJobsProps {
   activeJobs?: MockJob[];
   onJobOpen?: (jobId: string) => void;
+  onJobDelete?: (jobId: string) => void;
 }
 
 // Mock @pdomain/pdomain-ui/shell — we test App routing, not AppShell internals.
@@ -63,6 +64,17 @@ vi.mock("@pdomain/pdomain-ui/shell", () => ({
               >
                 Open
               </button>
+              {/* Trash button — pdomain-ui 0.6.0: rendered for finished/failed
+                  rows when onJobDelete is provided. Testid: job-delete-<id>. */}
+              {jobs?.onJobDelete !== undefined && (
+                <button
+                  type="button"
+                  data-testid={`job-delete-${job.id}`}
+                  onClick={() => jobs.onJobDelete?.(job.id)}
+                >
+                  Delete
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -295,6 +307,74 @@ describe("App", () => {
   // -------------------------------------------------------------------------
   // Bad-case tests (M4 strengthening)
   // -------------------------------------------------------------------------
+
+  // -------------------------------------------------------------------------
+  // pdomain-ui 0.6.0 — trash button wires to DELETE /api/jobs/{id}
+  // -------------------------------------------------------------------------
+
+  it("trash button calls DELETE /api/jobs/{id} then refetches active-jobs", async () => {
+    // Arrange: one succeeded job appears in the dock.
+    // After DELETE, /api/jobs returns empty list — the row disappears.
+    const succeededJob = {
+      project_id: "proj-done",
+      name: "Finished scan",
+      state: "succeeded",
+      page_count: 2,
+      pages_done: 2,
+    };
+
+    let deleted = false;
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string, opts?: RequestInit) => {
+        if (typeof url === "string" && url.includes("/api/config")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ mode: "local", is_containerized: false }),
+          });
+        }
+        // DELETE /api/jobs/{id}
+        if (
+          typeof url === "string" &&
+          url.includes("/api/jobs/proj-done") &&
+          opts?.method === "DELETE"
+        ) {
+          deleted = true;
+          return Promise.resolve({ ok: true, json: async () => ({}) });
+        }
+        // GET /api/jobs — after delete return empty list
+        if (typeof url === "string" && url.includes("/api/jobs")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => (deleted ? [] : [succeededJob]),
+          });
+        }
+        return Promise.resolve({ ok: false, json: async () => ({}) });
+      },
+    );
+
+    renderApp();
+
+    // Wait for the dock row to appear
+    const jobRow = await screen.findByTestId("job-row");
+    expect(jobRow).toHaveAttribute("data-job-id", "proj-done");
+
+    // Trash button is rendered for this job (onJobDelete is wired)
+    const trashBtn = screen.getByTestId("job-delete-proj-done");
+    expect(trashBtn).toBeInTheDocument();
+
+    // Click the trash button
+    fireEvent.click(trashBtn);
+
+    // DELETE should have been called
+    await waitFor(() => {
+      expect(deleted).toBe(true);
+    });
+
+    // After refetch, the row disappears (job removed from active-jobs)
+    await waitFor(() => {
+      expect(screen.queryByTestId("job-row")).not.toBeInTheDocument();
+    });
+  });
 
   it("renders shell with empty content at unknown route (no crash)", () => {
     // App uses BrowserRouter internally; override window.location via history.
