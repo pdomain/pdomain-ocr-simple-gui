@@ -685,15 +685,17 @@ def test_page_fetch_error_shows_error_block(page: Page, live_server_url: str) ->
 def test_page_download_triggers_job_zip(page: Page, live_server_url: str, seeded_managed_job_id: str) -> None:
     """Covers: B-PAGEVIEW-016 — a per-page download button triggers the job ZIP.
 
-    The per-page buttons hit the job-level GET /api/jobs/{id}/download?include=…
-    (same contract as B-RESULTS-006/007 + the download-model stub at
-    docs/specs/2026-05-29-download-model.md). We assert the click triggers the
-    download (Playwright download event) rather than re-asserting ZIP membership.
+    Task 9 replaced the page-download-text / page-download-json / page-download-both
+    toolbar buttons with the same two buttons used on the results page:
+    ``download-images-text`` (``?include=text``) and
+    ``download-images-text-json`` (``?include=text,json``).
+    We assert the click triggers the download event rather than re-asserting
+    ZIP membership (covered by test_click_paths_downloads.py).
     """
     page.goto(f"{live_server_url}/jobs/{seeded_managed_job_id}/pages/0")
     expect(page.get_by_label("OCR text")).to_be_enabled(timeout=15_000)
     with page.expect_download(timeout=10_000) as dl_info:
-        page.get_by_test_id("page-download-text").click()
+        page.get_by_test_id("download-images-text").click()
     download = dl_info.value
     assert download.url.endswith("/download?include=text")
 

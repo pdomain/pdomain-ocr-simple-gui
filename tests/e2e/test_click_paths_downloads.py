@@ -39,13 +39,17 @@ def _zip_members(live_server_url: str, job_id: str, include: str) -> list[str]:
 
 
 def test_download_zip_from_results_page(page: Page, live_server_url: str, seeded_managed_job_id: str) -> None:
-    """Covers: B-RESULTS-006 — managed job download fires a non-empty .zip."""
+    """Covers: B-RESULTS-006 — managed job download fires a non-empty .zip.
+
+    Task 9 replaced a single download button + checkboxes with two explicit
+    download buttons: ``download-images-text`` (images + text) and
+    ``download-images-text-json`` (images + text + JSON).
+    """
     page.goto(f"{live_server_url}/jobs/{seeded_managed_job_id}")
-    btn = page.get_by_test_id("download-results-button")
+    btn = page.get_by_test_id("download-images-text-json")
     expect(btn).to_be_visible(timeout=15_000)
-    # Both filter toggles render alongside the button.
-    expect(page.get_by_test_id("download-filter-text")).to_be_visible()
-    expect(page.get_by_test_id("download-filter-json")).to_be_visible()
+    # The text-only button is also present.
+    expect(page.get_by_test_id("download-images-text")).to_be_visible()
 
     with page.expect_download() as dl_info:
         btn.click()
@@ -56,28 +60,27 @@ def test_download_zip_from_results_page(page: Page, live_server_url: str, seeded
     path = download.path()
     assert path is not None and path.stat().st_size > 0, "Downloaded .zip file is empty"
 
-    # Backend effect: the default (both) ZIP includes the .txt AND .json members.
+    # Backend effect: the text+json ZIP includes the .txt AND .json members.
     members = _zip_members(live_server_url, seeded_managed_job_id, "text,json")
     assert "page-001.txt" in members
     assert "page-001.json" in members
 
 
-def test_download_filter_text_only_drops_json(
+def test_download_images_text_button_drops_json(
     page: Page, live_server_url: str, seeded_managed_job_id: str
 ) -> None:
-    """Covers: B-RESULTS-006 — deselecting JSON changes real ZIP membership.
+    """Covers: B-RESULTS-006 — download-images-text button omits JSON from ZIP.
 
-    The chosen filter drives the ?include= param; a text-only download must
-    contain the .txt member and NOT the .json member.
+    Task 9 replaced the checkbox-filter model with two explicit buttons.
+    ``download-images-text`` passes ``?include=text``; the resulting ZIP
+    must contain the .txt member and NOT the .json member.
     """
     page.goto(f"{live_server_url}/jobs/{seeded_managed_job_id}")
-    json_toggle = page.get_by_test_id("download-filter-json")
-    expect(json_toggle).to_be_visible(timeout=15_000)
-    # Turn JSON off (text stays on).
-    json_toggle.uncheck()
+    text_btn = page.get_by_test_id("download-images-text")
+    expect(text_btn).to_be_visible(timeout=15_000)
 
     with page.expect_download() as dl_info:
-        page.get_by_test_id("download-results-button").click()
+        text_btn.click()
     download = dl_info.value
 
     # Observable + backend effect: the downloaded ZIP has .txt but no .json.
@@ -113,12 +116,12 @@ def test_download_bad_include_token_rejected(
 
 
 def test_download_button_hidden_for_non_managed(page: Page, live_server_url: str, seeded_job_id: str) -> None:
-    """Covers: B-RESULTS-007 — a non-managed succeeded job hides the download button."""
+    """Covers: B-RESULTS-007 — a non-managed succeeded job hides the download buttons."""
     page.goto(f"{live_server_url}/jobs/{seeded_job_id}")
     expect(page.get_by_test_id("results-page")).to_be_visible(timeout=15_000)
-    # The button (and its filter toggles) must be absent for next_to_source.
-    expect(page.get_by_test_id("download-results-button")).to_have_count(0)
-    expect(page.get_by_test_id("download-filter-text")).to_have_count(0)
+    # Both download buttons must be absent for next_to_source.
+    expect(page.get_by_test_id("download-images-text")).to_have_count(0)
+    expect(page.get_by_test_id("download-images-text-json")).to_have_count(0)
 
     # Backend effect: output_mode is next_to_source, not managed.
     resp = httpx.get(f"{live_server_url}/api/jobs/{seeded_job_id}", timeout=10.0)
