@@ -55,6 +55,32 @@ def _is_under_tmp_tree(path: Path, *tmp_roots: Path) -> bool:
     return resolved.parts[:2] == ("/", "tmp") or "pytest" in str(resolved)
 
 
+def _assert_roots_under_tmp(env: dict[str, str], *tmp_roots: Path) -> None:
+    """Fail-closed guard: raise if any data root in *env* escapes the tmp tree.
+
+    Inspects every var named in ``_DATA_ROOT_VARS``.  A var that is unset or
+    empty is ignored (the defaulting step in the fixture handles unset vars).
+    Any var whose value resolves OUTSIDE the pytest tmp tree — i.e. at the real
+    home-dir storage — makes this raise ``RuntimeError`` so the session fails
+    fast and no test can write to real on-disk data.
+
+    Factored out of ``_isolate_storage_roots`` so the raise path is directly
+    testable; the fixture calls this helper, so its behavior is unchanged.
+    """
+    leaked: list[str] = []
+    for var in _DATA_ROOT_VARS:
+        raw = env.get(var, "")
+        if not raw:
+            continue
+        if not _is_under_tmp_tree(Path(raw), *tmp_roots):
+            leaked.append(f"{var}={raw!r}")
+    if leaked:
+        raise RuntimeError(
+            "Storage-isolation guard: data root(s) resolve OUTSIDE the pytest tmp "
+            "tree — tests would write to real home-dir storage. Offending vars: " + "; ".join(leaked)
+        )
+
+
 @pytest.fixture(autouse=True, scope="session")
 def _isolate_storage_roots(tmp_path_factory: pytest.TempPathFactory) -> None:
     """Default all data roots to a session tmp dir, then HARD-GUARD against leaks.
@@ -77,18 +103,7 @@ def _isolate_storage_roots(tmp_path_factory: pytest.TempPathFactory) -> None:
             p.mkdir(parents=True, exist_ok=True)
             os.environ[var] = str(p)
 
-    leaked: list[str] = []
-    for var in _DATA_ROOT_VARS:
-        raw = os.environ.get(var, "")
-        if not raw:
-            continue
-        if not _is_under_tmp_tree(Path(raw), session_root, base_temp):
-            leaked.append(f"{var}={raw!r}")
-    if leaked:
-        raise RuntimeError(
-            "Storage-isolation guard: data root(s) resolve OUTSIDE the pytest tmp "
-            "tree — tests would write to real home-dir storage. Offending vars: " + "; ".join(leaked)
-        )
+    _assert_roots_under_tmp(dict(os.environ), session_root, base_temp)
 
 
 # ---------------------------------------------------------------------------
