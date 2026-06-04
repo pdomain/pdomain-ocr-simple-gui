@@ -85,6 +85,22 @@ def _assert_under_tmp(path: Path, tmp_root: Path) -> None:
         raise RuntimeError(f"e2e fixture refusing to write outside tmpdir: {resolved}")
 
 
+def _guard_seeded_roots(
+    projects_root: Path,
+    outputs_root: Path,
+    jobs_meta_root: Path,
+    tmp_root: Path,
+) -> None:
+    """Assert all three seeded-artifact roots are under *tmp_root*.
+
+    DRY guard used by every seeding fixture to prevent writing outside
+    the session-scoped tmpdir when data roots are misconfigured.
+    """
+    _assert_under_tmp(projects_root, tmp_root)
+    _assert_under_tmp(outputs_root, tmp_root)
+    _assert_under_tmp(jobs_meta_root, tmp_root)
+
+
 def _free_port() -> int:
     """Return an ephemeral free TCP port on localhost."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -385,6 +401,7 @@ def seeded_2page_job_id(e2e_data_root: Path) -> str:
     projects_root = e2e_data_root / "projects"
     outputs_root = e2e_data_root / "outputs"
     jobs_meta_root = e2e_data_root / "jobs_meta"
+    _guard_seeded_roots(projects_root, outputs_root, jobs_meta_root, e2e_data_root)
 
     out_dir = str(outputs_root / project_id)
     _write_project_json_2page(projects_root, project_id, output_dir=out_dir)
@@ -474,6 +491,7 @@ def seeded_rerun_job_id(e2e_data_root: Path) -> str:
     projects_root = e2e_data_root / "projects"
     outputs_root = e2e_data_root / "outputs"
     jobs_meta_root = e2e_data_root / "jobs_meta"
+    _guard_seeded_roots(projects_root, outputs_root, jobs_meta_root, e2e_data_root)
 
     # Write the source image into the project dir so collect_images finds it.
     proj_dir = projects_root / project_id
@@ -536,6 +554,7 @@ def seeded_failed_job_id(e2e_data_root: Path) -> str:
     projects_root = e2e_data_root / "projects"
     outputs_root = e2e_data_root / "outputs"
     jobs_meta_root = e2e_data_root / "jobs_meta"
+    _guard_seeded_roots(projects_root, outputs_root, jobs_meta_root, e2e_data_root)
 
     out_dir = str(outputs_root / project_id)
     _write_failed_project_json(projects_root, project_id, output_dir=out_dir)
@@ -557,6 +576,7 @@ def seeded_flow_rerun_job_id(e2e_data_root: Path) -> str:
     projects_root = e2e_data_root / "projects"
     outputs_root = e2e_data_root / "outputs"
     jobs_meta_root = e2e_data_root / "jobs_meta"
+    _guard_seeded_roots(projects_root, outputs_root, jobs_meta_root, e2e_data_root)
 
     proj_dir = projects_root / project_id
     proj_dir.mkdir(parents=True, exist_ok=True)
@@ -585,6 +605,7 @@ def seeded_page_rerun_job_id(e2e_data_root: Path) -> str:
     projects_root = e2e_data_root / "projects"
     outputs_root = e2e_data_root / "outputs"
     jobs_meta_root = e2e_data_root / "jobs_meta"
+    _guard_seeded_roots(projects_root, outputs_root, jobs_meta_root, e2e_data_root)
 
     proj_dir = projects_root / project_id
     proj_dir.mkdir(parents=True, exist_ok=True)
@@ -611,6 +632,7 @@ def seeded_managed_job_id(e2e_data_root: Path) -> str:
     projects_root = e2e_data_root / "projects"
     outputs_root = e2e_data_root / "outputs"
     jobs_meta_root = e2e_data_root / "jobs_meta"
+    _guard_seeded_roots(projects_root, outputs_root, jobs_meta_root, e2e_data_root)
 
     out_dir = str(outputs_root / project_id)
     _write_project_json(projects_root, project_id, output_dir=out_dir)
