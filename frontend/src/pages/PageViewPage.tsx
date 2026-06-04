@@ -542,7 +542,9 @@ export default function PageViewPage() {
   ) : null;
 
   // Task 10: rows={40} removed — the textarea fills the PageSplitView editor
-  // slot height via pdomain-ui 0.6.0's default editor-slot fill rule.
+  // slot height.  The parent flex container uses height: 100% + column
+  // direction; the Textarea needs flex: 1 + minHeight: 0 so it expands to
+  // fill the remaining space after the toolbar (not just its natural height).
   // data-testid="ocr-text" lets tests and e2e selectors target the textarea.
   const editorContent = (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -555,6 +557,7 @@ export default function PageViewPage() {
         disabled={loading}
         aria-label="OCR text"
         data-testid="ocr-text"
+        style={{ flex: 1, minHeight: 0 }}
       />
     </div>
   );
