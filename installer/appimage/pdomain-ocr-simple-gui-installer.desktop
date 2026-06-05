@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=pdomain-ocr-simple-gui Installer
+Comment=Install or update pdomain-ocr-simple-gui on this system
+Exec=AppRun
+Icon=pdomain-ocr-simple-gui
+Type=Application
+Categories=Utility;

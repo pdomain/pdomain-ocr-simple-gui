@@ -1,0 +1,33 @@
+#!/bin/bash
+# AppRun — entry point for the pdomain-ocr-simple-gui Linux AppImage installer.
+#
+# The AppImage runtime (AppImageKit) calls this script after mounting the
+# SquashFS payload.  APPDIR is set by the runtime to the mount point.
+#
+# This script finds the bundled Python interpreter and launches the wizard.
+# If DISPLAY / WAYLAND_DISPLAY are unset (headless), it falls back to the
+# plain CLI runner with --yes.
+
+set -euo pipefail
+
+APPDIR="${APPDIR:-$(dirname "$(readlink -f "$0")")"}"
+PYTHON="${APPDIR}/usr/bin/python3"
+
+if [ ! -x "$PYTHON" ]; then
+    # Try system Python as fallback (should always be present on Linux)
+    PYTHON=$(command -v python3 2>/dev/null || true)
+    if [ -z "$PYTHON" ]; then
+        echo "ERROR: python3 not found. Install Python 3.11+ and re-run."
+        exit 1
+    fi
+fi
+
+# Add bundled packages to PYTHONPATH so the wizard and engine are importable
+export PYTHONPATH="${APPDIR}/usr/lib/python:${PYTHONPATH:-}"
+
+if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
+    # No display server — fall through to CLI mode
+    exec "$PYTHON" -m installer.wizard --cli --yes "$@"
+else
+    exec "$PYTHON" -m installer.wizard "$@"
+fi

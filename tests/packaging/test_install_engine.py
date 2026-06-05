@@ -212,7 +212,12 @@ def test_run_dry_run_no_execution() -> None:
     steps = [
         Step(id="tool_install", description="Install", command="uv tool install foo", needs_sudo=False),
     ]
-    run(steps, assume_yes=True, dry_run=True, run_cmd=lambda *a, **kw: calls.append((a, kw)))
+
+    def _recording_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:  # type: ignore[type-arg]
+        calls.append(cmd)
+        return subprocess.CompletedProcess(args=cmd, returncode=0)
+
+    run(steps, assume_yes=True, dry_run=True, run_cmd=_recording_run)
     assert calls == []
 
 

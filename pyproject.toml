@@ -132,7 +132,7 @@ convention = "google"
 "src/pdomain_ocr_simple_gui/__main__.py" = ["ANN", "D", "T201"]
 
 [tool.basedpyright]
-include = ["src", "tests"]
+include = ["src", "tests", "installer"]
 exclude = ["**/__pycache__", "**/.venv", "**/node_modules"]
 typeCheckingMode = "recommended"
 failOnWarnings = true
@@ -142,6 +142,11 @@ venv = ".venv"
 
 [[tool.basedpyright.executionEnvironments]]
 root = "tests"
+extraPaths = ["."]
+
+[[tool.basedpyright.executionEnvironments]]
+root = "installer"
+extraPaths = ["."]
 
 [tool.pytest.ini_options]
 addopts = [
