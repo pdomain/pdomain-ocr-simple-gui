@@ -67,9 +67,24 @@ pdomain-ops = { index = "pdomain-index-pip" }
 [tool.hatch.version]
 source = "vcs"
 
+[tool.hatch.build]
+# Include the gitignored Vite build output in BOTH the sdist and the wheel.
+# The frontend/ directory is in .gitignore (generated artefact), so hatchling's
+# default VCS-based file selection would silently omit it. Setting `artifacts`
+# globally (not just in the wheel target) ensures:
+#   1. The sdist contains src/pdomain_ocr_simple_gui/frontend/ (the built SPA).
+#   2. The wheel built from that sdist also includes the frontend.
+# Without this, `uv build` (default: sdist then wheel-from-sdist) produces a
+# wheel with 0 frontend files even when `artifacts` is set only in the wheel
+# target, because hatchling builds the wheel in a non-git temp dir from the
+# sdist and applies the per-target artifact spec against that dir.
+artifacts = ["src/pdomain_ocr_simple_gui/frontend/**/*"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/pdomain_ocr_simple_gui"]
-artifacts = ["src/pdomain_ocr_simple_gui/frontend/**/*"]
+# The global `artifacts` above also covers this target; no additional per-wheel
+# artifacts needed. force-include is intentionally omitted to avoid duplicate
+# path conflicts with the global artifacts spec.
 
 [tool.ruff]
 line-length = 110

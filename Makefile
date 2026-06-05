@@ -186,8 +186,13 @@ clean: ## Clean cache + build artifacts
 	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
 	rm -rf dist/ 2>/dev/null || true
 
-build: frontend-build ## Build release artifacts
-	uv build
+build: frontend-build ## Build release artifacts (sdist + wheel, both from source)
+	# Build sdist and wheel as SEPARATE explicit commands (NOT bare `uv build`).
+	# Bare `uv build` builds the wheel from the sdist in a non-git temp dir;
+	# if artifacts config is incomplete, the gitignored frontend/ is silently
+	# dropped from the wheel. Building both from source eliminates this risk.
+	uv build --sdist
+	uv build --wheel
 
 ci: setup frontend-install pre-commit-check lint typecheck frontend-build test behavior-coverage smoke frontend-format-check frontend-lint frontend-test frontend-knip e2e-fast ## Full CI pipeline (includes fast browser click-path tier)
 
