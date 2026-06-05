@@ -57,6 +57,14 @@ _UPDATE_NO_UPDATE: dict[str, object] = {
     "channel": "stable",
 }
 
+_UPDATE_AVAILABLE: dict[str, object] = {
+    "current": "0.9.0",
+    "latest": "0.10.0",
+    "update_available": True,
+    "changelog_url": "#",
+    "channel": "stable",
+}
+
 
 # ---------------------------------------------------------------------------
 # H1 / H2 — app loads without broken-resource console errors
@@ -70,7 +78,21 @@ def test_app_loads_no_console_errors(page: Page, live_server_url: str) -> None:
     broken-resource check specifically for the Milestone F build (pdomain-ui 0.7.0
     + ComputeTargetPanel/UpdatePanel wiring) to confirm no new resource errors
     were introduced by the Compute + Updates panel additions.
+
+    /api/suite/update is intercepted before goto() (returning update_available:false)
+    so the test does not depend on the live version-check endpoint.
     """
+    # Intercept the update check before the page loads so the hook sees a
+    # deterministic no-update payload rather than a real network call.
+    page.route(
+        "**/api/suite/update",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(_UPDATE_NO_UPDATE),
+        ),
+    )
+
     errors: list[str] = []
     page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
 
@@ -133,6 +155,38 @@ def test_compute_panel_visible_and_lists_cpu(page: Page, live_server_url: str) -
     # Bad-state: closing the dock hides the panel.
     page.get_by_test_id("slide-over-panel-close").click()
     expect(page.get_by_test_id("slide-over-panel")).not_to_be_visible(timeout=5_000)
+
+
+# ---------------------------------------------------------------------------
+# H2c — Header update-badge is visible when an update is available
+# ---------------------------------------------------------------------------
+
+
+def test_update_badge_visible_when_update_available(page: Page, live_server_url: str) -> None:
+    """Covers: H2c — SimpleGuiHeader renders the update-badge when update_available is true.
+
+    The badge lives in SimpleGuiHeader (pdomain-ui) and is only rendered when
+    the /api/suite/update response carries update_available:true.  We intercept
+    that route BEFORE page.goto() so the hook sees the update payload on its
+    first (mount-time) fetch, ensuring the badge is present in the initial render.
+    """
+    # Intercept /api/suite/update before the page loads so the header badge
+    # renders on mount rather than after an async update.
+    page.route(
+        "**/api/suite/update",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(_UPDATE_AVAILABLE),
+        ),
+    )
+
+    page.goto(live_server_url)
+    expect(page.get_by_test_id("home-page")).to_be_visible(timeout=15_000)
+
+    # Observable: the update-badge is visible in the header when an update is available.
+    # SimpleGuiHeader only renders this element when update_available is true.
+    expect(page.get_by_test_id("update-badge")).to_be_visible(timeout=5_000)
 
 
 # ---------------------------------------------------------------------------
