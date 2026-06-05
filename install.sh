@@ -207,7 +207,7 @@ WHEEL_URL=""
 RELEASE_TAG=""
 
 if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-    echo "Resolving latest release via gh..."
+    echo "Resolving latest release (gh detected)..."
     # `gh release view --json` returns assets with their download URLs.
     RELEASE_JSON=$(gh release view --repo "$REPO" --json tagName,assets 2>/dev/null || true)
     if [ -n "$RELEASE_JSON" ]; then
@@ -297,6 +297,14 @@ echo "  Desktop:  pdomain-ops[desktop] included (native --desktop window)"
 echo "  Target:   uv tool  (~/.local/bin)"
 echo "  Index:    ${PD_INDEX_URL}"
 echo ""
+
+if [ -n "$EXTRA_INDEX" ]; then
+    echo "Heads up - disk space: the CUDA-flavored PyTorch wheels are a large"
+    echo "  download, roughly 2-3 GB (more with the [gpu] CuPy + opencv-cuda"
+    echo "  extras). The CPU-only build is far smaller. This can take a while"
+    echo "  on a slow connection."
+    echo ""
+fi
 
 if ! prompt_yn "Proceed with install?" "Y"; then
     echo "Aborted."

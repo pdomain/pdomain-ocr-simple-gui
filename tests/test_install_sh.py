@@ -148,6 +148,49 @@ def test_install_sh_proceed_gate() -> None:
     )
 
 
+def test_install_sh_cuda_diskspace_warning_present() -> None:
+    """Must include a disk-space warning for GPU/CUDA builds."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    assert "Heads up - disk space" in content, (
+        "install.sh must include a disk-space heads-up for CUDA/GPU builds"
+    )
+    assert "CUDA-flavored PyTorch wheels" in content, (
+        "install.sh disk-space warning must mention CUDA-flavored PyTorch wheels"
+    )
+    assert "2-3 GB" in content, "install.sh disk-space warning must give a rough download size (2-3 GB)"
+
+
+def test_install_sh_cuda_diskspace_warning_gated_on_extra_index() -> None:
+    """The disk-space warning must be gated on EXTRA_INDEX (GPU build only).
+
+    A CPU-only install must NOT show the GPU download warning. Grep confirms
+    the warning block is inside an ``if [ -n "$EXTRA_INDEX" ]`` guard.
+    """
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    # The warning text must appear inside an EXTRA_INDEX block.
+    # We verify this by checking that the guard appears before the warning
+    # text in the file and that the pattern is the standard non-empty guard.
+    guard_str = 'if [ -n "$EXTRA_INDEX" ]'
+    extra_index_guard_pos = content.find(guard_str)
+    diskspace_pos = content.find("Heads up - disk space")
+    # There will be multiple EXTRA_INDEX guards (GPU detection + install args).
+    # At least one guard must appear before the warning text.
+    assert extra_index_guard_pos != -1, 'install.sh must have an `if [ -n "$EXTRA_INDEX" ]` guard'
+    assert diskspace_pos != -1, "install.sh must contain the disk-space warning text"
+    # The specific guard wrapping the diskspace warning: find the last
+    # EXTRA_INDEX guard before the diskspace text.
+    guard_before_warning = content.rfind(guard_str, 0, diskspace_pos)
+    assert guard_before_warning != -1, (
+        'Disk-space warning must be inside an `if [ -n "$EXTRA_INDEX" ]` block. '
+        "CPU-only users must not see the CUDA download warning."
+    )
+    # Confirm no CUDA Toolkit mention -- we only pull PyTorch wheels, not the Toolkit.
+    assert "CUDA Toolkit" not in content or content.count("CUDA Toolkit") == 0, (
+        "install.sh must not mention 'CUDA Toolkit' -- only CUDA-flavored PyTorch "
+        "wheels are downloaded, not the full CUDA Toolkit (~10 GB)."
+    )
+
+
 def test_install_sh_uv_gate() -> None:
     """Must gate the uv bootstrap with prompt_yn."""
     content = INSTALL_SH.read_text(encoding="utf-8")
