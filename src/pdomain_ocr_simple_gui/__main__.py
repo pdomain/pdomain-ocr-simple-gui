@@ -173,7 +173,7 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if args.desktop:
-        run_windowed("pdomain_ocr_simple_gui.app:app", title="OCR Simple GUI")
+        run_windowed("pdomain_ocr_simple_gui.app:app", title="OCR Simple GUI", preferred_port=args.port)
         return
 
     import uvicorn
