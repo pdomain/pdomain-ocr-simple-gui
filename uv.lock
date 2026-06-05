@@ -1874,7 +1874,7 @@ requires-dist = [
     { name = "aiofiles", specifier = ">=23.2" },
     { name = "fastapi", specifier = ">=0.111" },
     { name = "pdomain-book-tools", specifier = ">=0.18.0", index = "https://pdomain.github.io/pdomain-index-pip/simple/" },
-    { name = "pdomain-ops", specifier = ">=0.7.2", index = "https://pdomain.github.io/pdomain-index-pip/simple/" },
+    { name = "pdomain-ops", specifier = ">=0.8.0", index = "https://pdomain.github.io/pdomain-index-pip/simple/" },
     { name = "pydantic", specifier = ">=2.7" },
     { name = "pydantic-settings", specifier = ">=2.3" },
     { name = "python-multipart", specifier = ">=0.0.29" },
@@ -1900,13 +1900,14 @@ e2e = [{ name = "pytest-playwright", specifier = ">=0.5" }]
 
 [[package]]
 name = "pdomain-ops"
-version = "0.7.2"
+version = "0.8.0"
 source = { registry = "https://pdomain.github.io/pdomain-index-pip/simple/" }
 dependencies = [
     { name = "eventsourcing" },
     { name = "fastapi" },
     { name = "filelock" },
     { name = "httpx" },
+    { name = "packaging" },
     { name = "pdomain-book-tools" },
     { name = "platformdirs" },
     { name = "pydantic" },
@@ -1914,9 +1915,9 @@ dependencies = [
     { name = "tomli-w" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://github.com/pdomain/pdomain-ops/releases/download/v0.7.2/pdomain_ops-0.7.2.tar.gz", hash = "sha256:a9f4b7c23db2852b2c3256a4011c8520367295623dfd00ecbae3313bb0df8a37" }
+sdist = { url = "https://github.com/pdomain/pdomain-ops/releases/download/v0.8.0/pdomain_ops-0.8.0.tar.gz", hash = "sha256:bec322d06c1584bc1b1323f5c8f9cf01f3538945059fc2ccfbf89e3a8349451e" }
 wheels = [
-    { url = "https://github.com/pdomain/pdomain-ops/releases/download/v0.7.2/pdomain_ops-0.7.2-py3-none-any.whl", hash = "sha256:2279f8c996a755fab5b71db2b39b7f3c1d46462b962a52d085dcf12b94618062" },
+    { url = "https://github.com/pdomain/pdomain-ops/releases/download/v0.8.0/pdomain_ops-0.8.0-py3-none-any.whl", hash = "sha256:9f735957222e08326639ca34a1ca7f0b986550479ced953986475eb622d708b5" },
 ]
 
 [[package]]

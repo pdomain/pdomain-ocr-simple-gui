@@ -435,7 +435,11 @@ describe("uiPrefsConfig persist wiring", () => {
           json: async () => ({ ...store }),
         });
       }
-      return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
+      return Promise.resolve({
+        ok: false,
+        status: 404,
+        json: async () => ({}),
+      });
     });
     return { store, puts, fetchMock };
   }
