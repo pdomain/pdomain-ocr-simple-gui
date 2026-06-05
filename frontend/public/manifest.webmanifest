@@ -1,0 +1,16 @@
+{
+  "name": "OCR Simple GUI",
+  "short_name": "OCR Simple",
+  "description": "Drag-and-drop OCR — powered by pdomain-ops",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#1a1a2e",
+  "icons": [
+    {
+      "src": "/api/self/icons/256",
+      "sizes": "256x256",
+      "type": "image/png"
+    }
+  ]
+}

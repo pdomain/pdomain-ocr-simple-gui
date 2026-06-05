@@ -217,8 +217,12 @@ class TestCLIFlags:
         assert result.returncode == 0
         assert "--install-desktop-shortcut" in result.stdout
 
-    def test_install_desktop_shortcut_raises_not_implemented(self) -> None:
-        """--install-desktop-shortcut raises NotImplementedError (exits non-zero)."""
+    def test_install_desktop_shortcut_exits_cleanly_on_linux(self) -> None:
+        """--install-desktop-shortcut calls install_shortcut and exits 0 on Linux.
+
+        On macOS/Windows the function raises NotImplementedError (exits non-zero).
+        On Linux it writes a .desktop file and exits 0 (Phase 1 stub is now filled).
+        """
         import subprocess
         import sys
 
@@ -228,7 +232,12 @@ class TestCLIFlags:
             text=True,
             timeout=10,
         )
-        assert result.returncode != 0
+        import platform
+
+        if platform.system() == "Linux":
+            assert result.returncode == 0
+        else:
+            assert result.returncode != 0
 
     def test_remove_desktop_shortcut_flag_in_help(self) -> None:
         """--remove-desktop-shortcut appears in --help output."""
@@ -244,8 +253,12 @@ class TestCLIFlags:
         assert result.returncode == 0
         assert "--remove-desktop-shortcut" in result.stdout
 
-    def test_remove_desktop_shortcut_raises_not_implemented(self) -> None:
-        """--remove-desktop-shortcut raises NotImplementedError (exits non-zero)."""
+    def test_remove_desktop_shortcut_exits_cleanly_on_linux(self) -> None:
+        """--remove-desktop-shortcut calls remove_shortcut and exits 0 on Linux.
+
+        On macOS/Windows the function raises NotImplementedError (exits non-zero).
+        On Linux it removes the .desktop file (or no-ops if missing) and exits 0.
+        """
         import subprocess
         import sys
 
@@ -255,4 +268,9 @@ class TestCLIFlags:
             text=True,
             timeout=10,
         )
-        assert result.returncode != 0
+        import platform
+
+        if platform.system() == "Linux":
+            assert result.returncode == 0
+        else:
+            assert result.returncode != 0

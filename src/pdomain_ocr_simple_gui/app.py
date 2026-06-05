@@ -193,10 +193,16 @@ def create_app() -> FastAPI:
 
     # SPA catch-all — React Router owns all non-API paths.
     # MUST be registered last so it never shadows /api/* routes.
+    # Root-level static files (e.g. manifest.webmanifest, favicon.ico) are
+    # served directly when they exist as real files in the frontend build root.
+    # Vite copies frontend/public/ into the build root, so these arrive there.
     @_app.get("/{full_path:path}", include_in_schema=False)
     async def spa_fallback(full_path: str) -> FileResponse:  # pyright: ignore[reportUnusedFunction]
-        """Serve the React SPA index.html for any unmatched path."""
-        _ = full_path
+        """Serve static root files or the React SPA index.html."""
+        if full_path and not full_path.startswith("api/"):
+            candidate = _FRONTEND_DIR / full_path
+            if candidate.is_file() and not candidate.name.startswith("."):
+                return FileResponse(candidate)
         index = _FRONTEND_DIR / "index.html"
         if not index.exists():
             raise HTTPException(
