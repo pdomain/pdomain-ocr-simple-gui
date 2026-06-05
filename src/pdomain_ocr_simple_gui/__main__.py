@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -110,14 +111,14 @@ def _build_installed_app() -> Any:
     import importlib.metadata
     import importlib.resources
     import json
-    import sys
     from pathlib import Path
 
     from pdomain_ops.suite.types import InstalledApp  # pyright: ignore[reportMissingTypeStubs]
 
     pkg = "pdomain_ocr_simple_gui"
     raw = (importlib.resources.files(pkg) / "pdomain-suite.json").read_text(encoding="utf-8")
-    fragment: dict[str, Any] = json.loads(raw)  # JSON values are Any by nature
+    # Any return type is forced by missing pdomain-ops type stubs (reportMissingTypeStubs)
+    fragment: dict[str, Any] = json.loads(raw)
     binary = str(Path(sys.argv[0]).resolve()) if sys.argv else ""
     try:
         version = importlib.metadata.version(pkg)
@@ -131,7 +132,11 @@ def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
 
     if args.update:
-        apply_upgrade("pdomain-ocr-simple-gui")
+        try:
+            apply_upgrade("pdomain-ocr-simple-gui")
+        except NotImplementedError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            sys.exit(1)
         return
 
     if args.unregister_suite:
@@ -150,11 +155,19 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if args.install_desktop_shortcut:
-        install_shortcut(_build_installed_app())
+        try:
+            install_shortcut(_build_installed_app())
+        except NotImplementedError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            sys.exit(1)
         return
 
     if args.remove_desktop_shortcut:
-        remove_shortcut("pdomain-ocr-simple-gui")
+        try:
+            remove_shortcut("pdomain-ocr-simple-gui")
+        except NotImplementedError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            sys.exit(1)
         return
 
     if args.desktop:

@@ -30,3 +30,9 @@ def test_update_route_mounted(client):
 def test_routes_not_shadowed_by_spa_catchall(client):
     resp = client.get("/api/suite/device")
     assert resp.headers["content-type"].startswith("application/json")
+
+
+def test_update_route_returns_json(client):
+    """GET /api/suite/update returns content-type: application/json (parity with device route)."""
+    resp = client.get("/api/suite/update")
+    assert resp.headers["content-type"].startswith("application/json")

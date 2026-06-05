@@ -239,6 +239,28 @@ class TestCLIFlags:
         else:
             assert result.returncode != 0
 
+    def test_install_desktop_shortcut_not_implemented_prints_stderr_and_exits_nonzero(self) -> None:
+        """When install_shortcut raises NotImplementedError, main() prints to stderr and exits 1.
+
+        This covers the macOS/Windows code path on any platform by patching
+        install_shortcut to raise NotImplementedError.
+        """
+        import pdomain_ocr_simple_gui.__main__ as main_mod
+
+        with (
+            patch(
+                "pdomain_ocr_simple_gui.__main__.install_shortcut",
+                side_effect=NotImplementedError("not supported on this platform"),
+            ),
+            patch(
+                "pdomain_ocr_simple_gui.__main__._build_installed_app",
+                return_value=None,
+            ),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            main_mod.main(["--install-desktop-shortcut"])
+        assert exc_info.value.code == 1
+
     def test_remove_desktop_shortcut_flag_in_help(self) -> None:
         """--remove-desktop-shortcut appears in --help output."""
         import subprocess
@@ -274,3 +296,21 @@ class TestCLIFlags:
             assert result.returncode == 0
         else:
             assert result.returncode != 0
+
+    def test_remove_desktop_shortcut_not_implemented_prints_stderr_and_exits_nonzero(self) -> None:
+        """When remove_shortcut raises NotImplementedError, main() prints to stderr and exits 1.
+
+        This covers the macOS/Windows code path on any platform by patching
+        remove_shortcut to raise NotImplementedError.
+        """
+        import pdomain_ocr_simple_gui.__main__ as main_mod
+
+        with (
+            patch(
+                "pdomain_ocr_simple_gui.__main__.remove_shortcut",
+                side_effect=NotImplementedError("not supported on this platform"),
+            ),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            main_mod.main(["--remove-desktop-shortcut"])
+        assert exc_info.value.code == 1

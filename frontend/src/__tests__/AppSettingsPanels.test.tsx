@@ -3,6 +3,7 @@
 // These panels arrive from @pdomain/pdomain-ui/shell at runtime;
 // here we verify simple-gui wires them correctly.
 
+import type { ReactNode } from "react";
 import { describe, it, expect, vi } from "vitest";
 
 // Mock @pdomain/pdomain-ui/shell — avoids real fetch calls and zustand stores
@@ -30,9 +31,7 @@ vi.mock("@pdomain/pdomain-ui/shell", () => ({
 }));
 
 vi.mock("@pdomain/pdomain-ui/hooks", () => ({
-  ShortcutsProvider: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
+  ShortcutsProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
 vi.mock("@pdomain/pdomain-ui/stores", () => ({

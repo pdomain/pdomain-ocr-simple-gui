@@ -198,11 +198,24 @@ def create_app() -> FastAPI:
     # Vite copies frontend/public/ into the build root, so these arrive there.
     @_app.get("/{full_path:path}", include_in_schema=False)
     async def spa_fallback(full_path: str) -> FileResponse:  # pyright: ignore[reportUnusedFunction]
-        """Serve static root files or the React SPA index.html."""
+        """Serve static root files or the React SPA index.html.
+
+        Path traversal guard: resolve the candidate path and verify it is
+        strictly contained within the frontend directory before serving.
+        Percent-encoded separators (e.g. %2f) are decoded by the ASGI layer
+        before this handler runs, so a resolve() + is_relative_to() check
+        is sufficient to block all traversal variants.
+        """
         if full_path and not full_path.startswith("api/"):
             candidate = _FRONTEND_DIR / full_path
-            if candidate.is_file() and not candidate.name.startswith("."):
-                return FileResponse(candidate)
+            resolved = candidate.resolve()
+            frontend_resolved = _FRONTEND_DIR.resolve()
+            if (
+                resolved.is_file()
+                and resolved.is_relative_to(frontend_resolved)
+                and not resolved.name.startswith(".")
+            ):
+                return FileResponse(resolved)
         index = _FRONTEND_DIR / "index.html"
         if not index.exists():
             raise HTTPException(
