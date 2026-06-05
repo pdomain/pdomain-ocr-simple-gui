@@ -20,6 +20,7 @@ MANAGED_ACTIONS = (
     "actions/setup-node",
     "actions/upload-artifact",
     "actions/download-artifact",
+    "actions/cache",
     "peter-evans/create-pull-request",
 )
 USES_PATTERN = re.compile(r"(?m)^\s*uses:\s*([^\s#]+)")
