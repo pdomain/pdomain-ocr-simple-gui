@@ -25,6 +25,9 @@ dependencies = [
     "python-statemachine>=3.1.2",
 ]
 
+[project.optional-dependencies]
+desktop = ["pdomain-ops[desktop]"]
+
 [project.scripts]
 pdomain-ocr-simple-gui = "pdomain_ocr_simple_gui.__main__:main"
 
@@ -125,7 +128,7 @@ ignore = [
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["E741", "N806", "S101", "S104", "S105", "S106", "S301", "S311", "S603", "T201", "ANN", "D", "PLR2004", "PT011", "PT018", "S108", "PLR0133", "PLW2901", "PLW1510", "PERF401", "PERF402", "TRY", "BLE001", "TC"]
+"tests/*" = ["E741", "N806", "S101", "S104", "S105", "S106", "S301", "S311", "S603", "S607", "T201", "ANN", "D", "PLR2004", "PT011", "PT018", "S108", "PLR0133", "PLW2901", "PLW1510", "PERF401", "PERF402", "TRY", "BLE001", "TC"]
 "scripts/*.py" = ["T201", "D", "ANN", "S603", "S607", "PLW1510"]
 "**/__init__.py" = ["D104", "F401", "TC"]
 "**/_*.py" = ["D"]

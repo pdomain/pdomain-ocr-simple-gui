@@ -7,12 +7,31 @@ consumer that validates `pdomain-ops`' `LocalStageDispatcher`.
 
 ## Install
 
+One-liner (handles uv, CUDA detection, and WebKitGTK check automatically):
+
 ```sh
-uv tool install pdomain-ocr-simple-gui \
-  --index-url https://pdomain.github.io/pdomain-index-pip/simple/
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh
 ```
 
+Manual install via `uv`:
+
+```sh
+uv tool install "pdomain-ocr-simple-gui[desktop]" \
+  --extra-index-url https://pdomain.github.io/pdomain-index-pip/simple/
+```
+
+The `[desktop]` extra (`pdomain-ops[desktop]`) adds the native window via
+`pywebview`. Browser mode works without it.
+
 ## Launch
+
+Desktop window (native, requires WebKitGTK system library):
+
+```sh
+pdomain-ocr-simple-gui --desktop
+```
+
+Browser mode:
 
 ```sh
 pdomain-ocr-simple-gui

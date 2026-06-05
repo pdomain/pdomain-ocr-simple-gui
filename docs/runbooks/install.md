@@ -17,6 +17,19 @@ enabling GPU acceleration, and rolling back a bad release.
 All OCR engines run on CPU by default. Expect ~5–30 s per page depending on
 engine and CPU speed. GPU acceleration is optional (Step 4).
 
+## Quick install (one-liner)
+
+```sh
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh
+```
+
+The script: installs `uv` if absent, detects CUDA and enables GPU support
+automatically, downloads the latest release wheel, and always installs the
+`pdomain-ops[desktop]` extra so the native window works out of the box.
+It also checks for WebKitGTK and prints per-distro install hints if absent.
+
+---
+
 ## Installation: two paths
 
 ### Path A — Double-click AppImage (recommended for end-users)
@@ -95,14 +108,16 @@ sudo apt-get install -y gir1.2-webkit2-4.1
 Installs the app from the `pdomain-index-pip` registry.
 
 ```bash
-uv tool install "pdomain-ocr-simple-gui[desktop]"
+uv tool install "pdomain-ocr-simple-gui[desktop]" \
+  --extra-index-url https://pdomain.github.io/pdomain-index-pip/simple/
 ```
 
 The `[desktop]` extra includes `pywebview` and `pystray`.
 Omit it for a headless / server-only install:
 
 ```bash
-uv tool install pdomain-ocr-simple-gui
+uv tool install pdomain-ocr-simple-gui \
+  --extra-index-url https://pdomain.github.io/pdomain-index-pip/simple/
 ```
 
 Verify: `pdomain-ocr-simple-gui --help`
