@@ -69,6 +69,7 @@ source = "vcs"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pdomain_ocr_simple_gui"]
+artifacts = ["src/pdomain_ocr_simple_gui/frontend/**/*"]
 
 [tool.ruff]
 line-length = 110
