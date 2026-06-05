@@ -1,7 +1,9 @@
 name: release
 
-# Dispatch-only release. scripts/do-release.sh pushes the exact tag after
-# local ci-slow passes, then triggers this workflow with the tag input below.
+# Dispatch-only release. Build + publish ONLY — no heavy CI gate runs on the
+# GitHub runner (workspace policy). scripts/do-release.sh runs `make ci-slow`
+# locally as the release preflight, pushes the exact tag, then triggers this
+# workflow with the tag input below.
 # Chore: review pinned action SHAs weekly. Update version comments and SHAs together.
 
 on:
@@ -20,31 +22,8 @@ env:
   CUDA_VISIBLE_DEVICES: ""
 
 jobs:
-  release-ci:
-    name: release CI
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.inputs.tag }}
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b  # v8.1.0
-        with:
-          version: "0.11.16"
-      - name: Set up Python
-        run: uv python install 3.11
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
-        with:
-          node-version: "24"
-      - name: Enable pnpm via corepack
-        run: corepack enable && corepack prepare pnpm@11.3.0 --activate
-      - name: Run release CI gate
-        run: make ci-slow
-
   publish:
     name: publish GitHub Release
-    needs: [release-ci]
     runs-on: ubuntu-latest
     permissions:
       contents: write
