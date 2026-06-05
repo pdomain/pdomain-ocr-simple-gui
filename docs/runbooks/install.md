@@ -28,6 +28,23 @@ automatically, downloads the latest release wheel, and always installs the
 `pdomain-ops[desktop]` extra so the native window works out of the box.
 It also checks for WebKitGTK and prints per-distro install hints if absent.
 
+### Confirmation gates
+
+The installer prompts before auto-installing `uv` and before running
+`uv tool install`. It reads responses from `/dev/tty` (not stdin), so
+prompts work correctly under `curl ... | sh` in a real terminal.
+
+In headless environments (CI, cron, Docker without `-t`), all gates
+auto-proceed. To skip prompts explicitly:
+
+```sh
+# Flag form (works with curl-pipe):
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh -s -- -y
+
+# Environment variable form:
+ASSUME_YES=1 curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh
+```
+
 ---
 
 ## Installation: two paths
@@ -235,16 +252,51 @@ pdomain-ocr-simple-gui --version
 
 ## Uninstall
 
+### One-liner (recommended)
+
+```sh
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/uninstall.sh | sh
+```
+
+The script removes the desktop shortcut, unregisters from the suite registry,
+and uninstalls the tool via `uv tool uninstall`. It offers to remove `uv`
+itself, defaulting to yes only if this installer originally bootstrapped it.
+
+Unattended (skip all prompts):
+
+```sh
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/uninstall.sh | sh -s -- -y
+```
+
+### Manual equivalent
+
 ```bash
+# 1. Remove the desktop shortcut (best-effort)
+pdomain-ocr-simple-gui --remove-desktop-shortcut 2>/dev/null || true
+
+# 2. Unregister from the suite registry (best-effort)
+pdomain-ocr-simple-gui --unregister-suite 2>/dev/null || true
+# Or hand-edit: ~/.local/share/pd-suite/installed.toml
+
+# 3. Uninstall the tool
 uv tool uninstall pdomain-ocr-simple-gui
-pdomain-ocr-simple-gui --remove-shortcut 2>/dev/null || true
+
+# 4. Optionally remove uv (only if nothing else uses it)
+uv self uninstall
+# Or manually: rm -f ~/.local/bin/uv ~/.local/bin/uvx
+#              rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/uv"
+#              rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}/uv"
 ```
 
-User data is NOT removed automatically. To also remove data:
+User data is NOT removed automatically. To also remove app data and model weights:
 
 ```bash
-rm -rf ~/.local/share/pdomain-ocr-simple-gui
+rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/pdomain-ocr-simple-gui"
+rm -rf ~/.cache/doctr
+rm -rf ~/.cache/torch
 ```
+
+WebKitGTK is a system package — remove it with your package manager if desired.
 
 ---
 

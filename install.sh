@@ -21,17 +21,90 @@ set -e
 #   Requires-Dist entry resolves automatically when we pass
 #   --extra-index-url to uv — no manual git-pin fetch needed.
 #
+# Confirmation gates:
+#   The script prompts before auto-installing uv and before `uv tool install`.
+#   Gates read from /dev/tty (not stdin), so they work correctly under
+#   `curl ... | sh`. In headless environments (CI, cron, docker without -t),
+#   gates auto-proceed. Pass -y / --yes or set ASSUME_YES=1 to skip all
+#   prompts unconditionally.
+#
 # Usage:
 #   curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh
+#
+# Unattended (skip all confirmation prompts):
+#   curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh -s -- -y
+#   ASSUME_YES=1 curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh
 
 REPO="pdomain/pdomain-ocr-simple-gui"
 PYTHON_VERSION="${PD_SIMPLE_GUI_INSTALL_PYTHON:-3.13}"
+ASSUME_YES="${ASSUME_YES:-0}"
 
-# Install uv if not already present
+# ---------------------------------------------------------------------------
+# Parse flags: -y / --yes
+# ---------------------------------------------------------------------------
+for _arg in "$@"; do
+    case "$_arg" in
+        -y|--yes) ASSUME_YES=1 ;;
+    esac
+done
+
+# ---------------------------------------------------------------------------
+# TTY detection -- MUST use /dev/tty, not [ -t 0 ].
+# Under `curl ... | sh`, fd 0 is the piped script, so [ -t 0 ] is false even
+# in a real terminal. The controlling terminal is still reachable via /dev/tty.
+#
+# Implementation note: `if { exec 3</dev/tty; } ...` exits the script in dash
+# when the redirect fails, even inside an `if` condition. The safe
+# cross-shell pattern is to probe in a subshell first, then exec in the
+# main shell only when the probe succeeded.
+# ---------------------------------------------------------------------------
+HAS_TTY=0
+if sh -c "exec 3</dev/tty" 2>/dev/null; then
+    exec 3</dev/tty
+    HAS_TTY=1
+fi
+
+# prompt_yn "Question?" "Y"   ($2 = default: Y or N) -> returns 0 for yes
+prompt_yn() {
+    # auto-yes flag
+    [ "$ASSUME_YES" = "1" ] && return 0
+    # headless -- take the default (which for install gates is "proceed")
+    if [ "$HAS_TTY" != "1" ]; then return 0; fi
+    _def="$2"
+    _hint="[Y/n]"
+    [ "$_def" = "N" ] && _hint="[y/N]"
+    printf '%s %s ' "$1" "$_hint" >/dev/tty
+    read _ans <&3 || _ans=""
+    [ -z "$_ans" ] && _ans="$_def"
+    case "$_ans" in y|Y|yes|YES) return 0 ;; *) return 1 ;; esac
+}
+
+# ---------------------------------------------------------------------------
+# Marker file: records that WE bootstrapped uv, so uninstall.sh can offer to
+# remove it with the correct default.
+# ---------------------------------------------------------------------------
+_MARKER_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/pdomain-ocr-simple-gui"
+_MARKER="$_MARKER_DIR/uv-installed-by-installer"
+
+# ---------------------------------------------------------------------------
+# Install uv if not already present -- with a confirmation gate.
+# ---------------------------------------------------------------------------
 if ! command -v uv >/dev/null 2>&1; then
-    echo "uv not found — installing uv..."
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-    export PATH="$HOME/.local/bin:$PATH"
+    if prompt_yn "uv is not installed. Install it now via astral.sh/uv/install.sh?" "Y"; then
+        echo "Installing uv..."
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.local/bin:$PATH"
+        # Record that this installer bootstrapped uv
+        mkdir -p "$_MARKER_DIR"
+        touch "$_MARKER"
+    else
+        echo ""
+        echo "uv is required to install pdomain-ocr-simple-gui."
+        echo "Install it manually:"
+        echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+        echo "Then re-run this installer."
+        exit 1
+    fi
 fi
 
 EXTRA_INDEX=""
@@ -44,36 +117,36 @@ if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
     if [ -n "$CUDA_VER" ]; then
         CUDA_TAG="cu$(echo "$CUDA_VER" | tr -d '.')"
         EXTRA_INDEX="https://download.pytorch.org/whl/${CUDA_TAG}"
-        echo "Detected CUDA ${CUDA_VER} — will install PyTorch with ${CUDA_TAG} support."
+        echo "Detected CUDA ${CUDA_VER} -- will install PyTorch with ${CUDA_TAG} support."
 
         # CuPy (cupy-cuda12x) requires CUDA >= 12.4. Only opt into the
         # pdomain-book-tools[gpu] extra when that minimum is satisfied;
         # otherwise the [gpu] resolve fails with a CuPy version error
         # and a working CPU-only install would have been preferable.
-        # POSIX-sh version compare — no `sort -V`, no `awk`.
+        # POSIX-sh version compare -- no `sort -V`, no `awk`.
         CUDA_MAJOR=${CUDA_VER%.*}
         CUDA_MINOR=${CUDA_VER#*.}
         if [ "$CUDA_MAJOR" -gt 12 ] || { [ "$CUDA_MAJOR" -eq 12 ] && [ "$CUDA_MINOR" -ge 4 ]; }; then
             PD_BOOK_TOOLS_EXTRAS="[gpu]"
-            echo "CUDA ${CUDA_VER} >= 12.4 — enabling pdomain-book-tools[gpu] (CuPy + opencv-cuda)."
+            echo "CUDA ${CUDA_VER} >= 12.4 -- enabling pdomain-book-tools[gpu] (CuPy + opencv-cuda)."
         else
-            echo "CUDA ${CUDA_VER} < 12.4 — installing CPU-only book-tools (cupy-cuda12x needs >= 12.4)."
+            echo "CUDA ${CUDA_VER} < 12.4 -- installing CPU-only book-tools (cupy-cuda12x needs >= 12.4)."
         fi
     else
-        echo "nvidia-smi found but could not detect CUDA version — falling back to CPU."
+        echo "nvidia-smi found but could not detect CUDA version -- falling back to CPU."
     fi
 # Detect Apple Silicon (MPS)
 elif [ "$(uname)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
-    echo "Detected Apple Silicon — MPS acceleration will be used automatically."
+    echo "Detected Apple Silicon -- MPS acceleration will be used automatically."
 else
-    echo "No GPU detected — installing CPU-only PyTorch."
+    echo "No GPU detected -- installing CPU-only PyTorch."
 fi
 
 # ---------------------------------------------------------------------------
 # Resolve the latest non-prerelease GitHub Release and find the wheel asset.
 # ---------------------------------------------------------------------------
 # We pin to the asset URL of the .whl on the "latest" Release. The Release
-# workflow (.github/workflows/release.yml) attaches both .whl and .tar.gz —
+# workflow (.github/workflows/release.yml) attaches both .whl and .tar.gz --
 # we install the .whl directly so end users don't need a build toolchain.
 
 WHEEL_URL=""
@@ -116,7 +189,7 @@ fi
 if [ -z "$WHEEL_URL" ]; then
     echo "Latest release ${RELEASE_TAG:-?} has no wheel asset attached." >&2
     echo "   Cannot install. Please check https://github.com/${REPO}/releases" >&2
-    echo "   and report the missing wheel — or install from source with:" >&2
+    echo "   and report the missing wheel -- or install from source with:" >&2
     echo "     uv tool install git+https://github.com/${REPO}" >&2
     exit 1
 fi
@@ -144,9 +217,41 @@ if ! curl -sSfL \
     exit 1
 fi
 
+# ---------------------------------------------------------------------------
+# Build the GPU label for the summary block.
+# ---------------------------------------------------------------------------
+if [ -n "$EXTRA_INDEX" ]; then
+    if [ -n "$PD_BOOK_TOOLS_EXTRAS" ]; then
+        _GPU_LABEL="CUDA ${CUDA_VER} (GPU build)"
+    else
+        _GPU_LABEL="CUDA ${CUDA_VER} (CPU-only book-tools; CUDA < 12.4)"
+    fi
+elif [ "$(uname)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
+    _GPU_LABEL="Apple Silicon / MPS"
+else
+    _GPU_LABEL="CPU-only"
+fi
+
+# ---------------------------------------------------------------------------
+# Summary gate -- one prompt immediately before uv tool install.
+# ---------------------------------------------------------------------------
+echo ""
+echo "About to install:"
+echo "  Package:  pdomain-ocr-simple-gui ${RELEASE_TAG:-}"
+echo "  GPU:      ${_GPU_LABEL}"
+echo "  Desktop:  pdomain-ops[desktop] included (native --desktop window)"
+echo "  Target:   uv tool  (~/.local/bin)"
+echo "  Index:    ${PD_INDEX_URL}"
+echo ""
+
+if ! prompt_yn "Proceed with install?" "Y"; then
+    echo "Aborted."
+    exit 0
+fi
+
 echo "Installing pdomain-ocr-simple-gui ${RELEASE_TAG:-} from $(basename "$WHEEL_FILE")..."
 # Build the install command incrementally so we only emit flags when relevant.
-# POSIX sh has no arrays — use `set --` to manage args.
+# POSIX sh has no arrays -- use `set --` to manage args.
 #
 # pdomain-book-tools is published on the self-hosted pdomain-index-pip (GitHub
 # Pages PEP 503 index); pass --extra-index-url so uv can resolve the
@@ -171,7 +276,7 @@ uv tool install --python "$PYTHON_VERSION" "$@"
 # ---------------------------------------------------------------------------
 # pywebview uses the system WebKitGTK library for the native window.
 # Browser mode works without it, but --desktop will fail if it is absent.
-# We DETECT and WARN — we never sudo-install system packages on the user's
+# We DETECT and WARN -- we never sudo-install system packages on the user's
 # behalf.
 
 WEBKIT_OK=0

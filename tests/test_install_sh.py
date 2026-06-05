@@ -9,7 +9,7 @@ INSTALL_SH = REPO / "install.sh"
 
 
 # ---------------------------------------------------------------------------
-# Static assertions — no network, no actual install.
+# Static assertions -- no network, no actual install.
 # ---------------------------------------------------------------------------
 
 
@@ -89,7 +89,104 @@ def test_install_sh_syntax() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Integration smoke — fake uv/curl/gh; never touches network.
+# Gate mechanism assertions (static grep)
+# ---------------------------------------------------------------------------
+
+
+def test_install_sh_tty_detection_uses_dev_tty() -> None:
+    """Gate reads from /dev/tty, not stdin, so curl-pipe works."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    assert "/dev/tty" in content, "install.sh must reference /dev/tty for terminal detection"
+
+
+def test_install_sh_tty_detection_exec_style() -> None:
+    """Must use exec 3</dev/tty style; must not use [ -t 0 ] outside of comments."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    # Must use exec 3</dev/tty to open the tty fd
+    assert "exec 3</dev/tty" in content, "install.sh must use 'exec 3</dev/tty' for TTY detection"
+    # [ -t 0 ] must not appear as actual sh code (comments are fine and even useful)
+    non_comment_lines = [line for line in content.splitlines() if not line.lstrip().startswith("#")]
+    assert not any("[ -t 0 ]" in line for line in non_comment_lines), (
+        "install.sh must NOT use [ -t 0 ] in executable code (false under curl|sh)"
+    )
+    # Must use the subshell-probe pattern for dash-compatible TTY detection
+    assert 'sh -c "exec 3</dev/tty"' in content, (
+        "install.sh must probe /dev/tty in a subshell for dash compatibility"
+    )
+
+
+def test_install_sh_read_from_fd3() -> None:
+    """Gate reads answer from fd 3 (the /dev/tty fd)."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    assert "read _ans <&3" in content, "install.sh must read answer from fd 3 (the /dev/tty fd)"
+
+
+def test_install_sh_assume_yes_flag() -> None:
+    """Must support -y / --yes flag and ASSUME_YES env var."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    assert "ASSUME_YES" in content, "install.sh must support ASSUME_YES env var"
+    assert "-y|--yes" in content, "install.sh must parse -y/--yes flag"
+    assert '[ "$ASSUME_YES" = "1" ]' in content, "install.sh must gate on ASSUME_YES=1"
+
+
+def test_install_sh_summary_block() -> None:
+    """Must print a summary block before uv tool install."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    assert "About to install:" in content, "install.sh must print 'About to install:' summary"
+    assert "Package:" in content, "install.sh summary must include Package field"
+    assert "GPU:" in content, "install.sh summary must include GPU field"
+    assert "Desktop:" in content, "install.sh summary must include Desktop field"
+    assert "Target:" in content, "install.sh summary must include Target field"
+    assert "Index:" in content, "install.sh summary must include Index field"
+
+
+def test_install_sh_proceed_gate() -> None:
+    """Must call prompt_yn before uv tool install."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    assert 'prompt_yn "Proceed with install?" "Y"' in content, (
+        "install.sh must gate uv tool install with prompt_yn 'Proceed with install?'"
+    )
+
+
+def test_install_sh_uv_gate() -> None:
+    """Must gate the uv bootstrap with prompt_yn."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    assert "astral.sh/uv/install.sh" in content, "install.sh must reference astral uv installer"
+    assert "prompt_yn" in content, "install.sh must use prompt_yn helper"
+    # The uv gate must appear before the summary gate in the file
+    uv_gate_pos = content.find("uv is not installed")
+    summary_gate_pos = content.find("About to install:")
+    assert uv_gate_pos < summary_gate_pos, "uv gate must appear before summary gate"
+
+
+def test_install_sh_uv_marker_written_in_bootstrap_branch() -> None:
+    """Must write the uv-installed-by-installer marker only in the uv bootstrap branch."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    assert "uv-installed-by-installer" in content, (
+        "install.sh must reference uv-installed-by-installer marker"
+    )
+    assert "pdomain-ocr-simple-gui" in content, "marker path must include pdomain-ocr-simple-gui dir"
+    # The marker write (touch) must be inside the uv bootstrap branch
+    # (i.e., after the astral.sh install, before the fi closing the if uv block)
+    uv_install_pos = content.find("astral.sh/uv/install.sh")
+    marker_touch_pos = content.find('touch "$_MARKER"')
+    uv_block_end = content.find("fi\n", uv_install_pos)
+    assert uv_install_pos < marker_touch_pos < uv_block_end, (
+        "uv marker must be written inside the uv bootstrap branch, not unconditionally"
+    )
+
+
+def test_install_sh_declined_uv_exits_1() -> None:
+    """When user declines uv install and uv is absent, must exit 1 with instructions."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    assert "uv is required to install pdomain-ocr-simple-gui" in content, (
+        "install.sh must print uv-required message when uv install declined"
+    )
+    assert "exit 1" in content, "install.sh must exit 1 when uv install declined"
+
+
+# ---------------------------------------------------------------------------
+# Integration smoke -- fake uv/curl/gh; never touches network.
 # ---------------------------------------------------------------------------
 
 
@@ -139,6 +236,8 @@ exit 0
     env = os.environ.copy()
     env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
     env["PD_SIMPLE_GUI_INSTALL_PYTHON"] = "3.12"
+    # Skip all confirmation prompts in test
+    env["ASSUME_YES"] = "1"
 
     result = subprocess.run(
         ["sh", str(INSTALL_SH)],

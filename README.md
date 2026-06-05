@@ -39,3 +39,25 @@ pdomain-ocr-simple-gui
 
 Opens at `http://localhost:8004`. Drop a folder of images, pick an OCR engine,
 and run. Output `.txt` files appear in the directory you choose.
+
+## Uninstall
+
+One-liner:
+
+```sh
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/uninstall.sh | sh
+```
+
+The script removes the desktop shortcut (if installed), unregisters from the
+suite registry, and uninstalls the tool via `uv tool uninstall`. It also offers
+to remove `uv` itself, defaulting to yes only if this installer originally
+bootstrapped it.
+
+Unattended (skip all prompts):
+
+```sh
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/uninstall.sh | sh -s -- -y
+```
+
+User data (`~/.local/share/pdomain-ocr-simple-gui/`) is not removed
+automatically. OCR model weights (`~/.cache/doctr/`) are also left in place.
