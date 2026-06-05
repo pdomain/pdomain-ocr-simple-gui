@@ -47,6 +47,123 @@ ASSUME_YES=1 curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-sim
 
 ---
 
+## Manual install (step by step)
+
+Use these commands if you prefer not to run the curl-pipe installer, or want
+to understand exactly what `install.sh` does. Every step is copy-pasteable.
+
+### Step 1 — Install uv
+
+`uv` manages Python and tool environments. Skip this step if `uv` is already
+installed (`uv --version` succeeds).
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Add `uv` to your PATH (or add this line to `~/.bashrc` / `~/.zshrc`):
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Verify: `uv --version`
+
+**uv version requirement:** this project requires `uv >= 0.11.16`
+(set in `pyproject.toml` as `[tool.uv] required-version`). The installer
+above always installs the latest stable uv, so a fresh install satisfies
+this. If you already have uv and it is older than 0.11.16, upgrade it:
+
+```bash
+uv self update
+```
+
+Or reinstall from scratch using the command above.
+
+### Step 2 — Install WebKitGTK (desktop mode only)
+
+`pywebview` (the native desktop window) requires the system WebKitGTK
+library. Browser mode (`pdomain-ocr-simple-gui` without `--desktop`) works
+without it.
+
+If already installed, skip this step. See the per-distro package table
+in the "Gated step sequence" section below for all distro names.
+
+Example for Ubuntu / Debian:
+
+```bash
+sudo apt-get install -y gir1.2-webkit2-4.1
+```
+
+### Step 3 — Install the app
+
+The command below mirrors what `install.sh` runs after downloading the wheel.
+Replace `3.13` with your preferred Python version if needed.
+
+**CPU build (default — works everywhere):**
+
+```bash
+uv tool install --python 3.13 pdomain-ocr-simple-gui \
+  --extra-index-url https://pdomain.github.io/pdomain-index-pip/simple/ \
+  --with "pdomain-ops[desktop]"
+```
+
+The `--with "pdomain-ops[desktop]"` flag pulls in `pywebview >= 5` and
+`pystray >= 0.19` so the native `--desktop` window works out of the box.
+
+**NVIDIA GPU build (CUDA >= 12.4 required):**
+
+```bash
+# Replace cuXXX with your CUDA version tag, e.g. cu124, cu126, cu128.
+# Run `nvidia-smi` to find your CUDA version.
+uv tool install --python 3.13 pdomain-ocr-simple-gui \
+  --extra-index-url https://pdomain.github.io/pdomain-index-pip/simple/ \
+  --with "pdomain-ops[desktop]" \
+  --with "pdomain-book-tools[gpu]" \
+  --extra-index-url "https://download.pytorch.org/whl/cuXXX"
+```
+
+The `pdomain-book-tools[gpu]` extra adds CuPy and OpenCV-CUDA support.
+It requires CUDA >= 12.4 because it pulls `cupy-cuda12x`.
+
+**Apple Silicon (MPS — auto-detected, no extra flags needed):**
+
+```bash
+uv tool install --python 3.13 pdomain-ocr-simple-gui \
+  --extra-index-url https://pdomain.github.io/pdomain-index-pip/simple/ \
+  --with "pdomain-ops[desktop]"
+```
+
+MPS acceleration is used automatically when PyTorch detects Apple Silicon.
+No extra index URL is needed.
+
+Verify: `pdomain-ocr-simple-gui --help`
+
+### Step 4 — Register the desktop shortcut (optional)
+
+```bash
+pdomain-ocr-simple-gui --install-desktop-shortcut
+```
+
+This adds a `.desktop` entry and icon to your application menu so the app
+appears in your desktop launcher.
+
+### Step 5 — Launch the app
+
+```bash
+# Browser mode (default):
+pdomain-ocr-simple-gui
+# Then open http://localhost:8004 in your browser.
+
+# Desktop mode (native window):
+pdomain-ocr-simple-gui --desktop
+```
+
+If `pdomain-ocr-simple-gui` is not found, ensure `~/.local/bin` is on your
+PATH (see Step 1 above).
+
+---
+
 ## Installation: two paths
 
 ### Path A — Double-click AppImage (recommended for end-users)
@@ -182,13 +299,13 @@ After installing or updating the driver, re-run Step 4.
 Adds a `.desktop` entry and icon to your application menu.
 
 ```bash
-pdomain-ocr-simple-gui --install-shortcut
+pdomain-ocr-simple-gui --install-desktop-shortcut
 ```
 
 To remove:
 
 ```bash
-pdomain-ocr-simple-gui --remove-shortcut
+pdomain-ocr-simple-gui --remove-desktop-shortcut
 ```
 
 ---
@@ -268,35 +385,101 @@ Unattended (skip all prompts):
 curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/uninstall.sh | sh -s -- -y
 ```
 
-### Manual equivalent
+### Manual uninstall (step by step)
+
+Use these commands if you prefer not to run the curl-pipe uninstaller, or
+want to understand exactly what `uninstall.sh` does.
+
+#### Step 1 — Remove the desktop shortcut (best-effort)
 
 ```bash
-# 1. Remove the desktop shortcut (best-effort)
 pdomain-ocr-simple-gui --remove-desktop-shortcut 2>/dev/null || true
-
-# 2. Unregister from the suite registry (best-effort)
-pdomain-ocr-simple-gui --unregister-suite 2>/dev/null || true
-# Or hand-edit: ~/.local/share/pd-suite/installed.toml
-
-# 3. Uninstall the tool
-uv tool uninstall pdomain-ocr-simple-gui
-
-# 4. Optionally remove uv (only if nothing else uses it)
-uv self uninstall
-# Or manually: rm -f ~/.local/bin/uv ~/.local/bin/uvx
-#              rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/uv"
-#              rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}/uv"
 ```
 
-User data is NOT removed automatically. To also remove app data and model weights:
+This removes the `.desktop` entry and icon from your application menu.
+It is best-effort: if the binary is not on PATH, or if no shortcut was
+installed, the command exits cleanly without error.
+
+#### Step 2 — Unregister from the suite registry (best-effort)
+
+```bash
+pdomain-ocr-simple-gui --unregister-suite 2>/dev/null || true
+```
+
+This removes the `[apps.pdomain-ocr-simple-gui]` entry from the suite
+registry at:
+
+```text
+~/.local/share/pd-suite/installed.toml
+```
+
+If the binary is not on PATH, edit `installed.toml` directly and delete
+the `[apps.pdomain-ocr-simple-gui]` block.
+
+#### Step 3 — Uninstall the tool
+
+```bash
+uv tool uninstall pdomain-ocr-simple-gui
+```
+
+This removes the `pdomain-ocr-simple-gui` binary and its isolated virtual
+environment from `~/.local/share/uv/tools/pdomain-ocr-simple-gui/`.
+
+#### Step 4 — Remove uv (optional)
+
+Removing uv affects ALL uv-managed tools and Python environments on your
+system. Leave it installed unless you are certain nothing else depends on it.
+
+For standalone installs (the usual case — `astral.sh/uv/install.sh`):
+
+```bash
+uv self uninstall
+```
+
+If `uv self uninstall` is not available (uv was installed via a system
+package manager), remove the binaries manually:
+
+```bash
+rm -f "$HOME/.local/bin/uv" "$HOME/.local/bin/uvx"
+rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/uv"
+rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}/uv"
+```
+
+Also remove the installer marker written by `install.sh` (if present):
 
 ```bash
 rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/pdomain-ocr-simple-gui"
-rm -rf ~/.cache/doctr
-rm -rf ~/.cache/torch
 ```
 
-WebKitGTK is a system package — remove it with your package manager if desired.
+#### Step 5 — Remove WebKitGTK (optional)
+
+WebKitGTK is a system library installed separately. Remove it with your
+package manager only if nothing else on your system needs it.
+
+| Distro | Remove command |
+|--------|---------------|
+| Debian / Ubuntu | `sudo apt-get remove gir1.2-webkit2-4.1` |
+| Fedora | `sudo dnf remove webkit2gtk4.1` |
+| Arch | `sudo pacman -Rs webkit2gtk` |
+| openSUSE | `sudo zypper remove typelib-1_0-WebKit2-4_1` |
+| Alpine | `sudo apk del webkit2gtk` |
+
+#### Step 6 — Remove user data (optional)
+
+User data is NOT removed by any of the above steps. To also wipe app data,
+model weights, and cache:
+
+```bash
+# App data (projects, preferences)
+rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/pdomain-ocr-simple-gui"
+
+# OCR model weights
+# DocTR and PyTorch/HuggingFace cache model weights under the platform cache
+# directory. The exact paths depend on your environment; common locations:
+rm -rf ~/.cache/doctr          # DocTR model weights
+rm -rf ~/.cache/torch          # PyTorch/DocTR model cache
+rm -rf ~/.cache/huggingface    # HuggingFace model cache (if used)
+```
 
 ---
 

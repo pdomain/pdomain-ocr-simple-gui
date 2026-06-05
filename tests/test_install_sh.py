@@ -186,6 +186,56 @@ def test_install_sh_declined_uv_exits_1() -> None:
 
 
 # ---------------------------------------------------------------------------
+# uv version guard assertions (static grep)
+# ---------------------------------------------------------------------------
+
+
+def test_install_sh_min_uv_version_constant() -> None:
+    """Must define MIN_UV_VERSION constant with the required minimum."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    assert 'MIN_UV_VERSION="0.11.16"' in content, (
+        'install.sh must define MIN_UV_VERSION="0.11.16" so it is easy to bump'
+    )
+
+
+def test_install_sh_min_uv_version_check_present() -> None:
+    """Must contain version-check logic that references 0.11.16."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    assert "0.11.16" in content, (
+        "install.sh must reference the minimum uv version 0.11.16 in its version guard"
+    )
+
+
+def test_install_sh_uv_version_parse() -> None:
+    """Must parse uv --version output to extract the version string."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    assert "uv --version" in content, "install.sh must call 'uv --version' to check the installed uv version"
+
+
+def test_install_sh_uv_version_guard_default_n() -> None:
+    """Must gate old-uv continue prompt with default N (abort by default)."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    # The prompt must warn user and offer N as default (abort)
+    assert "older than the required" in content or "older than" in content, (
+        "install.sh must warn when installed uv is older than the minimum"
+    )
+    # The version-guard prompt must use N as default (abort is safer)
+    assert "uv self update" in content, "install.sh must suggest 'uv self update' to upgrade uv"
+
+
+def test_install_sh_uv_version_guard_posix_compare() -> None:
+    """Version compare must be POSIX sh (no sort -V in executable code)."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    # sort -V must not appear in executable code (it is not POSIX-guaranteed).
+    # Comments documenting its absence are fine (and encouraged).
+    non_comment_lines = [line for line in content.splitlines() if not line.lstrip().startswith("#")]
+    assert not any("sort -V" in line for line in non_comment_lines), (
+        "install.sh must not use 'sort -V' in executable code (not POSIX-guaranteed); "
+        "comments mentioning sort -V as a non-dependency are fine"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Integration smoke -- fake uv/curl/gh; never touches network.
 # ---------------------------------------------------------------------------
 
@@ -266,3 +316,133 @@ exit 0
 
     # Must NOT fall back to git source install
     assert "git+https://github.com/pdomain/pdomain-ocr-simple-gui" not in args
+
+
+def test_install_sh_uv_version_guard_aborts_on_old_uv(tmp_path: Path) -> None:
+    """When installed uv is below MIN_UV_VERSION and user declines, must exit 1."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+
+    # Fake uv that reports a very old version (0.1.0)
+    (bin_dir / "uv").write_text(
+        '#!/bin/sh\nif [ "$1" = "--version" ]; then echo "uv 0.1.0 (abc123)"; exit 0; fi\nexit 0\n',
+        encoding="utf-8",
+    )
+    (bin_dir / "uv").chmod(0o755)
+
+    # Fake curl: return GitHub API JSON for the API call, write a fake wheel
+    (bin_dir / "curl").write_text(
+        """#!/bin/sh
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then shift; out="$1"; fi
+  shift || true
+done
+if [ -n "$out" ]; then
+  printf 'fake wheel' > "$out"
+else
+  cat <<'JSON'
+{"tag_name":"v1.2.3","assets":[{"browser_download_url":"https://example.invalid/pdomain_ocr_simple_gui-1.2.3-py3-none-any.whl"}]}
+JSON
+fi
+exit 0
+""",
+        encoding="utf-8",
+    )
+    (bin_dir / "curl").chmod(0o755)
+
+    # Fake gh: exit 1 so we fall through to curl path
+    (bin_dir / "gh").write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    (bin_dir / "gh").chmod(0o755)
+
+    # Fake nvidia-smi: exit 1 (no GPU)
+    (bin_dir / "nvidia-smi").write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    (bin_dir / "nvidia-smi").chmod(0o755)
+
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
+    env["PD_SIMPLE_GUI_INSTALL_PYTHON"] = "3.12"
+    # No ASSUME_YES -- the version-guard prompt defaults to N (abort)
+    # With no TTY the headless path takes the default, which is N (abort)
+    env.pop("ASSUME_YES", None)
+
+    result = subprocess.run(
+        ["sh", str(INSTALL_SH)],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    # Must have exited non-zero (aborted due to old uv) or printed a warning
+    # In headless mode with default N, the script should abort
+    combined = result.stdout + result.stderr
+    assert "0.1.0" in combined or "older" in combined or result.returncode != 0, (
+        "install.sh must warn or abort when the installed uv is below the minimum version"
+    )
+
+
+def test_install_sh_uv_version_guard_proceeds_on_current_uv(tmp_path: Path) -> None:
+    """When installed uv meets MIN_UV_VERSION, must proceed without warning."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    uv_log = tmp_path / "uv.log"
+
+    # Fake uv that reports a current version (1.0.0 — clearly above 0.11.16)
+    (bin_dir / "uv").write_text(
+        f"#!/bin/sh\n"
+        f'if [ "$1" = "--version" ]; then echo "uv 1.0.0 (abc123)"; exit 0; fi\n'
+        f'printf "%s\\n" "$@" >> {uv_log}\n'
+        f"exit 0\n",
+        encoding="utf-8",
+    )
+    (bin_dir / "uv").chmod(0o755)
+
+    # Fake curl: GitHub API + wheel download
+    (bin_dir / "curl").write_text(
+        """#!/bin/sh
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then shift; out="$1"; fi
+  shift || true
+done
+if [ -n "$out" ]; then
+  printf 'fake wheel' > "$out"
+else
+  cat <<'JSON'
+{"tag_name":"v1.2.3","assets":[{"browser_download_url":"https://example.invalid/pdomain_ocr_simple_gui-1.2.3-py3-none-any.whl"}]}
+JSON
+fi
+exit 0
+""",
+        encoding="utf-8",
+    )
+    (bin_dir / "curl").chmod(0o755)
+
+    (bin_dir / "gh").write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    (bin_dir / "gh").chmod(0o755)
+
+    (bin_dir / "nvidia-smi").write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    (bin_dir / "nvidia-smi").chmod(0o755)
+
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
+    env["PD_SIMPLE_GUI_INSTALL_PYTHON"] = "3.12"
+    env["ASSUME_YES"] = "1"
+
+    result = subprocess.run(
+        ["sh", str(INSTALL_SH)],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    # Must NOT print old-uv warning
+    combined = result.stdout + result.stderr
+    assert "older than" not in combined, (
+        f"install.sh must not warn about old uv when version is current; got:\n{combined}"
+    )

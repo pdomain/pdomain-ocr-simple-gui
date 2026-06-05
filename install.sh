@@ -38,6 +38,9 @@ set -e
 REPO="pdomain/pdomain-ocr-simple-gui"
 PYTHON_VERSION="${PD_SIMPLE_GUI_INSTALL_PYTHON:-3.13}"
 ASSUME_YES="${ASSUME_YES:-0}"
+# Minimum uv version required by this project (matches pyproject.toml
+# [tool.uv] required-version). Update here whenever pyproject.toml changes.
+MIN_UV_VERSION="0.11.16"
 
 # ---------------------------------------------------------------------------
 # Parse flags: -y / --yes
@@ -104,6 +107,57 @@ if ! command -v uv >/dev/null 2>&1; then
         echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
         echo "Then re-run this installer."
         exit 1
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Version guard: ensure the installed uv is >= MIN_UV_VERSION.
+# Bootstrapped uv is always current; this check matters only when the user
+# already had an old uv installed before running this script.
+# Uses field-by-field numeric compare (POSIX sh -- no `sort -V` assumed).
+# ---------------------------------------------------------------------------
+_UV_VER_RAW=$(uv --version 2>/dev/null | head -1)
+# Format: "uv X.Y.Z (...)" -- extract the X.Y.Z part
+_UV_VER=$(printf '%s' "$_UV_VER_RAW" | sed 's/^uv \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/')
+if [ -n "$_UV_VER" ] && [ "$_UV_VER" != "$_UV_VER_RAW" ]; then
+    # Split installed version
+    _UV_MAJOR=${_UV_VER%%.*}
+    _UV_REST=${_UV_VER#*.}
+    _UV_MINOR=${_UV_REST%%.*}
+    _UV_PATCH=${_UV_REST#*.}
+    # Split minimum version
+    _MIN_MAJOR=${MIN_UV_VERSION%%.*}
+    _MIN_REST=${MIN_UV_VERSION#*.}
+    _MIN_MINOR=${_MIN_REST%%.*}
+    _MIN_PATCH=${_MIN_REST#*.}
+    # Field-by-field numeric compare
+    _UV_TOO_OLD=0
+    if [ "$_UV_MAJOR" -lt "$_MIN_MAJOR" ]; then
+        _UV_TOO_OLD=1
+    elif [ "$_UV_MAJOR" -eq "$_MIN_MAJOR" ]; then
+        if [ "$_UV_MINOR" -lt "$_MIN_MINOR" ]; then
+            _UV_TOO_OLD=1
+        elif [ "$_UV_MINOR" -eq "$_MIN_MINOR" ]; then
+            if [ "$_UV_PATCH" -lt "$_MIN_PATCH" ]; then
+                _UV_TOO_OLD=1
+            fi
+        fi
+    fi
+    if [ "$_UV_TOO_OLD" = "1" ]; then
+        echo ""
+        echo "Your installed uv (${_UV_VER}) is older than the required ${MIN_UV_VERSION}."
+        echo ""
+        echo "To upgrade uv (standalone installs):"
+        echo "  uv self update"
+        echo ""
+        echo "Or reinstall uv from scratch:"
+        echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+        echo ""
+        if ! prompt_yn "Your uv (${_UV_VER}) is older than the required ${MIN_UV_VERSION}. Continue anyway?" "N"; then
+            echo "Aborted. Please upgrade uv to >= ${MIN_UV_VERSION} and re-run this installer."
+            exit 1
+        fi
+        echo "Continuing despite old uv -- the install may fail."
     fi
 fi
 

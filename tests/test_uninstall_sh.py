@@ -138,20 +138,33 @@ def test_uninstall_sh_uv_marker_aware() -> None:
     )
 
 
-def test_uninstall_sh_uv_removal_default_yes_when_marker_present() -> None:
-    """When marker is present, default for uv removal prompt must be Y."""
+def test_uninstall_sh_uv_removal_default_n_when_marker_present() -> None:
+    """When marker is present, default for uv removal prompt must be N.
+
+    Removing uv is destructive to all other uv-managed tools on the system,
+    so N is the safe default even when our installer originally bootstrapped uv.
+    The marker is used only to tailor the message (informing the user uv came
+    from this app's installer), not to change the default to opt-out removal.
+    """
     content = UNINSTALL_SH.read_text(encoding="utf-8")
-    # The marker-present branch sets _UV_DEFAULT="Y"
-    assert '_UV_DEFAULT="Y"' in content, (
-        "uninstall.sh must default to Y (remove uv) when the marker is present"
+    # Both branches must set _UV_DEFAULT="N"
+    assert '_UV_DEFAULT="Y"' not in content, (
+        "uninstall.sh must NOT default to Y (remove uv) in any branch — "
+        "uv removal is always opt-in (N default) because it is destructive to "
+        "all other uv-managed tools"
     )
 
 
-def test_uninstall_sh_uv_removal_default_no_when_marker_absent() -> None:
-    """When marker is absent, default for uv removal prompt must be N."""
+def test_uninstall_sh_uv_removal_default_n_both_branches() -> None:
+    """Both marker-present and marker-absent branches must default to N for uv removal."""
     content = UNINSTALL_SH.read_text(encoding="utf-8")
-    # The marker-absent branch sets _UV_DEFAULT="N"
-    assert '_UV_DEFAULT="N"' in content, "uninstall.sh must default to N (keep uv) when the marker is absent"
+    # Count occurrences of _UV_DEFAULT="N" -- must appear at least twice
+    # (once for marker-present branch, once for marker-absent branch)
+    n_default_count = content.count('_UV_DEFAULT="N"')
+    assert n_default_count >= 2, (
+        f"Expected _UV_DEFAULT='N' in both marker-present and marker-absent branches, "
+        f"found {n_default_count} occurrence(s)"
+    )
 
 
 def test_uninstall_sh_uv_self_uninstall() -> None:

@@ -4,8 +4,9 @@ set -e
 # Uninstall pdomain-ocr-simple-gui.
 #
 # Removes the app installed via uv tool install, and optionally removes uv
-# itself (with a context-aware default depending on whether this installer
-# originally bootstrapped uv).
+# itself (always defaulting to N -- uv removal is destructive to all other
+# uv-managed tools, so it is always opt-in regardless of whether this
+# installer originally bootstrapped uv).
 #
 # Usage:
 #   curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/uninstall.sh | sh
@@ -108,10 +109,13 @@ fi
 # ---------------------------------------------------------------------------
 # Step 4 -- Offer to remove uv itself
 # ---------------------------------------------------------------------------
-# Default depends on whether install.sh originally bootstrapped uv.
+# Default is always N -- removing uv is destructive to all other uv-managed
+# tools on the system, so it must always be an explicit opt-in.
+# The marker is used only to tailor the message (informing the user that uv
+# was installed by this app's installer), not to change the default.
 if [ -f "$_MARKER" ]; then
-    _UV_PROMPT="uv was installed by this app's installer. Remove uv as well?"
-    _UV_DEFAULT="Y"
+    _UV_PROMPT="uv was installed by this app's installer. Remove uv as well? (this affects ALL other uv-managed tools)"
+    _UV_DEFAULT="N"
 else
     _UV_PROMPT="Also remove uv? (this affects ALL other uv-managed tools)"
     _UV_DEFAULT="N"
