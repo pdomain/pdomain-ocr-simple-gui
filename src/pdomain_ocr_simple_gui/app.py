@@ -135,6 +135,7 @@ def create_app() -> FastAPI:
     from pdomain_ocr_simple_gui.routes.config import router as config_router
     from pdomain_ocr_simple_gui.routes.downloads import router as downloads_router
     from pdomain_ocr_simple_gui.routes.jobs import router as jobs_router
+    from pdomain_ocr_simple_gui.routes.model_cache import router as model_cache_router
     from pdomain_ocr_simple_gui.routes.pages import router as pages_router
     from pdomain_ocr_simple_gui.routes.prefs import router as prefs_router
     from pdomain_ocr_simple_gui.routes.uploads import router as uploads_router
@@ -147,6 +148,7 @@ def create_app() -> FastAPI:
     _app.include_router(uploads_router)
     _app.include_router(downloads_router)
     _app.include_router(words_router)
+    _app.include_router(model_cache_router)
 
     # Mount suite plumbing routes (/api/suite/*, /api/icons/*, /healthz)
     try:
