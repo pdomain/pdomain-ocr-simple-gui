@@ -48,8 +48,14 @@ import {
   ShortcutsHelpButton,
   SettingsSlot,
   useUtilityDock,
+  ComputeTargetPanel,
+  UpdatePanel,
+  UpdateBadge,
+  createApiDeviceConfig,
+  createApiUpdateConfig,
 } from "@pdomain/pdomain-ui/shell";
 import { ShortcutsProvider } from "@pdomain/pdomain-ui/hooks";
+import { useDeviceInfo, useUpdateCheck } from "@pdomain/pdomain-ui/stores";
 import type {
   UIPrefsConfig,
   InstalledApp,
@@ -70,15 +76,62 @@ import TesseractHelpPage from "./pages/TesseractHelpPage";
 import { JobsLocationSettings } from "./components/JobsLocationSettings";
 
 /**
+ * API-backed device config for ComputeTargetPanel.
+ * createApiDeviceConfig reads/writes /api/suite/device.
+ */
+const _deviceConfig = createApiDeviceConfig();
+
+/**
+ * API-backed update config for UpdatePanel.
+ * createApiUpdateConfig reads/writes /api/suite/update.
+ */
+const _updateConfig = createApiUpdateConfig();
+
+/** Inner component for the Compute panel — calls hooks inside the component tree. */
+function ComputePanelContent() {
+  const device = useDeviceInfo(_deviceConfig);
+  return (
+    <ComputeTargetPanel
+      info={device.info}
+      onSelect={(id) => void device.setDevice("app", id)}
+    />
+  );
+}
+
+/** Inner component for the Updates panel — calls hooks inside the component tree. */
+function UpdatePanelContent() {
+  const update = useUpdateCheck(_updateConfig);
+  return (
+    <UpdatePanel
+      info={update.info}
+      policy="notify"
+      onPolicyChange={() => undefined}
+      onApply={() => void update.applyAndRestart()}
+    />
+  );
+}
+
+/**
  * App-injected settings panels, appended after pdomain-ui's built-in
  * Appearance tab. The "jobs" panel lets the user choose where new OCR jobs
  * are stored (env > pref > default resolution lives in the backend).
+ * "compute" and "updates" panels come from pdomain-ui 0.7.0.
  */
-const settingsPanels: SettingsPanelDescriptor[] = [
+export const settingsPanels: SettingsPanelDescriptor[] = [
   {
     id: "jobs",
     label: "Jobs",
     content: <JobsLocationSettings />,
+  },
+  {
+    id: "compute",
+    label: "Compute",
+    content: <ComputePanelContent />,
+  },
+  {
+    id: "updates",
+    label: "Updates",
+    content: <UpdatePanelContent />,
   },
 ];
 
@@ -314,6 +367,16 @@ function AppRoutes() {
 }
 
 /**
+ * UpdateBadgeHeaderWrapper — renders the UpdateBadge when an update is available.
+ * Calls useUpdateCheck inside the component tree (hooks must be inside React components).
+ */
+function UpdateBadgeHeaderWrapper() {
+  const update = useUpdateCheck(_updateConfig);
+  const available = Boolean(update.info?.update_available);
+  return <UpdateBadge available={available} />;
+}
+
+/**
  * SimpleGuiHeader — custom header rendered inside AppShell's header slot.
  *
  * JobsPill.onClick is wired to useUtilityDock().toggle('jobs') so the
@@ -412,6 +475,7 @@ function SimpleGuiHeader({
         <div className="app-header__jobs-panel-owner">
           <JobsPill activeJobs={activeJobs} onClick={() => toggle("jobs")} />
         </div>
+        <UpdateBadgeHeaderWrapper />
         <button
           type="button"
           data-testid="app-header-bell"

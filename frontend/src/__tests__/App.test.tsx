@@ -112,6 +112,13 @@ vi.mock("@pdomain/pdomain-ui/shell", () => ({
     setPinned: vi.fn(),
     setWidth: vi.fn(),
   }),
+  // pdomain-ui 0.7.0 additions
+  ComputeTargetPanel: () => <div data-testid="compute-target-panel-mock" />,
+  UpdatePanel: () => <div data-testid="update-panel-mock" />,
+  UpdateBadge: ({ available }: { available: boolean }) =>
+    available ? <div data-testid="update-badge-mock" /> : null,
+  createApiDeviceConfig: () => ({ fetchDevice: vi.fn(), putDevice: vi.fn() }),
+  createApiUpdateConfig: () => ({ fetchUpdate: vi.fn(), applyUpdate: vi.fn() }),
 }));
 
 vi.mock("@pdomain/pdomain-ui/hooks", () => ({
@@ -120,6 +127,23 @@ vi.mock("@pdomain/pdomain-ui/hooks", () => ({
   ),
   useShortcuts: () => undefined,
   formatShortcut: (keys: string) => [keys],
+}));
+
+// Mock stores for useDeviceInfo / useUpdateCheck (used by F5 panel wrappers)
+vi.mock("@pdomain/pdomain-ui/stores", () => ({
+  useDeviceInfo: () => ({
+    info: null,
+    loading: false,
+    error: null,
+    setDevice: vi.fn(),
+  }),
+  useUpdateCheck: () => ({
+    info: null,
+    loading: false,
+    error: null,
+    checkNow: vi.fn(),
+    applyAndRestart: vi.fn(),
+  }),
 }));
 
 // Mock @pdomain/pdomain-ui/stages/PageWorkbench — ArtifactViewer uses Konva
