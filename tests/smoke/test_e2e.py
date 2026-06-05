@@ -20,8 +20,9 @@ import httpx
 import pytest
 
 _FIXTURE_IMAGE = Path("/workspaces/ocr-container/pdomain-book-tools/tests/ocr-test-image.png")
-_POLL_INTERVAL = 1.0  # seconds
-_TIMEOUT = 60.0  # seconds — generous for first DocTR model load
+_POLL_INTERVAL = 2.0  # seconds — slightly longer interval reduces noise under load
+_TIMEOUT = 300.0  # seconds — 5 min; first DocTR model load can be very slow under load
+_POLL_READ_TIMEOUT = 30.0  # seconds — per-poll httpx read timeout; 5 s was too tight under load
 
 
 def _free_port() -> int:
@@ -123,7 +124,7 @@ def test_e2e_job_completes(tmp_path: Path) -> None:
         deadline = time.monotonic() + _TIMEOUT
         final_status: dict = {}
         while time.monotonic() < deadline:
-            poll = httpx.get(f"{base_url}/api/jobs/{project_id}", timeout=5.0)
+            poll = httpx.get(f"{base_url}/api/jobs/{project_id}", timeout=_POLL_READ_TIMEOUT)
             assert poll.status_code == 200, f"GET /api/jobs/{project_id} failed: {poll.text}"
             final_status = poll.json()
             state = final_status.get("state")
