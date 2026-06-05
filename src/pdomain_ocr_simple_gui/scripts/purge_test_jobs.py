@@ -42,7 +42,7 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 
 logger = logging.getLogger(__name__)
 
@@ -90,21 +90,24 @@ def _read_project_meta(proj_dir: Path) -> _ProjectMeta | None:
     if not proj_file.exists():
         return None
     try:
-        raw = json.loads(proj_file.read_text(encoding="utf-8"))
+        raw: object = cast("object", json.loads(proj_file.read_text(encoding="utf-8")))
     except Exception:  # noqa: BLE001  # JSON decode / IO errors all treated as "unreadable"
         return None
     if not isinstance(raw, dict):
         return None
-    spec = raw.get("spec", {})
-    status = raw.get("status", {})
-    spec = spec if isinstance(spec, dict) else {}
-    status = status if isinstance(status, dict) else {}
+    typed_raw: dict[str, object] = cast("dict[str, object]", raw)
+    spec_raw: object = typed_raw.get("spec", {})
+    status_raw: object = typed_raw.get("status", {})
+    spec: dict[str, object] = cast("dict[str, object]", spec_raw) if isinstance(spec_raw, dict) else {}
+    status: dict[str, object] = cast("dict[str, object]", status_raw) if isinstance(status_raw, dict) else {}
     name = str(spec.get("name", ""))
     source_path = str(spec.get("source_path", ""))
-    page_count = status.get("page_count")
-    if not isinstance(page_count, int):
-        pages = status.get("pages")
-        page_count = len(pages) if isinstance(pages, list) else 0
+    page_count_raw: object = status.get("page_count")
+    if not isinstance(page_count_raw, int):
+        pages_raw: object = status.get("pages")
+        page_count: int = len(cast("list[object]", pages_raw)) if isinstance(pages_raw, list) else 0
+    else:
+        page_count = page_count_raw
     return _ProjectMeta(name=name, source_path=source_path, page_count=page_count)
 
 
@@ -305,7 +308,7 @@ def _drop_from_prefs(
         if adapter is None:
             # Attempt to build a default adapter; skip on import error
             try:
-                from pdomain_ops.suite.prefs import LocalFilePrefs  # pyright: ignore[reportMissingTypeStubs]
+                from pdomain_ops.suite.prefs import LocalFilePrefs
             except ImportError:
                 logger.warning("pdomain_ops not available; skipping prefs cleanup")
                 return
@@ -317,29 +320,32 @@ def _drop_from_prefs(
         # Narrow to UIPrefs to get typed .apps access; fall back to safe empty
         # dict on any other type so the prefs step is skipped harmlessly.
         try:
-            from pdomain_ops.suite.prefs import UIPrefs  # pyright: ignore[reportMissingTypeStubs]
+            from pdomain_ops.suite.types import UIPrefs
         except ImportError:
             logger.warning("pdomain_ops not available; skipping prefs cleanup")
             return
         if not isinstance(raw_prefs, UIPrefs):
             logger.debug("Prefs object is not UIPrefs (%r); skipping cleanup", type(raw_prefs))
             return
-        apps_dict: dict[str, dict[str, object]] = raw_prefs.apps  # type: ignore[assignment]
+        apps_dict: dict[str, dict[str, object]] = cast("dict[str, dict[str, object]]", raw_prefs.apps)
 
         app_data = apps_dict.get(_APP_ID)
-        if not app_data or not isinstance(app_data, dict):
+        if not app_data:
             return
-        raw_recent = app_data.get("recent_projects")
+        raw_recent: object = app_data.get("recent_projects")
         if not isinstance(raw_recent, list):
             return
-        recent: list[dict[str, object]] = [p for p in raw_recent if isinstance(p, dict)]
+        recent_raw: list[object] = cast("list[object]", raw_recent)
+        recent: list[dict[str, object]] = [
+            cast("dict[str, object]", p) for p in recent_raw if isinstance(p, dict)
+        ]
         filtered = [p for p in recent if p.get("project_id") not in remove_set]
         if len(filtered) == len(recent):
             return  # nothing changed
         if dry_run:
             logger.info("[dry-run] would drop %d entries from recent_projects", len(recent) - len(filtered))
             return
-        app_data_updated: dict[str, object] = dict(app_data)  # type: ignore[arg-type]
+        app_data_updated: dict[str, object] = dict(app_data)
         app_data_updated["recent_projects"] = filtered
         adapter.write_app(_APP_ID, app_data_updated)
         logger.info("Dropped %d test-job entries from recent_projects", len(recent) - len(filtered))

@@ -18,8 +18,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 
-    from pdomain_ops.gpu.local_stage import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
-    from pdomain_ops.suite.prefs import PrefsAdapter  # pyright: ignore[reportMissingTypeStubs]
+    from pdomain_ops.gpu.local_stage import LocalStageDispatcher
+    from pdomain_ops.suite.prefs import PrefsAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning(_msg)
 
     try:
-        from pdomain_ops.suite.prefs import LocalFilePrefs  # pyright: ignore[reportMissingTypeStubs]
+        from pdomain_ops.suite.prefs import LocalFilePrefs
 
         _prefs_adapter = LocalFilePrefs()
     except Exception:  # optional prefs integration — app runs without it
@@ -75,7 +75,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         _dispatcher = FakeStageDispatcher()  # pyright: ignore[reportAssignmentType]
     else:
         try:
-            from pdomain_ops.gpu import (  # pyright: ignore[reportMissingTypeStubs]
+            from pdomain_ops.gpu import (
                 LocalStageDispatcher,
                 register_default_stages,
             )
@@ -87,7 +87,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 "register_default_stages() failed; falling back to bare LocalStageDispatcher",
                 extra={"context": "register_default_stages(_dispatcher)"},
             )
-            from pdomain_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
+            from pdomain_ops.gpu import LocalStageDispatcher
 
             _dispatcher = LocalStageDispatcher()
     # Auth startup notice.
@@ -150,7 +150,7 @@ def create_app() -> FastAPI:
 
     # Mount suite plumbing routes (/api/suite/*, /api/icons/*, /healthz)
     try:
-        from pdomain_ops.suite.routes import (  # pyright: ignore[reportMissingTypeStubs]
+        from pdomain_ops.suite.routes import (
             mount_routes as _mount_suite_routes,
         )
 

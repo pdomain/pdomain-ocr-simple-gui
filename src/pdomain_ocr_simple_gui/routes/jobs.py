@@ -182,7 +182,7 @@ def _build_source_and_flags(body: CreateJobRequest, mode: Mode) -> tuple[str, bo
 
 async def _pipeline_run_job(spec: ProjectSpec) -> None:
     """Background task: run OCR pipeline for the given project spec."""
-    from pdomain_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
+    from pdomain_ops.gpu import LocalStageDispatcher
 
     from pdomain_ocr_simple_gui.app import get_dispatcher
 
@@ -229,7 +229,7 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
             )
             return
 
-        await run_project(spec, dispatcher, _status_callback)  # pyright: ignore[reportArgumentType]  # LocalStageDispatcher lacks stubs
+        await run_project(spec, dispatcher, _status_callback)
 
     except Exception as exc:  # background job failure must be recorded, not propagated
         logger.exception(

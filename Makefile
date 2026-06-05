@@ -92,8 +92,8 @@ format-check: ## Check Python formatting with ruff (no writes)
 	uv run ruff format --check
 	uv run ruff check --select I
 
-typecheck: ## Run basedpyright at recommended mode
-	uv run basedpyright src/pdomain_ocr_simple_gui --level error
+typecheck: ## Run basedpyright at warnings level (failOnWarnings=true in pyproject.toml)
+	uv run basedpyright src/pdomain_ocr_simple_gui installer/
 
 pre-commit-check: ## Run pre-commit on all files
 	uv run pre-commit run --all-files

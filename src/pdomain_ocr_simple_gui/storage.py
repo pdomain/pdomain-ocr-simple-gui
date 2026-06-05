@@ -33,9 +33,9 @@ def _jobs_location_pref() -> str:
         adapter = get_prefs_adapter()
         if adapter is None:
             return ""
-        raw = adapter.read().apps.get(_APP_ID, {})
-        value = raw.get("jobs_location", "") if isinstance(raw, dict) else ""
-        return value if isinstance(value, str) else ""
+        app_data: dict[str, object] = cast("dict[str, object]", adapter.read().apps.get(_APP_ID, {}))
+        jobs_loc: object = app_data.get("jobs_location", "")
+        return jobs_loc if isinstance(jobs_loc, str) else ""
     except Exception:  # prefs are optional — never break storage resolution
         logger.exception(
             "Failed to read jobs_location pref; using env/default",
@@ -63,6 +63,11 @@ def _projects_root() -> Path:
     if pref:
         return Path(pref).expanduser().resolve()
     return _PROJECTS_ROOT_DEFAULT
+
+
+def get_projects_root() -> Path:
+    """Return the projects root directory (public alias for cross-module use)."""
+    return _projects_root()
 
 
 JSONValue: TypeAlias = str | int | float | bool | None | list["JSONValue"] | dict[str, "JSONValue"]

@@ -6,15 +6,18 @@ import argparse
 import logging
 import sys
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import TYPE_CHECKING, cast
 
-from pdomain_ops.desktop import run_windowed  # pyright: ignore[reportMissingTypeStubs]
-from pdomain_ops.suite import bootstrap_spa  # pyright: ignore[reportMissingTypeStubs]
-from pdomain_ops.suite.desktop import (  # pyright: ignore[reportMissingTypeStubs]
+from pdomain_ops.desktop import run_windowed
+from pdomain_ops.suite import bootstrap_spa
+from pdomain_ops.suite.desktop import (
     install_shortcut,
     remove_shortcut,
 )
-from pdomain_ops.suite.update import apply_upgrade  # pyright: ignore[reportMissingTypeStubs]
+from pdomain_ops.suite.update import apply_upgrade
+
+if TYPE_CHECKING:
+    from pdomain_ops.suite.types import InstalledApp
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +102,7 @@ def _parse_args(argv: list[str] | None = None) -> _CliArgs:
     )
 
 
-def _build_installed_app() -> Any:
+def _build_installed_app() -> InstalledApp:
     """Build an InstalledApp from the bundled pdomain-suite.json fragment.
 
     Returns an InstalledApp instance using metadata from the installed
@@ -113,18 +116,17 @@ def _build_installed_app() -> Any:
     import json
     from pathlib import Path
 
-    from pdomain_ops.suite.types import InstalledApp  # pyright: ignore[reportMissingTypeStubs]
+    from pdomain_ops.suite.types import InstalledApp
 
     pkg = "pdomain_ocr_simple_gui"
     raw = (importlib.resources.files(pkg) / "pdomain-suite.json").read_text(encoding="utf-8")
-    # Any return type is forced by missing pdomain-ops type stubs (reportMissingTypeStubs)
-    fragment: dict[str, Any] = json.loads(raw)
+    fragment: dict[str, object] = cast("dict[str, object]", json.loads(raw))
     binary = str(Path(sys.argv[0]).resolve()) if sys.argv else ""
     try:
         version = importlib.metadata.version(pkg)
     except importlib.metadata.PackageNotFoundError:
         version = "0.0.0"
-    return InstalledApp(binary=binary, version=version, **fragment)
+    return InstalledApp.model_validate({**fragment, "binary": binary, "version": version})
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -141,7 +143,7 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.unregister_suite:
         try:
-            from pdomain_ops.suite.registry import (  # pyright: ignore[reportMissingTypeStubs]
+            from pdomain_ops.suite.registry import (
                 LocalTomlSuiteRegistry,
             )
 

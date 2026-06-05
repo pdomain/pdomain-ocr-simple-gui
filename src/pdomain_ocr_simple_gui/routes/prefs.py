@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import ValidationError
@@ -43,22 +43,24 @@ def _validate_jobs_location(value: str) -> None:
 async def get_prefs() -> AppPrefsResponse:
     """Return the app prefs (plus the resolved effective jobs location)."""
     from pdomain_ocr_simple_gui.app import get_prefs_adapter
-    from pdomain_ocr_simple_gui.storage import _projects_root
+    from pdomain_ocr_simple_gui.storage import get_projects_root
 
     adapter = get_prefs_adapter()
     if adapter is None:
         base = AppPrefs()
     else:
-        raw = adapter.read().apps.get(_APP_ID, {})
-        base = AppPrefs.model_validate(raw) if raw else AppPrefs()
-    return AppPrefsResponse(
-        **base.model_dump(),
-        effective_jobs_location=str(_projects_root()),
+        app_data: dict[str, object] = dict(adapter.read().apps.get(_APP_ID, {}))
+        base = AppPrefs.model_validate(app_data) if app_data else AppPrefs()
+    return AppPrefsResponse.model_validate(
+        {
+            **base.model_dump(),
+            "effective_jobs_location": str(get_projects_root()),
+        }
     )
 
 
 @router.put("", response_model=AppPrefs, dependencies=[Depends(require_token)])
-async def put_prefs(body: Annotated[dict[str, Any], Body()]) -> AppPrefs:
+async def put_prefs(body: Annotated[dict[str, object], Body()]) -> AppPrefs:
     """Persist app prefs via a read-modify-WRITE merge (best-effort if no adapter).
 
     The body is treated as a PARTIAL patch: only the keys it carries are
@@ -75,8 +77,8 @@ async def put_prefs(body: Annotated[dict[str, Any], Body()]) -> AppPrefs:
 
     # Read the currently-stored app prefs (defaults if none/no adapter).
     if adapter is not None:
-        raw = adapter.read().apps.get(_APP_ID, {})
-        existing = AppPrefs.model_validate(raw) if raw else AppPrefs()
+        app_data: dict[str, object] = dict(adapter.read().apps.get(_APP_ID, {}))
+        existing = AppPrefs.model_validate(app_data) if app_data else AppPrefs()
     else:
         existing = AppPrefs()
 

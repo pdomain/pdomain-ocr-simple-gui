@@ -132,9 +132,9 @@ def detect_nvidia() -> str | None:
         # nvidia-smi present but version query failed — treat as too-old to be safe.
         print(  # noqa: T201
             "WARNING: nvidia-smi found but driver version could not be determined. "
-            "GPU acceleration step will be skipped.\n"
-            "To enable GPU support, ensure NVIDIA driver >= 525 is installed:\n"
-            "  https://www.nvidia.com/en-us/drivers/"
+            + "GPU acceleration step will be skipped.\n"
+            + "To enable GPU support, ensure NVIDIA driver >= 525 is installed:\n"
+            + "  https://www.nvidia.com/en-us/drivers/"
         )
         return None
 
@@ -144,23 +144,23 @@ def detect_nvidia() -> str | None:
     except (ValueError, IndexError):
         print(  # noqa: T201
             f"WARNING: Could not parse NVIDIA driver version '{version_str}'. "
-            "GPU acceleration step will be skipped.\n"
-            "To enable GPU support, ensure NVIDIA driver >= 525 is installed:\n"
-            "  https://www.nvidia.com/en-us/drivers/"
+            + "GPU acceleration step will be skipped.\n"
+            + "To enable GPU support, ensure NVIDIA driver >= 525 is installed:\n"
+            + "  https://www.nvidia.com/en-us/drivers/"
         )
         return None
 
     if major < _MIN_DRIVER_VERSION:
         print(  # noqa: T201
             f"WARNING: NVIDIA driver version {version_str} is below the minimum "
-            f"required for CUDA 12 (driver >= {_MIN_DRIVER_VERSION}).\n"
-            "GPU acceleration step will be skipped.\n"
-            "To enable GPU support, upgrade your NVIDIA driver:\n"
-            "  Official:       https://www.nvidia.com/en-us/drivers/\n"
-            "  Ubuntu/Debian:  ubuntu-drivers devices && sudo ubuntu-drivers install\n"
-            "  Arch Linux:     pacman -S nvidia\n"
-            "  Fedora:         dnf install akmod-nvidia\n"
-            "After upgrading (and rebooting if necessary), re-run the installer."
+            + f"required for CUDA 12 (driver >= {_MIN_DRIVER_VERSION}).\n"
+            + "GPU acceleration step will be skipped.\n"
+            + "To enable GPU support, upgrade your NVIDIA driver:\n"
+            + "  Official:       https://www.nvidia.com/en-us/drivers/\n"
+            + "  Ubuntu/Debian:  ubuntu-drivers devices && sudo ubuntu-drivers install\n"
+            + "  Arch Linux:     pacman -S nvidia\n"
+            + "  Fedora:         dnf install akmod-nvidia\n"
+            + "After upgrading (and rebooting if necessary), re-run the installer."
         )
         return None
 
@@ -360,7 +360,7 @@ def run(
                 continue
 
         cmd = _build_exec_args(step)
-        run_cmd(cmd, check=True)
+        _ = run_cmd(cmd, check=True)
         print("  Done.")  # noqa: T201
 
 

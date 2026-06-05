@@ -22,6 +22,7 @@ import argparse
 import shutil
 import subprocess
 import sys
+from typing import cast
 
 from installer.install_engine import (
     Step,
@@ -45,9 +46,9 @@ def _build_steps() -> list[Step]:
     # If it raises, assume the native runtime is absent.
     has_webview = False
     try:
-        import webview  # type: ignore[import-not-found]  # pyright: ignore[reportMissingImports]  # noqa: F401
+        import webview as _webview  # type: ignore[import-not-found]  # pyright: ignore[reportMissingImports]  # import for side-effect availability check
 
-        has_webview = True
+        has_webview = _webview is not None
     except ImportError:
         pass
 
@@ -101,8 +102,8 @@ def _run_gui(*, dry_run: bool) -> None:
     # ── Widgets ────────────────────────────────────────────────────────────
     frame = ttk.Frame(root, padding=20)
     frame.grid(sticky="nsew")
-    root.columnconfigure(0, weight=1)
-    root.rowconfigure(0, weight=1)
+    _ = root.columnconfigure(0, weight=1)
+    _ = root.rowconfigure(0, weight=1)
 
     title_var = tk.StringVar()
     body_var = tk.StringVar()
@@ -141,32 +142,32 @@ def _run_gui(*, dry_run: bool) -> None:
         if idx == 0:
             title_var.set("pdomain-ocr-simple-gui Installer")
             body_var.set(
-                f"This wizard will install pdomain-ocr-simple-gui and its prerequisites.\n\n"
-                f"{len(steps)} step(s) identified for this system.\n\n"
-                "Click 'Install →' to begin."
+                "This wizard will install pdomain-ocr-simple-gui and its prerequisites.\n\n"
+                + f"{len(steps)} step(s) identified for this system.\n\n"
+                + "Click 'Install →' to begin."
             )
             cmd_var.set("")
-            btn_yes.config(text="Begin →", state="normal")
-            btn_skip.config(state="disabled")
+            _ = btn_yes.config(text="Begin →", state="normal")
+            _ = btn_skip.config(state="disabled")
         elif idx <= len(steps):
             step = steps[idx - 1]
             sudo_tag = " (requires sudo)" if step.needs_sudo else ""
             title_var.set(f"Step {idx} of {len(steps)}: {step.id}")
             body_var.set(step.description + sudo_tag)
             cmd_var.set(f"$ {step.command}")
-            btn_yes.config(text="Run this step →", state="normal")
-            btn_skip.config(state="normal")
+            _ = btn_yes.config(text="Run this step →", state="normal")
+            _ = btn_skip.config(state="normal")
         else:
             title_var.set("Installation complete")
             body_var.set(
                 "pdomain-ocr-simple-gui has been installed.\n\n"
-                "Launch it from your application menu or run:\n"
-                "    pdomain-ocr-simple-gui\n\n"
-                "Close this window to exit."
+                + "Launch it from your application menu or run:\n"
+                + "    pdomain-ocr-simple-gui\n\n"
+                + "Close this window to exit."
             )
             cmd_var.set("")
-            btn_yes.config(text="Close", state="normal")
-            btn_skip.config(state="disabled")
+            _ = btn_yes.config(text="Close", state="normal")
+            _ = btn_skip.config(state="disabled")
 
     # ── Button handlers ────────────────────────────────────────────────────
 
@@ -190,7 +191,7 @@ def _run_gui(*, dry_run: bool) -> None:
             if step.needs_sudo:
                 cmd_tokens = ["sudo", *cmd_tokens]
             try:
-                subprocess.run(cmd_tokens, check=True)  # noqa: S603
+                _ = subprocess.run(cmd_tokens, check=True)  # noqa: S603
             except subprocess.CalledProcessError as exc:
                 status_var.set(f"Step failed (exit {exc.returncode}). Check terminal output.")
                 return
@@ -205,8 +206,8 @@ def _run_gui(*, dry_run: bool) -> None:
         current[0] = next_idx
         render_page(next_idx)
 
-    btn_yes.config(command=on_yes)
-    btn_skip.config(command=on_skip)
+    _ = btn_yes.config(command=on_yes)
+    _ = btn_skip.config(command=on_skip)
 
     render_page(0)
     root.mainloop()
@@ -223,17 +224,22 @@ def main(argv: list[str] | None = None) -> None:
         prog="pdomain-ocr-simple-gui-installer",
         description="Install pdomain-ocr-simple-gui and its prerequisites.",
     )
-    parser.add_argument("--cli", action="store_true", help="Force CLI (no GUI) mode")
-    parser.add_argument("--yes", action="store_true", help="Assume yes to all prompts (non-interactive)")
-    parser.add_argument("--dry-run", action="store_true", help="Print the plan but do not execute")
+    _ = parser.add_argument("--cli", action="store_true", help="Force CLI (no GUI) mode")
+    _ = parser.add_argument("--yes", action="store_true", help="Assume yes to all prompts (non-interactive)")
+    _ = parser.add_argument("--dry-run", action="store_true", help="Print the plan but do not execute")
     args = parser.parse_args(argv)
 
-    use_cli = args.cli or (not sys.stdin.isatty() and not _has_display())
+    # argparse.Namespace attrs are typed as Any; cast to concrete types
+    cli: bool = cast("bool", args.cli)
+    yes: bool = cast("bool", args.yes)
+    dry_run_flag: bool = cast("bool", args.dry_run)
+
+    use_cli = cli or (not sys.stdin.isatty() and not _has_display())
 
     if use_cli:
-        _run_cli(assume_yes=args.yes, dry_run=args.dry_run)
+        _run_cli(assume_yes=yes, dry_run=dry_run_flag)
     else:
-        _run_gui(dry_run=args.dry_run)
+        _run_gui(dry_run=dry_run_flag)
 
 
 def _has_display() -> bool:

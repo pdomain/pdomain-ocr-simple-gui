@@ -259,7 +259,7 @@ async def rerun_page(
     is always updated and page 0 is never corrupted.  Awaits the async
     dispatcher directly — non-blocking, yields control to the event loop.
     """
-    from pdomain_ops.gpu import LocalStageDispatcher  # pyright: ignore[reportMissingTypeStubs]
+    from pdomain_ops.gpu import LocalStageDispatcher
 
     from pdomain_ocr_simple_gui.app import get_dispatcher
 

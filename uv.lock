@@ -1874,7 +1874,7 @@ requires-dist = [
     { name = "aiofiles", specifier = ">=23.2" },
     { name = "fastapi", specifier = ">=0.111" },
     { name = "pdomain-book-tools", specifier = ">=0.18.0", index = "https://pdomain.github.io/pdomain-index-pip/simple/" },
-    { name = "pdomain-ops", specifier = ">=0.8.0", index = "https://pdomain.github.io/pdomain-index-pip/simple/" },
+    { name = "pdomain-ops", specifier = ">=0.8.1", index = "https://pdomain.github.io/pdomain-index-pip/simple/" },
     { name = "pydantic", specifier = ">=2.7" },
     { name = "pydantic-settings", specifier = ">=2.3" },
     { name = "python-multipart", specifier = ">=0.0.29" },
@@ -1900,7 +1900,7 @@ e2e = [{ name = "pytest-playwright", specifier = ">=0.5" }]
 
 [[package]]
 name = "pdomain-ops"
-version = "0.8.0"
+version = "0.8.1"
 source = { registry = "https://pdomain.github.io/pdomain-index-pip/simple/" }
 dependencies = [
     { name = "eventsourcing" },
@@ -1915,9 +1915,9 @@ dependencies = [
     { name = "tomli-w" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://github.com/pdomain/pdomain-ops/releases/download/v0.8.0/pdomain_ops-0.8.0.tar.gz", hash = "sha256:bec322d06c1584bc1b1323f5c8f9cf01f3538945059fc2ccfbf89e3a8349451e" }
+sdist = { url = "https://github.com/pdomain/pdomain-ops/releases/download/v0.8.1/pdomain_ops-0.8.1.tar.gz", hash = "sha256:66315eb66bc77ab77a568c3b6c21f1b40e40a639975d3b4169f38883bdfe474d" }
 wheels = [
-    { url = "https://github.com/pdomain/pdomain-ops/releases/download/v0.8.0/pdomain_ops-0.8.0-py3-none-any.whl", hash = "sha256:9f735957222e08326639ca34a1ca7f0b986550479ced953986475eb622d708b5" },
+    { url = "https://github.com/pdomain/pdomain-ops/releases/download/v0.8.1/pdomain_ops-0.8.1-py3-none-any.whl", hash = "sha256:cc41a3ad54f42c71fc027e177c8a42eef45ef7651a0024c0c95b42283215b87f" },
 ]
 
 [[package]]

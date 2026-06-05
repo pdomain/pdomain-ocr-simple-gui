@@ -15,7 +15,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Protocol, TypeAlias, cast
 
-from pdomain_ops.gpu.types import OcrBatchRequest  # pyright: ignore[reportMissingTypeStubs]
+from pdomain_ops.gpu.types import OcrBatchRequest
 
 from pdomain_ocr_simple_gui.statecharts.job_lifecycle import assert_job_transition
 
@@ -67,7 +67,7 @@ class OCRDispatcher(Protocol):
 
     async def run_ocr_batch(
         self,
-        req: object,
+        req: OcrBatchRequest,
     ) -> list[dict[str, object]]:
         """Run batched OCR on multiple pages.
 
@@ -91,7 +91,7 @@ def resolve_device(choice: str) -> str | None:
         return "cpu"
     if choice == "gpu":
         try:
-            from pdomain_ops.gpu.device import pick_device  # pyright: ignore[reportMissingTypeStubs]
+            from pdomain_ops.gpu.device import pick_device
 
             return pick_device()
         except (ImportError, ValueError, RuntimeError):

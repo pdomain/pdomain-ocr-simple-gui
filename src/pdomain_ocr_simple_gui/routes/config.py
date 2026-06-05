@@ -28,7 +28,7 @@ def _detect_device() -> str:
     helper is unavailable for any reason.
     """
     try:
-        from pdomain_ops.gpu.device import pick_device  # pyright: ignore[reportMissingTypeStubs]
+        from pdomain_ops.gpu.device import pick_device
 
         return pick_device()
     except (ImportError, ValueError, RuntimeError):

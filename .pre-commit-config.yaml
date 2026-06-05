@@ -49,9 +49,9 @@ repos:
         files: ^(pyproject\.toml|uv\.lock)$
 
     -   id: basedpyright
-        name: basedpyright type check (recommended mode; workspace canonical)
-        entry: uv run basedpyright src/pdomain_ocr_simple_gui --level error
+        name: basedpyright type check (warnings level; failOnWarnings=true)
+        entry: uv run basedpyright src/pdomain_ocr_simple_gui installer/
         language: system
         stages: [pre-commit]
         pass_filenames: false
-        files: ^src/pdomain_ocr_simple_gui/.*\.py$
+        files: ^(src/pdomain_ocr_simple_gui|installer)/.*\.py$

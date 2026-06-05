@@ -31,7 +31,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from pdomain_ops.gpu.types import OcrBatchRequest  # pyright: ignore[reportMissingTypeStubs]
+from pdomain_ops.gpu.types import OcrBatchRequest
 
 
 def _bbox_dict(tl_x: float, tl_y: float, br_x: float, br_y: float) -> dict[str, object]:

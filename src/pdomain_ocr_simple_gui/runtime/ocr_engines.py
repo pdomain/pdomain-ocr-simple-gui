@@ -34,8 +34,8 @@ class OcrEngineStatus:
 def detect_tesseract() -> OcrEngineStatus:
     """Return whether pytesseract can reach Tesseract and any language data."""
     try:
-        import pytesseract
-        from pytesseract import TesseractError
+        import pytesseract  # pyright: ignore[reportMissingTypeStubs]  # pytesseract has no py.typed; no stubs available
+        from pytesseract import TesseractError  # pyright: ignore[reportMissingTypeStubs]
     except ImportError:
         return OcrEngineStatus(
             id="tesseract",
@@ -45,7 +45,7 @@ def detect_tesseract() -> OcrEngineStatus:
         )
 
     try:
-        pytesseract.get_tesseract_version()
+        _ = pytesseract.get_tesseract_version()
     except (TesseractError, OSError) as exc:
         return OcrEngineStatus(
             id="tesseract",
@@ -55,7 +55,8 @@ def detect_tesseract() -> OcrEngineStatus:
         )
 
     try:
-        languages = tuple(sorted(pytesseract.get_languages(config="")))
+        raw_langs: list[str] = list(pytesseract.get_languages(config=""))  # pyright: ignore[reportUnknownArgumentType]  # pytesseract untyped: get_languages return type is unknown
+        languages = tuple(sorted(raw_langs))
     except (TesseractError, OSError) as exc:
         return OcrEngineStatus(
             id="tesseract",
