@@ -38,7 +38,7 @@ PEER_BOOK_TOOLS_PATH ?= ../pdomain-book-tools
         local-setup-py local-frontend-install local-frontend-build \
         local-frontend-test local-frontend-dev \
         update-pdomain-deps upgrade-pdomain-book-tools \
-        release-patch release-minor release-major _do-release ci-slow build
+        release-patch release-minor release-major _do-release ci-slow build packaging-test
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -106,6 +106,9 @@ behavior-coverage: ## Regenerate behavior coverage.md + gate (declared vs cited 
 
 smoke: ## Run slow/e2e smoke tests (requires real OCR; use make ci AI=1 to include)
 	uv run pytest tests/smoke/ -v -m "slow or e2e"
+
+packaging-test: frontend-build ## Build-path regression tests (slow; verifies wheel+sdist ship the frontend SPA)
+	uv run pytest tests/test_packaging.py -m slow -v
 
 e2e-fast: frontend-build ## Run full behavior e2e suite (fake dispatcher, no model weights; part of make ci)
 	@echo "🌐 Running full behavior e2e suite (fake dispatcher)..."
@@ -194,7 +197,7 @@ build: frontend-build ## Build release artifacts (sdist + wheel, both from sourc
 	uv build --sdist
 	uv build --wheel
 
-ci: setup frontend-install pre-commit-check lint typecheck frontend-build test behavior-coverage smoke frontend-format-check frontend-lint frontend-test frontend-knip e2e-fast ## Full CI pipeline (includes fast browser click-path tier)
+ci: setup frontend-install pre-commit-check lint typecheck frontend-build test behavior-coverage smoke packaging-test frontend-format-check frontend-lint frontend-test frontend-knip e2e-fast ## Full CI pipeline (includes fast browser click-path tier)
 
 ci-slow: ci ## Full pre-flight for releases (alias of ci today; reserved for slower checks if added later)
 
