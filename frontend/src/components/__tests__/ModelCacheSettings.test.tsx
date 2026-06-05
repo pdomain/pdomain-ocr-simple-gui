@@ -104,18 +104,18 @@ describe("ModelCacheSettings", () => {
     expect(button).toHaveTextContent("Precaching OCR models");
 
     resolvePrecache(
-        jsonResponse({
-          repo: "pdomain/pdomain-ocr-models",
-          cache_root: "/cache/hf/hub",
-          cached: true,
-          files: [
-            {
-              filename: "detection/pdomain-all-detection-model-finetuned.pt",
-              cached: true,
-              path: "/cache/det.pt",
-            },
-          ],
-        }),
+      jsonResponse({
+        repo: "pdomain/pdomain-ocr-models",
+        cache_root: "/cache/hf/hub",
+        cached: true,
+        files: [
+          {
+            filename: "detection/pdomain-all-detection-model-finetuned.pt",
+            cached: true,
+            path: "/cache/det.pt",
+          },
+        ],
+      }),
     );
     expect(
       await screen.findByText(/OCR models are cached in/i),
@@ -128,7 +128,10 @@ describe("ModelCacheSettings", () => {
   });
 
   it("shows a role alert when GET fails", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(jsonResponse({}, 500))));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(jsonResponse({}, 500))),
+    );
 
     render(<ModelCacheSettings />);
 

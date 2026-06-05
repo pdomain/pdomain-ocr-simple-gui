@@ -65,7 +65,7 @@ export function ModelCacheSettings() {
 
   return (
     <div data-testid="model-cache-settings">
-      <p className="label" style={{ marginBottom: "4px" }}>
+      <p key="heading" className="label" style={{ marginBottom: "4px" }}>
         OCR model cache
       </p>
 
@@ -77,16 +77,26 @@ export function ModelCacheSettings() {
 
       {status && (
         <Fragment key="status">
-          <p style={{ fontSize: "0.85em", marginBottom: "4px" }}>
-            {status.cached
-              ? "OCR models are cached in "
-              : "OCR models will be cached in "}
-            <code>{status.cache_root}</code>
+          <p
+            key="cache-root-line"
+            style={{ fontSize: "0.85em", marginBottom: "4px" }}
+          >
+            <span key="prefix">
+              {status.cached
+                ? "OCR models are cached in "
+                : "OCR models will be cached in "}
+            </span>
+            <code key="cache-root">{status.cache_root}</code>
           </p>
-          <p style={{ fontSize: "0.85em", marginBottom: "8px" }}>
-            Repository: <code>{status.repo}</code>
+          <p
+            key="repo-line"
+            style={{ fontSize: "0.85em", marginBottom: "8px" }}
+          >
+            <span key="label">Repository: </span>
+            <code key="repo">{status.repo}</code>
           </p>
           <ul
+            key="files"
             style={{
               margin: "0 0 8px",
               paddingLeft: "1.2rem",
@@ -95,8 +105,11 @@ export function ModelCacheSettings() {
           >
             {status.files.map((file) => (
               <li key={file.filename}>
-                <code>{file.filename}</code>:{" "}
-                {file.cached ? "cached" : "not cached"}
+                <code key="filename">{file.filename}</code>
+                <span key="separator">: </span>
+                <span key="status">
+                  {file.cached ? "cached" : "not cached"}
+                </span>
               </li>
             ))}
           </ul>

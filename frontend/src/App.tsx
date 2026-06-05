@@ -39,7 +39,6 @@
 // so onJobCancel and onJobPauseResume are omitted (both fully optional).
 
 import type { ReactNode } from "react";
-import type { ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import {
@@ -49,14 +48,12 @@ import {
   ShortcutsHelpButton,
   SettingsSlot,
   useUtilityDock,
-  ComputeTargetPanel,
   UpdatePanel,
   UpdateBadge,
-  createApiDeviceConfig,
   createApiUpdateConfig,
 } from "@pdomain/pdomain-ui/shell";
 import { ShortcutsProvider } from "@pdomain/pdomain-ui/hooks";
-import { useDeviceInfo, useUpdateCheck } from "@pdomain/pdomain-ui/stores";
+import { useUpdateCheck } from "@pdomain/pdomain-ui/stores";
 import type {
   UIPrefsConfig,
   InstalledApp,
@@ -76,12 +73,7 @@ import PageViewPage from "./pages/PageViewPage";
 import TesseractHelpPage from "./pages/TesseractHelpPage";
 import { JobsLocationSettings } from "./components/JobsLocationSettings";
 import { ModelCacheSettings } from "./components/ModelCacheSettings";
-
-/**
- * API-backed device config for ComputeTargetPanel.
- * createApiDeviceConfig reads/writes /api/suite/device.
- */
-const _deviceConfig = createApiDeviceConfig();
+import { ComputeSettingsPanel } from "./components/ComputeSettingsPanel";
 
 /**
  * API-backed update config for UpdatePanel.
@@ -91,25 +83,7 @@ const _updateConfig = createApiUpdateConfig();
 
 /** Inner component for the Compute panel — calls hooks inside the component tree. */
 function ComputePanelContent() {
-  const device = useDeviceInfo(_deviceConfig) as ReturnType<
-    typeof useDeviceInfo
-  > & {
-    clearDevice: (scope: "app" | "suite") => Promise<void>;
-  };
-  const ComputePanel = ComputeTargetPanel as ComponentType<
-    Parameters<typeof ComputeTargetPanel>[0] & {
-      onClear: (scope: "app" | "suite") => void;
-      cudaDocsUrl: string;
-    }
-  >;
-  return (
-    <ComputePanel
-      info={device.info}
-      onSelect={(id) => void device.setDevice("app", id)}
-      onClear={(scope) => void device.clearDevice(scope)}
-      cudaDocsUrl="/docs/runbooks/cuda-setup.md"
-    />
-  );
+  return <ComputeSettingsPanel cudaDocsUrl="/docs/runbooks/cuda-setup.md" />;
 }
 
 /** Inner component for the Updates panel — calls hooks inside the component tree. */
@@ -129,7 +103,8 @@ function UpdatePanelContent() {
  * App-injected settings panels, appended after pdomain-ui's built-in
  * Appearance tab. The "jobs" panel lets the user choose where new OCR jobs
  * are stored (env > pref > default resolution lives in the backend).
- * "compute" and "updates" panels come from pdomain-ui.
+ * "compute" provides app-specific device controls backed by /api/suite/device.
+ * "updates" comes from pdomain-ui.
  * "models" exposes local OCR checkpoint cache status and precache.
  */
 export const settingsPanels: SettingsPanelDescriptor[] = [

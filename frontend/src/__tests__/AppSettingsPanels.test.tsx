@@ -1,10 +1,9 @@
-// Tests for F5: settingsPanels includes Compute and Updates entries.
+// Tests for settingsPanels includes Compute, Models, and Updates entries.
 // Unit-tests the exported settingsPanels array from App.tsx.
-// These panels arrive from @pdomain/pdomain-ui/shell at runtime;
-// here we verify simple-gui wires them correctly.
+// Here we verify simple-gui wires the descriptors correctly.
 
 import type { ReactNode } from "react";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 
 // Mock @pdomain/pdomain-ui/shell — avoids real fetch calls and zustand stores
@@ -16,15 +15,9 @@ vi.mock("@pdomain/pdomain-ui/shell", () => ({
   ShortcutsHelpButton: vi.fn(),
   SettingsSlot: vi.fn(),
   useUtilityDock: () => ({ toggle: vi.fn() }),
-  ComputeTargetPanel: vi.fn().mockReturnValue(null),
   UpdatePanel: vi.fn().mockReturnValue(null),
   UpdateBadge: vi.fn().mockReturnValue(null),
-  useDeviceInfo: vi.fn().mockReturnValue({ info: null, loading: false }),
   useUpdateCheck: vi.fn().mockReturnValue({ info: null, loading: false }),
-  createApiDeviceConfig: vi.fn().mockReturnValue({
-    fetchDevice: vi.fn(),
-    putDevice: vi.fn(),
-  }),
   createApiUpdateConfig: vi.fn().mockReturnValue({
     fetchUpdate: vi.fn(),
     applyUpdate: vi.fn(),
@@ -36,7 +29,6 @@ vi.mock("@pdomain/pdomain-ui/hooks", () => ({
 }));
 
 vi.mock("@pdomain/pdomain-ui/stores", () => ({
-  useDeviceInfo: vi.fn().mockReturnValue({ info: null, loading: false }),
   useUpdateCheck: vi.fn().mockReturnValue({ info: null, loading: false }),
 }));
 
@@ -50,6 +42,15 @@ vi.mock("@pdomain/pdomain-ui/canvas", () => ({
 
 vi.mock("../components/ModelCacheSettings", () => ({
   ModelCacheSettings: () => <div data-testid="model-cache-settings-mock" />,
+}));
+
+vi.mock("../components/ComputeSettingsPanel", () => ({
+  ComputeSettingsPanel: ({ cudaDocsUrl }: { cudaDocsUrl?: string }) => (
+    <div
+      data-testid="compute-settings-panel-mock"
+      data-cuda-docs-url={cudaDocsUrl}
+    />
+  ),
 }));
 
 describe("settingsPanels", () => {
@@ -83,32 +84,15 @@ describe("settingsPanels", () => {
     expect(updates?.label).toBeTruthy();
   });
 
-  it("passes clear callback and repo CUDA docs URL to the compute panel", async () => {
-    const shell = await import("@pdomain/pdomain-ui/shell");
-    const stores = await import("@pdomain/pdomain-ui/stores");
-    const clearDevice = vi.fn();
-    vi.mocked(stores.useDeviceInfo).mockReturnValue({
-      info: null,
-      loading: false,
-      setDevice: vi.fn(),
-      clearDevice,
-    });
+  it("renders the local compute settings panel with the repo CUDA docs URL", async () => {
     const { settingsPanels } = await import("../App");
     const compute = settingsPanels.find((p) => p.id === "compute");
 
     render(<>{compute?.content}</>);
 
-    expect(shell.ComputeTargetPanel).toHaveBeenCalledWith(
-      expect.objectContaining({
-        cudaDocsUrl: "/docs/runbooks/cuda-setup.md",
-        onClear: expect.any(Function),
-      }),
-      undefined,
+    expect(screen.getByTestId("compute-settings-panel-mock")).toHaveAttribute(
+      "data-cuda-docs-url",
+      "/docs/runbooks/cuda-setup.md",
     );
-    const props = vi.mocked(shell.ComputeTargetPanel).mock.calls[0]?.[0] as {
-      onClear?: (scope: "app" | "suite") => void;
-    };
-    props.onClear?.("app");
-    expect(clearDevice).toHaveBeenCalledWith("app");
   });
 });
