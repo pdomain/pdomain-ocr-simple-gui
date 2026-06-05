@@ -39,6 +39,7 @@
 // so onJobCancel and onJobPauseResume are omitted (both fully optional).
 
 import type { ReactNode } from "react";
+import type { ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import {
@@ -74,6 +75,7 @@ import ResultsPage from "./pages/ResultsPage";
 import PageViewPage from "./pages/PageViewPage";
 import TesseractHelpPage from "./pages/TesseractHelpPage";
 import { JobsLocationSettings } from "./components/JobsLocationSettings";
+import { ModelCacheSettings } from "./components/ModelCacheSettings";
 
 /**
  * API-backed device config for ComputeTargetPanel.
@@ -89,11 +91,23 @@ const _updateConfig = createApiUpdateConfig();
 
 /** Inner component for the Compute panel — calls hooks inside the component tree. */
 function ComputePanelContent() {
-  const device = useDeviceInfo(_deviceConfig);
+  const device = useDeviceInfo(_deviceConfig) as ReturnType<
+    typeof useDeviceInfo
+  > & {
+    clearDevice: (scope: "app" | "suite") => Promise<void>;
+  };
+  const ComputePanel = ComputeTargetPanel as ComponentType<
+    Parameters<typeof ComputeTargetPanel>[0] & {
+      onClear: (scope: "app" | "suite") => void;
+      cudaDocsUrl: string;
+    }
+  >;
   return (
-    <ComputeTargetPanel
+    <ComputePanel
       info={device.info}
       onSelect={(id) => void device.setDevice("app", id)}
+      onClear={(scope) => void device.clearDevice(scope)}
+      cudaDocsUrl="/docs/runbooks/cuda-setup.md"
     />
   );
 }
@@ -115,7 +129,8 @@ function UpdatePanelContent() {
  * App-injected settings panels, appended after pdomain-ui's built-in
  * Appearance tab. The "jobs" panel lets the user choose where new OCR jobs
  * are stored (env > pref > default resolution lives in the backend).
- * "compute" and "updates" panels come from pdomain-ui 0.7.0.
+ * "compute" and "updates" panels come from pdomain-ui.
+ * "models" exposes local OCR checkpoint cache status and precache.
  */
 export const settingsPanels: SettingsPanelDescriptor[] = [
   {
@@ -127,6 +142,11 @@ export const settingsPanels: SettingsPanelDescriptor[] = [
     id: "compute",
     label: "Compute",
     content: <ComputePanelContent />,
+  },
+  {
+    id: "models",
+    label: "Models",
+    content: <ModelCacheSettings />,
   },
   {
     id: "updates",
