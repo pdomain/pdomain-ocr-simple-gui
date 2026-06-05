@@ -186,7 +186,7 @@ def _run_gui(*, dry_run: bool) -> None:
         if not dry_run:
             import shlex as _shlex
 
-            cmd_tokens = _shlex.split(step.command)
+            cmd_tokens = list(step.command) if isinstance(step.command, list) else _shlex.split(step.command)
             if step.needs_sudo:
                 cmd_tokens = ["sudo", *cmd_tokens]
             try:

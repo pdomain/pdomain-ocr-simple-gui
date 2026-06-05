@@ -1,18 +1,21 @@
 """Linux installer engine for pdomain-ocr-simple-gui.
 
 Pure, unit-testable functions.  No side effects except through injectable
-seams (``_which``, ``ask``, ``run_cmd``).  This module is the tested core
-that both the CLI bootstrapper and the AppImage GUI wizard build on.
+seams (``_which``, ``ask``, ``run_cmd``, ``_query_nvidia_driver``).  This
+module is the tested core that both the CLI bootstrapper and the AppImage GUI
+wizard build on.
 
 Design:
 - ``detect_pkg_manager()`` — probes for the distro package manager.
 - ``webview_package_for(mgr)`` — maps manager to the WebKitGTK package name.
-- ``detect_nvidia()`` — probes for an NVIDIA GPU via ``nvidia-smi``.
+- ``detect_nvidia()`` — probes for an NVIDIA GPU via ``nvidia-smi`` and
+  validates the driver version against ``_MIN_DRIVER_VERSION``.
 - ``plan_steps(has_uv, has_webview, gpu)`` — returns the ordered gated steps.
 - ``run(steps, *, assume_yes, dry_run, ask, run_cmd)`` — interactive runner.
 
 All distro detection goes through the injectable ``_which`` callable so tests
-never shell out.
+never shell out.  NVIDIA driver version queries go through
+``_query_nvidia_driver`` so tests never invoke ``nvidia-smi``.
 """
 
 from __future__ import annotations
@@ -35,6 +38,30 @@ def _which(cmd: str) -> bool:
     import shutil
 
     return shutil.which(cmd) is not None
+
+
+def _query_nvidia_driver() -> str | None:
+    """Return the NVIDIA driver version string, or None on any error.
+
+    Calls ``nvidia-smi --query-gpu=driver_version --format=csv,noheader``.
+    Injectable seam — replace in tests via monkeypatch so tests never
+    actually invoke ``nvidia-smi``.
+    """
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],  # noqa: S607
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip().splitlines()[0].strip() if result.stdout.strip() else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+# Minimum NVIDIA driver version that supports CUDA 12 (cu121 wheel ABI).
+# Spec §7.3: offer gpu_torch only when driver >= this threshold.
+_MIN_DRIVER_VERSION = 525
 
 
 # ---------------------------------------------------------------------------
@@ -87,8 +114,57 @@ def webview_package_for(mgr: str | None) -> str | None:
 
 
 def detect_nvidia() -> str | None:
-    """Return ``'nvidia'`` if ``nvidia-smi`` is found on PATH, else ``None``."""
-    return "nvidia" if _which("nvidia-smi") else None
+    """Return ``'nvidia'`` if a capable NVIDIA GPU is detected, else ``None``.
+
+    A capable GPU requires both ``nvidia-smi`` on PATH **and** a driver version
+    >= ``_MIN_DRIVER_VERSION`` (525, the minimum for CUDA 12).
+
+    If ``nvidia-smi`` is present but the driver is too old (or the version
+    cannot be parsed), returns ``None`` and prints a guidance message so the
+    caller's step-planner omits the ``gpu_torch`` step.  The user is directed
+    to the official driver download page to upgrade.
+    """
+    if not _which("nvidia-smi"):
+        return None
+
+    version_str = _query_nvidia_driver()
+    if version_str is None:
+        # nvidia-smi present but version query failed — treat as too-old to be safe.
+        print(  # noqa: T201
+            "WARNING: nvidia-smi found but driver version could not be determined. "
+            "GPU acceleration step will be skipped.\n"
+            "To enable GPU support, ensure NVIDIA driver >= 525 is installed:\n"
+            "  https://www.nvidia.com/en-us/drivers/"
+        )
+        return None
+
+    # Parse the major version component (e.g. "525.105.17" → 525).
+    try:
+        major = int(version_str.split(".")[0])
+    except (ValueError, IndexError):
+        print(  # noqa: T201
+            f"WARNING: Could not parse NVIDIA driver version '{version_str}'. "
+            "GPU acceleration step will be skipped.\n"
+            "To enable GPU support, ensure NVIDIA driver >= 525 is installed:\n"
+            "  https://www.nvidia.com/en-us/drivers/"
+        )
+        return None
+
+    if major < _MIN_DRIVER_VERSION:
+        print(  # noqa: T201
+            f"WARNING: NVIDIA driver version {version_str} is below the minimum "
+            f"required for CUDA 12 (driver >= {_MIN_DRIVER_VERSION}).\n"
+            "GPU acceleration step will be skipped.\n"
+            "To enable GPU support, upgrade your NVIDIA driver:\n"
+            "  Official:       https://www.nvidia.com/en-us/drivers/\n"
+            "  Ubuntu/Debian:  ubuntu-drivers devices && sudo ubuntu-drivers install\n"
+            "  Arch Linux:     pacman -S nvidia\n"
+            "  Fedora:         dnf install akmod-nvidia\n"
+            "After upgrading (and rebooting if necessary), re-run the installer."
+        )
+        return None
+
+    return "nvidia"
 
 
 # ---------------------------------------------------------------------------
@@ -103,13 +179,17 @@ class Step:
     Attributes:
         id:          Stable identifier used in tests and logging.
         description: Human-readable description shown to the user.
-        command:     Shell command string (may use pipes / shell syntax).
+        command:     The command to execute.  Either a ``str`` (split via
+                     ``shlex.split`` at run time) or a pre-built ``list[str]``
+                     argv (used when shell syntax such as ``|`` is required,
+                     e.g. the ``uv`` bootstrap step passes
+                     ``["sh", "-c", "curl ... | sh"]``).
         needs_sudo:  Whether the command must be prefixed with ``sudo``.
     """
 
     id: str
     description: str
-    command: str
+    command: str | list[str]
     needs_sudo: bool
 
 
@@ -156,7 +236,11 @@ def plan_steps(
             Step(
                 id="uv",
                 description="Install uv (Python toolchain manager)",
-                command="curl -LsSf https://astral.sh/uv/install.sh | sh",
+                # Use a list argv so the shell pipe is handled by sh, not shlex.split.
+                # shlex.split("curl ... | sh") would pass "|" and "sh" as literal
+                # arguments to curl, which fails.  ["sh", "-c", "..."] is the
+                # correct way to run a shell pipeline in subprocess.
+                command=["sh", "-c", "curl -LsSf https://astral.sh/uv/install.sh | sh"],
                 needs_sudo=False,
             )
         )
@@ -281,19 +365,17 @@ def run(
 
 
 def _build_exec_args(step: Step) -> list[str]:
-    """Convert a step's command string into a list[str] for subprocess.
+    """Convert a step's command into a ``list[str]`` argv for subprocess.
 
-    If ``needs_sudo`` is True, prepends ``['sudo']``.  Uses ``shlex.split``
-    for splitting; shell pipelines (``|``) are NOT supported in this path —
-    commands that need a shell pipe are passed as a single-element list via
-    ``shell=True`` in a real invocation, but for the testable path we always
-    return a list so tests can inspect individual tokens.
+    - If ``step.command`` is already a ``list[str]``, it is used as-is.
+    - If ``step.command`` is a ``str``, it is split via ``shlex.split``.
+      Plain string commands must NOT contain shell metacharacters (``|``,
+      ``&&``, etc.) — those belong in list-form commands like
+      ``["sh", "-c", "..."]``.
 
-    Note: the uv bootstrap step uses a shell pipe (``curl ... | sh``).  In a
-    real run this would need ``shell=True``; in tests the run_cmd is stubbed so
-    this is fine.
+    If ``needs_sudo`` is True, ``["sudo"]`` is prepended to the final argv.
     """
-    tokens = shlex.split(step.command)
+    tokens = list(step.command) if isinstance(step.command, list) else shlex.split(step.command)
     if step.needs_sudo:
         return ["sudo", *tokens]
     return tokens

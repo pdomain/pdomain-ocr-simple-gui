@@ -20,6 +20,7 @@ import pytest
 
 from installer.install_engine import (
     Step,
+    _build_exec_args,
     detect_nvidia,
     detect_pkg_manager,
     plan_steps,
@@ -123,8 +124,9 @@ def test_webview_package_none() -> None:
 
 
 def test_detect_nvidia_present(monkeypatch: pytest.MonkeyPatch) -> None:
-    """nvidia-smi found → returns 'nvidia'."""
+    """nvidia-smi found with driver >= 525 → returns 'nvidia'."""
     monkeypatch.setattr("installer.install_engine._which", lambda x: x == "nvidia-smi")
+    monkeypatch.setattr("installer.install_engine._query_nvidia_driver", lambda: "535.154.05")
     assert detect_nvidia() == "nvidia"
 
 
@@ -301,3 +303,134 @@ def test_step_dataclass() -> None:
     assert s.description == "desc"
     assert s.command == "cmd"
     assert s.needs_sudo is False
+
+
+# ---------------------------------------------------------------------------
+# _build_exec_args — pipe safety and sudo prepend
+# ---------------------------------------------------------------------------
+
+
+def test_build_exec_args_uv_step_no_bare_pipe() -> None:
+    """uv step uses list command — built argv must NOT contain a bare '|' token.
+
+    This guards against the regression where the command was a string and
+    shlex.split turned '|' into a literal curl argument, making the install
+    silently fail.
+    """
+    uv_step = Step(
+        id="uv",
+        description="Install uv",
+        command=["sh", "-c", "curl -LsSf https://astral.sh/uv/install.sh | sh"],
+        needs_sudo=False,
+    )
+    argv = _build_exec_args(uv_step)
+    assert "|" not in argv, f"Bare pipe token found in argv: {argv}"
+    assert argv[0] == "sh"
+    assert argv[1] == "-c"
+    assert "curl" in argv[2]
+
+
+def test_build_exec_args_uv_step_valid_argv() -> None:
+    """uv step argv is ['sh', '-c', '...'] — three tokens, no bare pipe."""
+    uv_step = Step(
+        id="uv",
+        description="Install uv",
+        command=["sh", "-c", "curl -LsSf https://astral.sh/uv/install.sh | sh"],
+        needs_sudo=False,
+    )
+    argv = _build_exec_args(uv_step)
+    assert len(argv) == 3  # ["sh", "-c", "curl ... | sh"]
+
+
+def test_build_exec_args_sudo_step_prepends_sudo() -> None:
+    """needs_sudo=True → 'sudo' is first token for both str and list commands."""
+    # str command
+    str_step = Step(
+        id="webview",
+        description="Install WebKit",
+        command="apt-get install -y gir1.2-webkit2-4.1",
+        needs_sudo=True,
+    )
+    argv = _build_exec_args(str_step)
+    assert argv[0] == "sudo"
+    assert argv[1] == "apt-get"
+
+    # list command
+    list_step = Step(
+        id="webview",
+        description="Install WebKit",
+        command=["apt-get", "install", "-y", "gir1.2-webkit2-4.1"],
+        needs_sudo=True,
+    )
+    argv2 = _build_exec_args(list_step)
+    assert argv2[0] == "sudo"
+    assert argv2[1] == "apt-get"
+
+
+def test_build_exec_args_no_sudo_does_not_prepend() -> None:
+    """needs_sudo=False → no 'sudo' prefix for either str or list command."""
+    step = Step(id="tool_install", description="Install", command="uv tool install app", needs_sudo=False)
+    argv = _build_exec_args(step)
+    assert argv[0] != "sudo"
+    assert argv[0] == "uv"
+
+
+# ---------------------------------------------------------------------------
+# detect_nvidia — driver version gate (spec §7.3)
+# ---------------------------------------------------------------------------
+
+
+def test_detect_nvidia_absent_no_smi(monkeypatch: pytest.MonkeyPatch) -> None:
+    """nvidia-smi not on PATH → returns None (no GPU, no driver check)."""
+    monkeypatch.setattr("installer.install_engine._which", lambda x: False)
+    assert detect_nvidia() is None
+
+
+def test_detect_nvidia_driver_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """nvidia-smi present + driver >= 525 → returns 'nvidia'; gpu_torch included."""
+    monkeypatch.setattr("installer.install_engine._which", lambda x: x == "nvidia-smi")
+    monkeypatch.setattr("installer.install_engine._query_nvidia_driver", lambda: "535.154.05")
+    result = detect_nvidia()
+    assert result == "nvidia"
+
+    steps = plan_steps(has_uv=True, has_webview=True, gpu=result)
+    ids = [s.id for s in steps]
+    assert "gpu_torch" in ids
+
+
+def test_detect_nvidia_driver_below_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
+    """nvidia-smi present + driver < 525 → returns None; gpu_torch absent from plan."""
+    monkeypatch.setattr("installer.install_engine._which", lambda x: x == "nvidia-smi")
+    monkeypatch.setattr("installer.install_engine._query_nvidia_driver", lambda: "470.256.02")
+    result = detect_nvidia()
+    assert result is None
+
+    steps = plan_steps(has_uv=True, has_webview=True, gpu=result)
+    ids = [s.id for s in steps]
+    assert "gpu_torch" not in ids
+
+
+def test_detect_nvidia_driver_query_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    """nvidia-smi present but version query returns None → returns None safely."""
+    monkeypatch.setattr("installer.install_engine._which", lambda x: x == "nvidia-smi")
+    monkeypatch.setattr("installer.install_engine._query_nvidia_driver", lambda: None)
+    assert detect_nvidia() is None
+
+
+def test_detect_nvidia_driver_exactly_at_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Driver exactly at 525 → 'nvidia' (boundary: >= not >)."""
+    monkeypatch.setattr("installer.install_engine._which", lambda x: x == "nvidia-smi")
+    monkeypatch.setattr("installer.install_engine._query_nvidia_driver", lambda: "525.0.0")
+    assert detect_nvidia() == "nvidia"
+
+
+def test_detect_nvidia_plan_includes_driver_guidance(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Below-threshold driver prints guidance message to stdout."""
+    monkeypatch.setattr("installer.install_engine._which", lambda x: x == "nvidia-smi")
+    monkeypatch.setattr("installer.install_engine._query_nvidia_driver", lambda: "470.0.0")
+    detect_nvidia()
+    captured = capsys.readouterr()
+    assert "525" in captured.out
+    assert "driver" in captured.out.lower()

@@ -83,6 +83,14 @@ install -m 0644 "${SCRIPT_DIR}/wizard.py"         "${APPDIR}/usr/lib/python/inst
 touch "${APPDIR}/usr/lib/python/installer/__init__.py"
 
 # Bundle a minimal Python interpreter (the system python3 + stdlib)
+#
+# KNOWN LIMITATION: This copies the system python3 ELF binary.  System Python
+# is NOT portable across Linux distributions — shared library paths (glibc
+# version, interpreter path) differ between distros and releases.  The
+# resulting AppImage is currently a CI build artifact intended for testing on
+# the same distro it was built on.  True cross-distro portability requires a
+# self-contained standalone Python (e.g. python-build-standalone), which is
+# deferred as future work.  See docs/runbooks/install.md "Known limitations".
 PYTHON3="$(command -v python3)"
 PYTHON_VERSION="$("${PYTHON3}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
 PYTHON_STDLIB="$(python3 -c 'import sysconfig; print(sysconfig.get_path("stdlib"))')"

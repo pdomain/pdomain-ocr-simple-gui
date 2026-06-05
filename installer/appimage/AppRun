@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-APPDIR="${APPDIR:-$(dirname "$(readlink -f "$0")")"}"
+APPDIR="${APPDIR:-$(dirname "$(readlink -f "$0")")}"
 PYTHON="${APPDIR}/usr/bin/python3"
 
 if [ ! -x "$PYTHON" ]; then
@@ -26,8 +26,10 @@ fi
 export PYTHONPATH="${APPDIR}/usr/lib/python:${PYTHONPATH:-}"
 
 if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
-    # No display server — fall through to CLI mode
-    exec "$PYTHON" -m installer.wizard --cli --yes "$@"
+    # No display server — fall through to CLI mode.
+    # NOTE: --yes is intentionally omitted here. Unattended sudo over SSH
+    # must be an explicit choice by the caller (pass --yes as an arg if needed).
+    exec "$PYTHON" -m installer.wizard --cli "$@"
 else
     exec "$PYTHON" -m installer.wizard "$@"
 fi

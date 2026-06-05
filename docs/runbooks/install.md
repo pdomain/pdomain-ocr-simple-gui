@@ -233,6 +233,27 @@ rm -rf ~/.local/share/pdomain-ocr-simple-gui
 
 ---
 
+## Known limitations
+
+### AppImage Python portability
+
+The AppImage distributed via GitHub Releases is currently a **CI build
+artifact**.  It bundles the system `python3` ELF binary from the build
+runner, which is not portable across Linux distributions (glibc version and
+shared library paths differ).  True cross-distro portability requires a
+self-contained standalone Python (e.g.
+[python-build-standalone](https://github.com/indygreg/python-build-standalone)),
+which is deferred as future work.  If the AppImage fails to run on your
+distro, use Path B (Gated CLI) instead.
+
+### `.deb` package (Debian/Ubuntu)
+
+The spec (§7.2) describes an optional `.deb` package for native APT
+integration.  This is **deferred** and not included in v1.  Use Path A
+(AppImage) or Path B (Gated CLI) in the meantime.
+
+---
+
 ## Troubleshooting
 
 ### `pdomain-ocr-simple-gui: command not found`
