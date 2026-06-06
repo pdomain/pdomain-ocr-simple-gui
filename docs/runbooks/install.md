@@ -10,7 +10,7 @@ enabling GPU acceleration, and rolling back a bad release.
 | Linux x86_64 | Ubuntu 22.04+, Fedora 39+, Arch, openSUSE, Alpine, or any modern distro |
 | Python 3.11+ | Managed automatically by `uv`; no system Python required |
 | `uv` | The Python toolchain manager — installed in Step 1 |
-| WebKitGTK runtime | The native webview library — installed in Step 2 (see table below) |
+| Qt xcb-cursor lib (X11 only) | `libxcb-cursor0` / `xcb-util-cursor` — only on X11; Wayland sessions need nothing (see Step 2) |
 | Internet access | For `uv tool install` to pull wheels from `pdomain-index-pip` |
 
 **Hardware (CPU mode — no GPU required):**
@@ -26,7 +26,9 @@ curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/
 The script: installs `uv` if absent, detects CUDA and enables GPU support
 automatically, downloads the latest release wheel, and always installs the
 `pdomain-ops[desktop]` extra so the native window works out of the box.
-It also checks for WebKitGTK and prints per-distro install hints if absent.
+The Qt desktop backend (PyQt6 + PyQt6-WebEngine) is bundled in the tool venv.
+On X11, it also checks for the Qt xcb-cursor lib and prints per-distro install
+hints if absent. Wayland sessions need no system package.
 
 ### Confirmation gates
 
@@ -80,19 +82,25 @@ uv self update
 
 Or reinstall from scratch using the command above.
 
-### Step 2 — Install WebKitGTK (desktop mode only)
+### Step 2 — Install Qt xcb-cursor lib (X11 only, desktop mode)
 
-`pywebview` (the native desktop window) requires the system WebKitGTK
-library. Browser mode (`pdomain-ocr-simple-gui` without `--desktop`) works
-without it.
+The desktop window uses the **Qt backend** (PyQt6 + PyQt6-WebEngine). Those
+wheels are self-contained and ship inside the tool venv via the `[desktop]`
+extra — no WebKitGTK or other system package is needed for Qt itself.
 
-If already installed, skip this step. See the per-distro package table
-in the "Gated step sequence" section below for all distro names.
+The only system package required is the **Qt xcb-cursor** plugin, and only
+when running under **X11** (`$DISPLAY` set). Wayland sessions (`$WAYLAND_DISPLAY`
+set, no `$DISPLAY`) use the Wayland QPA and need nothing.
 
-Example for Ubuntu / Debian:
+Browser mode (`pdomain-ocr-simple-gui` without `--desktop`) needs nothing here.
+
+If the xcb-cursor lib is already installed, skip this step. See the per-distro
+table in the "Gated step sequence" section below.
+
+Example for Ubuntu / Debian (X11 only):
 
 ```bash
-sudo apt-get install -y gir1.2-webkit2-4.1
+sudo apt-get install -y libxcb-cursor0
 ```
 
 ### Step 3 — Install the app
@@ -212,27 +220,33 @@ Verify: `uv --version`
 
 ---
 
-### Step 2 — Ensure the WebKitGTK runtime
+### Step 2 — Ensure the Qt xcb-cursor lib (X11 only)
 
-`pywebview` (the desktop shell) uses the system WebKitGTK library.
-If already installed, this step is skipped.
+The desktop backend is **Qt** (PyQt6 + PyQt6-WebEngine), bundled in the tool
+venv. No WebKitGTK system package is needed.
 
-**Per-distro package:**
+The only system package is the **Qt xcb-cursor** plugin, required only on
+**X11**. If you are on Wayland (`$WAYLAND_DISPLAY` is set, `$DISPLAY` is
+not), **skip this step entirely — no system package is needed.**
+
+If already installed, this step is skipped automatically.
+
+**Per-distro package (X11 only):**
 
 | Distro / manager | Package name |
 |------------------|-------------|
-| Debian / Ubuntu (`apt`) | `gir1.2-webkit2-4.1` |
-| Fedora 39+ (`dnf`) | `webkit2gtk4.1` |
-| Older RHEL / CentOS (`yum`) | `webkit2gtk4.1` |
-| Arch Linux (`pacman`) | `webkit2gtk` |
-| openSUSE (`zypper`) | `typelib-1_0-WebKit2-4_1` |
-| Alpine (`apk`) | `webkit2gtk` |
-| Unknown distro | Install manually (see package name for your distro above) |
+| Debian / Ubuntu (`apt`) | `libxcb-cursor0` |
+| Fedora 39+ (`dnf`) | `xcb-util-cursor` |
+| Older RHEL / CentOS (`yum`) | `xcb-util-cursor` |
+| Arch Linux (`pacman`) | `xcb-util-cursor` |
+| openSUSE (`zypper`) | `libxcb-cursor0` |
+| Alpine (`apk`) | `xcb-util-cursor` |
+| Unknown distro | Install manually (search for `xcb-cursor` in your distro's package list) |
 
-Example for Ubuntu/Debian:
+Example for Ubuntu/Debian (X11):
 
 ```bash
-sudo apt-get install -y gir1.2-webkit2-4.1
+sudo apt-get install -y libxcb-cursor0
 ```
 
 ---
@@ -246,8 +260,10 @@ uv tool install "pdomain-ocr-simple-gui[desktop]" \
   --extra-index-url https://pdomain.github.io/pdomain-index-pip/simple/
 ```
 
-The `[desktop]` extra includes `pywebview` and `pystray`.
-Omit it for a headless / server-only install:
+The `[desktop]` extra pulls in PyQt6, PyQt6-WebEngine, and pystray so the
+native Qt desktop window works out of the box. No additional system Qt packages
+are needed — they are self-contained wheels.
+Omit the extra for a headless / server-only install:
 
 ```bash
 uv tool install pdomain-ocr-simple-gui \
@@ -451,18 +467,19 @@ Also remove the installer marker written by `install.sh` (if present):
 rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/pdomain-ocr-simple-gui"
 ```
 
-#### Step 5 — Remove WebKitGTK (optional)
+#### Step 5 — Remove the Qt xcb-cursor lib (optional)
 
-WebKitGTK is a system library installed separately. Remove it with your
-package manager only if nothing else on your system needs it.
+The Qt xcb-cursor lib is a system package (installed separately only on X11).
+Remove it with your package manager only if nothing else on your system needs it.
+If you did not install it (Wayland session, or browser-only install), skip this step.
 
 | Distro | Remove command |
 |--------|---------------|
-| Debian / Ubuntu | `sudo apt-get remove gir1.2-webkit2-4.1` |
-| Fedora | `sudo dnf remove webkit2gtk4.1` |
-| Arch | `sudo pacman -Rs webkit2gtk` |
-| openSUSE | `sudo zypper remove typelib-1_0-WebKit2-4_1` |
-| Alpine | `sudo apk del webkit2gtk` |
+| Debian / Ubuntu | `sudo apt-get remove libxcb-cursor0` |
+| Fedora | `sudo dnf remove xcb-util-cursor` |
+| Arch | `sudo pacman -Rs xcb-util-cursor` |
+| openSUSE | `sudo zypper remove libxcb-cursor0` |
+| Alpine | `sudo apk del xcb-util-cursor` |
 
 #### Step 6 — Remove user data (optional)
 
@@ -516,11 +533,35 @@ export PATH="$HOME/.local/bin:$PATH"
 # Add to ~/.bashrc or ~/.zshrc for persistence
 ```
 
-### WebKitGTK version mismatch (`libwebkit2gtk-4.1.so.0: cannot open`)
+### Qt desktop window does not start (`qt.qpa.plugin: Could not load the Qt platform plugin "xcb"`)
 
-The app needs the **4.1 API** series. If your distro only ships the 4.0 series,
-install `libwebkitgtk-4.0-dev` as a fallback or upgrade your distro to a
-release that includes webkit2gtk 4.1 (Ubuntu 22.04+ and Fedora 39+).
+This error means the xcb-cursor lib is missing (X11 only). Install it:
+
+```bash
+# Debian / Ubuntu
+sudo apt-get install -y libxcb-cursor0
+
+# Fedora / RHEL / CentOS
+sudo dnf install -y xcb-util-cursor
+
+# Arch
+sudo pacman -S xcb-util-cursor
+
+# openSUSE
+sudo zypper install -y libxcb-cursor0
+
+# Alpine
+sudo apk add xcb-util-cursor
+```
+
+If you are on Wayland, this error should not occur. Confirm with:
+
+```bash
+echo "DISPLAY=${DISPLAY:-unset}  WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset}"
+```
+
+If `WAYLAND_DISPLAY` is set and `DISPLAY` is not, you are on Wayland and no
+system package is needed.
 
 ### CUDA: `RuntimeError: CUDA error: no kernel image is available`
 

@@ -7,7 +7,11 @@ wizard build on.
 
 Design:
 - ``detect_pkg_manager()`` — probes for the distro package manager.
-- ``webview_package_for(mgr)`` — maps manager to the WebKitGTK package name.
+- ``webview_package_for(mgr)`` — maps manager to the Qt xcb-cursor system
+  package name.  The Qt backend (PyQt6 + PyQt6-WebEngine) is bundled in the
+  tool venv via ``pdomain-ocr-simple-gui[desktop]`` → ``pdomain-ops[desktop]``
+  and requires no system package.  The *only* system package needed is the
+  xcb-cursor lib, and only on X11 (Wayland sessions need nothing).
 - ``detect_nvidia()`` — probes for an NVIDIA GPU via ``nvidia-smi`` and
   validates the driver version against ``_MIN_DRIVER_VERSION``.
 - ``plan_steps(has_uv, has_webview, gpu)`` — returns the ordered gated steps.
@@ -85,22 +89,34 @@ def detect_pkg_manager() -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# WebKitGTK package mapping per package manager
+# Qt xcb-cursor package mapping per package manager
+#
+# The desktop webview backend is Qt (PyQt6 + PyQt6-WebEngine).  Those wheels
+# are self-contained and ship inside the tool venv — they arrive automatically
+# via the [desktop] extra chain and need no system package.
+#
+# The ONLY system package needed is the Qt xcb-cursor plugin, required only on
+# X11 (XCB platform).  Wayland sessions ($WAYLAND_DISPLAY set, no $DISPLAY)
+# use the Wayland QPA and need nothing.
 # ---------------------------------------------------------------------------
 
 _WEBVIEW_PACKAGES: dict[str | None, str | None] = {
-    "apt": "gir1.2-webkit2-4.1",  # Debian/Ubuntu (PyWebView requirement)
-    "dnf": "webkit2gtk4.1",  # Fedora 39+
-    "yum": "webkit2gtk4.1",  # older RHEL/CentOS
-    "pacman": "webkit2gtk",  # Arch Linux
-    "zypper": "typelib-1_0-WebKit2-4_1",  # openSUSE
-    "apk": "webkit2gtk",  # Alpine Linux
+    "apt": "libxcb-cursor0",  # Debian/Ubuntu
+    "dnf": "xcb-util-cursor",  # Fedora 39+
+    "yum": "xcb-util-cursor",  # older RHEL/CentOS
+    "pacman": "xcb-util-cursor",  # Arch Linux
+    "zypper": "libxcb-cursor0",  # openSUSE
+    "apk": "xcb-util-cursor",  # Alpine Linux
     None: None,  # unknown distro
 }
 
 
 def webview_package_for(mgr: str | None) -> str | None:
-    """Return the WebKitGTK package name for the given package manager.
+    """Return the Qt xcb-cursor package name for the given package manager.
+
+    The Qt backend (PyQt6 + PyQt6-WebEngine) is bundled inside the tool venv
+    via the ``[desktop]`` extra — no system package is needed for Qt itself.
+    The xcb-cursor lib is only required on X11; Wayland sessions need nothing.
 
     Returns ``None`` for unknown managers (caller should print manual
     instructions and continue rather than aborting).
@@ -219,7 +235,7 @@ def plan_steps(
 
     Args:
         has_uv:      True when ``uv`` is already installed.
-        has_webview: True when the WebKitGTK runtime is already available.
+        has_webview: True when the Qt xcb-cursor lib is already available.
         gpu:         ``'nvidia'`` to include the CUDA torch step; None/other to skip.
         mgr:         Package manager id (for the webview install command).
                      Auto-detected if None.
@@ -251,14 +267,16 @@ def plan_steps(
             install_cmd = _build_pkg_install_cmd(mgr, webview_pkg)
         else:
             # Unknown distro: show manual instructions; step still listed.
+            # Qt itself is bundled in the venv; only the xcb-cursor lib is system-level.
             install_cmd = (
-                "# Unknown package manager — install the WebKitGTK 4.1 runtime manually"
-                " (e.g. 'sudo apt-get install gir1.2-webkit2-4.1' on Debian/Ubuntu)"
+                "# Unknown package manager — install the Qt xcb-cursor lib manually"
+                " (X11 only; e.g. 'sudo apt-get install libxcb-cursor0' on Debian/Ubuntu;"
+                " Wayland sessions need nothing)"
             )
         steps.append(
             Step(
                 id="webview",
-                description=f"Install WebKitGTK runtime ({webview_pkg or 'see instructions above'})",
+                description=f"Install Qt xcb-cursor lib ({webview_pkg or 'see instructions above'}) — X11 only",
                 command=install_cmd,
                 needs_sudo=True,
             )

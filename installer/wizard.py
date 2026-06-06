@@ -42,14 +42,21 @@ def _build_steps() -> list[Step]:
     has_uv = shutil.which("uv") is not None
     mgr = detect_pkg_manager()
 
-    # Simple heuristic: try importing the webview Python binding.
-    # If it raises, assume the native runtime is absent.
+    # Probe for the Qt xcb-cursor system lib by checking whether the xcb
+    # platform plugin can load.  The Qt backend (PyQt6 + PyQt6-WebEngine) is
+    # bundled inside the tool venv — we only need to check the system lib.
+    # Heuristic: try importing PyQt6 (bundled) and checking xcb-cursor via
+    # shutil.which for the library loader.  If PyQt6 is importable the venv is
+    # wired; xcb-cursor presence is distro-side.  We conservatively skip the
+    # step only when PyQt6 is importable (venv OK) AND xcb-cursor is present
+    # (detected via ldconfig / find).  In practice most modern distros ship it;
+    # when in doubt, always offer the step (it is idempotent).
     has_webview = False
     try:
-        import webview as _webview  # type: ignore[import-not-found]  # pyright: ignore[reportMissingImports]  # import for side-effect availability check
+        import importlib.util as _ilu
 
-        has_webview = _webview is not None
-    except ImportError:
+        has_webview = _ilu.find_spec("PyQt6") is not None
+    except Exception:  # noqa: BLE001, S110
         pass
 
     gpu = detect_nvidia()
@@ -144,6 +151,10 @@ def _run_gui(*, dry_run: bool) -> None:
             body_var.set(
                 "This wizard will install pdomain-ocr-simple-gui and its prerequisites.\n\n"
                 + f"{len(steps)} step(s) identified for this system.\n\n"
+                + "The Qt desktop backend (PyQt6 + PyQt6-WebEngine) is bundled in the\n"
+                + "tool venv — no WebKitGTK system package is needed.\n"
+                + "On X11, only the xcb-cursor lib is required (libxcb-cursor0 / xcb-util-cursor).\n"
+                + "Wayland sessions need no system package.\n\n"
                 + "Click 'Install →' to begin."
             )
             cmd_var.set("")

@@ -87,30 +87,30 @@ def test_detect_pkg_manager_priority(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_webview_package_mapping() -> None:
-    """Plan contract: apt → gir1.2-webkit2-4.1, pacman → webkit2gtk, unknown → None."""
-    assert webview_package_for("apt") == "gir1.2-webkit2-4.1"
-    assert webview_package_for("pacman") == "webkit2gtk"
+    """Qt xcb-cursor: apt → libxcb-cursor0, pacman → xcb-util-cursor, unknown → None."""
+    assert webview_package_for("apt") == "libxcb-cursor0"
+    assert webview_package_for("pacman") == "xcb-util-cursor"
     assert webview_package_for("unknown") is None
 
 
 def test_webview_package_fedora() -> None:
-    """dnf → webkit2gtk4.1 (Fedora 39+ package name)."""
-    assert webview_package_for("dnf") == "webkit2gtk4.1"
+    """dnf → xcb-util-cursor (Fedora 39+)."""
+    assert webview_package_for("dnf") == "xcb-util-cursor"
 
 
 def test_webview_package_yum() -> None:
-    """yum → webkit2gtk4.1 (same as dnf)."""
-    assert webview_package_for("yum") == "webkit2gtk4.1"
+    """yum → xcb-util-cursor (same as dnf)."""
+    assert webview_package_for("yum") == "xcb-util-cursor"
 
 
 def test_webview_package_zypper() -> None:
-    """zypper → typelib-1_0-WebKit2-4_1 (openSUSE)."""
-    assert webview_package_for("zypper") == "typelib-1_0-WebKit2-4_1"
+    """zypper → libxcb-cursor0 (openSUSE)."""
+    assert webview_package_for("zypper") == "libxcb-cursor0"
 
 
 def test_webview_package_apk() -> None:
-    """apk → webkit2gtk (Alpine)."""
-    assert webview_package_for("apk") == "webkit2gtk"
+    """apk → xcb-util-cursor (Alpine)."""
+    assert webview_package_for("apk") == "xcb-util-cursor"
 
 
 def test_webview_package_none() -> None:
@@ -147,6 +147,26 @@ def test_plan_steps_includes_gated_actions() -> None:
     ids = [s.id for s in steps]
     assert ids == ["uv", "webview", "tool_install", "gpu_torch", "shortcut"]
     assert all(s.command for s in steps)  # each gated step has an explicit command
+
+
+def test_plan_steps_webview_command_contains_xcb_cursor_package(monkeypatch: pytest.MonkeyPatch) -> None:
+    """webview step command references the Qt xcb-cursor package (not WebKitGTK)."""
+    monkeypatch.setattr("installer.install_engine._which", lambda x: x == "apt")
+    steps = plan_steps(has_uv=True, has_webview=False, gpu=None, mgr="apt")
+    webview = next(s for s in steps if s.id == "webview")
+    assert isinstance(webview.command, str)
+    assert "libxcb-cursor0" in webview.command
+    assert "webkit" not in webview.command.lower()
+
+
+def test_plan_steps_webview_unknown_distro_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unknown distro → webview command is a comment with xcb-cursor guidance."""
+    monkeypatch.setattr("installer.install_engine._which", lambda x: False)
+    steps = plan_steps(has_uv=True, has_webview=False, gpu=None, mgr=None)
+    webview = next(s for s in steps if s.id == "webview")
+    assert isinstance(webview.command, str)
+    assert webview.command.startswith("#")
+    assert "xcb-cursor" in webview.command.lower() or "xcb" in webview.command.lower()
 
 
 def test_plan_steps_skips_uv_when_present() -> None:
@@ -287,8 +307,8 @@ def test_run_sudo_prefix_when_needs_sudo() -> None:
     steps = [
         Step(
             id="webview",
-            description="Install WebKit",
-            command="apt-get install -y gir1.2-webkit2-4.1",
+            description="Install Qt xcb-cursor lib",
+            command="apt-get install -y libxcb-cursor0",
             needs_sudo=True,
         ),
     ]
@@ -347,8 +367,8 @@ def test_build_exec_args_sudo_step_prepends_sudo() -> None:
     # str command
     str_step = Step(
         id="webview",
-        description="Install WebKit",
-        command="apt-get install -y gir1.2-webkit2-4.1",
+        description="Install Qt xcb-cursor lib",
+        command="apt-get install -y libxcb-cursor0",
         needs_sudo=True,
     )
     argv = _build_exec_args(str_step)
@@ -358,8 +378,8 @@ def test_build_exec_args_sudo_step_prepends_sudo() -> None:
     # list command
     list_step = Step(
         id="webview",
-        description="Install WebKit",
-        command=["apt-get", "install", "-y", "gir1.2-webkit2-4.1"],
+        description="Install Qt xcb-cursor lib",
+        command=["apt-get", "install", "-y", "libxcb-cursor0"],
         needs_sudo=True,
     )
     argv2 = _build_exec_args(list_step)
