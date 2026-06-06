@@ -117,7 +117,11 @@ vi.mock("@pdomain/pdomain-ui/shell", () => ({
   UpdatePanel: () => <div data-testid="update-panel-mock" />,
   UpdateBadge: ({ available }: { available: boolean }) =>
     available ? <div data-testid="update-badge-mock" /> : null,
-  createApiDeviceConfig: () => ({ fetchDevice: vi.fn(), putDevice: vi.fn() }),
+  createApiDeviceConfig: () => ({
+    fetchDevice: vi.fn(),
+    putDevice: vi.fn(),
+    clearDevice: vi.fn(),
+  }),
   createApiUpdateConfig: () => ({ fetchUpdate: vi.fn(), applyUpdate: vi.fn() }),
 }));
 
@@ -136,6 +140,7 @@ vi.mock("@pdomain/pdomain-ui/stores", () => ({
     loading: false,
     error: null,
     setDevice: vi.fn(),
+    clearDevice: vi.fn(),
   }),
   useUpdateCheck: () => ({
     info: null,

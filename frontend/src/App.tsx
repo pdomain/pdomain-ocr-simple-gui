@@ -50,10 +50,12 @@ import {
   useUtilityDock,
   UpdatePanel,
   UpdateBadge,
+  ComputeTargetPanel,
+  createApiDeviceConfig,
   createApiUpdateConfig,
 } from "@pdomain/pdomain-ui/shell";
 import { ShortcutsProvider } from "@pdomain/pdomain-ui/hooks";
-import { useUpdateCheck } from "@pdomain/pdomain-ui/stores";
+import { useDeviceInfo, useUpdateCheck } from "@pdomain/pdomain-ui/stores";
 import type {
   UIPrefsConfig,
   InstalledApp,
@@ -73,17 +75,40 @@ import PageViewPage from "./pages/PageViewPage";
 import TesseractHelpPage from "./pages/TesseractHelpPage";
 import { JobsLocationSettings } from "./components/JobsLocationSettings";
 import { ModelCacheSettings } from "./components/ModelCacheSettings";
-import { ComputeSettingsPanel } from "./components/ComputeSettingsPanel";
 
 /**
  * API-backed update config for UpdatePanel.
  * createApiUpdateConfig reads/writes /api/suite/update.
  */
 const _updateConfig = createApiUpdateConfig();
+const _deviceConfig = createApiDeviceConfig();
 
 /** Inner component for the Compute panel — calls hooks inside the component tree. */
 function ComputePanelContent() {
-  return <ComputeSettingsPanel cudaDocsUrl="/docs/runbooks/cuda-setup.md" />;
+  const device = useDeviceInfo(_deviceConfig);
+
+  if (device.loading && !device.info) {
+    return <p style={{ margin: 0 }}>Checking compute devices</p>;
+  }
+
+  if (device.error && !device.info) {
+    return (
+      <p role="alert" style={{ margin: 0, color: "var(--color-danger)" }}>
+        {device.error instanceof Error
+          ? device.error.message
+          : String(device.error)}
+      </p>
+    );
+  }
+
+  return (
+    <ComputeTargetPanel
+      info={device.info}
+      onSelect={(deviceId) => void device.setDevice("app", deviceId)}
+      onClear={(scope) => void device.clearDevice(scope)}
+      cudaDocsUrl="/docs/runbooks/cuda-setup.md"
+    />
+  );
 }
 
 /** Inner component for the Updates panel — calls hooks inside the component tree. */

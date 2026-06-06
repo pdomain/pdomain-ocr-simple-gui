@@ -15,8 +15,19 @@ vi.mock("@pdomain/pdomain-ui/shell", () => ({
   ShortcutsHelpButton: vi.fn(),
   SettingsSlot: vi.fn(),
   useUtilityDock: () => ({ toggle: vi.fn() }),
+  ComputeTargetPanel: ({ cudaDocsUrl }: { cudaDocsUrl?: string }) => (
+    <div
+      data-testid="compute-target-panel-mock"
+      data-cuda-docs-url={cudaDocsUrl}
+    />
+  ),
   UpdatePanel: vi.fn().mockReturnValue(null),
   UpdateBadge: vi.fn().mockReturnValue(null),
+  createApiDeviceConfig: vi.fn().mockReturnValue({
+    fetchDevice: vi.fn(),
+    putDevice: vi.fn(),
+    clearDevice: vi.fn(),
+  }),
   useUpdateCheck: vi.fn().mockReturnValue({ info: null, loading: false }),
   createApiUpdateConfig: vi.fn().mockReturnValue({
     fetchUpdate: vi.fn(),
@@ -29,6 +40,18 @@ vi.mock("@pdomain/pdomain-ui/hooks", () => ({
 }));
 
 vi.mock("@pdomain/pdomain-ui/stores", () => ({
+  useDeviceInfo: vi.fn().mockReturnValue({
+    info: {
+      mode: "local",
+      available: [{ id: "cpu", label: "CPU" }],
+      current: "cpu",
+      effective_source: "auto",
+    },
+    loading: false,
+    error: null,
+    setDevice: vi.fn(),
+    clearDevice: vi.fn(),
+  }),
   useUpdateCheck: vi.fn().mockReturnValue({ info: null, loading: false }),
 }));
 
@@ -42,15 +65,6 @@ vi.mock("@pdomain/pdomain-ui/canvas", () => ({
 
 vi.mock("../components/ModelCacheSettings", () => ({
   ModelCacheSettings: () => <div data-testid="model-cache-settings-mock" />,
-}));
-
-vi.mock("../components/ComputeSettingsPanel", () => ({
-  ComputeSettingsPanel: ({ cudaDocsUrl }: { cudaDocsUrl?: string }) => (
-    <div
-      data-testid="compute-settings-panel-mock"
-      data-cuda-docs-url={cudaDocsUrl}
-    />
-  ),
 }));
 
 describe("settingsPanels", () => {
@@ -84,13 +98,13 @@ describe("settingsPanels", () => {
     expect(updates?.label).toBeTruthy();
   });
 
-  it("renders the local compute settings panel with the repo CUDA docs URL", async () => {
+  it("renders the shared compute target panel with the repo CUDA docs URL", async () => {
     const { settingsPanels } = await import("../App");
     const compute = settingsPanels.find((p) => p.id === "compute");
 
     render(<>{compute?.content}</>);
 
-    expect(screen.getByTestId("compute-settings-panel-mock")).toHaveAttribute(
+    expect(screen.getByTestId("compute-target-panel-mock")).toHaveAttribute(
       "data-cuda-docs-url",
       "/docs/runbooks/cuda-setup.md",
     );
