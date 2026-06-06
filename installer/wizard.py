@@ -171,7 +171,7 @@ def _run_gui(*, dry_run: bool) -> None:
                 + "tool venv — no WebKitGTK system package is needed.\n"
                 + "On X11, only the xcb-cursor lib is required (libxcb-cursor0 / xcb-util-cursor).\n"
                 + "Wayland sessions need no system package.\n\n"
-                + "Click 'Install →' to begin."
+                + "Click 'Begin →' to start."
             )
             cmd_var.set("")
             _ = btn_yes.config(text="Begin →", state="normal")
