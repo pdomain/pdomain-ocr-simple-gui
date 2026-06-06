@@ -58,13 +58,15 @@ jobs:
       - name: Run installer engine tests
         run: uv run pytest tests/packaging/ -n auto -v
 
-      # ── Build the AppImage (FUSE-less via APPIMAGE_EXTRACT_AND_RUN) ───────
-      # No FUSE needed: appimagetool uses squashfs-tools for extraction when
-      # APPIMAGE_EXTRACT_AND_RUN=1 is set.  Ubuntu runners may lack FUSE.
+      # ── Build the AppImage (type2 static runtime embedded) ─────────────────
+      # build_appimage.sh sets APPIMAGE_EXTRACT_AND_RUN=1 internally for
+      # appimagetool itself (build tool, a classic AppImage), then smoke-runs
+      # the produced AppImage BARE to prove double-click works with no FUSE.
+      # No env var needed here — the bare-run gate is inside the script.
       - name: Build Linux AppImage installer
         run: |
           chmod +x installer/build_appimage.sh
-          APPIMAGE_EXTRACT_AND_RUN=1 bash installer/build_appimage.sh
+          bash installer/build_appimage.sh
 
       # ── Assert the AppImage was produced ──────────────────────────────────
       - name: Assert dist AppImage exists
@@ -76,27 +78,38 @@ jobs:
           fi
           ls -lh dist/*.AppImage
 
-      # ── Smoke-run: verify the AppImage executes and prints the plan ───────
-      - name: Smoke-run AppImage (--cli --dry-run)
+      # ── Smoke-run: verify AppImage runs BARE (no env var = double-click gate) ─
+      # The type2 static runtime self-extracts to $TMPDIR in pure userspace when
+      # FUSE is unavailable.  Ubuntu runners may lack FUSE entirely — that is the
+      # point: a bare run here proves the double-click path works on user machines.
+      # Note: build_appimage.sh already ran a bare smoke-run; this step adds an
+      # independent CI assertion with grep validation.
+      - name: Smoke-run AppImage bare (proves double-click works, no FUSE needed)
         run: |
           APPIMAGE_FILE=$(ls dist/*.AppImage | head -1)
-          echo "Testing: $APPIMAGE_FILE"
-          OUTPUT=$(APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE_FILE" --cli --dry-run 2>&1)
+          echo "Testing (BARE run — no APPIMAGE_EXTRACT_AND_RUN): $APPIMAGE_FILE"
+          OUTPUT=$("$APPIMAGE_FILE" --cli --dry-run 2>&1)
           echo "$OUTPUT"
           # Verify the expected plan text appears in the output
           echo "$OUTPUT" | grep -q "uv tool install" || {
-            echo "ERROR: AppImage smoke-run output did not contain expected 'uv tool install' text." >&2
+            echo "ERROR: AppImage bare smoke-run did not contain expected 'uv tool install' text." >&2
             exit 1
           }
           echo "$OUTPUT" | grep -q "Dry-run mode" || {
-            echo "ERROR: AppImage smoke-run output did not contain 'Dry-run mode' confirmation." >&2
+            echo "ERROR: AppImage bare smoke-run did not contain 'Dry-run mode' confirmation." >&2
             exit 1
           }
-          echo "Smoke-run passed."
+          echo "Bare smoke-run passed — double-click path is verified."
 
       # ── Upload AppImage to the GitHub Release (tagged runs only) ─────────
       # Uploads when: (a) workflow_dispatch with a non-empty tag input, OR
       #               (b) triggered by the release event (tag_name is set).
+      #
+      # Fix C — upload race guard: installer.yml is dispatched CONCURRENTLY with
+      # release.yml.  release.yml creates the GitHub Release; if installer.yml
+      # reaches `gh release upload` before that step completes, the upload fails
+      # with "release not found".  We poll up to 20 times (15 s each, ~5 min)
+      # until the release exists, then upload.
       - name: Upload AppImage to GitHub Release
         if: >-
           (github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '') ||
@@ -110,7 +123,24 @@ jobs:
             TAG="${{ github.event.inputs.tag }}"
           fi
           APPIMAGE_FILE=$(ls dist/*.AppImage | head -1)
-          echo "Uploading $APPIMAGE_FILE to release $TAG..."
+
+          # Poll for the GitHub Release to exist before uploading.
+          # release.yml may not have created it yet when installer.yml runs concurrently.
+          MAX_ATTEMPTS=20
+          SLEEP_SECS=15
+          attempt=0
+          echo "Waiting for GitHub Release $TAG to exist (max ${MAX_ATTEMPTS} attempts x ${SLEEP_SECS}s)..."
+          until gh release view "$TAG" >/dev/null 2>&1; do
+            attempt=$((attempt + 1))
+            if [ "$attempt" -ge "$MAX_ATTEMPTS" ]; then
+              echo "ERROR: GitHub Release $TAG did not appear after $((MAX_ATTEMPTS * SLEEP_SECS))s." >&2
+              echo "       release.yml may have failed or the tag may be wrong." >&2
+              exit 1
+            fi
+            echo "  Release not found yet (attempt $attempt/$MAX_ATTEMPTS) — sleeping ${SLEEP_SECS}s..."
+            sleep "$SLEEP_SECS"
+          done
+          echo "Release $TAG found. Uploading $APPIMAGE_FILE..."
           gh release upload "$TAG" "$APPIMAGE_FILE" --clobber
           echo "Upload complete."
 
