@@ -18,7 +18,7 @@
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
-    "@pdomain/pdomain-ui": "^0.7.0",
+    "@pdomain/pdomain-ui": "^0.7.1",
     "@tanstack/react-query": "^5.100.14",
     "@xstate/react": "^6.1.0",
     "lucide-react": "^1.17.0",
