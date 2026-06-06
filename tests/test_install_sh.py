@@ -44,28 +44,36 @@ def test_install_sh_pdomain_index_url() -> None:
     assert "https://pdomain.github.io/pdomain-index-pip/simple/" in content
 
 
-def test_install_sh_desktop_with_arg() -> None:
+def test_install_sh_no_desktop_extra() -> None:
+    """Browser-only: install.sh must NOT pass --with pdomain-ops[desktop]."""
     content = INSTALL_SH.read_text(encoding="utf-8")
-    assert '--with "pdomain-ops[desktop]"' in content, (
-        "install.sh must always pass --with pdomain-ops[desktop]"
+    assert '--with "pdomain-ops[desktop]"' not in content, (
+        "install.sh must NOT pass --with pdomain-ops[desktop] (browser-only install)"
+    )
+    # Must install the PLAIN package (no [desktop] extra anywhere)
+    assert "[desktop]" not in content, (
+        "install.sh must not reference the [desktop] extra at all (browser-only)"
     )
 
 
-def test_install_sh_xcb_cursor_hint() -> None:
+def test_install_sh_no_xcb_cursor_step() -> None:
+    """Browser-only: install.sh must NOT mention xcb-cursor (no Qt window needed)."""
     content = INSTALL_SH.read_text(encoding="utf-8")
-    # Must mention the xcb-cursor lib (Qt X11 backend requirement)
-    assert "libxcb-cursor" in content or "xcb-cursor" in content, (
-        "install.sh must include a Qt xcb-cursor installation hint"
+    assert "libxcb-cursor" not in content, (
+        "install.sh must not reference libxcb-cursor (browser-only, no Qt window)"
     )
-    # Debian/Ubuntu package name must appear
-    assert "libxcb-cursor0" in content
-    # Wayland exemption note must be present
-    assert "Wayland" in content or "wayland" in content
+    assert "xcb-cursor" not in content, (
+        "install.sh must not reference xcb-cursor (browser-only, no Qt window)"
+    )
 
 
-def test_install_sh_final_hint_desktop() -> None:
+def test_install_sh_final_hint_no_browser() -> None:
+    """Browser-only: success message must mention --no-browser, not --desktop."""
     content = INSTALL_SH.read_text(encoding="utf-8")
-    assert "--desktop" in content, "install.sh success message must mention the --desktop launch flag"
+    assert "--no-browser" in content, "install.sh success message must mention --no-browser (headless mode)"
+    assert "--desktop" not in content, (
+        "install.sh must not mention --desktop flag (removed in browser-only mode)"
+    )
 
 
 def test_install_sh_final_hint_browser_port() -> None:
@@ -141,7 +149,7 @@ def test_install_sh_summary_block() -> None:
     assert "About to install:" in content, "install.sh must print 'About to install:' summary"
     assert "Package:" in content, "install.sh summary must include Package field"
     assert "GPU:" in content, "install.sh summary must include GPU field"
-    assert "Desktop:" in content, "install.sh summary must include Desktop field"
+    assert "Mode:" in content, "install.sh summary must include Mode field (browser mode)"
     assert "Target:" in content, "install.sh summary must include Target field"
     assert "Index:" in content, "install.sh summary must include Index field"
 
@@ -363,8 +371,8 @@ exit 0
     # The downloaded wheel must be installed
     assert "pdomain_ocr_simple_gui-1.2.3-py3-none-any.whl" in args
 
-    # Desktop extra via pdomain-ops must be present
-    assert "pdomain-ops[desktop]" in args
+    # [desktop] extra must NOT be present (browser-only install)
+    assert "pdomain-ops[desktop]" not in args
 
     # Must NOT fall back to git source install
     assert "git+https://github.com/pdomain/pdomain-ocr-simple-gui" not in args

@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import logging
 import sys
+import threading
+import time
+import webbrowser
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
-from pdomain_ops.desktop import run_windowed
 from pdomain_ops.suite import bootstrap_spa
 from pdomain_ops.suite.desktop import (
     install_shortcut,
@@ -29,7 +32,7 @@ class _CliArgs:
     host: str
     port: int
     reload: bool
-    desktop: bool
+    no_browser: bool
     update: bool
     unregister_suite: bool
     install_desktop_shortcut: bool
@@ -57,9 +60,9 @@ def _parse_args(argv: list[str] | None = None) -> _CliArgs:
         help="Enable auto-reload (dev mode)",
     )
     _ = parser.add_argument(
-        "--desktop",
+        "--no-browser",
         action="store_true",
-        help="Launch in a native desktop window via pdomain_ops.desktop.run_windowed",
+        help="Do not open the browser automatically (headless/CI/docker mode)",
     )
     _ = parser.add_argument(
         "--update",
@@ -88,7 +91,7 @@ def _parse_args(argv: list[str] | None = None) -> _CliArgs:
         host=cast("str", values["host"]),
         port=cast("int", values["port"]),
         reload=cast("bool", values["reload"]),
-        desktop=cast("bool", values["desktop"]),
+        no_browser=cast("bool", values["no_browser"]),
         update=cast("bool", values["update"]),
         unregister_suite=cast("bool", values["unregister_suite"]),
         install_desktop_shortcut=cast(
@@ -127,6 +130,71 @@ def _build_installed_app() -> InstalledApp:
     except importlib.metadata.PackageNotFoundError:
         version = "0.0.0"
     return InstalledApp.model_validate({**fragment, "binary": binary, "version": version})
+
+
+def _browser_url(host: str, port: int) -> str:
+    """Return the URL to open in the browser.
+
+    When host is a wildcard (0.0.0.0 or ::), resolve to 127.0.0.1 so the
+    browser can actually connect.
+
+    Args:
+        host: The host the server is bound to.
+        port: The port the server is listening on.
+
+    Returns:
+        A URL string like 'http://127.0.0.1:8004'.
+    """
+    connect_host = "127.0.0.1" if host in ("0.0.0.0", "::") else host  # noqa: S104
+    return f"http://{connect_host}:{port}"
+
+
+def _should_open_browser(*, no_browser: bool) -> bool:
+    """Return True iff the browser should be opened automatically.
+
+    Args:
+        no_browser: True when --no-browser was passed.
+
+    Returns:
+        True when auto-open is desired.
+    """
+    return not no_browser
+
+
+def _open_browser_when_ready(url: str, *, timeout: float = 10.0) -> None:
+    """Poll the server until it responds, then open the browser.
+
+    Runs as a daemon thread.  Polls ``url`` with HTTP GET until a non-error
+    response is received, or until ``timeout`` seconds elapse.  Opens the
+    browser on first success; silently gives up on timeout (no crash).
+
+    Args:
+        url:     The URL to open (already resolved to 127.0.0.1 if needed).
+        timeout: Maximum seconds to wait before giving up.
+    """
+    import http.client
+    import urllib.parse
+
+    parsed = urllib.parse.urlparse(url)
+    host = parsed.hostname or "127.0.0.1"
+    port = parsed.port or 80
+    path = parsed.path or "/"
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        with contextlib.suppress(Exception):
+            conn = http.client.HTTPConnection(host, port, timeout=2)
+            try:
+                conn.request("GET", path)
+                resp = conn.getresponse()
+                if resp.status < 500:
+                    _ = webbrowser.open(url)
+                    return
+            finally:
+                with contextlib.suppress(Exception):
+                    conn.close()
+        time.sleep(0.25)
+    # Timeout elapsed — give up silently.
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -172,10 +240,6 @@ def main(argv: list[str] | None = None) -> None:
             sys.exit(1)
         return
 
-    if args.desktop:
-        run_windowed("pdomain_ocr_simple_gui.app:app", title="OCR Simple GUI", preferred_port=args.port)
-        return
-
     import uvicorn
 
     port = bootstrap_spa(
@@ -185,6 +249,11 @@ def main(argv: list[str] | None = None) -> None:
         host=args.host,
         url_label="pdomain-ocr-simple-gui",
     )
+
+    if _should_open_browser(no_browser=args.no_browser):
+        url = _browser_url(args.host, port)
+        t = threading.Thread(target=_open_browser_when_ready, args=(url,), daemon=True)
+        t.start()
 
     uvicorn.run(
         "pdomain_ocr_simple_gui.app:app",

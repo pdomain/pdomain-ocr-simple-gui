@@ -5,19 +5,26 @@ get plain-text output. Built on FastAPI + React/Vite, using `pdomain-book-tools`
 for OCR and `pdomain-ops` for suite plumbing. Serves as the Phase 3 reference
 consumer that validates `pdomain-ops`' `LocalStageDispatcher`.
 
+The app runs as a local web server and **opens your default browser automatically**
+on launch. No native window or Qt library is required.
+
 ## Install
 
 ### Tier 1 — curl one-liner (easiest, Linux x86\_64)
 
-Paste this into a terminal. It downloads the AppImage, marks it executable, and launches the installer wizard automatically — no separate steps needed:
+Paste this into a terminal. It downloads the AppImage, marks it executable, and
+launches the installer wizard automatically — no separate steps needed:
 
 ```sh
 curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh
 ```
 
-The wizard walks you through the gated install steps (uv, Qt xcb-cursor lib, `uv tool install`, desktop shortcut).
+The wizard walks you through the gated install steps (uv, `uv tool install`,
+desktop shortcut).
 
-On non-desktop systems (CI, headless servers, macOS, non-x86\_64), or when the AppImage asset is unavailable, the script falls back to a uv-tool install automatically.
+On non-desktop systems (CI, headless servers, macOS, non-x86\_64), or when the
+AppImage asset is unavailable, the script falls back to a uv-tool install
+automatically.
 
 To skip the AppImage wizard and use uv-tool directly:
 
@@ -30,9 +37,13 @@ curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/
 
 Download the `.AppImage` from the [Releases](https://github.com/pdomain/pdomain-ocr-simple-gui/releases) page.
 
-Browsers download files without the executable bit set — this is standard Linux behavior, not specific to this app. You must mark the file executable once before it can run.
+Browsers download files without the executable bit set — this is standard Linux
+behavior, not specific to this app. You must mark the file executable once before
+it can run.
 
-**Without a terminal (file manager):** right-click the `.AppImage` → Properties → Permissions tab → check "Allow executing file as program" (wording varies by file manager; in Nemo on Linux Mint it is exactly that) → then double-click it. Your file manager will offer to Run it.
+**Without a terminal (file manager):** right-click the `.AppImage` → Properties →
+Permissions tab → check "Allow executing file as program" (wording varies by file
+manager; in Nemo on Linux Mint it is exactly that) → then double-click it.
 
 **Terminal equivalent:**
 
@@ -44,30 +55,26 @@ chmod +x pdomain-ocr-simple-gui-installer-x86_64.AppImage
 ### Tier 3 — manual install via uv
 
 ```sh
-uv tool install "pdomain-ocr-simple-gui[desktop]" \
+uv tool install pdomain-ocr-simple-gui \
   --extra-index-url https://pdomain.github.io/pdomain-index-pip/simple/
 ```
 
-The `[desktop]` extra (`pdomain-ops[desktop]`) adds the native window via
-`pywebview`. Browser mode works without it.
-
 ## Launch
-
-Desktop window (native; uses the bundled Qt backend — on X11 it needs the
-`libxcb-cursor0` / `xcb-util-cursor` system lib, Wayland needs nothing):
-
-```sh
-pdomain-ocr-simple-gui --desktop
-```
-
-Browser mode:
 
 ```sh
 pdomain-ocr-simple-gui
 ```
 
-Opens at `http://localhost:8004`. Drop a folder of images, pick an OCR engine,
+The app starts the local web server and opens `http://localhost:8004` in your
+default browser automatically. Drop a folder of images, pick an OCR engine,
 and run. Output `.txt` files appear in the directory you choose.
+
+To suppress the browser auto-open (headless servers, CI, docker):
+
+```sh
+pdomain-ocr-simple-gui --no-browser
+# then open http://localhost:8004 in your browser
+```
 
 ## Uninstall
 

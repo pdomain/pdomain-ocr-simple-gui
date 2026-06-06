@@ -46,23 +46,6 @@ def _build_steps() -> list[Step]:
     has_uv = shutil.which("uv") is not None
     mgr = detect_pkg_manager()
 
-    # Probe for the Qt xcb-cursor system lib by checking whether the xcb
-    # platform plugin can load.  The Qt backend (PyQt6 + PyQt6-WebEngine) is
-    # bundled inside the tool venv — we only need to check the system lib.
-    # Heuristic: try importing PyQt6 (bundled) and checking xcb-cursor via
-    # shutil.which for the library loader.  If PyQt6 is importable the venv is
-    # wired; xcb-cursor presence is distro-side.  We conservatively skip the
-    # step only when PyQt6 is importable (venv OK) AND xcb-cursor is present
-    # (detected via ldconfig / find).  In practice most modern distros ship it;
-    # when in doubt, always offer the step (it is idempotent).
-    has_webview = False
-    try:
-        import importlib.util as _ilu
-
-        has_webview = _ilu.find_spec("PyQt6") is not None
-    except Exception:  # noqa: BLE001, S110
-        pass
-
     gpu = detect_nvidia()
     # Detect the CUDA version to select the correct PyTorch wheel index.
     # cuda_version is None when CUDA is not detectable (CPU fallback).
@@ -72,7 +55,6 @@ def _build_steps() -> list[Step]:
     book_tools_gpu = cuda_supports_book_tools_gpu(cuda_version)
     return plan_steps(
         has_uv=has_uv,
-        has_webview=has_webview,
         gpu=gpu,
         mgr=mgr,
         cuda_tag=cuda_tag,
@@ -166,12 +148,11 @@ def _run_gui(*, dry_run: bool) -> None:
         if idx == 0:
             title_var.set("pdomain-ocr-simple-gui Installer")
             body_var.set(
-                "This wizard will install pdomain-ocr-simple-gui and its prerequisites.\n\n"
+                "This wizard will install pdomain-ocr-simple-gui, a browser-based OCR app.\n\n"
                 + f"{len(steps)} step(s) identified for this system.\n\n"
-                + "The Qt desktop backend (PyQt6 + PyQt6-WebEngine) is bundled in the\n"
-                + "tool venv — no WebKitGTK system package is needed.\n"
-                + "On X11, only the xcb-cursor lib is required (libxcb-cursor0 / xcb-util-cursor).\n"
-                + "Wayland sessions need no system package.\n\n"
+                + "After installation, launch the app from your application menu or run\n"
+                + "    pdomain-ocr-simple-gui\n"
+                + "and it will open automatically in your default web browser.\n\n"
                 + "Click 'Begin →' to start."
             )
             cmd_var.set("")
@@ -191,6 +172,7 @@ def _run_gui(*, dry_run: bool) -> None:
                 "pdomain-ocr-simple-gui has been installed.\n\n"
                 + "Launch it from your application menu or run:\n"
                 + "    pdomain-ocr-simple-gui\n\n"
+                + "The app will open automatically in your default web browser.\n\n"
                 + "Close this window to exit."
             )
             cmd_var.set("")

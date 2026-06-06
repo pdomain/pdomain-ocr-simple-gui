@@ -1,8 +1,8 @@
 """Tests for the Linux installer engine.
 
 These tests are pure-Python (no subprocess execution) and always run as part
-of the normal pytest suite.  They validate: distro detection, package mapping,
-step planning, and the interactive runner (fake ask + fake run_cmd).
+of the normal pytest suite.  They validate: distro detection, step planning,
+and the interactive runner (fake ask + fake run_cmd).
 
 NOTE: The engine lives at ``installer/install_engine.py`` (not ``packaging/``)
 because the PyPI ``packaging`` namespace is already registered as a regular
@@ -30,7 +30,6 @@ from installer.install_engine import (
     display_command,
     plan_steps,
     run,
-    webview_package_for,
 )
 
 # ---------------------------------------------------------------------------
@@ -87,43 +86,6 @@ def test_detect_pkg_manager_priority(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # ---------------------------------------------------------------------------
-# webview_package_for
-# ---------------------------------------------------------------------------
-
-
-def test_webview_package_mapping() -> None:
-    """Qt xcb-cursor: apt → libxcb-cursor0, pacman → xcb-util-cursor, unknown → None."""
-    assert webview_package_for("apt") == "libxcb-cursor0"
-    assert webview_package_for("pacman") == "xcb-util-cursor"
-    assert webview_package_for("unknown") is None
-
-
-def test_webview_package_fedora() -> None:
-    """dnf → xcb-util-cursor (Fedora 39+)."""
-    assert webview_package_for("dnf") == "xcb-util-cursor"
-
-
-def test_webview_package_yum() -> None:
-    """yum → xcb-util-cursor (same as dnf)."""
-    assert webview_package_for("yum") == "xcb-util-cursor"
-
-
-def test_webview_package_zypper() -> None:
-    """zypper → libxcb-cursor0 (openSUSE)."""
-    assert webview_package_for("zypper") == "libxcb-cursor0"
-
-
-def test_webview_package_apk() -> None:
-    """apk → xcb-util-cursor (Alpine)."""
-    assert webview_package_for("apk") == "xcb-util-cursor"
-
-
-def test_webview_package_none() -> None:
-    """None input → None (unknown distro)."""
-    assert webview_package_for(None) is None
-
-
-# ---------------------------------------------------------------------------
 # detect_nvidia
 # ---------------------------------------------------------------------------
 
@@ -142,72 +104,52 @@ def test_detect_nvidia_absent(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # ---------------------------------------------------------------------------
-# plan_steps
+# plan_steps — browser-only: no webview step
 # ---------------------------------------------------------------------------
 
 
+def test_plan_steps_no_webview_step() -> None:
+    """Browser-only installer: webview step must NEVER appear in the plan."""
+    for has_uv_val in [True, False]:
+        for gpu_val in [None, "nvidia"]:
+            steps = plan_steps(has_uv=has_uv_val, gpu=gpu_val, cuda_tag="cu130")
+            ids = [s.id for s in steps]
+            assert "webview" not in ids, f"webview step found for has_uv={has_uv_val}, gpu={gpu_val}: {ids}"
+
+
 def test_plan_steps_includes_gated_actions() -> None:
-    """Plan contract: all flags off + nvidia + cuda_tag → uv/webview/tool_install/shortcut (no gpu_torch)."""
-    steps = plan_steps(has_uv=False, has_webview=False, gpu="nvidia", cuda_tag="cu121")
+    """Plan contract: uv + nvidia + cuda_tag → uv/tool_install/shortcut (no webview, no gpu_torch)."""
+    steps = plan_steps(has_uv=False, gpu="nvidia", cuda_tag="cu121")
     ids = [s.id for s in steps]
-    # gpu_torch is gone — GPU flags consolidated into tool_install
-    assert ids == ["uv", "webview", "tool_install", "shortcut"]
-    assert all(s.command for s in steps)  # each gated step has an explicit command
-
-
-def test_plan_steps_webview_command_contains_xcb_cursor_package(monkeypatch: pytest.MonkeyPatch) -> None:
-    """webview step command references the Qt xcb-cursor package (not WebKitGTK)."""
-    monkeypatch.setattr("installer.install_engine._which", lambda x: x == "apt")
-    steps = plan_steps(has_uv=True, has_webview=False, gpu=None, mgr="apt")
-    webview = next(s for s in steps if s.id == "webview")
-    assert isinstance(webview.command, str)
-    assert "libxcb-cursor0" in webview.command
-    assert "webkit" not in webview.command.lower()
-
-
-def test_plan_steps_webview_unknown_distro_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Unknown distro → webview command is a comment with xcb-cursor guidance."""
-    monkeypatch.setattr("installer.install_engine._which", lambda x: False)
-    steps = plan_steps(has_uv=True, has_webview=False, gpu=None, mgr=None)
-    webview = next(s for s in steps if s.id == "webview")
-    assert isinstance(webview.command, str)
-    assert webview.command.startswith("#")
-    assert "xcb-cursor" in webview.command.lower() or "xcb" in webview.command.lower()
+    assert ids == ["uv", "tool_install", "shortcut"]
+    assert all(s.command for s in steps)
 
 
 def test_plan_steps_skips_uv_when_present() -> None:
     """has_uv=True → uv step absent."""
-    steps = plan_steps(has_uv=True, has_webview=False, gpu=None)
+    steps = plan_steps(has_uv=True, gpu=None)
     ids = [s.id for s in steps]
     assert "uv" not in ids
     assert "tool_install" in ids
 
 
-def test_plan_steps_skips_webview_when_present() -> None:
-    """has_webview=True → webview step absent."""
-    steps = plan_steps(has_uv=False, has_webview=True, gpu=None)
-    ids = [s.id for s in steps]
-    assert "webview" not in ids
-    assert "tool_install" in ids
-
-
 def test_plan_steps_skips_gpu_when_no_nvidia() -> None:
     """gpu != 'nvidia' → gpu_torch step absent."""
-    steps = plan_steps(has_uv=True, has_webview=True, gpu=None)
+    steps = plan_steps(has_uv=True, gpu=None)
     ids = [s.id for s in steps]
     assert "gpu_torch" not in ids
 
 
 def test_plan_steps_tool_install_always_present() -> None:
     """tool_install always present regardless of flags."""
-    steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia")
+    steps = plan_steps(has_uv=True, gpu="nvidia")
     ids = [s.id for s in steps]
     assert "tool_install" in ids
 
 
 def test_plan_steps_all_steps_have_required_fields() -> None:
     """All Step objects have non-empty id, description, command."""
-    steps = plan_steps(has_uv=False, has_webview=False, gpu="nvidia")
+    steps = plan_steps(has_uv=False, gpu="nvidia")
     for step in steps:
         assert step.id, f"Step missing id: {step}"
         assert step.description, f"Step {step.id} missing description"
@@ -215,18 +157,52 @@ def test_plan_steps_all_steps_have_required_fields() -> None:
         assert isinstance(step.needs_sudo, bool), f"Step {step.id} needs_sudo not bool"
 
 
-def test_plan_steps_webview_includes_sudo() -> None:
-    """webview step needs sudo (package manager install)."""
-    steps = plan_steps(has_uv=False, has_webview=False, gpu=None)
-    webview = next(s for s in steps if s.id == "webview")
-    assert webview.needs_sudo is True
-
-
 def test_plan_steps_minimal() -> None:
     """All already present + no GPU → only tool_install and shortcut."""
-    steps = plan_steps(has_uv=True, has_webview=True, gpu=None)
+    steps = plan_steps(has_uv=True, gpu=None)
     ids = [s.id for s in steps]
     assert ids == ["tool_install", "shortcut"]
+
+
+# ---------------------------------------------------------------------------
+# plan_steps — plain package (no [desktop] extra)
+# ---------------------------------------------------------------------------
+
+
+def test_tool_install_uses_plain_package() -> None:
+    """tool_install command must use plain 'pdomain-ocr-simple-gui', not '[desktop]' variant."""
+    steps = plan_steps(has_uv=True, gpu=None)
+    tool_step = next(s for s in steps if s.id == "tool_install")
+    assert isinstance(tool_step.command, list)
+    argv = tool_step.command
+    # The package argument should be plain, without any extra
+    assert "pdomain-ocr-simple-gui" in argv
+    # [desktop] must NOT appear anywhere in the command
+    assert not any("[desktop]" in token for token in argv), (
+        f"[desktop] extra found in tool_install command: {argv}"
+    )
+
+
+def test_tool_install_no_desktop_extra_gpu_nvidia() -> None:
+    """[desktop] must not appear even when GPU is configured."""
+    steps = plan_steps(has_uv=True, gpu="nvidia", cuda_tag="cu130", book_tools_gpu=True)
+    tool_step = next(s for s in steps if s.id == "tool_install")
+    assert isinstance(tool_step.command, list)
+    assert not any("[desktop]" in token for token in tool_step.command)
+
+
+# ---------------------------------------------------------------------------
+# plan_steps — shortcut step uses --install-desktop-shortcut
+# ---------------------------------------------------------------------------
+
+
+def test_shortcut_step_uses_install_desktop_shortcut_flag() -> None:
+    """shortcut step command must use '--install-desktop-shortcut' (not '--install-shortcut')."""
+    steps = plan_steps(has_uv=True, gpu=None)
+    shortcut_step = next(s for s in steps if s.id == "shortcut")
+    assert isinstance(shortcut_step.command, str)
+    assert "--install-desktop-shortcut" in shortcut_step.command
+    assert "--install-shortcut" not in shortcut_step.command.replace("--install-desktop-shortcut", "")
 
 
 # ---------------------------------------------------------------------------
@@ -302,26 +278,6 @@ def test_run_user_says_yes_executes() -> None:
     assert executed == ["ok"]
 
 
-def test_run_sudo_prefix_when_needs_sudo() -> None:
-    """Step.needs_sudo=True → command is prefixed with sudo."""
-    commands_seen: list[list[str]] = []
-
-    def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:  # type: ignore[type-arg]
-        commands_seen.append(cmd)
-        return subprocess.CompletedProcess(args=cmd, returncode=0)
-
-    steps = [
-        Step(
-            id="webview",
-            description="Install Qt xcb-cursor lib",
-            command="apt-get install -y libxcb-cursor0",
-            needs_sudo=True,
-        ),
-    ]
-    run(steps, assume_yes=True, dry_run=False, run_cmd=fake_run)
-    assert commands_seen[0][0] == "sudo"
-
-
 def test_step_dataclass() -> None:
     """Step is a dataclass-like with the expected fields."""
     s = Step(id="x", description="desc", command="cmd", needs_sudo=False)
@@ -337,12 +293,7 @@ def test_step_dataclass() -> None:
 
 
 def test_build_exec_args_uv_step_no_bare_pipe() -> None:
-    """uv step uses list command — built argv must NOT contain a bare '|' token.
-
-    This guards against the regression where the command was a string and
-    shlex.split turned '|' into a literal curl argument, making the install
-    silently fail.
-    """
+    """uv step uses list command — built argv must NOT contain a bare '|' token."""
     uv_step = Step(
         id="uv",
         description="Install uv",
@@ -365,32 +316,7 @@ def test_build_exec_args_uv_step_valid_argv() -> None:
         needs_sudo=False,
     )
     argv = _build_exec_args(uv_step)
-    assert len(argv) == 3  # ["sh", "-c", "curl ... | sh"]
-
-
-def test_build_exec_args_sudo_step_prepends_sudo() -> None:
-    """needs_sudo=True → 'sudo' is first token for both str and list commands."""
-    # str command
-    str_step = Step(
-        id="webview",
-        description="Install Qt xcb-cursor lib",
-        command="apt-get install -y libxcb-cursor0",
-        needs_sudo=True,
-    )
-    argv = _build_exec_args(str_step)
-    assert argv[0] == "sudo"
-    assert argv[1] == "apt-get"
-
-    # list command
-    list_step = Step(
-        id="webview",
-        description="Install Qt xcb-cursor lib",
-        command=["apt-get", "install", "-y", "libxcb-cursor0"],
-        needs_sudo=True,
-    )
-    argv2 = _build_exec_args(list_step)
-    assert argv2[0] == "sudo"
-    assert argv2[1] == "apt-get"
+    assert len(argv) == 3
 
 
 def test_build_exec_args_no_sudo_does_not_prepend() -> None:
@@ -420,7 +346,7 @@ def test_detect_nvidia_driver_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result == "nvidia"
 
     # GPU flags are now consolidated into tool_install (no separate gpu_torch step).
-    steps = plan_steps(has_uv=True, has_webview=True, gpu=result, cuda_tag="cu121")
+    steps = plan_steps(has_uv=True, gpu=result, cuda_tag="cu121")
     ids = [s.id for s in steps]
     assert "tool_install" in ids
     assert "gpu_torch" not in ids
@@ -436,7 +362,7 @@ def test_detect_nvidia_driver_below_threshold(monkeypatch: pytest.MonkeyPatch) -
     result = detect_nvidia()
     assert result is None
 
-    steps = plan_steps(has_uv=True, has_webview=True, gpu=result)
+    steps = plan_steps(has_uv=True, gpu=result)
     ids = [s.id for s in steps]
     assert "gpu_torch" not in ids
 
@@ -590,7 +516,7 @@ def test_cuda_supports_book_tools_gpu_garbage() -> None:
 
 def test_tool_install_always_has_pd_index_url_gpu_none() -> None:
     """gpu=None → tool_install command contains PD_INDEX_URL (package not on PyPI)."""
-    steps = plan_steps(has_uv=True, has_webview=True, gpu=None)
+    steps = plan_steps(has_uv=True, gpu=None)
     tool_step = next(s for s in steps if s.id == "tool_install")
     assert isinstance(tool_step.command, list)
     argv = tool_step.command
@@ -600,7 +526,7 @@ def test_tool_install_always_has_pd_index_url_gpu_none() -> None:
 
 def test_tool_install_always_has_pd_index_url_nvidia_with_cuda_tag() -> None:
     """gpu='nvidia' + cuda_tag='cu130' → tool_install command still contains PD_INDEX_URL."""
-    steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia", cuda_tag="cu130")
+    steps = plan_steps(has_uv=True, gpu="nvidia", cuda_tag="cu130")
     tool_step = next(s for s in steps if s.id == "tool_install")
     assert isinstance(tool_step.command, list)
     argv = tool_step.command
@@ -610,7 +536,7 @@ def test_tool_install_always_has_pd_index_url_nvidia_with_cuda_tag() -> None:
 
 def test_tool_install_always_has_pd_index_url_nvidia_no_cuda_tag() -> None:
     """gpu='nvidia' + cuda_tag=None (CPU fallback) → tool_install still contains PD_INDEX_URL."""
-    steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia", cuda_tag=None)
+    steps = plan_steps(has_uv=True, gpu="nvidia", cuda_tag=None)
     tool_step = next(s for s in steps if s.id == "tool_install")
     assert isinstance(tool_step.command, list)
     argv = tool_step.command
@@ -625,21 +551,19 @@ def test_tool_install_always_has_pd_index_url_nvidia_no_cuda_tag() -> None:
 
 def test_tool_install_nvidia_cuda_tag_cu130_has_pytorch_index() -> None:
     """gpu='nvidia' + cuda_tag='cu130' → --extra-index-url https://download.pytorch.org/whl/cu130."""
-    steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia", cuda_tag="cu130")
+    steps = plan_steps(has_uv=True, gpu="nvidia", cuda_tag="cu130")
     tool_step = next(s for s in steps if s.id == "tool_install")
     assert isinstance(tool_step.command, list)
     argv = tool_step.command
-    # Find the --extra-index-url index for the pytorch.org URL
     pytorch_url = "https://download.pytorch.org/whl/cu130"
     assert pytorch_url in argv
-    # Assert it's adjacent to --extra-index-url (argv[i] == flag, argv[i+1] == url)
     idx = argv.index(pytorch_url)
     assert argv[idx - 1] == "--extra-index-url"
 
 
 def test_tool_install_nvidia_no_cuda_tag_no_pytorch_index() -> None:
     """gpu='nvidia' + cuda_tag=None (CPU fallback) → NO pytorch.org index in command."""
-    steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia", cuda_tag=None)
+    steps = plan_steps(has_uv=True, gpu="nvidia", cuda_tag=None)
     tool_step = next(s for s in steps if s.id == "tool_install")
     assert isinstance(tool_step.command, list)
     argv = tool_step.command
@@ -655,7 +579,6 @@ def test_tool_install_book_tools_gpu_true_adds_with_flag() -> None:
     """book_tools_gpu=True → command contains '--with' 'pdomain-book-tools[gpu]'."""
     steps = plan_steps(
         has_uv=True,
-        has_webview=True,
         gpu="nvidia",
         cuda_tag="cu130",
         book_tools_gpu=True,
@@ -672,7 +595,6 @@ def test_tool_install_book_tools_gpu_false_no_with_flag() -> None:
     """book_tools_gpu=False (default) → no '--with pdomain-book-tools[gpu]' in command."""
     steps = plan_steps(
         has_uv=True,
-        has_webview=True,
         gpu="nvidia",
         cuda_tag="cu130",
         book_tools_gpu=False,
@@ -690,13 +612,12 @@ def test_tool_install_book_tools_gpu_false_no_with_flag() -> None:
 
 def test_no_gpu_torch_step_exists() -> None:
     """gpu_torch step must NOT appear in plan — it was the broken no-op pattern."""
-    # All three cases: gpu=None, gpu=nvidia+cuda_tag, gpu=nvidia+no_cuda_tag
     for gpu_val, cuda_val in [
         (None, None),
         ("nvidia", "cu130"),
         ("nvidia", None),
     ]:
-        steps = plan_steps(has_uv=True, has_webview=True, gpu=gpu_val, cuda_tag=cuda_val)
+        steps = plan_steps(has_uv=True, gpu=gpu_val, cuda_tag=cuda_val)
         ids = [s.id for s in steps]
         assert "gpu_torch" not in ids, (
             f"gpu_torch step found for gpu={gpu_val!r}, cuda_tag={cuda_val!r}: {ids}"
@@ -704,13 +625,13 @@ def test_no_gpu_torch_step_exists() -> None:
 
 
 # ---------------------------------------------------------------------------
-# plan_steps — cuda_tag parameter (kept/adjusted; old gpu_torch tests removed)
+# plan_steps — cuda_tag parameter
 # ---------------------------------------------------------------------------
 
 
 def test_plan_steps_nvidia_cuda_tag_cu130_in_tool_install() -> None:
     """gpu='nvidia' + cuda_tag='cu130' → tool_install command contains cu130 pytorch URL."""
-    steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia", cuda_tag="cu130")
+    steps = plan_steps(has_uv=True, gpu="nvidia", cuda_tag="cu130")
     tool_step = next(s for s in steps if s.id == "tool_install")
     assert isinstance(tool_step.command, list)
     assert any("cu130" in token for token in tool_step.command)
@@ -719,7 +640,7 @@ def test_plan_steps_nvidia_cuda_tag_cu130_in_tool_install() -> None:
 
 def test_plan_steps_nvidia_cuda_tag_cu121_in_tool_install() -> None:
     """gpu='nvidia' + cuda_tag='cu121' → tool_install command contains cu121 pytorch URL."""
-    steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia", cuda_tag="cu121")
+    steps = plan_steps(has_uv=True, gpu="nvidia", cuda_tag="cu121")
     tool_step = next(s for s in steps if s.id == "tool_install")
     assert isinstance(tool_step.command, list)
     assert any("download.pytorch.org/whl/cu121" in token for token in tool_step.command)
@@ -727,7 +648,7 @@ def test_plan_steps_nvidia_cuda_tag_cu121_in_tool_install() -> None:
 
 def test_plan_steps_nvidia_no_cuda_tag_tool_install_no_pytorch() -> None:
     """gpu='nvidia' + cuda_tag=None → tool_install has no pytorch.org URL (CPU fallback)."""
-    steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia", cuda_tag=None)
+    steps = plan_steps(has_uv=True, gpu="nvidia", cuda_tag=None)
     tool_step = next(s for s in steps if s.id == "tool_install")
     assert isinstance(tool_step.command, list)
     assert not any("download.pytorch.org" in token for token in tool_step.command)
@@ -735,7 +656,7 @@ def test_plan_steps_nvidia_no_cuda_tag_tool_install_no_pytorch() -> None:
 
 def test_plan_steps_no_gpu_tool_install_no_pytorch() -> None:
     """gpu=None → tool_install has no pytorch.org URL."""
-    steps = plan_steps(has_uv=True, has_webview=True, gpu=None, cuda_tag="cu130")
+    steps = plan_steps(has_uv=True, gpu=None, cuda_tag="cu130")
     tool_step = next(s for s in steps if s.id == "tool_install")
     assert isinstance(tool_step.command, list)
     assert not any("download.pytorch.org" in token for token in tool_step.command)
@@ -744,7 +665,7 @@ def test_plan_steps_no_gpu_tool_install_no_pytorch() -> None:
 def test_display_command_joins_list_argv() -> None:
     """List-form commands render as a readable shell string, not a list repr."""
     rendered = display_command(
-        ["uv", "tool", "install", "pdomain-ocr-simple-gui[desktop]", "--extra-index-url", "https://x/"]
+        ["uv", "tool", "install", "pdomain-ocr-simple-gui", "--extra-index-url", "https://x/"]
     )
     assert rendered.startswith("uv tool install ")
     assert "[" not in rendered.split(" ", 3)[0]  # no raw "['uv', ..." list repr
@@ -758,7 +679,7 @@ def test_display_command_passes_string_through() -> None:
 
 def test_display_command_renders_in_plan(capsys: pytest.CaptureFixture[str]) -> None:
     """The printed plan shows a shell string for list-form commands."""
-    steps = [Step(id="t", description="d", command=["uv", "tool", "install", "x[desktop]"], needs_sudo=False)]
+    steps = [Step(id="t", description="d", command=["uv", "tool", "install", "x"], needs_sudo=False)]
     run(steps, assume_yes=False, dry_run=True)
     out = capsys.readouterr().out
     assert "uv tool install" in out

@@ -1,52 +1,22 @@
-"""Tests for --desktop, --install-desktop-shortcut, --remove-desktop-shortcut CLI flags."""
+"""Tests for --install-desktop-shortcut and --remove-desktop-shortcut CLI flags.
 
-from pdomain_ocr_simple_gui.__main__ import PREFERRED_PORT, _parse_args
+Note: --desktop was removed in the browser-only pivot. These tests cover the
+desktop shortcut management flags which remain valid for the browser-based app.
+"""
 
-
-def test_desktop_flag_parses():
-    args = _parse_args(["--desktop"])
-    assert args.desktop is True
-
-
-def test_desktop_flag_defaults_false():
-    args = _parse_args([])
-    assert args.desktop is False
+from pdomain_ocr_simple_gui.__main__ import _parse_args
 
 
-def test_desktop_calls_run_windowed(monkeypatch):
-    called = {}
-
-    def _fake_run_windowed(module, **k):
-        called["module"] = module
-        called["kwargs"] = k
-
-    monkeypatch.setattr(
-        "pdomain_ocr_simple_gui.__main__.run_windowed",
-        _fake_run_windowed,
-    )
-    from pdomain_ocr_simple_gui.__main__ import main
-
-    main(["--desktop"])
-    assert called["module"] == "pdomain_ocr_simple_gui.app:app"
-    assert called["kwargs"].get("preferred_port") == PREFERRED_PORT
+def test_install_shortcut_flag_parses():
+    """--install-desktop-shortcut parses without error."""
+    args = _parse_args(["--install-desktop-shortcut"])
+    assert args.install_desktop_shortcut is True
 
 
-def test_desktop_forwards_custom_port(monkeypatch):
-    """--port is forwarded as preferred_port to run_windowed."""
-    called = {}
-
-    def _fake_run_windowed(module, **k):
-        called["module"] = module
-        called["kwargs"] = k
-
-    monkeypatch.setattr(
-        "pdomain_ocr_simple_gui.__main__.run_windowed",
-        _fake_run_windowed,
-    )
-    from pdomain_ocr_simple_gui.__main__ import main
-
-    main(["--desktop", "--port", "9000"])
-    assert called["kwargs"].get("preferred_port") == 9000
+def test_remove_shortcut_flag_parses():
+    """--remove-desktop-shortcut parses without error."""
+    args = _parse_args(["--remove-desktop-shortcut"])
+    assert args.remove_desktop_shortcut is True
 
 
 def test_install_shortcut_calls_install(monkeypatch):

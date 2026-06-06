@@ -15,10 +15,9 @@ set -e
 #   interactively.  On any failure, the script falls back to the uv-tool path.
 #   Pass --no-appimage or set NO_APPIMAGE=1 to skip the AppImage path.
 #
-# Desktop mode:
-#   Always pulls pdomain-ops[desktop] (pywebview>=5 + pystray>=0.19) so
-#   the native window works out of the box. After install the script
-#   checks for WebKitGTK and prints per-distro install hints if absent.
+# Browser mode (default):
+#   The app runs as a local web server and opens your default web browser
+#   automatically when launched.  No native window or Qt library is required.
 #
 # GPU auto-enable:
 #   The CUDA >= 12.4 branch below passes `--with pdomain-book-tools[gpu]`
@@ -390,7 +389,7 @@ echo ""
 echo "About to install:"
 echo "  Package:  pdomain-ocr-simple-gui ${RELEASE_TAG:-}"
 echo "  GPU:      ${_GPU_LABEL}"
-echo "  Desktop:  pdomain-ops[desktop] included (native --desktop window)"
+echo "  Mode:     Browser (opens your default web browser automatically)"
 echo "  Target:   uv tool  (~/.local/bin)"
 echo "  Index:    ${PD_INDEX_URL}"
 echo ""
@@ -418,57 +417,25 @@ echo "Installing pdomain-ocr-simple-gui ${RELEASE_TAG:-} from $(basename "$WHEEL
 # was detected above, $PD_BOOK_TOOLS_EXTRAS is "[gpu]"; we pass --with to
 # pull that extra in.
 #
-# pdomain-ops[desktop] is always included so the native window works out of
-# the box (PyQt6 + pystray>=0.19).
+# Browser-only install: plain package, no extra needed.
 set -- --reinstall "$WHEEL_FILE" --extra-index-url "$PD_INDEX_URL"
 if [ -n "$PD_BOOK_TOOLS_EXTRAS" ]; then
     set -- "$@" --with "pdomain-book-tools${PD_BOOK_TOOLS_EXTRAS}"
 fi
-set -- "$@" --with "pdomain-ops[desktop]"
 if [ -n "$EXTRA_INDEX" ]; then
     set -- "$@" --extra-index-url "$EXTRA_INDEX"
 fi
 uv tool install --python "$PYTHON_VERSION" "$@"
 
-# ---------------------------------------------------------------------------
-# Post-install: check for Qt xcb-cursor lib (X11 only).
-# ---------------------------------------------------------------------------
-# The Qt backend is bundled inside the tool venv via pdomain-ops[desktop].
-# On X11 sessions, Qt also requires the system xcb-cursor library to launch
-# the native window.  Wayland sessions do NOT need it -- Qt auto-selects the
-# bundled Wayland plugin instead.
-# We DETECT and WARN -- we never sudo-install system packages on the user's
-# behalf.
-
-XCB_OK=0
-if ldconfig -p 2>/dev/null | grep -q "libxcb-cursor"; then
-    XCB_OK=1
-fi
-
 echo ""
-if [ "$XCB_OK" = "0" ]; then
-    echo "NOTE: libxcb-cursor was not detected on this system."
-    echo "  On X11 sessions, the --desktop (native window) mode requires this"
-    echo "  small system library.  Wayland sessions can skip this -- the app"
-    echo "  auto-selects the bundled Wayland Qt plugin."
-    echo "  Browser mode works on both X11 and Wayland without it."
-    echo ""
-    echo "  Install the xcb-cursor library for your distro:"
-    echo "    Debian/Ubuntu/Mint (apt):  sudo apt-get install -y libxcb-cursor0"
-    echo "    Fedora (dnf):             sudo dnf install -y xcb-util-cursor"
-    echo "    RHEL/CentOS (yum):        sudo yum install -y xcb-util-cursor"
-    echo "    Arch (pacman):            sudo pacman -S xcb-util-cursor"
-    echo "    openSUSE (zypper):        sudo zypper install libxcb-cursor0"
-    echo "    Alpine (apk):             sudo apk add xcb-util-cursor"
-    echo "  See other distros: docs/runbooks/install.md"
-    echo ""
-fi
-
 echo "Done! Launch pdomain-ocr-simple-gui:"
 echo ""
-echo "  Desktop window (native):  pdomain-ocr-simple-gui --desktop"
-echo "  Browser mode:             pdomain-ocr-simple-gui"
-echo "                            then open http://localhost:8004"
+echo "  pdomain-ocr-simple-gui"
+echo "  (the app opens your default web browser automatically)"
+echo ""
+echo "  To suppress the browser auto-open (headless/CI/docker):"
+echo "  pdomain-ocr-simple-gui --no-browser"
+echo "  then open http://localhost:8004"
 echo ""
 echo "If 'pdomain-ocr-simple-gui' is not found, add uv's tool bin to your PATH:"
 echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""

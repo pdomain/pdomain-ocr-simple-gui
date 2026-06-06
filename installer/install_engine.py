@@ -7,14 +7,9 @@ wizard build on.
 
 Design:
 - ``detect_pkg_manager()`` — probes for the distro package manager.
-- ``webview_package_for(mgr)`` — maps manager to the Qt xcb-cursor system
-  package name.  The Qt backend (PyQt6 + PyQt6-WebEngine) is bundled in the
-  tool venv via ``pdomain-ocr-simple-gui[desktop]`` → ``pdomain-ops[desktop]``
-  and requires no system package.  The *only* system package needed is the
-  xcb-cursor lib, and only on X11 (Wayland sessions need nothing).
 - ``detect_nvidia()`` — probes for an NVIDIA GPU via ``nvidia-smi`` and
   validates the driver version against ``_MIN_DRIVER_VERSION``.
-- ``plan_steps(has_uv, has_webview, gpu)`` — returns the ordered gated steps.
+- ``plan_steps(has_uv, gpu)`` — returns the ordered gated steps.
 - ``run(steps, *, assume_yes, dry_run, ask, run_cmd)`` — interactive runner.
 
 All distro detection goes through the injectable ``_which`` callable so tests
@@ -188,7 +183,7 @@ _MIN_DRIVER_VERSION = 525
 # Self-hosted PEP 503 simple index for pdomain-* packages.
 # pdomain-ocr-simple-gui, pdomain-ops, and pdomain-book-tools are all published
 # here; they are NOT on PyPI.  Must be passed as --extra-index-url so uv can
-# resolve them.  PyPI remains the fallback for PyQt6, torch, etc.
+# resolve them.  PyPI remains the fallback for torch, etc.
 PD_INDEX_URL = "https://pdomain.github.io/pdomain-index-pip/simple/"
 
 
@@ -210,42 +205,6 @@ def detect_pkg_manager() -> str | None:
         if _which(mgr):
             return mgr
     return None
-
-
-# ---------------------------------------------------------------------------
-# Qt xcb-cursor package mapping per package manager
-#
-# The desktop webview backend is Qt (PyQt6 + PyQt6-WebEngine).  Those wheels
-# are self-contained and ship inside the tool venv — they arrive automatically
-# via the [desktop] extra chain and need no system package.
-#
-# The ONLY system package needed is the Qt xcb-cursor plugin, required only on
-# X11 (XCB platform).  Wayland sessions ($WAYLAND_DISPLAY set, no $DISPLAY)
-# use the Wayland QPA and need nothing.
-# ---------------------------------------------------------------------------
-
-_WEBVIEW_PACKAGES: dict[str | None, str | None] = {
-    "apt": "libxcb-cursor0",  # Debian/Ubuntu
-    "dnf": "xcb-util-cursor",  # Fedora 39+
-    "yum": "xcb-util-cursor",  # older RHEL/CentOS
-    "pacman": "xcb-util-cursor",  # Arch Linux
-    "zypper": "libxcb-cursor0",  # openSUSE
-    "apk": "xcb-util-cursor",  # Alpine Linux
-    None: None,  # unknown distro
-}
-
-
-def webview_package_for(mgr: str | None) -> str | None:
-    """Return the Qt xcb-cursor package name for the given package manager.
-
-    The Qt backend (PyQt6 + PyQt6-WebEngine) is bundled inside the tool venv
-    via the ``[desktop]`` extra — no system package is needed for Qt itself.
-    The xcb-cursor lib is only required on X11; Wayland sessions need nothing.
-
-    Returns ``None`` for unknown managers (caller should print manual
-    instructions and continue rather than aborting).
-    """
-    return _WEBVIEW_PACKAGES.get(mgr)
 
 
 # ---------------------------------------------------------------------------
@@ -339,15 +298,13 @@ class Step:
 
 # The app ID used in the tool-install and shortcut steps.
 _APP_ID = "pdomain-ocr-simple-gui"
-_DESKTOP_EXTRA = f"{_APP_ID}[desktop]"
 
 
 def plan_steps(
     *,
     has_uv: bool,
-    has_webview: bool,
     gpu: str | None,
-    mgr: str | None = None,
+    mgr: str | None = None,  # pyright: ignore[reportUnusedParameter]
     cuda_tag: str | None = None,
     book_tools_gpu: bool = False,
 ) -> list[Step]:
@@ -355,8 +312,9 @@ def plan_steps(
 
     Steps are omitted when they are already satisfied:
     - ``uv`` step omitted when ``has_uv=True``.
-    - ``webview`` step omitted when ``has_webview=True``.
     - ``tool_install`` and ``shortcut`` are always included.
+
+    This is a browser-only installer; no Qt/webview/xcb-cursor step is emitted.
 
     GPU and index flags are injected directly into the ``tool_install`` step
     command (a ``list[str]`` argv).  There is no separate ``gpu_torch`` step —
@@ -369,8 +327,7 @@ def plan_steps(
     - When ``gpu == 'nvidia'`` and ``cuda_tag`` is not None, the PyTorch
       CUDA wheel index is added as a second ``--extra-index-url``.  uv gives
       ``--extra-index-url`` priority over PyPI, and the pd-index has no torch
-      wheels, so torch resolves to the CUDA build from pytorch.org while PyQt6
-      and pywebview resolve from PyPI.
+      wheels, so torch resolves to the CUDA build from pytorch.org.
     - When ``gpu == 'nvidia'`` and ``cuda_tag`` is None the CUDA version could
       not be detected — CPU fallback: no pytorch.org index is added.
     - ``--with pdomain-book-tools[gpu]`` (CuPy + opencv-cuda) is added only
@@ -378,9 +335,8 @@ def plan_steps(
 
     Args:
         has_uv:        True when ``uv`` is already installed.
-        has_webview:   True when the Qt xcb-cursor lib is already available.
         gpu:           ``'nvidia'`` to inject CUDA flags; None/other for CPU.
-        mgr:           Package manager id (for the webview install command).
+        mgr:           Package manager id (unused; kept for signature compat).
                        Auto-detected if None.
         cuda_tag:      CUDA wheel tag such as ``'cu130'`` / ``'cu121'``, or
                        None.  Computed by the wizard via
@@ -391,11 +347,6 @@ def plan_steps(
                        Requires CUDA >= 12.4.  Computed by the wizard via
                        ``cuda_supports_book_tools_gpu()``.
     """
-    if mgr is None:
-        mgr = detect_pkg_manager()
-
-    webview_pkg = webview_package_for(mgr)
-
     steps: list[Step] = []
 
     if not has_uv:
@@ -412,30 +363,10 @@ def plan_steps(
             )
         )
 
-    if not has_webview:
-        if webview_pkg and mgr:
-            # Build the install command from the detected manager.
-            install_cmd = _build_pkg_install_cmd(mgr, webview_pkg)
-        else:
-            # Unknown distro: show manual instructions; step still listed.
-            # Qt itself is bundled in the venv; only the xcb-cursor lib is system-level.
-            install_cmd = (
-                "# Unknown package manager — install the Qt xcb-cursor lib manually"
-                " (X11 only; e.g. 'sudo apt-get install libxcb-cursor0' on Debian/Ubuntu;"
-                " Wayland sessions need nothing)"
-            )
-        steps.append(
-            Step(
-                id="webview",
-                description=f"Install Qt xcb-cursor lib ({webview_pkg or 'see instructions above'}) — X11 only",
-                command=install_cmd,
-                needs_sudo=True,
-            )
-        )
-
     # Build the tool install command as a list[str] argv to avoid any quoting
     # ambiguity with multiple --extra-index-url flags.
     #
+    # Install the PLAIN package (no [desktop] extra) — browser-only mode.
     # The self-hosted pd-index MUST always be present — pdomain-ocr-simple-gui
     # and its pdomain-* deps are not on PyPI.  GPU flags are appended
     # conditionally so the same argv construction covers all cases.
@@ -443,14 +374,13 @@ def plan_steps(
         "uv",
         "tool",
         "install",
-        _DESKTOP_EXTRA,
+        _APP_ID,
         "--extra-index-url",
         PD_INDEX_URL,
     ]
     if gpu == "nvidia" and cuda_tag is not None:
         # Inject the CUDA torch wheel index.  uv gives --extra-index-url
-        # priority, so torch resolves to the CUDA build; PyQt6/pywebview
-        # still come from PyPI.
+        # priority, so torch resolves to the CUDA build.
         tool_cmd += ["--extra-index-url", f"https://download.pytorch.org/whl/{cuda_tag}"]
     if book_tools_gpu:
         tool_cmd += ["--with", "pdomain-book-tools[gpu]"]
@@ -468,25 +398,12 @@ def plan_steps(
         Step(
             id="shortcut",
             description="Install desktop shortcut and application menu entry",
-            command=f"{_APP_ID} --install-shortcut",
+            command=f"{_APP_ID} --install-desktop-shortcut",
             needs_sudo=False,
         )
     )
 
     return steps
-
-
-def _build_pkg_install_cmd(mgr: str, package: str) -> str:
-    """Return the package-manager install command for the given package."""
-    _cmds: dict[str, str] = {
-        "apt": f"apt-get install -y {package}",
-        "dnf": f"dnf install -y {package}",
-        "yum": f"yum install -y {package}",
-        "pacman": f"pacman -S --noconfirm {package}",
-        "zypper": f"zypper install -y {package}",
-        "apk": f"apk add {package}",
-    }
-    return _cmds.get(mgr, f"# install {package}")
 
 
 # ---------------------------------------------------------------------------

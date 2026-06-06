@@ -14,7 +14,7 @@ license = { text = "Unlicense" }
 requires-python = ">=3.11"
 dependencies = [
     "pdomain-book-tools>=0.18.0",
-    "pdomain-ops>=0.8.4",
+    "pdomain-ops>=0.9.1",
     "fastapi>=0.111",
     "uvicorn[standard]>=0.29",
     "pydantic>=2.7",
@@ -24,9 +24,6 @@ dependencies = [
     "typing-extensions>=4.6",
     "python-statemachine>=3.1.2",
 ]
-
-[project.optional-dependencies]
-desktop = ["pdomain-ops[desktop]"]
 
 [project.scripts]
 pdomain-ocr-simple-gui = "pdomain_ocr_simple_gui.__main__:main"
