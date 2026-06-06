@@ -26,6 +26,8 @@ from typing import cast
 
 from installer.install_engine import (
     Step,
+    _query_cuda_version,  # pyright: ignore[reportPrivateUsage]
+    cuda_tag_for,
     detect_nvidia,
     detect_pkg_manager,
     plan_steps,
@@ -60,7 +62,10 @@ def _build_steps() -> list[Step]:
         pass
 
     gpu = detect_nvidia()
-    return plan_steps(has_uv=has_uv, has_webview=has_webview, gpu=gpu, mgr=mgr)
+    # Detect the CUDA version to select the correct PyTorch wheel index.
+    # cuda_tag is None when CUDA is not detectable (CPU fallback — omits gpu_torch).
+    cuda_tag = cuda_tag_for(_query_cuda_version()) if gpu == "nvidia" else None
+    return plan_steps(has_uv=has_uv, has_webview=has_webview, gpu=gpu, mgr=mgr, cuda_tag=cuda_tag)
 
 
 # ---------------------------------------------------------------------------

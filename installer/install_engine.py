@@ -24,6 +24,7 @@ never shell out.  NVIDIA driver version queries go through
 
 from __future__ import annotations
 
+import re
 import shlex
 import subprocess
 from dataclasses import dataclass
@@ -61,6 +62,88 @@ def _query_nvidia_driver() -> str | None:
         return result.stdout.strip().splitlines()[0].strip() if result.stdout.strip() else None
     except Exception:  # noqa: BLE001
         return None
+
+
+# ---------------------------------------------------------------------------
+# Injectable seam for subprocess.run (CUDA version detection)
+# ---------------------------------------------------------------------------
+
+
+def _subprocess_run(
+    cmd: list[str],
+    *,
+    capture_output: bool,
+    text: bool,
+    check: bool,
+) -> subprocess.CompletedProcess[str]:
+    """Invoke ``nvidia-smi`` with no args and return the result (injectable seam).
+
+    Tests monkeypatch this function to return canned ``CompletedProcess`` objects
+    so no real process is spawned.
+
+    Args:
+        cmd:            Command argv — expected to be ``["nvidia-smi"]``.
+        capture_output: Whether to capture stdout/stderr.
+        text:           Whether to decode output as text.
+        check:          Whether to raise on non-zero exit.
+    """
+    return subprocess.run(cmd, capture_output=capture_output, text=text, check=check)  # noqa: S603
+
+
+# ---------------------------------------------------------------------------
+# CUDA version detection
+# ---------------------------------------------------------------------------
+
+
+def _query_cuda_version() -> str | None:  # pyright: ignore[reportUnusedFunction]
+    """Return the CUDA version string from nvidia-smi output, or None.
+
+    Parses the CUDA Version: X.Y token from the nvidia-smi banner
+    (the plain invocation with no args), matching the detection in install.sh.
+
+    Example: nvidia-smi output containing CUDA Version: 13.0 → "13.0".
+
+    Injectable seam — tests monkeypatch _subprocess_run to avoid shelling out.
+    """
+    try:
+        result = _subprocess_run(
+            ["nvidia-smi"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        match = re.search(r"CUDA Version: (\d+\.\d+)", result.stdout)
+        return match.group(1) if match else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def cuda_tag_for(cuda_version: str | None) -> str | None:
+    """Return the PyTorch CUDA wheel tag for the given CUDA version string.
+
+    Mirrors the tag construction in install.sh::
+
+        CUDA_TAG="cu$(echo X.Y | tr -d '.')"
+
+    Examples:
+        "13.0" → "cu130"
+        "12.1" → "cu121"
+        "12.4" → "cu124"
+        None   → None (no CUDA detected)
+        garbage → None (unparseable)
+
+    Args:
+        cuda_version: CUDA version string like "13.0" / "12.1", or None.
+
+    Returns:
+        Tag string like "cu130" / "cu121", or None.
+    """
+    if not cuda_version:
+        return None
+    # Validate the X.Y format (digits only, no letters)
+    if not re.fullmatch(r"\d+\.\d+", cuda_version):
+        return None
+    return "cu" + cuda_version.replace(".", "")
 
 
 # Minimum NVIDIA driver version that supports CUDA 12 (cu121 wheel ABI).
@@ -224,13 +307,17 @@ def plan_steps(
     has_webview: bool,
     gpu: str | None,
     mgr: str | None = None,
+    cuda_tag: str | None = None,
 ) -> list[Step]:
     """Return the ordered list of gated installer steps.
 
     Steps are omitted when they are already satisfied:
     - ``uv`` step omitted when ``has_uv=True``.
     - ``webview`` step omitted when ``has_webview=True``.
-    - ``gpu_torch`` step included **only** when ``gpu == 'nvidia'``.
+    - ``gpu_torch`` step included **only** when ``gpu == 'nvidia'`` **and**
+      ``cuda_tag`` is not None.  When ``cuda_tag`` is None the CUDA version
+      could not be detected and the step is omitted (CPU fallback, mirroring
+      install.sh behaviour).
     - ``tool_install`` and ``shortcut`` are always included.
 
     Args:
@@ -239,6 +326,9 @@ def plan_steps(
         gpu:         ``'nvidia'`` to include the CUDA torch step; None/other to skip.
         mgr:         Package manager id (for the webview install command).
                      Auto-detected if None.
+        cuda_tag:    CUDA wheel tag such as ``'cu130'`` / ``'cu121'``, or None.
+                     Computed by the wizard via ``cuda_tag_for(_query_cuda_version())``.
+                     When None and ``gpu == 'nvidia'`` the gpu_torch step is omitted.
     """
     if mgr is None:
         mgr = detect_pkg_manager()
@@ -291,14 +381,14 @@ def plan_steps(
         )
     )
 
-    if gpu == "nvidia":
+    if gpu == "nvidia" and cuda_tag is not None:
         steps.append(
             Step(
                 id="gpu_torch",
                 description="Enable GPU acceleration (swap CPU torch for CUDA build)",
                 command=(
                     f"uv tool run --from {_APP_ID} pip install"
-                    " torch --index-url https://download.pytorch.org/whl/cu121"
+                    f" torch --index-url https://download.pytorch.org/whl/{cuda_tag}"
                 ),
                 needs_sudo=False,
             )

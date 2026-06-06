@@ -21,6 +21,8 @@ import pytest
 from installer.install_engine import (
     Step,
     _build_exec_args,
+    _query_cuda_version,
+    cuda_tag_for,
     detect_nvidia,
     detect_pkg_manager,
     plan_steps,
@@ -142,8 +144,8 @@ def test_detect_nvidia_absent(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_plan_steps_includes_gated_actions() -> None:
-    """Plan contract: all flags off + nvidia → all 5 step ids in order."""
-    steps = plan_steps(has_uv=False, has_webview=False, gpu="nvidia")
+    """Plan contract: all flags off + nvidia + cuda_tag → all 5 step ids in order."""
+    steps = plan_steps(has_uv=False, has_webview=False, gpu="nvidia", cuda_tag="cu121")
     ids = [s.id for s in steps]
     assert ids == ["uv", "webview", "tool_install", "gpu_torch", "shortcut"]
     assert all(s.command for s in steps)  # each gated step has an explicit command
@@ -407,13 +409,14 @@ def test_detect_nvidia_absent_no_smi(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_detect_nvidia_driver_ok(monkeypatch: pytest.MonkeyPatch) -> None:
-    """nvidia-smi present + driver >= 525 → returns 'nvidia'; gpu_torch included."""
+    """nvidia-smi present + driver >= 525 → returns 'nvidia'; gpu_torch included when cuda_tag set."""
     monkeypatch.setattr("installer.install_engine._which", lambda x: x == "nvidia-smi")
     monkeypatch.setattr("installer.install_engine._query_nvidia_driver", lambda: "535.154.05")
     result = detect_nvidia()
     assert result == "nvidia"
 
-    steps = plan_steps(has_uv=True, has_webview=True, gpu=result)
+    # Pass cuda_tag explicitly — gpu_torch requires both gpu='nvidia' AND a detected CUDA tag.
+    steps = plan_steps(has_uv=True, has_webview=True, gpu=result, cuda_tag="cu121")
     ids = [s.id for s in steps]
     assert "gpu_torch" in ids
 
@@ -454,3 +457,121 @@ def test_detect_nvidia_plan_includes_driver_guidance(
     captured = capsys.readouterr()
     assert "525" in captured.out
     assert "driver" in captured.out.lower()
+
+
+# ---------------------------------------------------------------------------
+# cuda_tag_for — pure helper
+# ---------------------------------------------------------------------------
+
+
+def test_cuda_tag_for_13_0() -> None:
+    """cuda_tag_for('13.0') → 'cu130'."""
+    assert cuda_tag_for("13.0") == "cu130"
+
+
+def test_cuda_tag_for_12_1() -> None:
+    """cuda_tag_for('12.1') → 'cu121'."""
+    assert cuda_tag_for("12.1") == "cu121"
+
+
+def test_cuda_tag_for_12_4() -> None:
+    """cuda_tag_for('12.4') → 'cu124'."""
+    assert cuda_tag_for("12.4") == "cu124"
+
+
+def test_cuda_tag_for_none() -> None:
+    """cuda_tag_for(None) → None (no CUDA detected)."""
+    assert cuda_tag_for(None) is None
+
+
+def test_cuda_tag_for_garbage() -> None:
+    """cuda_tag_for('garbage') → None (unparseable)."""
+    assert cuda_tag_for("garbage") is None
+
+
+def test_cuda_tag_for_empty() -> None:
+    """cuda_tag_for('') → None."""
+    assert cuda_tag_for("") is None
+
+
+# ---------------------------------------------------------------------------
+# _query_cuda_version — injectable seam
+# ---------------------------------------------------------------------------
+
+
+def test_query_cuda_version_parses_smi_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Feed canned nvidia-smi output with 'CUDA Version: 13.0' → '13.0'."""
+    import subprocess as _subprocess
+
+    SAMPLE_SMI = """+-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 570.144.01             Driver Version: 570.144.01   CUDA Version: 13.0     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+"""
+
+    def fake_run(*args: object, **kwargs: object) -> _subprocess.CompletedProcess[str]:  # type: ignore[type-arg]
+        return _subprocess.CompletedProcess(args=[], returncode=0, stdout=SAMPLE_SMI)
+
+    monkeypatch.setattr("installer.install_engine._subprocess_run", fake_run)
+    result = _query_cuda_version()
+    assert result == "13.0"
+
+
+def test_query_cuda_version_returns_none_on_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """subprocess.run raises → _query_cuda_version returns None."""
+
+    def fail_run(*args: object, **kwargs: object) -> None:
+        raise OSError("nvidia-smi not found")
+
+    monkeypatch.setattr("installer.install_engine._subprocess_run", fail_run)
+    assert _query_cuda_version() is None
+
+
+def test_query_cuda_version_no_cuda_line(monkeypatch: pytest.MonkeyPatch) -> None:
+    """nvidia-smi output without CUDA Version line → returns None."""
+    import subprocess as _subprocess
+
+    def fake_run(*args: object, **kwargs: object) -> _subprocess.CompletedProcess[str]:  # type: ignore[type-arg]
+        return _subprocess.CompletedProcess(args=[], returncode=0, stdout="no cuda info here")
+
+    monkeypatch.setattr("installer.install_engine._subprocess_run", fake_run)
+    assert _query_cuda_version() is None
+
+
+# ---------------------------------------------------------------------------
+# plan_steps — cuda_tag parameter
+# ---------------------------------------------------------------------------
+
+
+def test_plan_steps_nvidia_cuda_tag_cu130() -> None:
+    """gpu='nvidia' + cuda_tag='cu130' → gpu_torch step uses .../whl/cu130."""
+    steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia", cuda_tag="cu130")
+    gpu_step = next((s for s in steps if s.id == "gpu_torch"), None)
+    assert gpu_step is not None
+    assert isinstance(gpu_step.command, str)
+    assert "cu130" in gpu_step.command
+    assert "download.pytorch.org/whl/cu130" in gpu_step.command
+
+
+def test_plan_steps_nvidia_cuda_tag_cu121() -> None:
+    """gpu='nvidia' + cuda_tag='cu121' → gpu_torch step uses .../whl/cu121."""
+    steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia", cuda_tag="cu121")
+    gpu_step = next((s for s in steps if s.id == "gpu_torch"), None)
+    assert gpu_step is not None
+    assert isinstance(gpu_step.command, str)
+    assert "download.pytorch.org/whl/cu121" in gpu_step.command
+
+
+def test_plan_steps_nvidia_no_cuda_tag_omits_gpu_step() -> None:
+    """gpu='nvidia' + cuda_tag=None → NO gpu_torch step (CUDA version undetectable)."""
+    steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia", cuda_tag=None)
+    ids = [s.id for s in steps]
+    assert "gpu_torch" not in ids
+
+
+def test_plan_steps_no_gpu_omits_gpu_step() -> None:
+    """gpu=None → NO gpu_torch step (unchanged from prior behaviour)."""
+    steps = plan_steps(has_uv=True, has_webview=True, gpu=None, cuda_tag="cu130")
+    ids = [s.id for s in steps]
+    assert "gpu_torch" not in ids
