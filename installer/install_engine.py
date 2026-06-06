@@ -519,7 +519,7 @@ def run(
     for i, step in enumerate(steps, 1):
         sudo_tag = " [sudo]" if step.needs_sudo else ""
         print(f"  {i}. {step.description}{sudo_tag}")  # noqa: T201
-        print(f"     $ {step.command}")  # noqa: T201
+        print(f"     $ {display_command(step.command)}")  # noqa: T201
     print()  # noqa: T201
 
     if dry_run:
@@ -529,7 +529,7 @@ def run(
     for step in steps:
         sudo_tag = " [sudo]" if step.needs_sudo else ""
         print(f"\n[{step.id}]{sudo_tag} {step.description}")  # noqa: T201
-        print(f"  $ {step.command}")  # noqa: T201
+        print(f"  $ {display_command(step.command)}")  # noqa: T201
 
         if not assume_yes:
             answer = ask("Run this step? [Y/n] ").strip().lower()
@@ -540,6 +540,17 @@ def run(
         cmd = _build_exec_args(step)
         _ = run_cmd(cmd, check=True)
         print("  Done.")  # noqa: T201
+
+
+def display_command(command: str | list[str]) -> str:
+    """Return a human-readable shell rendering of a step's command.
+
+    List-form argv (e.g. ``["uv", "tool", "install", ...]``) is joined into a
+    shell-quoted string via ``shlex.join`` so the plan shows
+    ``$ uv tool install '...'`` rather than a raw Python list repr.  String
+    commands are returned unchanged.
+    """
+    return shlex.join(command) if isinstance(command, list) else command
 
 
 def _build_exec_args(step: Step) -> list[str]:

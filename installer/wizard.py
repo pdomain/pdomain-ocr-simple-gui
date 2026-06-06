@@ -31,6 +31,7 @@ from installer.install_engine import (
     cuda_tag_for,
     detect_nvidia,
     detect_pkg_manager,
+    display_command,
     plan_steps,
     run,
 )
@@ -181,7 +182,7 @@ def _run_gui(*, dry_run: bool) -> None:
             sudo_tag = " (requires sudo)" if step.needs_sudo else ""
             title_var.set(f"Step {idx} of {len(steps)}: {step.id}")
             body_var.set(step.description + sudo_tag)
-            cmd_var.set(f"$ {step.command}")
+            cmd_var.set(f"$ {display_command(step.command)}")
             _ = btn_yes.config(text="Run this step →", state="normal")
             _ = btn_skip.config(state="normal")
         else:

@@ -27,6 +27,7 @@ from installer.install_engine import (
     cuda_tag_for,
     detect_nvidia,
     detect_pkg_manager,
+    display_command,
     plan_steps,
     run,
     webview_package_for,
@@ -738,3 +739,27 @@ def test_plan_steps_no_gpu_tool_install_no_pytorch() -> None:
     tool_step = next(s for s in steps if s.id == "tool_install")
     assert isinstance(tool_step.command, list)
     assert not any("download.pytorch.org" in token for token in tool_step.command)
+
+
+def test_display_command_joins_list_argv() -> None:
+    """List-form commands render as a readable shell string, not a list repr."""
+    rendered = display_command(
+        ["uv", "tool", "install", "pdomain-ocr-simple-gui[desktop]", "--extra-index-url", "https://x/"]
+    )
+    assert rendered.startswith("uv tool install ")
+    assert "[" not in rendered.split(" ", 3)[0]  # no raw "['uv', ..." list repr
+    assert "--extra-index-url https://x/" in rendered
+
+
+def test_display_command_passes_string_through() -> None:
+    """String commands are returned unchanged."""
+    assert display_command("uv tool install foo") == "uv tool install foo"
+
+
+def test_display_command_renders_in_plan(capsys: pytest.CaptureFixture[str]) -> None:
+    """The printed plan shows a shell string for list-form commands."""
+    steps = [Step(id="t", description="d", command=["uv", "tool", "install", "x[desktop]"], needs_sudo=False)]
+    run(steps, assume_yes=False, dry_run=True)
+    out = capsys.readouterr().out
+    assert "uv tool install" in out
+    assert "['uv'" not in out  # the raw list repr must not appear
