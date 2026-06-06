@@ -7,32 +7,38 @@ consumer that validates `pdomain-ops`' `LocalStageDispatcher`.
 
 ## Install
 
-### Tier 1 — AppImage (really easy, Linux x86\_64)
+### Tier 1 — curl one-liner (easiest, Linux x86\_64)
 
-Download the `.AppImage` from the [Releases](https://github.com/pdomain/pdomain-ocr-simple-gui/releases) page, mark it executable, and run it:
-
-```sh
-chmod +x pdomain-ocr-simple-gui-installer-x86_64.AppImage
-./pdomain-ocr-simple-gui-installer-x86_64.AppImage
-```
-
-The GUI wizard walks you through the gated install steps (uv, Qt xcb-cursor lib, `uv tool install`, desktop shortcut) — no terminal commands required.
-
-### Tier 2 — curl one-liner
-
-On Linux x86\_64 desktop systems (DISPLAY or WAYLAND\_DISPLAY set), the curl script **automatically downloads and launches the AppImage wizard** — no extra steps needed:
+Paste this into a terminal. It downloads the AppImage, marks it executable, and launches the installer wizard automatically — no separate steps needed:
 
 ```sh
 curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh
 ```
 
-On non-desktop systems (CI, headless servers, macOS, non-x86\_64), or when the AppImage asset is unavailable, the script falls back to the in-script uv-tool gated install automatically.
+The wizard walks you through the gated install steps (uv, Qt xcb-cursor lib, `uv tool install`, desktop shortcut).
 
-To force the uv-tool path and skip the AppImage wizard:
+On non-desktop systems (CI, headless servers, macOS, non-x86\_64), or when the AppImage asset is unavailable, the script falls back to a uv-tool install automatically.
+
+To skip the AppImage wizard and use uv-tool directly:
 
 ```sh
 curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh -s -- --no-appimage
 # or: NO_APPIMAGE=1 curl -sSL .../install.sh | sh
+```
+
+### Tier 2 — AppImage download (Linux x86\_64)
+
+Download the `.AppImage` from the [Releases](https://github.com/pdomain/pdomain-ocr-simple-gui/releases) page.
+
+Browsers download files without the executable bit set — this is standard Linux behavior, not specific to this app. You must mark the file executable once before it can run.
+
+**Without a terminal (file manager):** right-click the `.AppImage` → Properties → Permissions tab → check "Allow executing file as program" (wording varies by file manager; in Nemo on Linux Mint it is exactly that) → then double-click it. Your file manager will offer to Run it.
+
+**Terminal equivalent:**
+
+```sh
+chmod +x pdomain-ocr-simple-gui-installer-x86_64.AppImage
+./pdomain-ocr-simple-gui-installer-x86_64.AppImage
 ```
 
 ### Tier 3 — manual install via uv
