@@ -17,18 +17,40 @@ enabling GPU acceleration, and rolling back a bad release.
 All OCR engines run on CPU by default. Expect ~5–30 s per page depending on
 engine and CPU speed. GPU acceleration is optional (Step 4).
 
-## Quick install (one-liner)
+## Quick install — AppImage (recommended for desktop users, Linux x86\_64)
+
+1. Download `pdomain-ocr-simple-gui-installer-x86_64.AppImage` from the
+   [GitHub Releases](https://github.com/pdomain/pdomain-ocr-simple-gui/releases) page.
+2. Mark it executable and run it:
+
+```sh
+chmod +x pdomain-ocr-simple-gui-installer-x86_64.AppImage
+./pdomain-ocr-simple-gui-installer-x86_64.AppImage
+```
+
+The GUI wizard walks you through Steps 1–5, showing the exact command before
+running each step and asking for confirmation.
+
+## Quick install — curl one-liner
 
 ```sh
 curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh
 ```
 
-The script: installs `uv` if absent, detects CUDA and enables GPU support
-automatically, downloads the latest release wheel, and always installs the
-`pdomain-ops[desktop]` extra so the native window works out of the box.
-The Qt desktop backend (PyQt6 + PyQt6-WebEngine) is bundled in the tool venv.
-On X11, it also checks for the Qt xcb-cursor lib and prints per-distro install
-hints if absent. Wayland sessions need no system package.
+On Linux x86\_64 desktop systems (DISPLAY or WAYLAND\_DISPLAY set), this
+automatically downloads and launches the AppImage GUI wizard from the latest
+release — the wizard handles the full gated install interactively.
+
+On non-desktop systems (CI, headless servers, macOS, non-x86\_64), or when the
+AppImage asset is absent, the script falls back to the in-script uv-tool gated
+install automatically. You never need to choose manually.
+
+To force the uv-tool path and skip the AppImage wizard:
+
+```sh
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh -s -- --no-appimage
+# or: NO_APPIMAGE=1 curl -sSL .../install.sh | sh
+```
 
 ### Confirmation gates
 
@@ -172,23 +194,25 @@ PATH (see Step 1 above).
 
 ---
 
-## Installation: two paths
+## Installation: three paths
 
-### Path A — Double-click AppImage (recommended for end-users)
+### Path A — AppImage (recommended for end-users, Linux x86\_64)
 
-1. Download `pdomain-ocr-simple-gui-installer-x86_64.AppImage` from the
-   [GitHub Releases](https://github.com/pdomain/pdomain-ocr-simple-gui/releases) page.
-2. Mark it executable and run it:
+Download the AppImage from [Releases](https://github.com/pdomain/pdomain-ocr-simple-gui/releases),
+mark it executable, and run it. The GUI wizard handles the full install.
 
-```bash
-chmod +x pdomain-ocr-simple-gui-installer-x86_64.AppImage
-./pdomain-ocr-simple-gui-installer-x86_64.AppImage
+The curl one-liner (above) auto-downloads and launches the AppImage on supported
+desktops — no separate download step needed.
+
+### Path B — curl one-liner (recommended for all other platforms)
+
+```sh
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh
 ```
 
-The GUI wizard walks you through Steps 1–5 below, showing the exact command
-before running each step and asking for confirmation.
+Use `--no-appimage` or `NO_APPIMAGE=1` to force the uv-tool path.
 
-### Path B — Gated CLI (automation / advanced users)
+### Path C — Gated CLI (automation / advanced users)
 
 Run the installer engine directly:
 

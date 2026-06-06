@@ -126,6 +126,16 @@ pd_release_main() {
         gh workflow run release.yml --ref "$RELEASE_BRANCH" -f "tag=$VERSION"
     fi
 
+    # Trigger installer workflow if present.
+    # Guard: -f check makes this a no-op in repos that don't have installer.yml.
+    # release.yml uses GITHUB_TOKEN to create the Release, which causes GitHub
+    # to suppress the `release: published` event; explicit dispatch is the
+    # reliable trigger path.
+    if [ -f ".github/workflows/installer.yml" ]; then
+        echo "Triggering installer (AppImage) workflow for $VERSION..."
+        gh workflow run installer.yml --ref "$RELEASE_BRANCH" -f "tag=$VERSION"
+    fi
+
     echo ""
     echo "Released $VERSION."
     if [ -n "${RELEASE_REPO:-}" ]; then

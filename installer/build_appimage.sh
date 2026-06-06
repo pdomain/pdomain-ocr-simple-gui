@@ -11,11 +11,16 @@
 #      - installer/appimage/*.desktop    (the .desktop file)
 #      - installer/install_engine.py     (the engine)
 #      - installer/wizard.py             (the GUI wizard)
-#      - A minimal bundled Python sysroot (from the system python3 shutil tree)
+#      NOTE: No Python binary is bundled.  AppRun locates system python3.
+#            Bundling a system Python ELF is NOT portable (glibc version +
+#            shared library paths differ across distros).  Using system python3
+#            avoids all stdlib-portability issues and keeps the AppImage small.
+#            The AppImage is a wizard-installer, not a full app bundle.
 #   3. Calls appimagetool to pack the AppDir into a single .AppImage file.
 #
-# Prerequisites: python3, fuse (or fuse2), bash.
-# The resulting .AppImage runs on any Linux x86_64 distro with FUSE available.
+# Prerequisites: python3, bash.
+# FUSE is NOT required when APPIMAGE_EXTRACT_AND_RUN=1 is set.
+# The resulting .AppImage runs on any Linux x86_64 distro with python3 >= 3.8.
 
 set -euo pipefail
 
@@ -36,6 +41,13 @@ done
 
 mkdir -p "${OUT_DIR}" "${TOOLS_DIR}"
 
+# Verify python3 is available (required at runtime for the wizard)
+if ! command -v python3 &>/dev/null; then
+    echo "ERROR: python3 not found. The AppImage wizard requires python3 at runtime." >&2
+    exit 1
+fi
+echo "Using system python3: $(command -v python3) ($(python3 --version))"
+
 # ── Locate or download appimagetool ────────────────────────────────────────
 if command -v appimagetool &>/dev/null; then
     APPIMAGETOOL="$(command -v appimagetool)"
@@ -54,7 +66,7 @@ echo "Using appimagetool: ${APPIMAGETOOL}"
 APP_NAME="pdomain-ocr-simple-gui-installer"
 APPDIR="${REPO_ROOT}/.appdir-build/${APP_NAME}.AppDir"
 rm -rf "${APPDIR}"
-mkdir -p "${APPDIR}/usr/bin" "${APPDIR}/usr/lib/python"
+mkdir -p "${APPDIR}/usr/lib/python"
 
 # Entry point + desktop integration
 install -m 0755 "${SCRIPT_DIR}/appimage/AppRun" "${APPDIR}/AppRun"
@@ -76,49 +88,26 @@ sys.stdout.buffer.write(data)
 " > "${APPDIR}/pdomain-ocr-simple-gui.png" || true
 fi
 
-# Installer Python sources
+# Installer Python sources (no Python binary — AppRun uses system python3)
 mkdir -p "${APPDIR}/usr/lib/python/installer"
 install -m 0644 "${SCRIPT_DIR}/install_engine.py" "${APPDIR}/usr/lib/python/installer/install_engine.py"
 install -m 0644 "${SCRIPT_DIR}/wizard.py"         "${APPDIR}/usr/lib/python/installer/wizard.py"
 touch "${APPDIR}/usr/lib/python/installer/__init__.py"
 
-# Bundle a minimal Python interpreter (the system python3 + stdlib)
-#
-# KNOWN LIMITATION: This copies the system python3 ELF binary.  System Python
-# is NOT portable across Linux distributions — shared library paths (glibc
-# version, interpreter path) differ between distros and releases.  The
-# resulting AppImage is currently a CI build artifact intended for testing on
-# the same distro it was built on.  True cross-distro portability requires a
-# self-contained standalone Python (e.g. python-build-standalone), which is
-# deferred as future work.  See docs/runbooks/install.md "Known limitations".
-PYTHON3="$(command -v python3)"
-PYTHON_VERSION="$("${PYTHON3}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
-PYTHON_STDLIB="$(python3 -c 'import sysconfig; print(sysconfig.get_path("stdlib"))')"
-
-mkdir -p "${APPDIR}/usr/bin"
-cp "${PYTHON3}" "${APPDIR}/usr/bin/python3"
-# Copy the stdlib (needed for tkinter, subprocess, shlex, etc.)
-mkdir -p "${APPDIR}/usr/lib/python${PYTHON_VERSION}"
-# Selectively copy tkinter + minimal stdlib for the wizard
-for mod in tkinter subprocess shlex dataclasses argparse os sys shutil; do
-    src="${PYTHON_STDLIB}/${mod}"
-    if [[ -d "${src}" ]]; then
-        cp -r "${src}" "${APPDIR}/usr/lib/python${PYTHON_VERSION}/"
-    elif [[ -f "${src}.py" ]]; then
-        cp "${src}.py" "${APPDIR}/usr/lib/python${PYTHON_VERSION}/"
-    fi
-done
-
 # ── Build the AppImage ──────────────────────────────────────────────────────
 OUTPUT="${OUT_DIR}/${APP_NAME}-x86_64.AppImage"
 echo "Building AppImage → ${OUTPUT}"
 
-ARCH=x86_64 "${APPIMAGETOOL}" "${APPDIR}" "${OUTPUT}"
+ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "${APPIMAGETOOL}" "${APPDIR}" "${OUTPUT}"
 chmod +x "${OUTPUT}"
 
+# ── Verify the built AppImage can be invoked ───────────────────────────────
 echo ""
-echo "AppImage built successfully:"
+echo "Verifying AppImage smoke-run (--cli --dry-run)..."
+APPIMAGE_EXTRACT_AND_RUN=1 "${OUTPUT}" --cli --dry-run
+echo ""
+echo "AppImage built and verified successfully:"
 echo "  ${OUTPUT}"
 echo ""
-echo "To run on any Linux x86_64 system with FUSE:"
-echo "  ./${APP_NAME}-x86_64.AppImage"
+echo "To run (FUSE-less, for containers/CI):"
+echo "  APPIMAGE_EXTRACT_AND_RUN=1 ./${APP_NAME}-x86_64.AppImage [--cli] [--dry-run]"

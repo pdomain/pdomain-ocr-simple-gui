@@ -7,13 +7,35 @@ consumer that validates `pdomain-ops`' `LocalStageDispatcher`.
 
 ## Install
 
-One-liner (handles uv, CUDA detection, and WebKitGTK check automatically):
+### Tier 1 — AppImage (really easy, Linux x86\_64)
+
+Download the `.AppImage` from the [Releases](https://github.com/pdomain/pdomain-ocr-simple-gui/releases) page, mark it executable, and run it:
+
+```sh
+chmod +x pdomain-ocr-simple-gui-installer-x86_64.AppImage
+./pdomain-ocr-simple-gui-installer-x86_64.AppImage
+```
+
+The GUI wizard walks you through the gated install steps (uv, Qt xcb-cursor lib, `uv tool install`, desktop shortcut) — no terminal commands required.
+
+### Tier 2 — curl one-liner
+
+On Linux x86\_64 desktop systems (DISPLAY or WAYLAND\_DISPLAY set), the curl script **automatically downloads and launches the AppImage wizard** — no extra steps needed:
 
 ```sh
 curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh
 ```
 
-Manual install via `uv`:
+On non-desktop systems (CI, headless servers, macOS, non-x86\_64), or when the AppImage asset is unavailable, the script falls back to the in-script uv-tool gated install automatically.
+
+To force the uv-tool path and skip the AppImage wizard:
+
+```sh
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh -s -- --no-appimage
+# or: NO_APPIMAGE=1 curl -sSL .../install.sh | sh
+```
+
+### Tier 3 — manual install via uv
 
 ```sh
 uv tool install "pdomain-ocr-simple-gui[desktop]" \

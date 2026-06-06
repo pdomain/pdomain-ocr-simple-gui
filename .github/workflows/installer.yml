@@ -1,13 +1,19 @@
 name: installer
 
 # Builds the Linux AppImage installer and smoke-tests the engine logic.
-# Triggered on workflow_dispatch (manual) or when release.yml publishes a
-# GitHub Release.  ubuntu-latest only (v1); Windows/macOS deferred.
+# Triggered on workflow_dispatch (manual) or by the release flow.
+# ubuntu-latest only (v1); Windows/macOS deferred.
 #
 # The heavy `uv tool install` step is NOT exercised here — it would pull the
 # real wheel from pdomain-index-pip and take minutes.  Instead, the engine
 # logic (detect + plan + run) is tested in isolation via pytest with stubs.
 # Estimated CI cost: ~4 billed minutes per release.
+#
+# Trigger note: release.yml dispatches this workflow via
+#   gh workflow run installer.yml --ref "$RELEASE_BRANCH" -f "tag=$VERSION"
+# Because release.yml uses GITHUB_TOKEN to create the Release, the GitHub API
+# suppresses re-triggering the `release: published` event; the explicit
+# workflow_dispatch is the reliable path.
 #
 # Chore: review pinned action SHAs weekly. Update version comments and SHAs together.
 
@@ -21,7 +27,7 @@ on:
     types: [published]
 
 permissions:
-  contents: read
+  contents: write  # Required for gh release upload
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -60,18 +66,61 @@ jobs:
       - name: Run installer engine tests
         run: uv run pytest tests/packaging/ -n auto -v
 
-      # ── System deps for AppImage build ───────────────────────────────────
-      - name: Install FUSE (required by appimagetool)
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y fuse libfuse2 || sudo apt-get install -y fuse2 || true
-
-      # ── Build the AppImage (downloads appimagetool if absent) ────────────
+      # ── Build the AppImage (FUSE-less via APPIMAGE_EXTRACT_AND_RUN) ───────
+      # No FUSE needed: appimagetool uses squashfs-tools for extraction when
+      # APPIMAGE_EXTRACT_AND_RUN=1 is set.  Ubuntu runners may lack FUSE.
       - name: Build Linux AppImage installer
         run: |
           chmod +x installer/build_appimage.sh
           APPIMAGE_EXTRACT_AND_RUN=1 bash installer/build_appimage.sh
-        continue-on-error: true  # AppImage build is best-effort on CI runners; engine tests are the gate
+
+      # ── Assert the AppImage was produced ──────────────────────────────────
+      - name: Assert dist AppImage exists
+        run: |
+          if ! ls dist/*.AppImage 2>/dev/null; then
+            echo "ERROR: No .AppImage found in dist/ after build step." >&2
+            ls -la dist/ || true
+            exit 1
+          fi
+          ls -lh dist/*.AppImage
+
+      # ── Smoke-run: verify the AppImage executes and prints the plan ───────
+      - name: Smoke-run AppImage (--cli --dry-run)
+        run: |
+          APPIMAGE_FILE=$(ls dist/*.AppImage | head -1)
+          echo "Testing: $APPIMAGE_FILE"
+          OUTPUT=$(APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE_FILE" --cli --dry-run 2>&1)
+          echo "$OUTPUT"
+          # Verify the expected plan text appears in the output
+          echo "$OUTPUT" | grep -q "uv tool install" || {
+            echo "ERROR: AppImage smoke-run output did not contain expected 'uv tool install' text." >&2
+            exit 1
+          }
+          echo "$OUTPUT" | grep -q "Dry-run mode" || {
+            echo "ERROR: AppImage smoke-run output did not contain 'Dry-run mode' confirmation." >&2
+            exit 1
+          }
+          echo "Smoke-run passed."
+
+      # ── Upload AppImage to the GitHub Release (tagged runs only) ─────────
+      # Uploads when: (a) workflow_dispatch with a non-empty tag input, OR
+      #               (b) triggered by the release event (tag_name is set).
+      - name: Upload AppImage to GitHub Release
+        if: >-
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '') ||
+          github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            TAG="${{ github.event.inputs.tag }}"
+          fi
+          APPIMAGE_FILE=$(ls dist/*.AppImage | head -1)
+          echo "Uploading $APPIMAGE_FILE to release $TAG..."
+          gh release upload "$TAG" "$APPIMAGE_FILE" --clobber
+          echo "Upload complete."
 
       - name: List dist artifacts
         if: always()

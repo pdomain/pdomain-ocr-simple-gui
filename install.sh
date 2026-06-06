@@ -8,6 +8,13 @@ set -e
 # Uses `gh` if available (and authenticated); otherwise falls back to the
 # public GitHub Releases API via curl.
 #
+# AppImage installer (preferred on supported desktops):
+#   On Linux x86_64 with a GUI session (DISPLAY or WAYLAND_DISPLAY set) and
+#   python3 available, the script downloads the AppImage GUI wizard from the
+#   latest release and runs it.  The wizard walks through the same gated steps
+#   interactively.  On any failure, the script falls back to the uv-tool path.
+#   Pass --no-appimage or set NO_APPIMAGE=1 to skip the AppImage path.
+#
 # Desktop mode:
 #   Always pulls pdomain-ops[desktop] (pywebview>=5 + pystray>=0.19) so
 #   the native window works out of the box. After install the script
@@ -34,20 +41,26 @@ set -e
 # Unattended (skip all confirmation prompts):
 #   curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh -s -- -y
 #   ASSUME_YES=1 curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh
+#
+# Skip AppImage wizard (force uv-tool script path):
+#   curl -sSL .../install.sh | sh -s -- --no-appimage
+#   NO_APPIMAGE=1 curl -sSL .../install.sh | sh
 
 REPO="pdomain/pdomain-ocr-simple-gui"
 PYTHON_VERSION="${PD_SIMPLE_GUI_INSTALL_PYTHON:-3.13}"
 ASSUME_YES="${ASSUME_YES:-0}"
+NO_APPIMAGE="${NO_APPIMAGE:-0}"
 # Minimum uv version required by this project (matches pyproject.toml
 # [tool.uv] required-version). Update here whenever pyproject.toml changes.
 MIN_UV_VERSION="0.11.16"
 
 # ---------------------------------------------------------------------------
-# Parse flags: -y / --yes
+# Parse flags: -y / --yes / --no-appimage
 # ---------------------------------------------------------------------------
 for _arg in "$@"; do
     case "$_arg" in
         -y|--yes) ASSUME_YES=1 ;;
+        --no-appimage) NO_APPIMAGE=1 ;;
     esac
 done
 
@@ -251,6 +264,90 @@ fi
 echo "Latest release: ${RELEASE_TAG:-(unknown tag)}"
 echo "Wheel asset:    ${WHEEL_URL}"
 echo "pdomain-index-pip:       ${PD_INDEX_URL}"
+
+# ---------------------------------------------------------------------------
+# AppImage installer — preferred on supported Linux desktops.
+#
+# Supported means: Linux x86_64, GUI session present (DISPLAY or
+# WAYLAND_DISPLAY non-empty), python3 available, an .AppImage asset exists
+# on the release, and --no-appimage / NO_APPIMAGE=1 was not passed.
+#
+# When supported: download the AppImage wizard to ~/.local/bin/, chmod +x,
+# and exec it — the wizard performs the gated install interactively.
+# On ANY failure (no asset, download fails, exec fails), fall through to the
+# existing uv-tool path so the user is never left stuck.
+# ---------------------------------------------------------------------------
+_try_appimage() {
+    # Check: AppImage path is not suppressed
+    if [ "$NO_APPIMAGE" = "1" ]; then
+        return 1
+    fi
+    # Check: Linux x86_64
+    if [ "$(uname -s)" != "Linux" ] || [ "$(uname -m)" != "x86_64" ]; then
+        return 1
+    fi
+    # Check: GUI session present
+    if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
+        return 1
+    fi
+    # Check: python3 available (AppImage wizard requires it)
+    if ! command -v python3 >/dev/null 2>&1; then
+        return 1
+    fi
+    # Resolve the AppImage asset URL from the RELEASE_JSON already fetched.
+    # The asset name pattern is: pdomain-ocr-simple-gui-installer-x86_64.AppImage
+    _APPIMAGE_URL=""
+    if [ -n "$RELEASE_JSON" ]; then
+        # Try gh-style JSON first (assets array with url field)
+        _APPIMAGE_URL=$(printf '%s' "$RELEASE_JSON" \
+            | tr ',' '\n' \
+            | grep -o '"url":"[^"]*\.AppImage"' \
+            | head -1 \
+            | sed 's/.*"url":"\([^"]*\)".*/\1/' || true)
+        # Fall back to GitHub Releases API style (browser_download_url field)
+        if [ -z "$_APPIMAGE_URL" ]; then
+            _APPIMAGE_URL=$(printf '%s' "$RELEASE_JSON" \
+                | grep '"browser_download_url"' \
+                | grep '\.AppImage"' \
+                | head -1 \
+                | sed 's/.*"browser_download_url": *"\([^"]*\)".*/\1/' || true)
+        fi
+    fi
+    if [ -z "$_APPIMAGE_URL" ]; then
+        # No AppImage asset on this release — fall through to uv-tool path
+        return 1
+    fi
+    # Download the AppImage to ~/.local/bin/
+    _APPIMAGE_DEST="${HOME}/.local/bin/pdomain-ocr-simple-gui-installer.AppImage"
+    mkdir -p "${HOME}/.local/bin"
+    echo "Downloading AppImage installer to ${_APPIMAGE_DEST}..."
+    if ! curl -sSfL \
+            -H "Accept: application/octet-stream" \
+            -o "$_APPIMAGE_DEST" "$_APPIMAGE_URL"; then
+        echo "Warning: AppImage download failed; falling back to script install." >&2
+        rm -f "$_APPIMAGE_DEST"
+        return 1
+    fi
+    chmod +x "$_APPIMAGE_DEST"
+    echo "Launching AppImage installer wizard..."
+    echo "(The wizard performs the same gated install steps as this script.)"
+    echo ""
+    # Exec the AppImage wizard; pass --yes if ASSUME_YES was set.
+    if [ "$ASSUME_YES" = "1" ]; then
+        APPIMAGE_EXTRACT_AND_RUN=1 exec "$_APPIMAGE_DEST" --yes
+    else
+        APPIMAGE_EXTRACT_AND_RUN=1 exec "$_APPIMAGE_DEST"
+    fi
+    # exec replaces the process; this line is never reached on success.
+    return 1
+}
+
+# Attempt AppImage path; on failure (non-zero return or exec not reached),
+# fall through to the uv-tool script path below.
+if _try_appimage; then
+    # Should never reach here — exec replaces the process.
+    exit 0
+fi
 
 # ---------------------------------------------------------------------------
 # Download the wheel to a temp dir and install.

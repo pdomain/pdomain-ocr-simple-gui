@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import os
+import platform
 import subprocess
 from pathlib import Path
+
+import pytest
 
 REPO = Path(__file__).resolve().parents[1]
 INSTALL_SH = REPO / "install.sh"
@@ -334,6 +337,9 @@ exit 0
     env["PD_SIMPLE_GUI_INSTALL_PYTHON"] = "3.12"
     # Skip all confirmation prompts in test
     env["ASSUME_YES"] = "1"
+    # Force uv-tool path: the release JSON has no AppImage asset, so the
+    # AppImage path would fall through anyway, but be explicit for clarity.
+    env["NO_APPIMAGE"] = "1"
 
     result = subprocess.run(
         ["sh", str(INSTALL_SH)],
@@ -411,6 +417,8 @@ exit 0
     # No ASSUME_YES -- the version-guard prompt defaults to N (abort)
     # With no TTY the headless path takes the default, which is N (abort)
     env.pop("ASSUME_YES", None)
+    # Force uv-tool path; AppImage path would be attempted on GUI desktops
+    env["NO_APPIMAGE"] = "1"
 
     result = subprocess.run(
         ["sh", str(INSTALL_SH)],
@@ -476,6 +484,8 @@ exit 0
     env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
     env["PD_SIMPLE_GUI_INSTALL_PYTHON"] = "3.12"
     env["ASSUME_YES"] = "1"
+    # Force uv-tool path in this test; AppImage path requires GUI session
+    env["NO_APPIMAGE"] = "1"
 
     result = subprocess.run(
         ["sh", str(INSTALL_SH)],
@@ -492,3 +502,324 @@ exit 0
     assert "older than" not in combined, (
         f"install.sh must not warn about old uv when version is current; got:\n{combined}"
     )
+
+
+# ---------------------------------------------------------------------------
+# AppImage preference logic assertions (static grep)
+# ---------------------------------------------------------------------------
+
+
+def test_install_sh_no_appimage_flag() -> None:
+    """Must support --no-appimage flag and NO_APPIMAGE env var."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    assert "NO_APPIMAGE" in content, "install.sh must support NO_APPIMAGE env var"
+    assert "--no-appimage" in content, "install.sh must parse --no-appimage flag"
+
+
+def test_install_sh_appimage_supported_check() -> None:
+    """AppImage path must be gated on Linux x86_64 + GUI session + python3."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    # Must check Linux platform
+    assert "uname -s" in content, "install.sh must check uname -s for AppImage support"
+    # Must check x86_64 arch
+    assert "uname -m" in content, "install.sh must check uname -m for AppImage support"
+    # Must check GUI session
+    assert "DISPLAY" in content or "WAYLAND_DISPLAY" in content, (
+        "install.sh must check DISPLAY/WAYLAND_DISPLAY for AppImage support"
+    )
+    # Must check python3 availability
+    assert "python3" in content, "install.sh must check python3 availability for AppImage"
+
+
+def test_install_sh_appimage_download_path() -> None:
+    """AppImage must be downloaded to a sensible user location."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    assert "pdomain-ocr-simple-gui-installer.AppImage" in content, (
+        "install.sh must reference the AppImage installer filename"
+    )
+    assert ".local/bin" in content, "install.sh must download AppImage to ~/.local/bin"
+
+
+def test_install_sh_appimage_no_appimage_guard() -> None:
+    """AppImage path must be skipped when NO_APPIMAGE=1 or --no-appimage passed."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    # The guard must appear inside the AppImage detection function/block
+    assert '[ "$NO_APPIMAGE" = "1" ]' in content, (
+        'install.sh must gate AppImage path on [ "$NO_APPIMAGE" = "1" ]'
+    )
+
+
+def test_install_sh_appimage_fallback_comment() -> None:
+    """Must document that uv-tool path is the fallback when AppImage is unsupported."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    # The fallback must be mentioned in a comment
+    assert "fall" in content.lower() and "appimage" in content.lower(), (
+        "install.sh must mention the AppImage fallback to uv-tool path"
+    )
+
+
+def test_install_sh_appimage_chmod() -> None:
+    """Must chmod +x the downloaded AppImage."""
+    content = INSTALL_SH.read_text(encoding="utf-8")
+    assert "chmod +x" in content, "install.sh must chmod +x the downloaded AppImage"
+
+
+# ---------------------------------------------------------------------------
+# AppImage integration smoke -- no-appimage forces uv path
+# ---------------------------------------------------------------------------
+
+
+def test_install_sh_no_appimage_forces_uv_path(tmp_path: Path) -> None:
+    """--no-appimage must skip the AppImage path and use uv tool install."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    uv_log = tmp_path / "uv.log"
+
+    # Fake uv: log all args
+    (bin_dir / "uv").write_text(
+        f"#!/bin/sh\n"
+        f'if [ "$1" = "--version" ]; then echo "uv 1.0.0 (abc123)"; exit 0; fi\n'
+        f'printf "%s\\n" "$@" >> {uv_log}\n'
+        f"exit 0\n",
+        encoding="utf-8",
+    )
+    (bin_dir / "uv").chmod(0o755)
+
+    # Fake curl: return JSON with only a wheel asset (no AppImage)
+    (bin_dir / "curl").write_text(
+        """#!/bin/sh
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then shift; out="$1"; fi
+  shift || true
+done
+if [ -n "$out" ]; then
+  printf 'fake wheel' > "$out"
+else
+  cat <<'JSON'
+{"tag_name":"v1.2.3","assets":[{"browser_download_url":"https://example.invalid/pdomain_ocr_simple_gui-1.2.3-py3-none-any.whl"}]}
+JSON
+fi
+exit 0
+""",
+        encoding="utf-8",
+    )
+    (bin_dir / "curl").chmod(0o755)
+
+    (bin_dir / "gh").write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    (bin_dir / "gh").chmod(0o755)
+
+    (bin_dir / "nvidia-smi").write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    (bin_dir / "nvidia-smi").chmod(0o755)
+
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
+    env["PD_SIMPLE_GUI_INSTALL_PYTHON"] = "3.12"
+    env["ASSUME_YES"] = "1"
+    # Simulate a GUI session — but --no-appimage should override
+    env["DISPLAY"] = ":0"
+
+    result = subprocess.run(
+        ["sh", str(INSTALL_SH), "--no-appimage"],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    # uv must have been called (uv tool install was reached)
+    assert uv_log.exists(), "uv must have been called when --no-appimage is passed"
+    args = uv_log.read_text(encoding="utf-8")
+    assert "tool" in args and "install" in args, (
+        f"uv tool install must be called when --no-appimage is set; uv args: {args}"
+    )
+
+
+def test_install_sh_appimage_exec_branch_taken(tmp_path: Path) -> None:
+    """When the AppImage is supported AND available, install.sh must exec it.
+
+    Positive counterpart to the fallback tests: with a GUI session
+    (DISPLAY set), Linux x86_64, python3 present, NO_APPIMAGE unset, and an
+    ``.AppImage`` asset on the release, the script must download the AppImage
+    and ``exec`` it -- NOT fall through to the uv-tool path.
+
+    Proof: the AppImage stub echoes the sentinel ``APPIMAGE_RAN`` (so its
+    stdout reaching us proves the exec branch ran), and the uv stub touches
+    a marker file if invoked (so the marker's ABSENCE proves the uv-tool
+    path was skipped).
+    """
+    if platform.machine() != "x86_64":
+        pytest.skip("AppImage support gate requires x86_64; test host is not x86_64")
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    uv_was_called = tmp_path / "uv_was_called"
+
+    # Fake uv: touch a marker if EVER invoked, so we can assert it was NOT
+    # used on the AppImage exec path.
+    (bin_dir / "uv").write_text(
+        f"#!/bin/sh\n"
+        f'if [ "$1" = "--version" ]; then echo "uv 1.0.0 (abc123)"; exit 0; fi\n'
+        f"touch {uv_was_called}\n"
+        f"exit 0\n",
+        encoding="utf-8",
+    )
+    (bin_dir / "uv").chmod(0o755)
+
+    # Fake curl:
+    #   - no -o  -> emit release JSON that includes an .AppImage asset
+    #   - -o + URL ends in .AppImage -> write a fake-executable AppImage stub
+    #     that echoes the APPIMAGE_RAN sentinel and exits 0
+    #   - -o + anything else (e.g. the wheel) -> write a placeholder
+    (bin_dir / "curl").write_text(
+        """#!/bin/sh
+out=""
+url=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -o) shift; out="$1" ;;
+    http*|https*) url="$1" ;;
+  esac
+  shift || true
+done
+if [ -n "$out" ]; then
+  case "$url" in
+    *.AppImage)
+      cat > "$out" <<'STUB'
+#!/bin/sh
+echo APPIMAGE_RAN
+exit 0
+STUB
+      ;;
+    *)
+      printf 'fake wheel' > "$out"
+      ;;
+  esac
+else
+  cat <<'JSON'
+{
+"tag_name":"v1.2.3",
+"assets":[
+{"browser_download_url":"https://example.invalid/pdomain_ocr_simple_gui-1.2.3-py3-none-any.whl"},
+{"browser_download_url":"https://example.invalid/pdomain-ocr-simple-gui-installer-x86_64.AppImage"}
+]
+}
+JSON
+fi
+exit 0
+""",
+        encoding="utf-8",
+    )
+    (bin_dir / "curl").chmod(0o755)
+
+    # Fake gh: exit 1 so we fall through to the curl API path
+    (bin_dir / "gh").write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    (bin_dir / "gh").chmod(0o755)
+
+    # Fake nvidia-smi: exit 1 (no GPU)
+    (bin_dir / "nvidia-smi").write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    (bin_dir / "nvidia-smi").chmod(0o755)
+
+    env = os.environ.copy()
+    # Prepend our stubs but keep the real PATH so `command -v python3`
+    # (part of the AppImage support gate) still resolves.
+    env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
+    env["PD_SIMPLE_GUI_INSTALL_PYTHON"] = "3.12"
+    env["ASSUME_YES"] = "1"
+    # Force the support gate ON: GUI session present.
+    env["DISPLAY"] = ":0"
+    env.pop("WAYLAND_DISPLAY", None)
+    # NO_APPIMAGE must be unset so the AppImage path is eligible.
+    env.pop("NO_APPIMAGE", None)
+    # Redirect the AppImage download/exec target (~/.local/bin) into tmp_path
+    # so we never touch the real home dir.
+    env["HOME"] = str(tmp_path / "home")
+    (tmp_path / "home").mkdir()
+
+    result = subprocess.run(
+        ["sh", str(INSTALL_SH)],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    combined = result.stdout + result.stderr
+    # The exec branch ran: install.sh exec'd the AppImage stub, whose stdout
+    # carries the sentinel.
+    assert "APPIMAGE_RAN" in combined, (
+        f"AppImage exec branch was not taken; expected APPIMAGE_RAN sentinel in output.\n{combined}"
+    )
+    # The uv-tool path was skipped: uv was never invoked.
+    assert not uv_was_called.exists(), (
+        "uv must NOT be invoked when the AppImage exec branch is taken "
+        f"(uv_was_called marker present).\n{combined}"
+    )
+
+
+def test_install_sh_appimage_fallback_on_no_asset(tmp_path: Path) -> None:
+    """When no AppImage asset exists on the release, must fall back to uv-tool."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    uv_log = tmp_path / "uv.log"
+
+    (bin_dir / "uv").write_text(
+        f"#!/bin/sh\n"
+        f'if [ "$1" = "--version" ]; then echo "uv 1.0.0 (abc123)"; exit 0; fi\n'
+        f'printf "%s\\n" "$@" >> {uv_log}\n'
+        f"exit 0\n",
+        encoding="utf-8",
+    )
+    (bin_dir / "uv").chmod(0o755)
+
+    # curl returns JSON with NO AppImage asset — only a wheel
+    (bin_dir / "curl").write_text(
+        """#!/bin/sh
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then shift; out="$1"; fi
+  shift || true
+done
+if [ -n "$out" ]; then
+  printf 'fake wheel' > "$out"
+else
+  cat <<'JSON'
+{"tag_name":"v1.2.3","assets":[{"browser_download_url":"https://example.invalid/pdomain_ocr_simple_gui-1.2.3-py3-none-any.whl"}]}
+JSON
+fi
+exit 0
+""",
+        encoding="utf-8",
+    )
+    (bin_dir / "curl").chmod(0o755)
+
+    (bin_dir / "gh").write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    (bin_dir / "gh").chmod(0o755)
+
+    (bin_dir / "nvidia-smi").write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    (bin_dir / "nvidia-smi").chmod(0o755)
+
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
+    env["PD_SIMPLE_GUI_INSTALL_PYTHON"] = "3.12"
+    env["ASSUME_YES"] = "1"
+    # Simulate Linux x86_64 with GUI (AppImage would be attempted if asset existed)
+    env["DISPLAY"] = ":0"
+
+    result = subprocess.run(
+        ["sh", str(INSTALL_SH)],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    # Must succeed via fallback uv-tool path
+    assert result.returncode == 0, result.stderr + result.stdout
+    assert uv_log.exists(), "uv must have been called via fallback uv-tool path"
+    args = uv_log.read_text(encoding="utf-8")
+    assert "tool" in args and "install" in args, f"uv tool install must be the fallback; uv args: {args}"

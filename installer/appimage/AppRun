@@ -4,32 +4,37 @@
 # The AppImage runtime (AppImageKit) calls this script after mounting the
 # SquashFS payload.  APPDIR is set by the runtime to the mount point.
 #
-# This script finds the bundled Python interpreter and launches the wizard.
-# If DISPLAY / WAYLAND_DISPLAY are unset (headless), it falls back to the
-# plain CLI runner with --yes.
+# This script locates system python3 and launches the wizard.  The installer
+# Python sources (install_engine.py + wizard.py) are bundled inside the
+# AppImage under usr/lib/python/; system python3 uses them via PYTHONPATH.
+#
+# All CLI flags (--cli, --yes, --dry-run) are passed through to the wizard.
+# The wizard auto-detects headless vs GUI via DISPLAY/WAYLAND_DISPLAY.
+#
+# Design note: we deliberately do NOT bundle a Python ELF binary.  Copying the
+# system Python binary is non-portable (glibc version + shared library paths
+# differ across distros), causing "Failed to import encodings" and similar
+# fatal errors on any system that differs from the build host.  Using system
+# python3 (present on virtually all Linux desktops) is simpler, more reliable,
+# and keeps the AppImage small.
 
 set -euo pipefail
 
 APPDIR="${APPDIR:-$(dirname "$(readlink -f "$0")")}"
-PYTHON="${APPDIR}/usr/bin/python3"
 
-if [ ! -x "$PYTHON" ]; then
-    # Try system Python as fallback (should always be present on Linux)
-    PYTHON=$(command -v python3 2>/dev/null || true)
-    if [ -z "$PYTHON" ]; then
-        echo "ERROR: python3 not found. Install Python 3.11+ and re-run."
-        exit 1
-    fi
+# Locate system python3 (no bundled binary)
+PYTHON=$(command -v python3 2>/dev/null || true)
+if [ -z "$PYTHON" ]; then
+    echo "ERROR: python3 not found on PATH." >&2
+    echo "  The installer wizard requires Python 3.8+." >&2
+    echo "  Install it with your distro's package manager, e.g.:" >&2
+    echo "    sudo apt-get install -y python3" >&2
+    exit 1
 fi
 
-# Add bundled packages to PYTHONPATH so the wizard and engine are importable
+# Add bundled installer packages to PYTHONPATH so the wizard and engine are importable
 export PYTHONPATH="${APPDIR}/usr/lib/python:${PYTHONPATH:-}"
 
-if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
-    # No display server — fall through to CLI mode.
-    # NOTE: --yes is intentionally omitted here. Unattended sudo over SSH
-    # must be an explicit choice by the caller (pass --yes as an arg if needed).
-    exec "$PYTHON" -m installer.wizard --cli "$@"
-else
-    exec "$PYTHON" -m installer.wizard "$@"
-fi
+# Pass all arguments through to the wizard.
+# The wizard auto-detects headless vs GUI via DISPLAY/WAYLAND_DISPLAY.
+exec "$PYTHON" -m installer.wizard "$@"
