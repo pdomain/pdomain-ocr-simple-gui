@@ -322,7 +322,7 @@ echo "Installing pdomain-ocr-simple-gui ${RELEASE_TAG:-} from $(basename "$WHEEL
 # pull that extra in.
 #
 # pdomain-ops[desktop] is always included so the native window works out of
-# the box (pywebview>=5 + pystray>=0.19).
+# the box (PyQt6 + pystray>=0.19).
 set -- --reinstall "$WHEEL_FILE" --extra-index-url "$PD_INDEX_URL"
 if [ -n "$PD_BOOK_TOOLS_EXTRAS" ]; then
     set -- "$@" --with "pdomain-book-tools${PD_BOOK_TOOLS_EXTRAS}"
@@ -334,34 +334,35 @@ fi
 uv tool install --python "$PYTHON_VERSION" "$@"
 
 # ---------------------------------------------------------------------------
-# Post-install: check for WebKitGTK (required for --desktop mode).
+# Post-install: check for Qt xcb-cursor lib (X11 only).
 # ---------------------------------------------------------------------------
-# pywebview uses the system WebKitGTK library for the native window.
-# Browser mode works without it, but --desktop will fail if it is absent.
+# The Qt backend is bundled inside the tool venv via pdomain-ops[desktop].
+# On X11 sessions, Qt also requires the system xcb-cursor library to launch
+# the native window.  Wayland sessions do NOT need it -- Qt auto-selects the
+# bundled Wayland plugin instead.
 # We DETECT and WARN -- we never sudo-install system packages on the user's
 # behalf.
 
-WEBKIT_OK=0
-if pkg-config --exists webkit2gtk-4.1 2>/dev/null; then
-    WEBKIT_OK=1
-elif pkg-config --exists webkit2gtk-4.0 2>/dev/null; then
-    WEBKIT_OK=1
-elif ldconfig -p 2>/dev/null | grep -q "libwebkit2gtk"; then
-    WEBKIT_OK=1
+XCB_OK=0
+if ldconfig -p 2>/dev/null | grep -q "libxcb-cursor"; then
+    XCB_OK=1
 fi
 
 echo ""
-if [ "$WEBKIT_OK" = "0" ]; then
-    echo "NOTE: WebKitGTK was not detected on this system."
-    echo "  The --desktop (native window) mode requires this system library."
-    echo "  Browser mode works without it."
+if [ "$XCB_OK" = "0" ]; then
+    echo "NOTE: libxcb-cursor was not detected on this system."
+    echo "  On X11 sessions, the --desktop (native window) mode requires this"
+    echo "  small system library.  Wayland sessions can skip this -- the app"
+    echo "  auto-selects the bundled Wayland Qt plugin."
+    echo "  Browser mode works on both X11 and Wayland without it."
     echo ""
-    echo "  Install WebKitGTK for your distro:"
-    echo "    Debian/Ubuntu/Mint (apt):  sudo apt-get install -y gir1.2-webkit2-4.1"
-    echo "    Fedora (dnf):             sudo dnf install -y webkit2gtk4.1"
-    echo "    Arch (pacman):            sudo pacman -S webkit2gtk"
-    echo "    openSUSE (zypper):        sudo zypper install typelib-1_0-WebKit2-4_1"
-    echo "    Alpine (apk):             sudo apk add webkit2gtk"
+    echo "  Install the xcb-cursor library for your distro:"
+    echo "    Debian/Ubuntu/Mint (apt):  sudo apt-get install -y libxcb-cursor0"
+    echo "    Fedora (dnf):             sudo dnf install -y xcb-util-cursor"
+    echo "    RHEL/CentOS (yum):        sudo yum install -y xcb-util-cursor"
+    echo "    Arch (pacman):            sudo pacman -S xcb-util-cursor"
+    echo "    openSUSE (zypper):        sudo zypper install libxcb-cursor0"
+    echo "    Alpine (apk):             sudo apk add xcb-util-cursor"
     echo "  See other distros: docs/runbooks/install.md"
     echo ""
 fi

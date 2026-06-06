@@ -48,13 +48,16 @@ def test_install_sh_desktop_with_arg() -> None:
     )
 
 
-def test_install_sh_webkitgtk_hint() -> None:
+def test_install_sh_xcb_cursor_hint() -> None:
     content = INSTALL_SH.read_text(encoding="utf-8")
-    assert "WebKitGTK" in content or "webkit" in content.lower(), (
-        "install.sh must include a WebKitGTK installation hint"
+    # Must mention the xcb-cursor lib (Qt X11 backend requirement)
+    assert "libxcb-cursor" in content or "xcb-cursor" in content, (
+        "install.sh must include a Qt xcb-cursor installation hint"
     )
-    # At minimum the Debian/Ubuntu package name must appear
-    assert "gir1.2-webkit2-4.1" in content
+    # Debian/Ubuntu package name must appear
+    assert "libxcb-cursor0" in content
+    # Wayland exemption note must be present
+    assert "Wayland" in content or "wayland" in content
 
 
 def test_install_sh_final_hint_desktop() -> None:

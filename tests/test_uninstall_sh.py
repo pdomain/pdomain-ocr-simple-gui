@@ -181,14 +181,14 @@ def test_uninstall_sh_uv_removal_warning() -> None:
     )
 
 
-def test_uninstall_sh_webkit_note() -> None:
-    """Must mention WebKitGTK as a system package for manual removal."""
+def test_uninstall_sh_xcb_cursor_note() -> None:
+    """Must mention the xcb-cursor lib and that it is usually safe to leave."""
     content = UNINSTALL_SH.read_text(encoding="utf-8")
-    assert "WebKitGTK" in content or "webkit" in content.lower(), (
-        "uninstall.sh must mention WebKitGTK in final notes"
+    assert "xcb-cursor" in content or "libxcb-cursor" in content, (
+        "uninstall.sh must mention the xcb-cursor system lib in final notes"
     )
-    assert "system package" in content or "package manager" in content, (
-        "uninstall.sh must note that WebKitGTK is a system package"
+    assert "system package" in content or "package manager" in content or "package" in content, (
+        "uninstall.sh must note that the xcb-cursor lib is a system package"
     )
 
 

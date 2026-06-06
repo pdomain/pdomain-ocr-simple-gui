@@ -65,6 +65,9 @@ simple-gui-projects/
 # ship-issue bot temp cache
 .ship-issue-tmp/
 
+# AppImage build tool (downloaded by installer/build_appimage.sh)
+tools/appimagetool
+
 # AI=1 make output capture log
 .ci-ai.log
 .worktree/
