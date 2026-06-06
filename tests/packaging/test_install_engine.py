@@ -183,6 +183,14 @@ def test_tool_install_uses_plain_package() -> None:
     )
 
 
+def test_tool_install_uses_reinstall() -> None:
+    """tool_install passes --reinstall so re-running the installer upgrades (not a no-op)."""
+    steps = plan_steps(has_uv=True, gpu=None)
+    tool_step = next(s for s in steps if s.id == "tool_install")
+    assert isinstance(tool_step.command, list)
+    assert "--reinstall" in tool_step.command
+
+
 def test_tool_install_no_desktop_extra_gpu_nvidia() -> None:
     """[desktop] must not appear even when GPU is configured."""
     steps = plan_steps(has_uv=True, gpu="nvidia", cuda_tag="cu130", book_tools_gpu=True)

@@ -370,10 +370,14 @@ def plan_steps(
     # The self-hosted pd-index MUST always be present — pdomain-ocr-simple-gui
     # and its pdomain-* deps are not on PyPI.  GPU flags are appended
     # conditionally so the same argv construction covers all cases.
+    # --reinstall makes re-running the installer idempotent AND upgrading: a
+    # bare `uv tool install <pkg>` is a no-op when the tool already exists, so
+    # without --reinstall users could never upgrade by re-running the installer.
     tool_cmd: list[str] = [
         "uv",
         "tool",
         "install",
+        "--reinstall",
         _APP_ID,
         "--extra-index-url",
         PD_INDEX_URL,
