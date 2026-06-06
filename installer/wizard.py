@@ -27,6 +27,7 @@ from typing import cast
 from installer.install_engine import (
     Step,
     _query_cuda_version,  # pyright: ignore[reportPrivateUsage]
+    cuda_supports_book_tools_gpu,
     cuda_tag_for,
     detect_nvidia,
     detect_pkg_manager,
@@ -63,9 +64,19 @@ def _build_steps() -> list[Step]:
 
     gpu = detect_nvidia()
     # Detect the CUDA version to select the correct PyTorch wheel index.
-    # cuda_tag is None when CUDA is not detectable (CPU fallback — omits gpu_torch).
-    cuda_tag = cuda_tag_for(_query_cuda_version()) if gpu == "nvidia" else None
-    return plan_steps(has_uv=has_uv, has_webview=has_webview, gpu=gpu, mgr=mgr, cuda_tag=cuda_tag)
+    # cuda_version is None when CUDA is not detectable (CPU fallback).
+    cuda_version = _query_cuda_version() if gpu == "nvidia" else None
+    cuda_tag = cuda_tag_for(cuda_version)
+    # pdomain-book-tools[gpu] (CuPy + opencv-cuda) requires CUDA >= 12.4.
+    book_tools_gpu = cuda_supports_book_tools_gpu(cuda_version)
+    return plan_steps(
+        has_uv=has_uv,
+        has_webview=has_webview,
+        gpu=gpu,
+        mgr=mgr,
+        cuda_tag=cuda_tag,
+        book_tools_gpu=book_tools_gpu,
+    )
 
 
 # ---------------------------------------------------------------------------

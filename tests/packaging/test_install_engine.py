@@ -19,9 +19,11 @@ from typing import Any
 import pytest
 
 from installer.install_engine import (
+    PD_INDEX_URL,
     Step,
     _build_exec_args,
     _query_cuda_version,
+    cuda_supports_book_tools_gpu,
     cuda_tag_for,
     detect_nvidia,
     detect_pkg_manager,
@@ -144,10 +146,11 @@ def test_detect_nvidia_absent(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_plan_steps_includes_gated_actions() -> None:
-    """Plan contract: all flags off + nvidia + cuda_tag → all 5 step ids in order."""
+    """Plan contract: all flags off + nvidia + cuda_tag → uv/webview/tool_install/shortcut (no gpu_torch)."""
     steps = plan_steps(has_uv=False, has_webview=False, gpu="nvidia", cuda_tag="cu121")
     ids = [s.id for s in steps]
-    assert ids == ["uv", "webview", "tool_install", "gpu_torch", "shortcut"]
+    # gpu_torch is gone — GPU flags consolidated into tool_install
+    assert ids == ["uv", "webview", "tool_install", "shortcut"]
     assert all(s.command for s in steps)  # each gated step has an explicit command
 
 
@@ -409,16 +412,20 @@ def test_detect_nvidia_absent_no_smi(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_detect_nvidia_driver_ok(monkeypatch: pytest.MonkeyPatch) -> None:
-    """nvidia-smi present + driver >= 525 → returns 'nvidia'; gpu_torch included when cuda_tag set."""
+    """nvidia-smi present + driver >= 525 → returns 'nvidia'; CUDA flags injected into tool_install."""
     monkeypatch.setattr("installer.install_engine._which", lambda x: x == "nvidia-smi")
     monkeypatch.setattr("installer.install_engine._query_nvidia_driver", lambda: "535.154.05")
     result = detect_nvidia()
     assert result == "nvidia"
 
-    # Pass cuda_tag explicitly — gpu_torch requires both gpu='nvidia' AND a detected CUDA tag.
+    # GPU flags are now consolidated into tool_install (no separate gpu_torch step).
     steps = plan_steps(has_uv=True, has_webview=True, gpu=result, cuda_tag="cu121")
     ids = [s.id for s in steps]
-    assert "gpu_torch" in ids
+    assert "tool_install" in ids
+    assert "gpu_torch" not in ids
+    tool_step = next(s for s in steps if s.id == "tool_install")
+    assert isinstance(tool_step.command, list)
+    assert any("cu121" in token for token in tool_step.command)
 
 
 def test_detect_nvidia_driver_below_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -540,38 +547,194 @@ def test_query_cuda_version_no_cuda_line(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 # ---------------------------------------------------------------------------
-# plan_steps — cuda_tag parameter
+# cuda_supports_book_tools_gpu — CUDA version >= 12.4 gate
 # ---------------------------------------------------------------------------
 
 
-def test_plan_steps_nvidia_cuda_tag_cu130() -> None:
-    """gpu='nvidia' + cuda_tag='cu130' → gpu_torch step uses .../whl/cu130."""
+def test_cuda_supports_book_tools_gpu_13_0() -> None:
+    """'13.0' → True (major > 12)."""
+    assert cuda_supports_book_tools_gpu("13.0") is True
+
+
+def test_cuda_supports_book_tools_gpu_12_4() -> None:
+    """'12.4' → True (exactly at boundary)."""
+    assert cuda_supports_book_tools_gpu("12.4") is True
+
+
+def test_cuda_supports_book_tools_gpu_12_3() -> None:
+    """'12.3' → False (below boundary)."""
+    assert cuda_supports_book_tools_gpu("12.3") is False
+
+
+def test_cuda_supports_book_tools_gpu_11_8() -> None:
+    """'11.8' → False (major < 12)."""
+    assert cuda_supports_book_tools_gpu("11.8") is False
+
+
+def test_cuda_supports_book_tools_gpu_none() -> None:
+    """None → False (no CUDA detected)."""
+    assert cuda_supports_book_tools_gpu(None) is False
+
+
+def test_cuda_supports_book_tools_gpu_garbage() -> None:
+    """'garbage' → False (unparseable)."""
+    assert cuda_supports_book_tools_gpu("garbage") is False
+
+
+# ---------------------------------------------------------------------------
+# plan_steps — PD_INDEX_URL always present in tool_install command
+# (regression guard for the reported "No solution found" bug)
+# ---------------------------------------------------------------------------
+
+
+def test_tool_install_always_has_pd_index_url_gpu_none() -> None:
+    """gpu=None → tool_install command contains PD_INDEX_URL (package not on PyPI)."""
+    steps = plan_steps(has_uv=True, has_webview=True, gpu=None)
+    tool_step = next(s for s in steps if s.id == "tool_install")
+    assert isinstance(tool_step.command, list)
+    argv = tool_step.command
+    assert "--extra-index-url" in argv
+    assert PD_INDEX_URL in argv
+
+
+def test_tool_install_always_has_pd_index_url_nvidia_with_cuda_tag() -> None:
+    """gpu='nvidia' + cuda_tag='cu130' → tool_install command still contains PD_INDEX_URL."""
     steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia", cuda_tag="cu130")
-    gpu_step = next((s for s in steps if s.id == "gpu_torch"), None)
-    assert gpu_step is not None
-    assert isinstance(gpu_step.command, str)
-    assert "cu130" in gpu_step.command
-    assert "download.pytorch.org/whl/cu130" in gpu_step.command
+    tool_step = next(s for s in steps if s.id == "tool_install")
+    assert isinstance(tool_step.command, list)
+    argv = tool_step.command
+    assert "--extra-index-url" in argv
+    assert PD_INDEX_URL in argv
 
 
-def test_plan_steps_nvidia_cuda_tag_cu121() -> None:
-    """gpu='nvidia' + cuda_tag='cu121' → gpu_torch step uses .../whl/cu121."""
-    steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia", cuda_tag="cu121")
-    gpu_step = next((s for s in steps if s.id == "gpu_torch"), None)
-    assert gpu_step is not None
-    assert isinstance(gpu_step.command, str)
-    assert "download.pytorch.org/whl/cu121" in gpu_step.command
-
-
-def test_plan_steps_nvidia_no_cuda_tag_omits_gpu_step() -> None:
-    """gpu='nvidia' + cuda_tag=None → NO gpu_torch step (CUDA version undetectable)."""
+def test_tool_install_always_has_pd_index_url_nvidia_no_cuda_tag() -> None:
+    """gpu='nvidia' + cuda_tag=None (CPU fallback) → tool_install still contains PD_INDEX_URL."""
     steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia", cuda_tag=None)
-    ids = [s.id for s in steps]
-    assert "gpu_torch" not in ids
+    tool_step = next(s for s in steps if s.id == "tool_install")
+    assert isinstance(tool_step.command, list)
+    argv = tool_step.command
+    assert "--extra-index-url" in argv
+    assert PD_INDEX_URL in argv
 
 
-def test_plan_steps_no_gpu_omits_gpu_step() -> None:
-    """gpu=None → NO gpu_torch step (unchanged from prior behaviour)."""
+# ---------------------------------------------------------------------------
+# plan_steps — CUDA torch index injected when gpu='nvidia' + cuda_tag set
+# ---------------------------------------------------------------------------
+
+
+def test_tool_install_nvidia_cuda_tag_cu130_has_pytorch_index() -> None:
+    """gpu='nvidia' + cuda_tag='cu130' → --extra-index-url https://download.pytorch.org/whl/cu130."""
+    steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia", cuda_tag="cu130")
+    tool_step = next(s for s in steps if s.id == "tool_install")
+    assert isinstance(tool_step.command, list)
+    argv = tool_step.command
+    # Find the --extra-index-url index for the pytorch.org URL
+    pytorch_url = "https://download.pytorch.org/whl/cu130"
+    assert pytorch_url in argv
+    # Assert it's adjacent to --extra-index-url (argv[i] == flag, argv[i+1] == url)
+    idx = argv.index(pytorch_url)
+    assert argv[idx - 1] == "--extra-index-url"
+
+
+def test_tool_install_nvidia_no_cuda_tag_no_pytorch_index() -> None:
+    """gpu='nvidia' + cuda_tag=None (CPU fallback) → NO pytorch.org index in command."""
+    steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia", cuda_tag=None)
+    tool_step = next(s for s in steps if s.id == "tool_install")
+    assert isinstance(tool_step.command, list)
+    argv = tool_step.command
+    assert not any("download.pytorch.org" in token for token in argv)
+
+
+# ---------------------------------------------------------------------------
+# plan_steps — book_tools_gpu extra
+# ---------------------------------------------------------------------------
+
+
+def test_tool_install_book_tools_gpu_true_adds_with_flag() -> None:
+    """book_tools_gpu=True → command contains '--with' 'pdomain-book-tools[gpu]'."""
+    steps = plan_steps(
+        has_uv=True,
+        has_webview=True,
+        gpu="nvidia",
+        cuda_tag="cu130",
+        book_tools_gpu=True,
+    )
+    tool_step = next(s for s in steps if s.id == "tool_install")
+    assert isinstance(tool_step.command, list)
+    argv = tool_step.command
+    assert "--with" in argv
+    idx = argv.index("--with")
+    assert argv[idx + 1] == "pdomain-book-tools[gpu]"
+
+
+def test_tool_install_book_tools_gpu_false_no_with_flag() -> None:
+    """book_tools_gpu=False (default) → no '--with pdomain-book-tools[gpu]' in command."""
+    steps = plan_steps(
+        has_uv=True,
+        has_webview=True,
+        gpu="nvidia",
+        cuda_tag="cu130",
+        book_tools_gpu=False,
+    )
+    tool_step = next(s for s in steps if s.id == "tool_install")
+    assert isinstance(tool_step.command, list)
+    argv = tool_step.command
+    assert "pdomain-book-tools[gpu]" not in argv
+
+
+# ---------------------------------------------------------------------------
+# plan_steps — no gpu_torch step anymore
+# ---------------------------------------------------------------------------
+
+
+def test_no_gpu_torch_step_exists() -> None:
+    """gpu_torch step must NOT appear in plan — it was the broken no-op pattern."""
+    # All three cases: gpu=None, gpu=nvidia+cuda_tag, gpu=nvidia+no_cuda_tag
+    for gpu_val, cuda_val in [
+        (None, None),
+        ("nvidia", "cu130"),
+        ("nvidia", None),
+    ]:
+        steps = plan_steps(has_uv=True, has_webview=True, gpu=gpu_val, cuda_tag=cuda_val)
+        ids = [s.id for s in steps]
+        assert "gpu_torch" not in ids, (
+            f"gpu_torch step found for gpu={gpu_val!r}, cuda_tag={cuda_val!r}: {ids}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# plan_steps — cuda_tag parameter (kept/adjusted; old gpu_torch tests removed)
+# ---------------------------------------------------------------------------
+
+
+def test_plan_steps_nvidia_cuda_tag_cu130_in_tool_install() -> None:
+    """gpu='nvidia' + cuda_tag='cu130' → tool_install command contains cu130 pytorch URL."""
+    steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia", cuda_tag="cu130")
+    tool_step = next(s for s in steps if s.id == "tool_install")
+    assert isinstance(tool_step.command, list)
+    assert any("cu130" in token for token in tool_step.command)
+    assert any("download.pytorch.org/whl/cu130" in token for token in tool_step.command)
+
+
+def test_plan_steps_nvidia_cuda_tag_cu121_in_tool_install() -> None:
+    """gpu='nvidia' + cuda_tag='cu121' → tool_install command contains cu121 pytorch URL."""
+    steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia", cuda_tag="cu121")
+    tool_step = next(s for s in steps if s.id == "tool_install")
+    assert isinstance(tool_step.command, list)
+    assert any("download.pytorch.org/whl/cu121" in token for token in tool_step.command)
+
+
+def test_plan_steps_nvidia_no_cuda_tag_tool_install_no_pytorch() -> None:
+    """gpu='nvidia' + cuda_tag=None → tool_install has no pytorch.org URL (CPU fallback)."""
+    steps = plan_steps(has_uv=True, has_webview=True, gpu="nvidia", cuda_tag=None)
+    tool_step = next(s for s in steps if s.id == "tool_install")
+    assert isinstance(tool_step.command, list)
+    assert not any("download.pytorch.org" in token for token in tool_step.command)
+
+
+def test_plan_steps_no_gpu_tool_install_no_pytorch() -> None:
+    """gpu=None → tool_install has no pytorch.org URL."""
     steps = plan_steps(has_uv=True, has_webview=True, gpu=None, cuda_tag="cu130")
-    ids = [s.id for s in steps]
-    assert "gpu_torch" not in ids
+    tool_step = next(s for s in steps if s.id == "tool_install")
+    assert isinstance(tool_step.command, list)
+    assert not any("download.pytorch.org" in token for token in tool_step.command)

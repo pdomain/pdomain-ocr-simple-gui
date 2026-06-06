@@ -146,9 +146,50 @@ def cuda_tag_for(cuda_version: str | None) -> str | None:
     return "cu" + cuda_version.replace(".", "")
 
 
+def cuda_supports_book_tools_gpu(cuda_version: str | None) -> bool:
+    """Return True iff the CUDA version is >= 12.4 (required for pdomain-book-tools[gpu]).
+
+    CuPy (cupy-cuda12x) requires CUDA >= 12.4.  Mirrors the POSIX sh compare in
+    install.sh::
+
+        if [ "$CUDA_MAJOR" -gt 12 ] || { [ "$CUDA_MAJOR" -eq 12 ] && [ "$CUDA_MINOR" -ge 4 ]; }
+
+    Examples:
+        "13.0" → True
+        "12.4" → True
+        "12.3" → False
+        "11.8" → False
+        None   → False (no CUDA detected)
+        "garbage" → False (unparseable)
+
+    Args:
+        cuda_version: CUDA version string like "13.0" / "12.4", or None.
+
+    Returns:
+        True when version parses and is >= 12.4; False otherwise.
+    """
+    if not cuda_version:
+        return False
+    if not re.fullmatch(r"\d+\.\d+", cuda_version):
+        return False
+    try:
+        major_str, minor_str = cuda_version.split(".")
+        major = int(major_str)
+        minor = int(minor_str)
+    except ValueError:
+        return False
+    return major > 12 or (major == 12 and minor >= 4)
+
+
 # Minimum NVIDIA driver version that supports CUDA 12 (cu121 wheel ABI).
-# Spec §7.3: offer gpu_torch only when driver >= this threshold.
+# Spec §7.3: offer gpu acceleration only when driver >= this threshold.
 _MIN_DRIVER_VERSION = 525
+
+# Self-hosted PEP 503 simple index for pdomain-* packages.
+# pdomain-ocr-simple-gui, pdomain-ops, and pdomain-book-tools are all published
+# here; they are NOT on PyPI.  Must be passed as --extra-index-url so uv can
+# resolve them.  PyPI remains the fallback for PyQt6, torch, etc.
+PD_INDEX_URL = "https://pdomain.github.io/pdomain-index-pip/simple/"
 
 
 # ---------------------------------------------------------------------------
@@ -308,27 +349,47 @@ def plan_steps(
     gpu: str | None,
     mgr: str | None = None,
     cuda_tag: str | None = None,
+    book_tools_gpu: bool = False,
 ) -> list[Step]:
     """Return the ordered list of gated installer steps.
 
     Steps are omitted when they are already satisfied:
     - ``uv`` step omitted when ``has_uv=True``.
     - ``webview`` step omitted when ``has_webview=True``.
-    - ``gpu_torch`` step included **only** when ``gpu == 'nvidia'`` **and**
-      ``cuda_tag`` is not None.  When ``cuda_tag`` is None the CUDA version
-      could not be detected and the step is omitted (CPU fallback, mirroring
-      install.sh behaviour).
     - ``tool_install`` and ``shortcut`` are always included.
 
+    GPU and index flags are injected directly into the ``tool_install`` step
+    command (a ``list[str]`` argv).  There is no separate ``gpu_torch`` step —
+    the old ephemeral-env pattern was a no-op and is removed.
+
+    Index resolution:
+    - ``PD_INDEX_URL`` is **always** added via ``--extra-index-url`` because
+      pdomain-ocr-simple-gui, pdomain-ops, and pdomain-book-tools are only
+      published on the self-hosted index, not PyPI.
+    - When ``gpu == 'nvidia'`` and ``cuda_tag`` is not None, the PyTorch
+      CUDA wheel index is added as a second ``--extra-index-url``.  uv gives
+      ``--extra-index-url`` priority over PyPI, and the pd-index has no torch
+      wheels, so torch resolves to the CUDA build from pytorch.org while PyQt6
+      and pywebview resolve from PyPI.
+    - When ``gpu == 'nvidia'`` and ``cuda_tag`` is None the CUDA version could
+      not be detected — CPU fallback: no pytorch.org index is added.
+    - ``--with pdomain-book-tools[gpu]`` (CuPy + opencv-cuda) is added only
+      when ``book_tools_gpu=True`` (requires CUDA >= 12.4).
+
     Args:
-        has_uv:      True when ``uv`` is already installed.
-        has_webview: True when the Qt xcb-cursor lib is already available.
-        gpu:         ``'nvidia'`` to include the CUDA torch step; None/other to skip.
-        mgr:         Package manager id (for the webview install command).
-                     Auto-detected if None.
-        cuda_tag:    CUDA wheel tag such as ``'cu130'`` / ``'cu121'``, or None.
-                     Computed by the wizard via ``cuda_tag_for(_query_cuda_version())``.
-                     When None and ``gpu == 'nvidia'`` the gpu_torch step is omitted.
+        has_uv:        True when ``uv`` is already installed.
+        has_webview:   True when the Qt xcb-cursor lib is already available.
+        gpu:           ``'nvidia'`` to inject CUDA flags; None/other for CPU.
+        mgr:           Package manager id (for the webview install command).
+                       Auto-detected if None.
+        cuda_tag:      CUDA wheel tag such as ``'cu130'`` / ``'cu121'``, or
+                       None.  Computed by the wizard via
+                       ``cuda_tag_for(_query_cuda_version())``.  When None and
+                       ``gpu == 'nvidia'`` → CPU fallback (no pytorch.org index).
+        book_tools_gpu: When True, adds ``--with pdomain-book-tools[gpu]`` to
+                       the tool install command (CuPy + opencv-cuda extras).
+                       Requires CUDA >= 12.4.  Computed by the wizard via
+                       ``cuda_supports_book_tools_gpu()``.
     """
     if mgr is None:
         mgr = detect_pkg_manager()
@@ -372,27 +433,36 @@ def plan_steps(
             )
         )
 
+    # Build the tool install command as a list[str] argv to avoid any quoting
+    # ambiguity with multiple --extra-index-url flags.
+    #
+    # The self-hosted pd-index MUST always be present — pdomain-ocr-simple-gui
+    # and its pdomain-* deps are not on PyPI.  GPU flags are appended
+    # conditionally so the same argv construction covers all cases.
+    tool_cmd: list[str] = [
+        "uv",
+        "tool",
+        "install",
+        _DESKTOP_EXTRA,
+        "--extra-index-url",
+        PD_INDEX_URL,
+    ]
+    if gpu == "nvidia" and cuda_tag is not None:
+        # Inject the CUDA torch wheel index.  uv gives --extra-index-url
+        # priority, so torch resolves to the CUDA build; PyQt6/pywebview
+        # still come from PyPI.
+        tool_cmd += ["--extra-index-url", f"https://download.pytorch.org/whl/{cuda_tag}"]
+    if book_tools_gpu:
+        tool_cmd += ["--with", "pdomain-book-tools[gpu]"]
+
     steps.append(
         Step(
             id="tool_install",
             description=f"Install {_APP_ID} via uv tool install",
-            command=f'uv tool install "{_DESKTOP_EXTRA}"',
+            command=tool_cmd,
             needs_sudo=False,
         )
     )
-
-    if gpu == "nvidia" and cuda_tag is not None:
-        steps.append(
-            Step(
-                id="gpu_torch",
-                description="Enable GPU acceleration (swap CPU torch for CUDA build)",
-                command=(
-                    f"uv tool run --from {_APP_ID} pip install"
-                    f" torch --index-url https://download.pytorch.org/whl/{cuda_tag}"
-                ),
-                needs_sudo=False,
-            )
-        )
 
     steps.append(
         Step(
