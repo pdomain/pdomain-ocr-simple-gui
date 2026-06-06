@@ -53,7 +53,8 @@ The `[desktop]` extra (`pdomain-ops[desktop]`) adds the native window via
 
 ## Launch
 
-Desktop window (native, requires WebKitGTK system library):
+Desktop window (native; uses the bundled Qt backend — on X11 it needs the
+`libxcb-cursor0` / `xcb-util-cursor` system lib, Wayland needs nothing):
 
 ```sh
 pdomain-ocr-simple-gui --desktop
