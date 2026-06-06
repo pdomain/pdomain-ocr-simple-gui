@@ -67,6 +67,8 @@ simple-gui-projects/
 
 # AppImage build tool (downloaded by installer/build_appimage.sh)
 tools/appimagetool
+tools/runtime-x86_64
+.appdir-build/
 
 # AI=1 make output capture log
 .ci-ai.log
