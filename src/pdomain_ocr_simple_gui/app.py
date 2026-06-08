@@ -57,13 +57,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning(_msg)
 
     try:
-        from pdomain_ops.suite.prefs import LocalFilePrefs
+        from pdomain_ocr_simple_gui.prefs_adapter import build_prefs_adapter
 
-        _prefs_adapter = LocalFilePrefs()
+        # Bounded so a contended/orphaned prefs file lock degrades to defaults
+        # instead of blocking the request forever (LocalFilePrefs locks with
+        # timeout=-1). See prefs_adapter.TimeoutBoundedPrefs.
+        _prefs_adapter = build_prefs_adapter()
     except Exception:  # optional prefs integration — app runs without it
         logger.exception(
             "Failed to initialise prefs adapter; running without prefs",
-            extra={"context": "LocalFilePrefs()"},
+            extra={"context": "build_prefs_adapter()"},
         )
         _prefs_adapter = None
     if os.environ.get("PDOMAIN_OCR_FAKE_DISPATCHER"):
