@@ -57,16 +57,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning(_msg)
 
     try:
-        from pdomain_ocr_simple_gui.prefs_adapter import build_prefs_adapter
+        from pdomain_ops.suite.prefs import LocalFilePrefs
 
-        # Bounded so a contended/orphaned prefs file lock degrades to defaults
-        # instead of blocking the request forever (LocalFilePrefs locks with
-        # timeout=-1). See prefs_adapter.TimeoutBoundedPrefs.
-        _prefs_adapter = build_prefs_adapter()
+        # LocalFilePrefs acquires its file lock with a finite timeout (DEFAULT_LOCK_TIMEOUT
+        # = 5s as of pdomain-ops v0.10.0). On timeout it raises PrefsLockTimeout instead
+        # of blocking forever. Route handlers catch PrefsLockTimeout and degrade gracefully
+        # (GET → defaults, PUT → log + return merged payload). See routes/prefs.py.
+        _prefs_adapter = LocalFilePrefs()
     except Exception:  # optional prefs integration — app runs without it
         logger.exception(
             "Failed to initialise prefs adapter; running without prefs",
-            extra={"context": "build_prefs_adapter()"},
+            extra={"context": "LocalFilePrefs()"},
         )
         _prefs_adapter = None
     if os.environ.get("PDOMAIN_OCR_FAKE_DISPATCHER"):

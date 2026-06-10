@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Annotated
 
@@ -10,6 +11,8 @@ from pydantic import ValidationError
 
 from pdomain_ocr_simple_gui.auth import require_token
 from pdomain_ocr_simple_gui.models import AppPrefs, AppPrefsResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/prefs", tags=["prefs"])
 
@@ -41,7 +44,14 @@ def _validate_jobs_location(value: str) -> None:
 
 @router.get("", response_model=AppPrefsResponse, dependencies=[Depends(require_token)])
 async def get_prefs() -> AppPrefsResponse:
-    """Return the app prefs (plus the resolved effective jobs location)."""
+    """Return the app prefs (plus the resolved effective jobs location).
+
+    If the prefs file lock cannot be acquired in time (PrefsLockTimeout from
+    pdomain-ops v0.10.0+), degrades gracefully to defaults rather than raising
+    a 500 — prefs are optional and must never break the app.
+    """
+    from pdomain_ops.suite.prefs import PrefsLockTimeout
+
     from pdomain_ocr_simple_gui.app import get_prefs_adapter
     from pdomain_ocr_simple_gui.storage import get_projects_root
 
@@ -49,7 +59,14 @@ async def get_prefs() -> AppPrefsResponse:
     if adapter is None:
         base = AppPrefs()
     else:
-        app_data: dict[str, object] = dict(adapter.read().apps.get(_APP_ID, {}))
+        try:
+            app_data: dict[str, object] = dict(adapter.read().apps.get(_APP_ID, {}))
+        except PrefsLockTimeout:
+            logger.warning(
+                "Prefs lock contended on GET; returning default prefs",
+                extra={"context": "get_prefs", "app_id": _APP_ID},
+            )
+            app_data = {}
         base = AppPrefs.model_validate(app_data) if app_data else AppPrefs()
     return AppPrefsResponse.model_validate(
         {
@@ -71,13 +88,24 @@ async def put_prefs(body: Annotated[dict[str, object], Body()]) -> AppPrefs:
     their type defaults.  ``effective_jobs_location`` is read-only and ignored
     if sent.
     """
+    from pdomain_ops.suite.prefs import PrefsLockTimeout
+
     from pdomain_ocr_simple_gui.app import get_prefs_adapter
 
     adapter = get_prefs_adapter()
 
     # Read the currently-stored app prefs (defaults if none/no adapter).
+    # If the lock is contended, degrade to defaults for the merge base so we
+    # can still apply the PUT body and return a valid merged response.
     if adapter is not None:
-        app_data: dict[str, object] = dict(adapter.read().apps.get(_APP_ID, {}))
+        try:
+            app_data: dict[str, object] = dict(adapter.read().apps.get(_APP_ID, {}))
+        except PrefsLockTimeout:
+            logger.warning(
+                "Prefs lock contended on PUT read; using defaults as merge base",
+                extra={"context": "put_prefs.read", "app_id": _APP_ID},
+            )
+            app_data = {}
         existing = AppPrefs.model_validate(app_data) if app_data else AppPrefs()
     else:
         existing = AppPrefs()
@@ -96,5 +124,14 @@ async def put_prefs(body: Annotated[dict[str, object], Body()]) -> AppPrefs:
     _validate_jobs_location(merged.jobs_location)
 
     if adapter is not None:
-        adapter.write_app(_APP_ID, merged.model_dump())
+        try:
+            adapter.write_app(_APP_ID, merged.model_dump())
+        except PrefsLockTimeout:
+            # Lock is contended: log and return the merged payload anyway so the
+            # UI stays consistent. The write was not persisted (best-effort), but
+            # the caller receives a valid merged response rather than a 500.
+            logger.warning(
+                "Prefs lock contended on PUT; write not persisted (best-effort)",
+                extra={"context": "put_prefs", "app_id": _APP_ID},
+            )
     return merged
