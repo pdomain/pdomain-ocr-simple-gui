@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
 import re
 import shutil
+import tempfile
 from pathlib import Path
 from typing import TypeAlias, cast
 
@@ -74,6 +76,28 @@ JSONValue: TypeAlias = str | int | float | bool | None | list["JSONValue"] | dic
 JSONObject: TypeAlias = dict[str, JSONValue]
 
 
+def write_text_atomic(path: Path, text: str, encoding: str = "utf-8") -> None:
+    """Write *text* to *path* atomically: same-dir tmp file + ``os.replace``.
+
+    ``Path.write_text`` truncates the target before writing, so a concurrent
+    reader (another worker, an API GET, or an external process such as the e2e
+    test suite) can observe an empty or partial file mid-write. Publishing via
+    ``os.replace`` is atomic on POSIX — readers only ever see the complete
+    previous content or the complete new content. The tmp file lives in the
+    target's directory so the rename never crosses a filesystem boundary; it
+    is removed if anything fails before the replace lands.
+    """
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding=encoding) as fh:
+            _ = fh.write(text)
+        os.replace(tmp_name, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp_name)
+        raise
+
+
 def _read_json_object(path: Path) -> JSONObject:
     """Read a JSON file and ensure it contains an object with string keys."""
     data = cast("object", json.loads(path.read_text()))
@@ -125,7 +149,10 @@ def write_project(spec: ProjectSpec, status: ProjectStatus) -> None:
         "spec": json.loads(spec.model_dump_json()),
         "status": json.loads(status.model_dump_json()),
     }
-    _ = (proj_dir / "project.json").write_text(json.dumps(data, indent=2))
+    # Atomic publish: the pipeline rewrites project.json on every status/page
+    # transition while readers (API GETs, the e2e test process) read it from
+    # disk concurrently — a truncate-in-place write_text races to an empty read.
+    write_text_atomic(proj_dir / "project.json", json.dumps(data, indent=2))
 
 
 def read_project(project_id: str) -> tuple[ProjectSpec, ProjectStatus]:
@@ -157,7 +184,7 @@ def write_page_sidecar(spec: ProjectSpec, idx: int, page_dict: JSONObject) -> No
     page_name = _page_name_for_idx(spec, status, idx)
     pages_dir = _pages_dir(spec)
     pages_dir.mkdir(parents=True, exist_ok=True)
-    _ = (pages_dir / f"{page_name}.json").write_text(json.dumps(page_dict, indent=2))
+    write_text_atomic(pages_dir / f"{page_name}.json", json.dumps(page_dict, indent=2))
 
 
 def read_page_sidecar(spec: ProjectSpec, idx: int) -> JSONObject:
@@ -235,7 +262,7 @@ def write_output_page_files(
     stem = Path(page_name).stem or page_name
     _ = (out / f"{stem}.txt").write_text(text, encoding="utf-8")
     if sidecar_payload is not None:
-        _ = (out / f"{stem}.json").write_text(json.dumps(sidecar_payload, indent=2), encoding="utf-8")
+        write_text_atomic(out / f"{stem}.json", json.dumps(sidecar_payload, indent=2))
 
 
 def write_output_combined_txt(spec: ProjectSpec, status: ProjectStatus) -> None:

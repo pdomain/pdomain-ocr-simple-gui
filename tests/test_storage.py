@@ -295,3 +295,133 @@ class TestIsTestJobAllPrefixes:
         from pdomain_ocr_simple_gui._testjobs import is_test_job
 
         assert not is_test_job("real-job-unique-77")
+
+
+class TestAtomicWrites:
+    """JSON writers must be atomic: tmp file + os.replace, never truncate-in-place.
+
+    Regression for the e2e flake where an external reader (the Playwright test
+    process) read project.json mid-rewrite and got an empty file — write_text
+    truncates before writing. Atomic replace guarantees readers only ever see
+    a complete previous or complete new snapshot.
+    """
+
+    def test_write_text_atomic_writes_content(self, tmp_path: Path) -> None:
+        from pdomain_ocr_simple_gui import storage
+
+        target = tmp_path / "out.json"
+        storage.write_text_atomic(target, '{"k": 1}')
+        assert target.read_text(encoding="utf-8") == '{"k": 1}'
+
+    def test_write_text_atomic_overwrites_existing(self, tmp_path: Path) -> None:
+        from pdomain_ocr_simple_gui import storage
+
+        target = tmp_path / "out.json"
+        target.write_text("old")
+        storage.write_text_atomic(target, "new")
+        assert target.read_text(encoding="utf-8") == "new"
+
+    def test_write_text_atomic_leaves_no_tmp_file(self, tmp_path: Path) -> None:
+        from pdomain_ocr_simple_gui import storage
+
+        target = tmp_path / "out.json"
+        storage.write_text_atomic(target, "data")
+        assert [p.name for p in tmp_path.iterdir()] == ["out.json"]
+
+    def test_write_text_atomic_replaces_complete_content_onto_final_path(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """os.replace must be the publish step: src is a same-dir tmp file whose
+        content is already complete at replace time."""
+        import os as os_mod
+
+        from pdomain_ocr_simple_gui import storage
+
+        real_replace = os_mod.replace
+        observed: list[tuple[str, str, str]] = []
+
+        def recording_replace(src: str | Path, dst: str | Path) -> None:
+            observed.append((str(src), str(dst), Path(src).read_text(encoding="utf-8")))
+            real_replace(src, dst)
+
+        monkeypatch.setattr("pdomain_ocr_simple_gui.storage.os.replace", recording_replace)
+        target = tmp_path / "out.json"
+        storage.write_text_atomic(target, '{"complete": true}')
+
+        assert len(observed) == 1
+        src, dst, content_at_replace = observed[0]
+        assert dst == str(target)
+        assert Path(src).parent == tmp_path  # tmp file in same dir → same filesystem
+        assert content_at_replace == '{"complete": true}'
+
+    def test_write_text_atomic_cleans_tmp_when_replace_fails(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from pdomain_ocr_simple_gui import storage
+
+        def failing_replace(src: str | Path, dst: str | Path) -> None:
+            raise OSError("simulated replace failure")
+
+        monkeypatch.setattr("pdomain_ocr_simple_gui.storage.os.replace", failing_replace)
+        target = tmp_path / "out.json"
+        with pytest.raises(OSError, match="simulated replace failure"):
+            storage.write_text_atomic(target, "data")
+        assert list(tmp_path.iterdir()) == []  # no tmp file lingers
+
+    def _recording_replace(self, monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
+        """Patch storage's os.replace with a recorder; return the call log (dst, content)."""
+        import os as os_mod
+
+        real_replace = os_mod.replace
+        observed: list[tuple[str, str]] = []
+
+        def recording_replace(src: str | Path, dst: str | Path) -> None:
+            observed.append((str(dst), Path(src).read_text(encoding="utf-8")))
+            real_replace(src, dst)
+
+        monkeypatch.setattr("pdomain_ocr_simple_gui.storage.os.replace", recording_replace)
+        return observed
+
+    def test_write_project_publishes_via_replace(
+        self, projects_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import json as json_mod
+
+        observed = self._recording_replace(monkeypatch)
+        write_project(_make_spec(tmp_path), _make_status())
+
+        proj_file = projects_root / "test-proj-id-001" / "project.json"
+        assert any(dst == str(proj_file) for dst, _ in observed)
+        # Content was complete, valid JSON at publish time.
+        for dst, content in observed:
+            if dst == str(proj_file):
+                assert json_mod.loads(content)["spec"]["project_id"] == "test-proj-id-001"
+
+    def test_write_page_sidecar_publishes_via_replace(
+        self, projects_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import json as json_mod
+
+        spec = _make_spec(tmp_path)
+        write_project(spec, _make_status())
+        observed = self._recording_replace(monkeypatch)
+        write_page_sidecar(spec, 0, {"words": []})
+
+        sidecar = projects_root / "test-proj-id-001" / "pages" / "page_001.png.json"
+        matches = [content for dst, content in observed if dst == str(sidecar)]
+        assert matches and json_mod.loads(matches[0]) == {"words": []}
+
+    def test_write_output_page_files_json_publishes_via_replace(
+        self, projects_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import json as json_mod
+
+        from pdomain_ocr_simple_gui.storage import write_output_page_files
+
+        spec = _make_spec(tmp_path)
+        observed = self._recording_replace(monkeypatch)
+        write_output_page_files(spec, 0, "page_001.png", "hello", {"words": []})
+
+        mirror = Path(spec.output_dir) / "page_001.json"
+        matches = [content for dst, content in observed if dst == str(mirror)]
+        assert matches and json_mod.loads(matches[0]) == {"words": []}

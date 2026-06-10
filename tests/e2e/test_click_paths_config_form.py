@@ -24,6 +24,7 @@ test_real_ocr_pipeline.py.
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 import httpx
@@ -46,10 +47,25 @@ def _project_id_from_url(url: str) -> str:
 
 
 def _read_spec(e2e_data_root: Path, project_id: str) -> dict:
-    """Read the on-disk project.json spec for a project."""
+    """Read the on-disk project.json spec, polling briefly for valid JSON.
+
+    The backend writes project.json atomically (storage.write_text_atomic),
+    and the initial write lands before POST /api/jobs returns — so by the time
+    the results page renders the file exists with a complete spec. The retry
+    loop is belt-and-suspenders against any future reordering of the write
+    relative to the response (it must never mask an empty-file torn read,
+    which the atomic writer already rules out).
+    """
     proj_file = e2e_data_root / "projects" / project_id / "project.json"
-    data = json.loads(proj_file.read_text(encoding="utf-8"))
-    return data["spec"]
+    deadline = time.monotonic() + 5.0
+    while True:
+        try:
+            data = json.loads(proj_file.read_text(encoding="utf-8"))
+            return data["spec"]
+        except (FileNotFoundError, json.JSONDecodeError):
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.1)
 
 
 @pytest.mark.slow

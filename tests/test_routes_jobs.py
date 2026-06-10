@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from httpx import ASGITransport, AsyncClient
 
 from pdomain_ocr_simple_gui.app import app
@@ -1135,3 +1137,32 @@ class TestListJobsNoFiltering:
             for entry in prefs_dict.get("recent_projects", []):
                 recorded_ids.append(entry.get("project_id"))
         assert job_id in recorded_ids
+
+
+class TestJobMetaAtomicWrite:
+    """output_mode.json must be published atomically (tmp + os.replace)."""
+
+    def test_write_job_meta_publishes_via_replace(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import os as os_mod
+
+        from pdomain_ocr_simple_gui.routes.jobs import _write_job_meta
+
+        meta_root = tmp_path / "jobs-meta"
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_JOBS_META_ROOT", str(meta_root))
+
+        real_replace = os_mod.replace
+        observed: list[tuple[str, str]] = []
+
+        def recording_replace(src: str | Path, dst: str | Path) -> None:
+            observed.append((str(dst), Path(src).read_text(encoding="utf-8")))
+            real_replace(src, dst)
+
+        monkeypatch.setattr("pdomain_ocr_simple_gui.storage.os.replace", recording_replace)
+        _write_job_meta("job-atomic-1", "managed")
+
+        meta_file = meta_root / "job-atomic-1" / "output_mode.json"
+        matches = [content for dst, content in observed if dst == str(meta_file)]
+        assert matches and json.loads(matches[0]) == {"mode": "managed"}
+        assert meta_file.read_text(encoding="utf-8") == matches[0]

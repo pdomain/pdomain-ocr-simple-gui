@@ -34,6 +34,7 @@ from pdomain_ocr_simple_gui.storage import (
     read_project,
     validate_project_id,
     write_project,
+    write_text_atomic,
 )
 
 logger = logging.getLogger(__name__)
@@ -78,7 +79,9 @@ def _write_job_meta(job_id: str, output_mode: str) -> None:
     """Persist a small output_mode sidecar JSON for job_id."""
     meta_dir = _jobs_meta_root() / job_id
     meta_dir.mkdir(parents=True, exist_ok=True)
-    _ = (meta_dir / "output_mode.json").write_text(json.dumps({"mode": output_mode}), encoding="utf-8")
+    # Atomic publish — _read_job_meta_output_mode swallows parse errors, so a
+    # torn truncate-in-place write would silently degrade to mode=None.
+    write_text_atomic(meta_dir / "output_mode.json", json.dumps({"mode": output_mode}))
 
 
 def _read_job_meta_output_mode(job_id: str) -> str | None:
