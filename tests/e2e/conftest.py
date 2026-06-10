@@ -47,6 +47,28 @@ _SHARED_BROWSERS = "/cache/shared-ai/ms-playwright"
 if os.path.isdir(_SHARED_BROWSERS) and "PLAYWRIGHT_BROWSERS_PATH" not in os.environ:
     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = _SHARED_BROWSERS
 
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Make the headless browser environment hermetic: drop ``DISPLAY``.
+
+    A stale ``DISPLAY`` — e.g. a devcontainer X-forwarding socket left over
+    from a previous editor session — wedges headless chromium's frame
+    production: ``requestAnimationFrame`` never fires even though the page
+    reports ``visibilityState === "visible"``, so every Playwright
+    actionability check (click, drag, the "stable" wait) burns its full
+    timeout.  The tier then melts down into dozens of unrelated-looking
+    click-timeout failures plus an apparent hang (2026-06-10 incident; see
+    ``test_environment_sanity.py``).
+
+    Headless chromium needs no X server at all, so drop ``DISPLAY`` entirely
+    unless the developer explicitly asked for a headed browser.  Runs in each
+    xdist worker too (workers re-import conftest and re-run configure), so
+    the browser subprocess can never inherit the variable.
+    """
+    if not config.getoption("--headed", default=False):
+        os.environ.pop("DISPLAY", None)
+
+
 # ---------------------------------------------------------------------------
 # Safety guards
 # ---------------------------------------------------------------------------
