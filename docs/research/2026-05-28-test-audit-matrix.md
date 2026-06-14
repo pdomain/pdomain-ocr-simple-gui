@@ -1,7 +1,7 @@
 # Test Suite Audit Matrix — 2026-05-28
 
 Produced by M1 of the test-suite audit/reorg plan.
-Reference plan: `docs/plans/2026-05-28-test-suite-audit-reorg.md`
+Reference plan: `docs/archive/plans/2026-05-28-test-suite-audit-reorg.md`
 
 ---
 

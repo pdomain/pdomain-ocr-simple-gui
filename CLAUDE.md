@@ -5,8 +5,8 @@ picks an engine, runs OCR, gets `.txt` files. Phase 3 reference consumer
 that validates `pdomain-ops`' `LocalStageDispatcher` and the
 `register_default_stages()` helper before `pdomain-prep-for-pgdp` migrates.
 
-**Architecture:** see workspace-level docs for historical plans/specs.
-Spec: workspace `docs/specs/2026-05-17-pdomain-ocr-simple-gui-design.md`.
+**Architecture:** `docs/architecture/00-overview.md` (primary).
+Historical spec: workspace `docs/specs/2026-05-17-pdomain-ocr-simple-gui-design.md`.
 Plans: workspace `docs/archive/plans/2026-05-17-pdomain-ocr-simple-gui.md` (complete).
 
 ## Quick orientation

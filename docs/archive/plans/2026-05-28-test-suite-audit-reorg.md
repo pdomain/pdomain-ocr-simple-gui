@@ -7,7 +7,7 @@
 > work: M2 (backend inline-client cleanup), M3 (frontend test-utils adoption),
 > and M6 (DoD gate). Three milestones instead of six.
 
-**Spec:** `docs/specs/2026-05-28-test-suite-audit-reorg-design.md`
+**Spec:** `docs/archive/specs/2026-05-28-test-suite-audit-reorg-design.md`
 
 **Repo rules:** always `make ci AI=1` before committing; `uv run pytest` not
 `python -m pytest`; TDD-first; commit locally, no push.
