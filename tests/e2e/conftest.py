@@ -182,6 +182,14 @@ def _boot_server(env_overrides: dict[str, str], *, ready_timeout: float = 30.0) 
     env = {**os.environ, **env_overrides}
     _assert_suite_data_dir_is_tmp(env.get("PD_SUITE_DATA_DIR", ""))
 
+    # Redirect server stdout/stderr to a real file — NOT subprocess.PIPE.
+    # A PIPE that nobody reads has a fixed OS buffer (~64KB); once uvicorn's
+    # per-request access logs + warnings fill it, the server's next write to
+    # stdout BLOCKS forever, wedging the event loop. That deadlock surfaced as
+    # the whole suite hanging after ~38 requests (every later reset_prefs PUT
+    # ReadTimeout-cascaded). A file sink never blocks the writer.
+    log_path = Path(env["PD_SUITE_DATA_DIR"]) / f"server-{port}.log"
+    log_file = log_path.open("wb")
     proc = subprocess.Popen(
         [
             sys.executable,
@@ -194,8 +202,8 @@ def _boot_server(env_overrides: dict[str, str], *, ready_timeout: float = 30.0) 
             str(port),
         ],
         env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=log_file,
+        stderr=subprocess.STDOUT,
     )
 
     try:
@@ -207,6 +215,7 @@ def _boot_server(env_overrides: dict[str, str], *, ready_timeout: float = 30.0) 
             proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
             proc.kill()
+        log_file.close()
 
 
 # ---------------------------------------------------------------------------
