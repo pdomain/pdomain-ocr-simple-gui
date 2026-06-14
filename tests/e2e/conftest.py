@@ -144,6 +144,29 @@ def _wait_ready(base_url: str, timeout: float = 30.0) -> None:
     raise TimeoutError(f"Server at {base_url} did not become ready within {timeout}s")
 
 
+def _assert_frontend_built() -> None:
+    """Raise RuntimeError with a clear message when the SPA bundle is not present.
+
+    Browser e2e tests require a real built frontend — the server returns 503
+    for all non-API routes when ``src/pdomain_ocr_simple_gui/frontend/index.html``
+    does not exist, which causes every Playwright navigation to hang until the
+    15-second timeout fires.  Failing early here gives a useful error instead.
+
+    Run ``make frontend-build`` (or ``make e2e-browser`` which includes it) to
+    produce the bundle.
+    """
+    import pdomain_ocr_simple_gui as _pkg
+
+    frontend_index = Path(_pkg.__file__).parent / "frontend" / "index.html"
+    if not frontend_index.is_file():
+        raise RuntimeError(
+            "Browser e2e tests require a built frontend SPA.  "
+            f"Expected: {frontend_index}\n"
+            "Run `make frontend-build` first, or use `make e2e-browser` "
+            "which builds the frontend automatically."
+        )
+
+
 def _boot_server(env_overrides: dict[str, str], *, ready_timeout: float = 30.0) -> Generator[str, None, None]:
     """Boot the app as a uvicorn subprocess and yield its base URL.
 
@@ -152,6 +175,7 @@ def _boot_server(env_overrides: dict[str, str], *, ready_timeout: float = 30.0) 
     backend / data roots they need. The server is polled on ``/api/config`` for
     readiness and terminated on teardown.
     """
+    _assert_frontend_built()
     port = _free_port()
     base_url = f"http://127.0.0.1:{port}"
 

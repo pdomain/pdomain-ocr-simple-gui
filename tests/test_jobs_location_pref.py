@@ -139,6 +139,29 @@ class TestPutPrefsJobsLocationValidation:
         assert resp.status_code == 200
         assert resp.json()["jobs_location"] == ""
 
+    async def test_mkdir_happens_even_without_prefs_adapter(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """PUT /api/prefs creates the jobs_location directory even when no prefs adapter is present.
+
+        Regression guard: validation (mkdir + write-probe) must run regardless of
+        whether a PrefsAdapter is wired up.  Without an adapter the PUT is still
+        best-effort (the pref is not persisted), but the directory must be created
+        so any subsequent code that reads the pref and uses it as a path does not
+        encounter a missing parent.
+        """
+        import pdomain_ocr_simple_gui.app as app_mod
+
+        monkeypatch.setattr(app_mod, "_prefs_adapter", None)
+
+        target = tmp_path / "no_adapter_jobs"
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.put("/api/prefs", json={"jobs_location": str(target)})
+        assert resp.status_code == 200
+        # Directory was created by _validate_jobs_location even though no adapter
+        # persisted the pref — the filesystem side-effect is unconditional.
+        assert target.is_dir()
+
     async def test_non_writable_location_returns_400(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
