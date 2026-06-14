@@ -207,7 +207,31 @@ ci-full: ci e2e-browser smoke ## Full CI including all Playwright browser tests 
 # Run
 # ---------------------------------------------------------------------------
 
-run: frontend-build ## Launch pdomain-ocr-simple-gui (port auto-picked, rebuilds SPA bundle first)
+# SPA_BUNDLE is the built index.html; SPA_SRCS lists the frontend source
+# inputs whose mtime, if newer than the bundle, means a rebuild is needed.
+# Only paths that actually exist in frontend/ are listed (a stray path would
+# make `find` print a warning and the guard could misfire).
+SPA_BUNDLE := src/pdomain_ocr_simple_gui/frontend/index.html
+SPA_SRCS := frontend/src frontend/index.html frontend/package.json \
+        frontend/vite.config.ts frontend/tailwind.config.js \
+        frontend/postcss.config.js frontend/tsconfig.json \
+        frontend/tsconfig.node.json
+
+# `make run` rebuilds the SPA only when the bundle is missing or stale
+# (any frontend source newer than the built index.html). Fast restarts when
+# nothing changed; automatic rebuild when sources change.
+# Caveat: `git checkout` does not preserve file mtimes, so the very first
+# `make run` after a fresh clone may rebuild once even if the bundle was
+# committed. Use `make frontend-build` as the explicit force-rebuild path.
+# NOTE: local-run / local-frontend-build are the local-dev-link flow and
+# keep their own behaviour — this guard applies only to the `run` target.
+run: ## Build SPA if missing or stale, then launch pdomain-ocr-simple-gui
+	@if [ ! -f $(SPA_BUNDLE) ] || [ -n "$$(find $(SPA_SRCS) -newer $(SPA_BUNDLE) 2>/dev/null)" ]; then \
+		echo "SPA bundle stale or missing; running frontend-build first..."; \
+		$(MAKE) --no-print-directory frontend-build; \
+	else \
+		echo "SPA bundle up to date."; \
+	fi
 	uv run pdomain-ocr-simple-gui $(ARGS)
 
 # ---------------------------------------------------------------------------
