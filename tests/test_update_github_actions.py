@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -107,3 +109,68 @@ def test_update_uv_version_refs_updates_quoted_setup_uv_with_inline_comment(tmp_
 
     assert update_github_actions.update_uv_version_refs(workflow, version="0.11.16")
     assert 'version: "0.11.16"' in workflow.read_text(encoding="utf-8")
+
+
+def _make_fake_runner(uv_version: str = "0.99.0", sha: str = "a" * 40):  # type: ignore[no-untyped-def]
+    """Return a fake GhRunner that doesn't hit the network."""
+
+    def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+        endpoint = command[-1]
+        if endpoint.endswith("/releases/latest") and "astral-sh/uv" in endpoint:
+            payload: dict[str, object] = {"tag_name": uv_version}
+        elif endpoint.endswith("/releases/latest"):
+            payload = {"tag_name": "v-test"}
+        elif "/git/ref/tags/" in endpoint:
+            payload = {"object": {"type": "commit", "sha": sha}}
+        else:
+            payload = {}
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout=json.dumps(payload), stderr="")
+
+    return fake_runner
+
+
+def test_update_github_actions_does_not_touch_pyproject(tmp_path: Path) -> None:
+    """update_github_actions() must never write pyproject.toml.
+
+    The dep-refresh job runs ``uv lock --upgrade`` after the script, but uv
+    enforces ``required-version`` before doing any work.  If the script pins
+    required-version to the *latest* release, the job's older pinned uv
+    (installed by setup-uv at job start) immediately violates the requirement
+    it just wrote — self-poisoning the run.  The required-version floor is a
+    deliberate contributor floor; only humans bump it.
+    """
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "ci.yml").write_text(
+        "jobs:\n"
+        "  ci:\n"
+        "    steps:\n"
+        '      - uses: "actions/checkout@oldoldoldoldoldoldoldoldoldoldoldoldoldoldoldoldold1"\n',
+        encoding="utf-8",
+    )
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text('[tool.uv]\nrequired-version = ">=0.11.16"\n', encoding="utf-8")
+    original_pyproject = pyproject.read_text(encoding="utf-8")
+
+    changed = update_github_actions.update_github_actions(
+        workflow_dir=workflows,
+        pyproject=pyproject,
+        runner=_make_fake_runner(),
+    )
+
+    assert pyproject.read_text(encoding="utf-8") == original_pyproject, (
+        "update_github_actions() must not modify pyproject.toml"
+    )
+    assert pyproject not in changed, "pyproject.toml must not appear in the changed-paths list"
+
+
+def test_update_pyproject_uv_version_function_removed() -> None:
+    """The update_pyproject_uv_version function must not exist in the module.
+
+    Its removal was the fix for the dep-refresh self-poison bug where the
+    script pinned required-version to the latest uv release, causing the
+    dep-refresh job's older pinned uv to violate the requirement it just wrote.
+    """
+    assert not hasattr(update_github_actions, "update_pyproject_uv_version"), (
+        "update_pyproject_uv_version must be removed from update_github_actions.py"
+    )

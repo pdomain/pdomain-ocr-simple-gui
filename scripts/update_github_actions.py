@@ -149,29 +149,21 @@ def update_workflow_refs(path: Path, *, releases: dict[str, ActionRelease]) -> b
     return True
 
 
-def update_pyproject_uv_version(path: Path, *, version: str) -> bool:
-    """Update [tool.uv] required-version in pyproject.toml. Returns True if changed."""
-    if not path.exists():
-        return False
-    text = path.read_text(encoding="utf-8")
-    updated = re.sub(
-        r'(required-version\s*=\s*")[^"]+(")',
-        rf"\g<1>{version}\g<2>",
-        text,
-    )
-    if updated == text:
-        return False
-    path.write_text(updated, encoding="utf-8")
-    return True
-
-
 def update_github_actions(
     *,
     workflow_dir: Path = WORKFLOW_DIR,
-    pyproject: Path | None = None,
+    pyproject: Path | None = None,  # kept for API compatibility; not used
     runner: GhRunner = run_gh,
 ) -> list[Path]:
-    """Refresh managed action refs and uv version, return changed workflow paths."""
+    """Refresh managed action refs and uv version, return changed workflow paths.
+
+    Note: ``pyproject.toml`` is intentionally never touched.  The
+    ``[tool.uv] required-version`` floor is a deliberate contributor floor
+    that must not auto-track the latest uv release.  Auto-tracking caused the
+    dep-refresh job to self-poison: the script wrote the latest uv version as
+    a bare (==) pin, but the job's own pinned uv (installed by setup-uv at job
+    start) was older — violating the requirement it had just written.
+    """
     verify_managed_actions(workflow_dir)
     releases = {a: latest_release(a, runner=runner) for a in MANAGED_ACTIONS}
     uv_version = latest_uv_version(runner=runner)
@@ -181,9 +173,6 @@ def update_github_actions(
             changed.add(path)
         if update_uv_version_refs(path, version=uv_version):
             changed.add(path)
-    pyproject_path = pyproject if pyproject is not None else ROOT / "pyproject.toml"
-    if update_pyproject_uv_version(pyproject_path, version=uv_version):
-        changed.add(pyproject_path)
     return sorted(changed)
 
 
