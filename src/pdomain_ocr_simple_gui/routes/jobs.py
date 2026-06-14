@@ -344,7 +344,7 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
             pages=[],
         )
         write_project(spec, status)
-        _add_to_recent_projects(spec, status)
+        await _add_to_recent_projects(spec, status)
         background_tasks.add_task(_pipeline_run_job_with_semaphore, spec)
     except Exception:
         # Release the slot we acquired — the job will not run.
@@ -448,7 +448,7 @@ async def delete_job(project_id: str) -> Response:
         )
 
     # Remove from recent_projects in prefs (best-effort)
-    _remove_from_recent_projects(project_id)
+    await _remove_from_recent_projects(project_id)
     delete_project(project_id)
     _delete_output_mirror(output_dir)
     _delete_job_meta(project_id)
@@ -499,18 +499,23 @@ async def rerun_job(project_id: str, background_tasks: BackgroundTasks) -> dict[
     return {"project_id": project_id, "state": reset_state}
 
 
-def _remove_from_recent_projects(project_id: str) -> None:
-    """Remove project_id from prefs recent_projects (best-effort, no-op on error)."""
+async def _remove_from_recent_projects(project_id: str) -> None:
+    """Remove project_id from prefs recent_projects (best-effort, no-op on error).
+
+    Uses asyncio.to_thread for the blocking filelock operations so the
+    asyncio event loop is not stalled while the prefs lock is held.
+    """
     try:
         from pdomain_ocr_simple_gui.app import get_prefs_adapter
 
         adapter = get_prefs_adapter()
         if adapter is None:
             return
-        raw = adapter.read().apps.get(_APP_ID, {})
+        prefs_data = await asyncio.to_thread(adapter.read)
+        raw = prefs_data.apps.get(_APP_ID, {})
         prefs = AppPrefs.model_validate(raw) if raw else AppPrefs()
         prefs.recent_projects = [p for p in prefs.recent_projects if p.get("project_id") != project_id]
-        adapter.write_app(_APP_ID, prefs.model_dump())
+        await asyncio.to_thread(adapter.write_app, _APP_ID, prefs.model_dump())
     except Exception:  # recent-projects prefs update is best-effort
         logger.exception(
             "Failed to remove project from recent-projects prefs",
@@ -518,8 +523,12 @@ def _remove_from_recent_projects(project_id: str) -> None:
         )
 
 
-def _add_to_recent_projects(spec: ProjectSpec, status: ProjectStatus) -> None:
-    """Add a created project to prefs recent_projects (best-effort, no-op on error)."""
+async def _add_to_recent_projects(spec: ProjectSpec, status: ProjectStatus) -> None:
+    """Add a created project to prefs recent_projects (best-effort, no-op on error).
+
+    Uses asyncio.to_thread for the blocking filelock operations so the
+    asyncio event loop is not stalled while the prefs lock is held.
+    """
     try:
         from pdomain_ocr_simple_gui.app import get_prefs_adapter
 
@@ -527,7 +536,8 @@ def _add_to_recent_projects(spec: ProjectSpec, status: ProjectStatus) -> None:
         if adapter is None:
             return
 
-        raw = adapter.read().apps.get(_APP_ID, {})
+        prefs_data = await asyncio.to_thread(adapter.read)
+        raw = prefs_data.apps.get(_APP_ID, {})
         prefs = AppPrefs.model_validate(raw) if raw else AppPrefs()
         entry: dict[str, object] = {
             "project_id": spec.project_id,
@@ -548,7 +558,7 @@ def _add_to_recent_projects(spec: ProjectSpec, status: ProjectStatus) -> None:
                 and project.get("source_path") != spec.source_path
             ],
         ][:10]
-        adapter.write_app(_APP_ID, prefs.model_dump())
+        await asyncio.to_thread(adapter.write_app, _APP_ID, prefs.model_dump())
     except Exception:  # recent-projects prefs update is best-effort
         logger.exception(
             "Failed to add project to recent-projects prefs",

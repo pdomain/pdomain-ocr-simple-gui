@@ -1129,7 +1129,7 @@ class TestListJobsNoFiltering:
 
         from pdomain_ocr_simple_gui.routes.jobs import _add_to_recent_projects
 
-        _add_to_recent_projects(spec, status)
+        await _add_to_recent_projects(spec, status)
 
         recorded_ids: list[str] = []
         for call in mock_adapter.write_app.call_args_list:

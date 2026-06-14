@@ -97,6 +97,8 @@ def test_download_images_text_button_drops_json(
     assert "page-001.json" not in api_members
 
 
+@pytest.mark.slow
+@pytest.mark.e2e
 @pytest.mark.parametrize("include", ["bogus", "text,nope", ""])
 def test_download_bad_include_token_rejected(
     live_server_url: str, seeded_managed_job_id: str, include: str

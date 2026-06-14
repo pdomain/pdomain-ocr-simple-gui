@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Annotated
@@ -60,7 +61,8 @@ async def get_prefs() -> AppPrefsResponse:
         base = AppPrefs()
     else:
         try:
-            app_data: dict[str, object] = dict(adapter.read().apps.get(_APP_ID, {}))
+            prefs_data = await asyncio.to_thread(adapter.read)
+            app_data: dict[str, object] = dict(prefs_data.apps.get(_APP_ID, {}))
         except PrefsLockTimeout:
             logger.warning(
                 "Prefs lock contended on GET; returning default prefs",
@@ -99,7 +101,8 @@ async def put_prefs(body: Annotated[dict[str, object], Body()]) -> AppPrefs:
     # can still apply the PUT body and return a valid merged response.
     if adapter is not None:
         try:
-            app_data: dict[str, object] = dict(adapter.read().apps.get(_APP_ID, {}))
+            prefs_data = await asyncio.to_thread(adapter.read)
+            app_data: dict[str, object] = dict(prefs_data.apps.get(_APP_ID, {}))
         except PrefsLockTimeout:
             logger.warning(
                 "Prefs lock contended on PUT read; using defaults as merge base",
@@ -121,11 +124,11 @@ async def put_prefs(body: Annotated[dict[str, object], Body()]) -> AppPrefs:
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.errors()) from exc
 
-    _validate_jobs_location(merged.jobs_location)
+    await asyncio.to_thread(_validate_jobs_location, merged.jobs_location)
 
     if adapter is not None:
         try:
-            adapter.write_app(_APP_ID, merged.model_dump())
+            await asyncio.to_thread(adapter.write_app, _APP_ID, merged.model_dump())
         except PrefsLockTimeout:
             # Lock is contended: log and return the merged payload anyway so the
             # UI stays consistent. The write was not persisted (best-effort), but
