@@ -38,7 +38,7 @@
 // onJobOpen navigates to /jobs/:id. No cancel/pause API exists in simple-gui,
 // so onJobCancel and onJobPauseResume are omitted (both fully optional).
 
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import {
@@ -74,6 +74,7 @@ import ResultsPage from "./pages/ResultsPage";
 import PageViewPage from "./pages/PageViewPage";
 import TesseractHelpPage from "./pages/TesseractHelpPage";
 import { JobsLocationSettings } from "./components/JobsLocationSettings";
+import { CudaSetupGuidance } from "./components/CudaSetupGuidance";
 import { ModelCacheSettings } from "./components/ModelCacheSettings";
 
 /**
@@ -82,32 +83,59 @@ import { ModelCacheSettings } from "./components/ModelCacheSettings";
  */
 const _updateConfig = createApiUpdateConfig();
 const _deviceConfig = createApiDeviceConfig();
+let _computeStateWarmupStarted = false;
+
+export function ComputeStateWarmup() {
+  useEffect(() => {
+    if (_computeStateWarmupStarted) return;
+    _computeStateWarmupStarted = true;
+    // Fire-and-forget warmup: tolerate a fetchDevice() that returns a
+    // non-promise (e.g. test mocks) so it can never crash the app shell.
+    void Promise.resolve(_deviceConfig.fetchDevice()).catch(() => undefined);
+  }, []);
+  return null;
+}
 
 /** Inner component for the Compute panel — calls hooks inside the component tree. */
 function ComputePanelContent() {
   const device = useDeviceInfo(_deviceConfig);
 
+  let body: ReactNode;
   if (device.loading && !device.info) {
-    return <p style={{ margin: 0 }}>Checking compute devices</p>;
-  }
-
-  if (device.error && !device.info) {
-    return (
-      <p role="alert" style={{ margin: 0, color: "var(--color-danger)" }}>
+    body = (
+      <p key="compute-loading" style={{ margin: 0 }}>
+        Checking compute devices
+      </p>
+    );
+  } else if (device.error && !device.info) {
+    body = (
+      <p
+        key="compute-error"
+        role="alert"
+        style={{ margin: 0, color: "var(--color-danger)" }}
+      >
         {device.error instanceof Error
           ? device.error.message
           : String(device.error)}
       </p>
     );
+  } else {
+    body = (
+      <ComputeTargetPanel
+        key="compute-target"
+        info={device.info}
+        onSelect={(deviceId) => void device.setDevice("app", deviceId)}
+        onClear={(scope) => void device.clearDevice(scope)}
+        cudaDocsUrl="/docs/runbooks/cuda-setup.md"
+      />
+    );
   }
 
   return (
-    <ComputeTargetPanel
-      info={device.info}
-      onSelect={(deviceId) => void device.setDevice("app", deviceId)}
-      onClear={(scope) => void device.clearDevice(scope)}
-      cudaDocsUrl="/docs/runbooks/cuda-setup.md"
-    />
+    <div>
+      {body}
+      <CudaSetupGuidance key="cuda-guidance" />
+    </div>
   );
 }
 
@@ -553,28 +581,31 @@ function AppShellWithHeader() {
   };
 
   return (
-    <AppShell
-      appId="pdomain-ocr-simple-gui"
-      appDisplayName="OCR Simple GUI"
-      appIconUrl="/api/self/icons/32"
-      deployMode="local"
-      launcherSlot="header"
-      uiPrefsConfig={uiPrefsConfig}
-      settingsPanels={settingsPanels}
-      jobs={jobsProps}
-      header={
-        <SimpleGuiHeader
-          activeJobs={pill}
-          actions={
-            <>
-              <SettingsSlot />
-              <ShortcutsHelpButton />
-            </>
-          }
-        />
-      }
-      main={<AppRoutes />}
-    />
+    <>
+      <ComputeStateWarmup />
+      <AppShell
+        appId="pdomain-ocr-simple-gui"
+        appDisplayName="OCR Simple GUI"
+        appIconUrl="/api/self/icons/32"
+        deployMode="local"
+        launcherSlot="header"
+        uiPrefsConfig={uiPrefsConfig}
+        settingsPanels={settingsPanels}
+        jobs={jobsProps}
+        header={
+          <SimpleGuiHeader
+            activeJobs={pill}
+            actions={
+              <>
+                <SettingsSlot />
+                <ShortcutsHelpButton />
+              </>
+            }
+          />
+        }
+        main={<AppRoutes />}
+      />
+    </>
   );
 }
 
