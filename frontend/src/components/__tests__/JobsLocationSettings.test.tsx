@@ -122,6 +122,49 @@ describe("JobsLocationSettings", () => {
     });
   });
 
+  it("does not clobber an in-progress edit when the prefs load resolves late", async () => {
+    // Regression: the async GET /api/prefs in the mount effect used to call
+    // setValue() unconditionally. On a slow/contended backend the GET could
+    // resolve AFTER the user typed, silently discarding their edit — and a
+    // subsequent Save would then persist the stale/empty value.
+    let resolveGet: (r: Response) => void = () => {};
+    const getPromise = new Promise<Response>((r) => {
+      resolveGet = r;
+    });
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "GET") return getPromise;
+      const body = JSON.parse((init?.body as string) ?? "{}");
+      return Promise.resolve(jsonResponse({ ...body }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderWithProviders(<JobsLocationSettings />);
+    const input = screen.getByTestId(
+      APP_TEST_IDS.settingsJobsLocationInput,
+    ) as HTMLInputElement;
+
+    // User types BEFORE the initial prefs GET has resolved.
+    await userEvent.type(input, "/user/typed");
+    expect(input.value).toBe("/user/typed");
+
+    // The slow GET now resolves with a DIFFERENT stored value.
+    resolveGet(
+      jsonResponse({
+        jobs_location: "/stored/old",
+        effective_jobs_location: "/stored/old",
+      }),
+    );
+
+    // The read-only "current" display reflects the load, but the user's
+    // in-progress edit must be preserved.
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(APP_TEST_IDS.settingsJobsLocationCurrent),
+      ).toHaveTextContent("/stored/old");
+    });
+    expect(input.value).toBe("/user/typed");
+  });
+
   it("reset clears the field", async () => {
     const fetchMock = mockFetchSequence([
       () =>

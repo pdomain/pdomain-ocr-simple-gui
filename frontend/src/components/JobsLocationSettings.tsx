@@ -13,7 +13,7 @@
 // app prefs are preserved. A 400 from the backend (non-writable location) is
 // surfaced inline.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Input } from "@pdomain/pdomain-ui/primitives";
 import { APP_TEST_IDS } from "../lib/testids";
 
@@ -33,6 +33,11 @@ export function JobsLocationSettings() {
   const [error, setError] = useState<string>("");
   const [saving, setSaving] = useState<boolean>(false);
   const [savedOk, setSavedOk] = useState<boolean>(false);
+  // True once the user edits the field. The async prefs load below must not
+  // clobber an in-progress edit: if the GET resolves after the user has typed
+  // (slow/contended backend), overwriting `value` would silently discard their
+  // input and a later Save would persist the stale/empty value.
+  const userEditedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,7 +48,11 @@ export function JobsLocationSettings() {
         const data = (await res.json()) as PrefsResponse;
         if (cancelled) return;
         setPrefs(data);
-        setValue(data.jobs_location ?? "");
+        // Only seed the editable field from the server if the user hasn't
+        // already started editing it (see userEditedRef rationale above).
+        if (!userEditedRef.current) {
+          setValue(data.jobs_location ?? "");
+        }
         setEffective(data.effective_jobs_location ?? "");
       } catch {
         // Best-effort load; leave fields empty on failure.
@@ -132,6 +141,7 @@ export function JobsLocationSettings() {
         data-testid={APP_TEST_IDS.settingsJobsLocationInput}
         value={value}
         onChange={(e) => {
+          userEditedRef.current = true;
           setValue(e.target.value);
           setError("");
           setSavedOk(false);
