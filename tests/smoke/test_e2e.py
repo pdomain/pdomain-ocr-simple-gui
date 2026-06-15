@@ -82,7 +82,13 @@ def test_e2e_job_completes(tmp_path: Path) -> None:
         "PD_SUITE_DATA_DIR": str(isolated_suite),
     }
 
-    # Start the server as a subprocess
+    # Start the server as a subprocess. Drain stdout/stderr to a FILE, never an
+    # undrained subprocess.PIPE: uvicorn's per-request access logs fill the
+    # ~64KB pipe buffer (readiness polling + the job poll loop easily exceed
+    # that), after which the server's next log write blocks forever and the
+    # event loop wedges — which is what the bumped _POLL_READ_TIMEOUT papered
+    # over. A file sink never blocks the writer.
+    server_log = (tmp_path / f"smoke-server-{port}.log").open("wb")
     proc = subprocess.Popen(
         [
             sys.executable,
@@ -95,8 +101,8 @@ def test_e2e_job_completes(tmp_path: Path) -> None:
             str(port),
         ],
         env=server_env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=server_log,
+        stderr=subprocess.STDOUT,
     )
 
     project_id: str | None = None
@@ -157,3 +163,4 @@ def test_e2e_job_completes(tmp_path: Path) -> None:
             proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
             proc.kill()
+        server_log.close()
