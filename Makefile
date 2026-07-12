@@ -38,7 +38,7 @@ PEER_BOOK_TOOLS_PATH ?= ../pdomain-book-tools
         local-setup-py local-frontend-install local-frontend-build \
         local-frontend-test local-frontend-dev \
         update-pdomain-deps upgrade-pdomain-book-tools \
-        release-patch release-minor release-major _do-release ci-slow build packaging-test ci-against-main
+        release-patch release-minor release-major _do-release ci-slow build packaging-test ci-against-master
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -274,8 +274,8 @@ local-frontend-test: local-frontend-install ## vitest using local-linked sibling
 local-frontend-dev: local-frontend-install ## Vite dev server using local-linked siblings
 	cd frontend && $(call _pnpm,run dev)
 
-ci-against-main: ## Validate against pd-* siblings' latest main, then revert (transient)
-	@./scripts/ci-against-main.sh
+ci-against-master: ## Validate against pd-* siblings' latest master, then revert (transient)
+	@./scripts/ci-against-master.sh
 
 # ---------------------------------------------------------------------------
 # Sibling-dep refresh (spec #363)
