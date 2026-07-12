@@ -9,11 +9,11 @@ set -e
 # installer originally bootstrapped uv).
 #
 # Usage:
-#   curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/uninstall.sh | sh
+#   curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/uninstall.sh | sh
 #
 # Unattended (skip all confirmation prompts):
-#   curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/uninstall.sh | sh -s -- -y
-#   ASSUME_YES=1 curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/uninstall.sh | sh
+#   curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/uninstall.sh | sh -s -- -y
+#   ASSUME_YES=1 curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/uninstall.sh | sh
 
 ASSUME_YES="${ASSUME_YES:-0}"
 

@@ -26,8 +26,7 @@ export type RuntimeProfile =
   | { kind: "managed-server"; canUpload: true; canUsePath: false };
 
 export type ChosenSource =
-  | { kind: "path"; path: string }
-  | { kind: "upload"; uploadId: string };
+  { kind: "path"; path: string } | { kind: "upload"; uploadId: string };
 
 export type JobOutputConfig =
   | { mode: "next_to_source" }

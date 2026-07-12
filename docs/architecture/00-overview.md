@@ -138,7 +138,7 @@ pdomain-ocr-simple-gui/
     test_e2e_conftest_guard.py  E2E conftest guard
     test_suite_device_update_routes.py  Suite device update routes
     test_testjobs.py         Test job factory
-    test_git_main_sources.py  Git main source validation
+    test_git_master_sources.py  Git master source validation
     test_purge_test_jobs.py   Purge-test-jobs script
     packaging/test_install_engine.py  Wheel install + launch integration
     test_packaging.py        Wheel contents check

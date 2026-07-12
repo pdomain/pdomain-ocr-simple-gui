@@ -16,7 +16,7 @@ Paste this into a terminal. It downloads the AppImage, marks it executable, and
 launches the installer wizard automatically — no separate steps needed:
 
 ```sh
-curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/install.sh | sh
 ```
 
 The wizard walks you through the gated install steps (uv, `uv tool install`,
@@ -29,7 +29,7 @@ automatically.
 To skip the AppImage wizard and use uv-tool directly:
 
 ```sh
-curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh -s -- --no-appimage
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/install.sh | sh -s -- --no-appimage
 # or: NO_APPIMAGE=1 curl -sSL .../install.sh | sh
 ```
 
@@ -81,7 +81,7 @@ pdomain-ocr-simple-gui --no-browser
 One-liner:
 
 ```sh
-curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/uninstall.sh | sh
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/uninstall.sh | sh
 ```
 
 The script removes the desktop shortcut (if installed), unregisters from the
@@ -92,7 +92,7 @@ bootstrapped it.
 Unattended (skip all prompts):
 
 ```sh
-curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/uninstall.sh | sh -s -- -y
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/uninstall.sh | sh -s -- -y
 ```
 
 User data (`~/.local/share/pdomain-ocr-simple-gui/`) is not removed

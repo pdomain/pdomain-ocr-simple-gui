@@ -9,7 +9,7 @@ make release-major
 ```
 
 The release script verifies clean, up-to-date `main`, runs release preflight, creates an
-annotated semver tag, pushes `main` and the tag, and dispatches the release workflow.
+annotated semver tag, pushes `master` and the tag, and dispatches the release workflow.
 
 The release workflow builds a wheel and sdist with `make build`, publishes both as
 GitHub Release artifacts, and dispatches `pdomain-index-pip` with

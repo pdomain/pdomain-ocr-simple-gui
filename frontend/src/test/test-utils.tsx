@@ -60,11 +60,7 @@ export function renderWithProviders(
 // ---------------------------------------------------------------------------
 
 export type JobState =
-  | "queued"
-  | "running"
-  | "succeeded"
-  | "failed"
-  | "cancelled";
+  "queued" | "running" | "succeeded" | "failed" | "cancelled";
 export type OutputMode = "next_to_source" | "specified" | "managed";
 
 export interface PageRow {

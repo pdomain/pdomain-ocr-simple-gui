@@ -35,11 +35,11 @@ set -e
 #   prompts unconditionally.
 #
 # Usage:
-#   curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh
+#   curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/install.sh | sh
 #
 # Unattended (skip all confirmation prompts):
-#   curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh -s -- -y
-#   ASSUME_YES=1 curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh
+#   curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/install.sh | sh -s -- -y
+#   ASSUME_YES=1 curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/install.sh | sh
 #
 # Skip AppImage wizard (force uv-tool script path):
 #   curl -sSL .../install.sh | sh -s -- --no-appimage

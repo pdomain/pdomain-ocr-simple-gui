@@ -40,7 +40,6 @@ export default defineConfig({
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
   },
   esbuild: {
-    // React 19's automatic JSX runtime — no `import React` needed in tests.
     jsx: "automatic",
   },
 });

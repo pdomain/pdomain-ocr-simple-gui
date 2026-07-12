@@ -2,7 +2,7 @@ default_install_hook_types: [pre-commit, commit-msg]
 
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
     hooks:
     -   id: trailing-whitespace
     -   id: end-of-file-fixer
@@ -18,7 +18,7 @@ repos:
     hooks:
     -   id: gitleaks
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.16
+    rev: v0.15.21
     hooks:
     -   id: ruff-check
         args: [--select, I, --fix]
@@ -26,7 +26,7 @@ repos:
         args: [--fix]
     -   id: ruff-format
 -   repo: https://github.com/DavidAnson/markdownlint-cli2
-    rev: v0.22.1
+    rev: v0.23.0
     hooks:
     -   id: markdownlint-cli2
     -   id: markdownlint-cli2
@@ -34,7 +34,7 @@ repos:
         args: [--fix]
         stages: [manual]
 -   repo: https://github.com/jorisroovers/gitlint
-    rev: v0.19.1
+    rev: acc9d9de6369b76d22cb4167029d2035e8730b98  # frozen: v0.19.1
     hooks:
     -   id: gitlint
         stages: [commit-msg]

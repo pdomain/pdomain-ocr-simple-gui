@@ -34,7 +34,7 @@ running each step and asking for confirmation.
 ## Quick install — curl one-liner
 
 ```sh
-curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/install.sh | sh
 ```
 
 On Linux x86\_64 desktop systems (DISPLAY or WAYLAND\_DISPLAY set), this
@@ -48,7 +48,7 @@ install automatically. You never need to choose manually.
 To force the uv-tool path and skip the AppImage wizard:
 
 ```sh
-curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh -s -- --no-appimage
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/install.sh | sh -s -- --no-appimage
 # or: NO_APPIMAGE=1 curl -sSL .../install.sh | sh
 ```
 
@@ -63,10 +63,10 @@ auto-proceed. To skip prompts explicitly:
 
 ```sh
 # Flag form (works with curl-pipe):
-curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh -s -- -y
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/install.sh | sh -s -- -y
 
 # Environment variable form:
-ASSUME_YES=1 curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh
+ASSUME_YES=1 curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/install.sh | sh
 ```
 
 ---
@@ -207,7 +207,7 @@ desktops — no separate download step needed.
 ### Path B — curl one-liner (recommended for all other platforms)
 
 ```sh
-curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/install.sh | sh
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/install.sh | sh
 ```
 
 Use `--no-appimage` or `NO_APPIMAGE=1` to force the uv-tool path.
@@ -412,7 +412,7 @@ pdomain-ocr-simple-gui --version
 ### One-liner (recommended)
 
 ```sh
-curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/uninstall.sh | sh
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/uninstall.sh | sh
 ```
 
 The script removes the desktop shortcut, unregisters from the suite registry,
@@ -422,7 +422,7 @@ itself, defaulting to yes only if this installer originally bootstrapped it.
 Unattended (skip all prompts):
 
 ```sh
-curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/main/uninstall.sh | sh -s -- -y
+curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/uninstall.sh | sh -s -- -y
 ```
 
 ### Manual uninstall (step by step)
