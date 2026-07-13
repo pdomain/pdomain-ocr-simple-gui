@@ -283,4 +283,9 @@ Published to `pdomain-index-pip` (GitHub Pages PEP 503 index).
 
 - Module-level reference: `docs/architecture/module-map.md`
 - Runtime flows (job creation, OCR pipeline, page save, download): `docs/architecture/runtime-flows.md`
+- Deployment and packaging boundaries that remain deferred:
+  [`docs/context/intent-map.md`](../context/intent-map.md)
+- Decisions that preserve the minimal-consumer, test-isolation, and
+  distribution-verification boundaries:
+  [`docs/decisions/2026-07-13-preserved-runtime-boundaries.md`](../decisions/2026-07-13-preserved-runtime-boundaries.md)
 - Historical spec: workspace `docs/specs/2026-05-17-pdomain-ocr-simple-gui-design.md`

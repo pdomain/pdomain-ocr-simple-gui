@@ -80,6 +80,25 @@ flow:
     `BackgroundTask`.
 11. Return 202 `{"project_id": "<uuid>"}`.
 
+### Source-ingestion trust boundary
+
+Local paths and uploaded files enter through different authority boundaries.
+`LocalPathSource` is available only in local mode. It resolves a requested path
+against the configured allowlist before reading a file or directory. Managed
+mode accepts an upload identifier instead of granting arbitrary host-path
+access.
+
+Both ZIP paths validate every member before extraction. A member must remain
+inside its temporary or upload root after resolution. Local ZIP sources also
+enforce the total uncompressed-size cap before extracting. Uploaded filenames
+are reduced to their basename, upload identifiers reject traversal characters,
+and extracted data stays under the upload root.
+
+These controls preserve the local-first convenience without treating browser
+input as filesystem authority. Current evidence is in
+`sources/local_path.py`, `routes/uploads.py`, `tests/test_sources_local_path.py`,
+and `tests/test_uploads.py`.
+
 ---
 
 ## 2. OCR pipeline execution
