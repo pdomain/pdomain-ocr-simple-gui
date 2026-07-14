@@ -10,14 +10,20 @@ from fastapi.testclient import TestClient
 from pdomain_ocr_simple_gui.app import create_app
 
 
-def _seed_project_with_words(projects_root: Path) -> str:
-    """Write a minimal project + sidecar with word data; returns the project_id."""
+def _seed_project_with_words(projects_root: Path, project_id: str = "words-test-001") -> str:
+    """Write a minimal project + sidecar with word data; returns the project_id.
+
+    ``project_id`` defaults to a normal id, but callers testing traversal
+    guards may pass a relative-path id (e.g. ``"../outside-root"``) — the
+    underlying storage helpers do not sanitize it, so the seeded project
+    lands wherever that id resolves to on disk, exactly like an attacker's
+    write would.
+    """
     from datetime import UTC, datetime
 
     from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
     from pdomain_ocr_simple_gui.storage import write_page_sidecar, write_project
 
-    project_id = "words-test-001"
     spec = ProjectSpec(
         project_id=project_id,
         name="Words Test",
@@ -79,6 +85,30 @@ def test_words_missing_returns_404(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     client = TestClient(create_app())
     resp = client.get("/api/pages/does-not-exist/0/words")
     assert resp.status_code == 404
+
+
+def test_words_rejects_traversal_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A traversal project_id is rejected with 400 before any filesystem read.
+
+    Plants a valid project + sidecar OUTSIDE the projects root, at the parent
+    directory a ``".."`` id resolves to, to prove the off-root read never
+    happens: if validation didn't run first, the route would find the file
+    and return 200 instead of 400. (FastAPI path params never contain a raw
+    "/", so a same-segment ``".."`` — sent url-encoded as ``%2e%2e`` so the
+    HTTP client doesn't normalize it away first — is the traversal id that
+    actually reaches the route function.)
+    """
+    projects_root = tmp_path / "projects"
+    projects_root.mkdir()
+    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(projects_root))
+
+    # get_project_dir("..") == projects_root / ".." == tmp_path, so seeding
+    # under project_id ".." plants project.json + sidecar right there.
+    _seed_project_with_words(tmp_path, project_id="..")
+
+    client = TestClient(create_app())
+    resp = client.get("/api/pages/%2e%2e/0/words")
+    assert resp.status_code == 400
 
 
 def test_words_route_after_fake_pipeline_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
