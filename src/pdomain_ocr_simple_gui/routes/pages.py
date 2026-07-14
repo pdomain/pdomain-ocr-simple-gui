@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 from pathlib import Path
@@ -15,6 +16,7 @@ from pdomain_ocr_simple_gui.auth import require_token
 from pdomain_ocr_simple_gui.models import PageResponse, PageResult, ProjectSpec
 from pdomain_ocr_simple_gui.pipeline import (
     JsonObject,
+    batch_timeout_s,
     build_sidecar_payload,
     extract_text,
     first_page_dict,
@@ -307,15 +309,37 @@ async def rerun_page(
     page_id = f"{spec.project_id}/{page_idx}"
 
     try:
-        # Await the async stage dispatcher — non-blocking, yields control to the event loop
-        stage_result = await dispatcher.run_stage(
-            "ocr",
-            page_id,
-            image_path=str(image_path),
-            engine=engine,
-            language=resolved_language,
-            device=resolve_device(spec.device),
-        )
+        # Await the async stage dispatcher — non-blocking, yields control to
+        # the event loop. Bound the wait so a hung engine fails this page
+        # instead of leaving the request hanging forever. Limitation:
+        # asyncio.wait_for cancels the awaiting coroutine here, but the
+        # actual OCR work (pdomain-ops LocalStageDispatcher) runs in an
+        # executor thread that keeps running after cancellation and can
+        # still mutate the dispatcher's lock-free module-level
+        # _predictor_cache from that detached thread while a later
+        # rerun/job runs. This turns a permanent hang into a bounded
+        # failure; it does not stop the leaked thread. Tracked separately:
+        # ocr-container-meta issue: predictor-cache lock (number TBD).
+        timeout_s = batch_timeout_s()
+        try:
+            stage_result = await asyncio.wait_for(
+                dispatcher.run_stage(
+                    "ocr",
+                    page_id,
+                    image_path=str(image_path),
+                    engine=engine,
+                    language=resolved_language,
+                    device=resolve_device(spec.device),
+                ),
+                timeout=timeout_s,
+            )
+        except TimeoutError:
+            logger.exception(
+                "Single-page rerun timed out after %.1fs (PDOMAIN_OCR_BATCH_TIMEOUT_S); marking page failed",
+                timeout_s,
+                extra={"context": f"project_id={spec.project_id!r}, page_idx={page_idx}"},
+            )
+            raise
         page_dict = first_page_dict(stage_result.metadata)
 
         # Mirror run_project's reorganize + text-normalize pipeline so the

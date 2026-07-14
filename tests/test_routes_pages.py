@@ -695,6 +695,42 @@ class TestPostPageRerun:
         assert data["state"] == "failed"
         assert "OCR failed" in data.get("error", "")
 
+    async def test_rerun_times_out_hung_dispatcher(
+        self,
+        async_client: AsyncClient,
+        project_with_image: tuple[str, Path],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A run_stage call that never returns is bounded by PDOMAIN_OCR_BATCH_TIMEOUT_S.
+
+        The wall-clock assertion (not just the terminal state) is the point:
+        without the timeout wired in, the route would still record the page
+        as failed eventually (the request would hang until the client or
+        server gave up), but only after the full 30s sleep.
+        """
+        import asyncio
+        import time
+        from unittest.mock import AsyncMock, patch
+
+        monkeypatch.setenv("PDOMAIN_OCR_BATCH_TIMEOUT_S", "0.05")
+        project_id, _ = project_with_image
+
+        async def _hung_run_stage(*args: object, **kwargs: object) -> None:
+            await asyncio.sleep(30)
+
+        mock_dispatcher = AsyncMock()
+        mock_dispatcher.run_stage = AsyncMock(side_effect=_hung_run_stage)
+
+        start = time.monotonic()
+        with patch("pdomain_ocr_simple_gui.app.get_dispatcher", return_value=mock_dispatcher):
+            resp = await async_client.post(f"/api/pages/{project_id}/0/rerun")
+        elapsed = time.monotonic() - start
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["state"] == "failed"
+        assert elapsed < 5.0, f"rerun took {elapsed:.1f}s — dispatcher wait was not bounded"
+
     async def test_rerun_updates_page_state(
         self,
         async_client: AsyncClient,
