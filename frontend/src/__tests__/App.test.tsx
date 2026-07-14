@@ -2,7 +2,13 @@
 // Issue #226
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { makeTestQueryClient } from "../test/test-utils";
 import App, { uiPrefsConfig } from "../App";
@@ -410,6 +416,75 @@ describe("App", () => {
     expect(screen.queryByTestId("app-header-bell")).toBeNull();
     expect(screen.queryByTestId("app-header-user")).toBeNull();
     expect(screen.queryByLabelText("Search")).toBeNull();
+  });
+
+  // NOTE: HomePage separately renders its own "home-config-error" banner
+  // (driven by jobCreationMachine's independent /api/config fetch — see
+  // Phase E issue 3, dedup deferred). The App-shell banner under test here
+  // is driven by ConfigContext's useConfigStatus() and is scoped by its own
+  // testid so the two don't collide in assertions.
+  it("shows a dismissible banner when /api/config cannot be loaded, and Retry re-fetches it", async () => {
+    // Simulate a failed /api/config fetch (mockFetchConfigFailure, inlined
+    // per this file's existing mock-override idiom). A mutable flag (not a
+    // call counter) drives success/failure: ConfigContext and HomePage's
+    // jobCreationMachine each fetch /api/config independently on mount, so
+    // a "fail on call #1 only" counter would race between the two callers.
+    let configShouldFail = true;
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string) => {
+        if (typeof url === "string" && url.includes("/api/config")) {
+          if (configShouldFail) {
+            return Promise.resolve({ ok: false, json: async () => ({}) });
+          }
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ mode: "local", is_containerized: false }),
+          });
+        }
+        if (typeof url === "string" && url.includes("/api/jobs")) {
+          return Promise.resolve({ ok: true, json: async () => [] });
+        }
+        return Promise.resolve({ ok: false, json: async () => ({}) });
+      },
+    );
+
+    renderApp();
+
+    const banner = await screen.findByTestId("app-config-error-banner");
+    expect(
+      within(banner).getByText(/could not load app configuration/i),
+    ).toBeInTheDocument();
+
+    // Retry re-fetches /api/config; a successful response clears the banner.
+    configShouldFail = false;
+    fireEvent.click(within(banner).getByRole("button", { name: /retry/i }));
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId("app-config-error-banner"),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it("dismisses the config-error banner without retrying", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string) => {
+        if (typeof url === "string" && url.includes("/api/config")) {
+          return Promise.resolve({ ok: false, json: async () => ({}) });
+        }
+        if (typeof url === "string" && url.includes("/api/jobs")) {
+          return Promise.resolve({ ok: true, json: async () => [] });
+        }
+        return Promise.resolve({ ok: false, json: async () => ({}) });
+      },
+    );
+
+    renderApp();
+
+    const banner = await screen.findByTestId("app-config-error-banner");
+    fireEvent.click(within(banner).getByRole("button", { name: /dismiss/i }));
+    expect(
+      screen.queryByTestId("app-config-error-banner"),
+    ).not.toBeInTheDocument();
   });
 
   it("renders shell with empty content at unknown route (no crash)", () => {

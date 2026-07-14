@@ -24,8 +24,6 @@
 //   but does NOT export them as named constants from its testids catalog:
 //     appHeader         = "app-header"        (app-owned outer <header>)
 //     jobsPillCount     = "jobs-pill-count"   (active-jobs count badge)
-//     jobsPillPopover   = "jobs-pill-popover" (pdomain-ui header hover popover;
-//       simple-gui disables this and opens a right-side jobs drawer on click)
 //     shortcutsCheatsheet = "shortcuts-cheatsheet" (? overlay dialog)
 //
 //   Prefs controls (theme/density/fontScale) live entirely inside
@@ -40,7 +38,6 @@ export const APP_TEST_IDS = {
   // stable import.
   appHeader: "app-header",
   jobsPillCount: "jobs-pill-count",
-  jobsPillPopover: "jobs-pill-popover",
   shortcutsCheatsheet: "shortcuts-cheatsheet",
   // ---------------------------------------------------------------------------
   homePage: "home-page",

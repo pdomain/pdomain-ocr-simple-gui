@@ -317,6 +317,5 @@ export const jobCreationMachine = setup({
     submitted: {
       type: "final",
     },
-    failed: {},
   },
 });

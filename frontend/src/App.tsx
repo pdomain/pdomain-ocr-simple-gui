@@ -69,7 +69,7 @@ import type {
 } from "@pdomain/pdomain-ui/shell";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ConfigProvider } from "./runtime/ConfigContext";
+import { ConfigProvider, useConfigStatus } from "./runtime/ConfigContext";
 import { HomePage } from "./pages/HomePage";
 import ResultsPage from "./pages/ResultsPage";
 import PageViewPage from "./pages/PageViewPage";
@@ -598,6 +598,80 @@ function SimpleGuiHeader({
   );
 }
 
+/**
+ * ConfigErrorBanner — surfaces a failed GET /api/config (ConfigContext's
+ * useConfigStatus) as a dismissible inline banner above the routed content,
+ * instead of failing silently. Retry re-runs the fetch via reload(); a
+ * successful reload clears the banner. Dismiss hides it locally without
+ * retrying (it reappears if a later reload() call fails again).
+ *
+ * Distinct from HomePage's own `home-config-error` banner, which is driven
+ * by jobCreationMachine's independent /api/config fetch (Phase E issue 3
+ * tracks deduplicating the two fetchers — cosmetic follow-up).
+ */
+function ConfigErrorBanner() {
+  const { error, reload } = useConfigStatus();
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if (error) setDismissed(false);
+  }, [error]);
+
+  if (!error || dismissed) return null;
+
+  return (
+    <div
+      role="alert"
+      data-testid="app-config-error-banner"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        padding: "8px 16px",
+        background: "var(--color-danger-bg, #fdecea)",
+        color: "var(--color-danger, #b3261e)",
+        borderBottom: "1px solid var(--border-1)",
+        fontSize: 13,
+      }}
+    >
+      <span>
+        Could not load app configuration — some options are hidden.{" "}
+        <button
+          type="button"
+          onClick={() => void reload()}
+          style={{
+            color: "inherit",
+            textDecoration: "underline",
+            background: "none",
+            border: "none",
+            padding: 0,
+            font: "inherit",
+            cursor: "pointer",
+          }}
+        >
+          Retry
+        </button>
+      </span>
+      <button
+        type="button"
+        aria-label="Dismiss"
+        onClick={() => setDismissed(true)}
+        style={{
+          color: "inherit",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          font: "inherit",
+          lineHeight: 1,
+        }}
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
 function AppShellWithHeader() {
   const { pill, dock } = useActiveJobs();
   const navigate = useNavigate();
@@ -656,7 +730,12 @@ function AppShellWithHeader() {
             }
           />
         }
-        main={<AppRoutes />}
+        main={
+          <>
+            <ConfigErrorBanner />
+            <AppRoutes />
+          </>
+        }
       />
     </>
   );
