@@ -23,7 +23,7 @@
 //
 // Step 5 — app header + useActiveJobs:
 // Polls GET /api/jobs every 5s, filters to state==="running", maps to
-// ActiveJob shape. No search affordance yet (simple-gui has no search feature).
+// ActiveJob shape.
 //
 // @pdomain/pdomain-ui 0.4.0 — utility dock migration:
 // JobsPill hover popover removed upstream. JobsPill.onClick now wires to
@@ -490,27 +490,9 @@ function SimpleGuiHeader({
           OCR Simple GUI
         </span>
       </div>
-      <button
-        type="button"
-        aria-label="Search"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          height: 32,
-          padding: "0 12px",
-          background: "var(--bg-sunk)",
-          border: "1px solid var(--border-2)",
-          borderRadius: 6,
-          color: "var(--ink-3)",
-          cursor: "default",
-          width: "100%",
-          textAlign: "left",
-          fontFamily: "var(--ui-font)",
-          fontSize: 12.5,
-        }}
-      >
-        Search...
-      </button>
+      {/* Flexible spacer — keeps brand left-aligned and actions right-aligned
+          now that the header has no middle affordance. */}
+      <div aria-hidden />
       <div
         style={{
           display: "flex",
@@ -525,22 +507,6 @@ function SimpleGuiHeader({
           <JobsPill activeJobs={activeJobs} onClick={() => toggle("jobs")} />
         </div>
         <UpdateBadgeHeaderWrapper />
-        <button
-          type="button"
-          data-testid="app-header-bell"
-          aria-label="Notifications"
-          className="app-header__icon-button"
-        >
-          !
-        </button>
-        <button
-          type="button"
-          data-testid="app-header-user"
-          aria-label="User menu"
-          className="app-header__icon-button"
-        >
-          u
-        </button>
       </div>
     </header>
   );
