@@ -4,6 +4,7 @@
 
 import type { ReactNode } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, it, expect, vi } from "vitest";
 
 const fetchDeviceMock = vi.fn(async () => ({
@@ -50,7 +51,33 @@ vi.mock("@pdomain/pdomain-ui/shell", () => ({
       {children}
     </div>
   ),
-  UpdatePanel: vi.fn().mockReturnValue(null),
+  // Stub mirrors the real UpdatePanel's policy selector (label text +
+  // <select> with the same option values) so tests can drive it with
+  // userEvent while still avoiding the real component's styling/DOM.
+  UpdatePanel: ({
+    policy,
+    onPolicyChange,
+  }: {
+    info?: unknown;
+    policy: string;
+    onPolicyChange: (policy: string) => void;
+    onApply?: () => void;
+  }) => (
+    <div data-testid="update-panel-mock">
+      <label htmlFor="update-policy-mock">
+        Update policy
+        <select
+          id="update-policy-mock"
+          value={policy}
+          onChange={(e) => onPolicyChange(e.target.value)}
+        >
+          <option value="notify">Notify (default)</option>
+          <option value="auto">Auto-update on launch</option>
+          <option value="manual">Manual only</option>
+        </select>
+      </label>
+    </div>
+  ),
   UpdateBadge: vi.fn().mockReturnValue(null),
   createApiDeviceConfig: vi.fn().mockReturnValue({
     fetchDevice: fetchDeviceMock,
@@ -177,5 +204,89 @@ describe("settingsPanels", () => {
 
     expect(screen.getByText(/Checking compute devices/i)).toBeInTheDocument();
     expect(screen.getByTestId("cuda-setup-guidance-mock")).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // Task 13 — update-policy selector wired to GET/PUT /api/suite/prefs
+  // -------------------------------------------------------------------------
+  describe("updates panel — update policy wiring", () => {
+    /**
+     * Fetch stub emulating the suite prefs endpoints: GET /api/suite/prefs
+     * returns `{ common }`, PUT /api/suite/prefs/common replaces `common`
+     * wholesale (matching the real backend route) and records every PUT
+     * body so tests can assert sibling fields survive a read-modify-write.
+     */
+    function makeSuitePrefsFetch(initialCommon: Record<string, unknown>) {
+      let common: Record<string, unknown> = { ...initialCommon };
+      const puts: Record<string, unknown>[] = [];
+      const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+        if (
+          typeof url === "string" &&
+          url.includes("/api/suite/prefs/common") &&
+          init?.method === "PUT"
+        ) {
+          const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+          puts.push(body);
+          common = body;
+          return Promise.resolve({
+            ok: true,
+            status: 204,
+            json: async () => ({}),
+          });
+        }
+        if (typeof url === "string" && url.includes("/api/suite/prefs")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ common }),
+          });
+        }
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          json: async () => ({}),
+        });
+      });
+      return { fetchMock, puts };
+    }
+
+    it("loads and persists update policy via suite prefs", async () => {
+      const { fetchMock, puts } = makeSuitePrefsFetch({
+        update_policy: "manual",
+        theme: "dark",
+      });
+      (globalThis as any).fetch = fetchMock;
+
+      const { settingsPanels } = await import("../App");
+      const updates = settingsPanels.find((p) => p.id === "updates");
+      render(<>{updates?.content}</>);
+
+      // Initial GET populates the selector with the stored policy.
+      expect(await screen.findByDisplayValue(/manual/i)).toBeInTheDocument();
+
+      // Changing the selector re-GETs common, flips update_policy, and PUTs
+      // the WHOLE common object back (read-modify-write — sibling fields
+      // like `theme` must survive).
+      await userEvent.selectOptions(screen.getByLabelText(/policy/i), "auto");
+
+      await waitFor(() => {
+        expect(puts).toHaveLength(1);
+      });
+      expect(puts[0]).toMatchObject({ update_policy: "auto", theme: "dark" });
+    });
+
+    it("keeps the notify default and hides the selector when GET /api/suite/prefs fails", async () => {
+      const fetchMock = vi.fn(() =>
+        Promise.resolve({ ok: false, status: 404, json: async () => ({}) }),
+      );
+      (globalThis as any).fetch = fetchMock;
+
+      const { settingsPanels } = await import("../App");
+      const updates = settingsPanels.find((p) => p.id === "updates");
+      render(<>{updates?.content}</>);
+
+      expect(await screen.findByRole("alert")).toBeInTheDocument();
+      expect(screen.queryByTestId("update-panel-mock")).not.toBeInTheDocument();
+    });
   });
 });
