@@ -319,7 +319,7 @@ async def rerun_page(
         # _predictor_cache from that detached thread while a later
         # rerun/job runs. This turns a permanent hang into a bounded
         # failure; it does not stop the leaked thread. Tracked separately:
-        # ocr-container-meta issue: predictor-cache lock (number TBD).
+        # ocr-container-meta#397 (predictor-cache lock).
         timeout_s = batch_timeout_s()
         try:
             stage_result = await asyncio.wait_for(

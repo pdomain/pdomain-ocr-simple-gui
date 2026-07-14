@@ -452,8 +452,8 @@ async def run_project(
             # the dispatcher's lock-free module-level _predictor_cache from
             # that detached thread while a later chunk/job runs. This turns
             # a permanent wedge into a bounded failure; it does not stop the
-            # leaked thread. Tracked separately: ocr-container-meta issue:
-            # predictor-cache lock (number TBD).
+            # leaked thread. Tracked separately: ocr-container-meta#397
+            # (predictor-cache lock).
             timeout_s = batch_timeout_s()
             try:
                 page_dicts: list[dict[str, object]] = await asyncio.wait_for(
