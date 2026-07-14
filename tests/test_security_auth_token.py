@@ -35,8 +35,6 @@ _PREFS_PAYLOAD: dict[str, Any] = {
     "default_engine": "doctr",
     "default_language": "en",
     "default_output_dir": "",
-    "save_json_default": False,
-    "combined_txt_default": True,
     "recent_projects": [],
 }
 

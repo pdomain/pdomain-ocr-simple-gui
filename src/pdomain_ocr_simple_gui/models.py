@@ -78,8 +78,11 @@ class AppPrefs(BaseModel):
     default_engine: str = "doctr"
     default_language: str = "en"
     default_output_dir: str = ""
-    save_json_default: bool = False
-    combined_txt_default: bool = True
+    # NOTE: there is intentionally NO save_json_default / combined_txt_default
+    # knob. Per-page sidecars AND combined.txt are ALWAYS written — nothing
+    # ever read these fields (B-HOME-011 cleanup). Old prefs.json files that
+    # still contain them parse fine: BaseModel's default extra="ignore"
+    # silently drops unknown fields.
     recent_projects: list[dict[str, object]] = []
     ui_prefs: CommonUIPrefs | None = None
     # Where new OCR jobs/projects are stored. Empty = use env var or default.

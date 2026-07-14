@@ -94,8 +94,10 @@ class TestAppPrefs:
         prefs = AppPrefs()
         assert prefs.default_engine == "doctr"
         assert prefs.default_language == "en"
-        assert prefs.save_json_default is False
-        assert prefs.combined_txt_default is True
+        # B-HOME-011 cleanup: save_json_default / combined_txt_default are no
+        # longer fields — nothing ever read them.
+        assert "save_json_default" not in AppPrefs.model_fields
+        assert "combined_txt_default" not in AppPrefs.model_fields
         assert prefs.recent_projects == []
 
     def test_round_trip(self) -> None:

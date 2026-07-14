@@ -18,8 +18,6 @@ class TestGetPrefs:
         data = resp.json()
         assert data["default_engine"] == "doctr"
         assert data["default_language"] == "en"
-        assert data["save_json_default"] is False
-        assert data["combined_txt_default"] is True
         assert data["recent_projects"] == []
 
     async def test_returns_default_prefs_when_adapter_has_no_app_data(
@@ -49,8 +47,6 @@ class TestGetPrefs:
         # All fields must be the AppPrefs defaults
         assert data["default_engine"] == "doctr"
         assert data["default_language"] == "en"
-        assert data["save_json_default"] is False
-        assert data["combined_txt_default"] is True
         assert data["recent_projects"] == []
 
     async def test_returns_stored_prefs(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -62,8 +58,6 @@ class TestGetPrefs:
             "default_engine": "tesseract",
             "default_language": "fr",
             "default_output_dir": "/home/user/ocr",
-            "save_json_default": True,
-            "combined_txt_default": False,
             "recent_projects": [{"project_id": "x", "name": "Old Project"}],
         }
         mock = MagicMock()
@@ -109,8 +103,6 @@ class TestGetPrefs:
         assert data["default_engine"] == "tesseract"
         # Unset fields default correctly
         assert data["default_language"] == "en"
-        assert data["save_json_default"] is False
-        assert data["combined_txt_default"] is True
         assert data["recent_projects"] == []
 
     async def test_returns_defaults_when_no_adapter(self, client_no_prefs: AsyncClient) -> None:
@@ -119,6 +111,39 @@ class TestGetPrefs:
         data = resp.json()
         assert data["default_engine"] == "doctr"
 
+    async def test_ignores_removed_fields_in_stored_prefs(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """GET /api/prefs parses an old prefs.json containing removed fields.
+
+        Backward compatibility: prefs files written before the B-HOME-011
+        field removal may still contain save_json_default/combined_txt_default
+        on disk. Loading must not error, and the removed fields must not
+        appear in the response.
+        """
+        from pdomain_ops.suite.types import UIPrefs
+
+        import pdomain_ocr_simple_gui.app as app_mod
+
+        stored = {
+            "default_engine": "tesseract",
+            "save_json_default": False,
+            "combined_txt_default": True,
+        }
+        mock = MagicMock()
+        ui_prefs = UIPrefs()
+        ui_prefs.apps["pdomain-ocr-simple-gui"] = stored
+        mock.read.return_value = ui_prefs
+        mock.write_app.return_value = None
+        monkeypatch.setattr(app_mod, "_prefs_adapter", mock)
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp = await ac.get("/api/prefs")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["default_engine"] == "tesseract"
+        assert "save_json_default" not in data
+        assert "combined_txt_default" not in data
+
 
 class TestPutPrefs:
     async def test_saves_prefs(self, client_with_mock_prefs: AsyncClient) -> None:
@@ -126,8 +151,6 @@ class TestPutPrefs:
             "default_engine": "tesseract",
             "default_language": "de",
             "default_output_dir": "/tmp/out",
-            "save_json_default": True,
-            "combined_txt_default": False,
             "recent_projects": [],
         }
         resp = await client_with_mock_prefs.put("/api/prefs", json=payload)
@@ -143,8 +166,6 @@ class TestPutPrefs:
         invalid_payload = {
             "default_engine": 12345,  # must be a str, not an int
             "default_language": "en",
-            "save_json_default": False,
-            "combined_txt_default": True,
             "recent_projects": "not-a-list",  # must be a list
         }
         resp = await client_with_mock_prefs.put("/api/prefs", json=invalid_payload)
@@ -168,8 +189,6 @@ class TestPutPrefs:
             "default_engine": "doctr",
             "default_language": "en",
             "default_output_dir": "",
-            "save_json_default": False,
-            "combined_txt_default": True,
             "recent_projects": [],
         }
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -180,7 +199,6 @@ class TestPutPrefs:
         data = resp.json()
         assert data["default_engine"] == "doctr"
         assert data["default_language"] == "en"
-        assert data["save_json_default"] is False
 
     async def test_put_no_adapter_returns_200(self, client_no_prefs: AsyncClient) -> None:
         """PUT /api/prefs with no adapter should still return 200 (best-effort)."""
@@ -188,8 +206,6 @@ class TestPutPrefs:
             "default_engine": "doctr",
             "default_language": "en",
             "default_output_dir": "",
-            "save_json_default": False,
-            "combined_txt_default": True,
             "recent_projects": [],
         }
         resp = await client_no_prefs.put("/api/prefs", json=payload)
@@ -301,8 +317,6 @@ class TestPutPrefsMergeNoClobber:
             "default_engine": "tesseract",
             "default_language": "fr",
             "default_output_dir": "/seed/out",
-            "save_json_default": True,
-            "combined_txt_default": False,
             "recent_projects": [{"project_id": "p1", "name": "Seed"}],
             "ui_prefs": {"theme": "light", "density": "compact", "font_scale": 1.2},
             "jobs_location": jobs_dir,
@@ -321,8 +335,6 @@ class TestPutPrefsMergeNoClobber:
         # Every sibling must survive.
         assert after["default_language"] == "fr"
         assert after["default_output_dir"] == "/seed/out"
-        assert after["save_json_default"] is True
-        assert after["combined_txt_default"] is False
         assert after["recent_projects"] == [{"project_id": "p1", "name": "Seed"}]
         assert after["ui_prefs"]["theme"] == "light"
         assert after["jobs_location"] == jobs_dir
