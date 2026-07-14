@@ -40,12 +40,12 @@ def _upload_root() -> Path:
     return root
 
 
-def _max_bytes() -> int:
+def upload_max_bytes() -> int:
     """Return the per-request upload size cap in bytes."""
     return int(os.environ.get("PD_OCR_SIMPLE_GUI_UPLOAD_MAX_BYTES", _DEFAULT_MAX_BYTES))
 
 
-def _max_files() -> int:
+def upload_max_files() -> int:
     """Return the per-request file count cap."""
     return int(os.environ.get("PD_OCR_SIMPLE_GUI_UPLOAD_MAX_FILES", _DEFAULT_MAX_FILES))
 
@@ -53,14 +53,14 @@ def _max_files() -> int:
 def _max_extracted_bytes() -> int:
     """Return the cap on total decompressed bytes for a single zip extraction.
 
-    Defaults to the compressed-bytes cap (``_max_bytes()``) when unset, so a
+    Defaults to the compressed-bytes cap (``upload_max_bytes()``) when unset, so a
     zip whose declared uncompressed size wildly exceeds its upload size (a
     zip bomb) is rejected before any entry is written to disk.
     """
     raw = os.environ.get("PD_OCR_SIMPLE_GUI_UPLOAD_MAX_EXTRACTED_BYTES")
     if raw is not None:
         return int(raw)
-    return _max_bytes()
+    return upload_max_bytes()
 
 
 class UploadResponse(BaseModel):
@@ -79,14 +79,14 @@ async def post_upload(files: list[UploadFile]) -> UploadResponse:
     """
     if not files:
         raise HTTPException(status_code=400, detail="no files supplied")
-    if len(files) > _max_files():
+    if len(files) > upload_max_files():
         raise HTTPException(status_code=413, detail="too many files")
 
     upload_id = uuid.uuid4().hex
     staging = _upload_root() / upload_id
     staging.mkdir(parents=True)
     total = 0
-    max_total = _max_bytes()
+    max_total = upload_max_bytes()
     try:
         for upload in files:
             name = Path(upload.filename or "unnamed").name  # strip path traversal

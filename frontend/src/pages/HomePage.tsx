@@ -150,6 +150,7 @@ export function HomePage() {
           allowPathInput={false}
           uploadError={uploadError}
           resetToken={sourcePickerResetToken}
+          uploadMaxBytes={config.upload_max_bytes}
           onFilesSelected={chooseFiles}
           onPathChosen={choosePath}
           onClear={clearSource}
@@ -165,6 +166,7 @@ export function HomePage() {
                 allowPathInput={false}
                 uploadError={uploadError}
                 resetToken={sourcePickerResetToken}
+                uploadMaxBytes={config.upload_max_bytes}
                 onFilesSelected={chooseFiles}
                 onPathChosen={choosePath}
                 onClear={clearSource}
@@ -181,6 +183,7 @@ export function HomePage() {
                 recentPaths={recentPaths}
                 uploadError={uploadError}
                 resetToken={sourcePickerResetToken}
+                uploadMaxBytes={config.upload_max_bytes}
                 onFilesSelected={chooseFiles}
                 onPathChosen={choosePath}
                 onClear={clearSource}
@@ -197,6 +200,7 @@ export function HomePage() {
           recentPaths={recentPaths}
           uploadError={uploadError}
           resetToken={sourcePickerResetToken}
+          uploadMaxBytes={config.upload_max_bytes}
           onFilesSelected={chooseFiles}
           onPathChosen={choosePath}
           onClear={clearSource}

@@ -280,6 +280,20 @@ it("adds files to the current file selection", () => {
   ).toBeInTheDocument();
 });
 
+it("renders backend-provided size cap and zip in the formats line", () => {
+  const { container } = renderPicker({ uploadMaxBytes: 2 * 1024 ** 3 });
+  const formats = container.querySelector(".source-picker__formats");
+  expect(formats).toHaveTextContent(/ZIP/);
+  expect(formats).toHaveTextContent(/max 2 GiB/);
+});
+
+it("omits the max-size segment when uploadMaxBytes is absent", () => {
+  const { container } = renderPicker();
+  const formats = container.querySelector(".source-picker__formats");
+  expect(formats).toHaveTextContent(/ZIP/);
+  expect(formats).not.toHaveTextContent(/max/);
+});
+
 it("removes individual files from the current file selection", () => {
   const onFilesSelected = vi.fn();
   renderPicker({ onFilesSelected });

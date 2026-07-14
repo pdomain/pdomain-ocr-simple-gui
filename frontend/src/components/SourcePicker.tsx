@@ -13,9 +13,23 @@ export interface SourcePickerProps {
   pathHint?: string;
   uploadError?: string | null;
   resetToken?: unknown;
+  uploadMaxBytes?: number;
   onFilesSelected: (files: File[]) => void;
   onPathChosen: (path: string) => void;
   onClear?: () => void;
+}
+
+// Formats a byte count as whole GiB (e.g. "2 GiB", not "2.0 GiB").
+function formatBytes(bytes: number): string {
+  const gib = bytes / 1024 ** 3;
+  return `${Math.round(gib)} GiB`;
+}
+
+function formatsLine(uploadMaxBytes: number | undefined): string {
+  const base = "PDF | TIFF | JP2 | PNG | JPG | ZIP";
+  return uploadMaxBytes === undefined
+    ? base
+    : `${base} | max ${formatBytes(uploadMaxBytes)}`;
 }
 
 interface ChosenDescription {
@@ -178,8 +192,8 @@ export function SourcePicker(props: SourcePickerProps) {
             <>
               <h2>Drop a file or folder to start OCR</h2>
               <p>
-                PDF, multi-page TIFF, or a folder of images. Pages are queued
-                and OCR&apos;d in the background.
+                PDF, multi-page TIFF, ZIP, or a folder of images. Pages are
+                queued and OCR&apos;d in the background.
               </p>
               <div className="source-picker__actions">
                 {allowFolderBrowse ? (
@@ -204,7 +218,7 @@ export function SourcePicker(props: SourcePickerProps) {
                 </Button>
               </div>
               <p className="source-picker__formats">
-                PDF | TIFF | JP2 | PNG | JPG | max 5 GB
+                {formatsLine(props.uploadMaxBytes)}
               </p>
             </>
           ) : (

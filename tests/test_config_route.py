@@ -43,6 +43,8 @@ def test_config_route_local_not_containerized(monkeypatch) -> None:
                 "reason": "Tesseract language data is unavailable.",
             },
         ],
+        "upload_max_bytes": 2 * 1024**3,
+        "upload_max_files": 5000,
     }
 
 
@@ -75,6 +77,8 @@ def test_config_route_managed_containerized(monkeypatch) -> None:
             {"id": "doctr", "label": "DocTR", "available": True, "reason": None},
             {"id": "tesseract", "label": "Tesseract", "available": True, "reason": None},
         ],
+        "upload_max_bytes": 2 * 1024**3,
+        "upload_max_files": 5000,
     }
 
 
@@ -96,6 +100,18 @@ def test_config_route_defaults_to_local_when_mode_env_unset(monkeypatch) -> None
     # Mode should default to "local" or some valid mode string — not crash
     assert isinstance(data["mode"], str)
     assert data["mode"]  # not empty
+
+
+def test_config_reports_upload_limits(monkeypatch) -> None:
+    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_UPLOAD_MAX_BYTES", str(3 * 1024**3))
+    monkeypatch.setattr(
+        "pdomain_ocr_simple_gui.routes.config._detect_device",
+        lambda: "cpu",
+    )
+    client = TestClient(create_app())
+    body = client.get("/api/config").json()
+    assert body["upload_max_bytes"] == 3 * 1024**3
+    assert body["upload_max_files"] == 5000
 
 
 def test_config_route_managed_mode_without_containerized(monkeypatch) -> None:
