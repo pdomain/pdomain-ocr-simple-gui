@@ -13,6 +13,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { apiFetch } from "../api/apiFetch";
 
 export interface RuntimeConfig {
   mode: "local" | "managed";
@@ -48,7 +49,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/config");
+      const res = await apiFetch("/api/config");
       if (!res.ok) {
         setError(true);
         return;
@@ -65,7 +66,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     let aborted = false;
     void (async () => {
       try {
-        const res = await fetch("/api/config");
+        const res = await apiFetch("/api/config");
         if (aborted) return;
         if (!res.ok) {
           setError(true);

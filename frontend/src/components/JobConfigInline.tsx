@@ -18,6 +18,7 @@ import {
   Segmented,
 } from "@pdomain/pdomain-ui/primitives";
 import { OutputConfigPanel, type OutputConfigValue } from "./OutputConfigPanel";
+import { apiFetch } from "../api/apiFetch";
 import { APP_TEST_IDS } from "../lib/testids";
 import type {
   ChosenSource,
@@ -164,7 +165,7 @@ export function JobConfigInline({
   // Load engine/language defaults from prefs on mount
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/prefs")
+    apiFetch("/api/prefs")
       .then(async (res) => {
         if (!res.ok || cancelled) return;
         const data = (await res.json()) as PrefsResponse;

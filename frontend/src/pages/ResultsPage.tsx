@@ -16,6 +16,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Progress, JobStatusPip, Button } from "@pdomain/pdomain-ui/primitives";
 import { useOcrJob } from "../api/useOcrJob";
+import { apiFetch } from "../api/apiFetch";
 import { APP_TEST_IDS } from "../lib/testids";
 
 const POLL_INTERVAL_MS = 1000;
@@ -44,7 +45,7 @@ export default function ResultsPage() {
     setRerunPending(true);
     setRerunError(null);
     try {
-      const res = await fetch(`/api/jobs/${id}/rerun`, { method: "POST" });
+      const res = await apiFetch(`/api/jobs/${id}/rerun`, { method: "POST" });
       if (res.ok) {
         // Bump rerunKey so effectiveJobId changes, forcing useLongJob to
         // restart its polling loop (it stops when it reaches a terminal state).

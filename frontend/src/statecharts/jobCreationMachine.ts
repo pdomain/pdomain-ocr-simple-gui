@@ -1,4 +1,5 @@
 import { assign, fromPromise, setup } from "xstate";
+import { apiFetch } from "../api/apiFetch";
 import {
   type ChosenSource,
   type JobCreationContext,
@@ -48,7 +49,7 @@ function profileFromConfig(config: RuntimeConfig): RuntimeProfile {
 }
 
 async function defaultLoadConfig(): Promise<RuntimeConfig> {
-  const res = await fetch("/api/config");
+  const res = await apiFetch("/api/config");
   if (!res.ok) throw new Error(`GET /api/config failed: ${res.status}`);
   return (await res.json()) as RuntimeConfig;
 }
@@ -58,7 +59,7 @@ async function defaultUploadFiles(input: {
 }): Promise<{ uploadId: string }> {
   const form = new FormData();
   input.files.forEach((file) => form.append("files", file));
-  const res = await fetch("/api/uploads", { method: "POST", body: form });
+  const res = await apiFetch("/api/uploads", { method: "POST", body: form });
   if (!res.ok) throw new Error(`POST /api/uploads failed: ${res.status}`);
   const body = (await res.json()) as { upload_id: string };
   return { uploadId: body.upload_id };
@@ -72,7 +73,7 @@ async function defaultCreateJob(input: {
   if (input.source.kind === "upload") body.upload_id = input.source.uploadId;
   if (input.source.kind === "path") body.source_path = input.source.path;
 
-  const res = await fetch("/api/jobs", {
+  const res = await apiFetch("/api/jobs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

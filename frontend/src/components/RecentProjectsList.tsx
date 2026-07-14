@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { JobStatusPip } from "@pdomain/pdomain-ui/primitives";
 import type { JobState } from "@pdomain/pdomain-ui/types";
+import { apiFetch } from "../api/apiFetch";
 import { APP_TEST_IDS } from "../lib/testids";
 
 interface RecentProject {
@@ -45,7 +46,7 @@ export function RecentProjectsList() {
   const { data, isLoading } = useQuery<RecentProject[]>({
     queryKey: ["recent-projects"],
     queryFn: async () => {
-      const res = await fetch("/api/prefs");
+      const res = await apiFetch("/api/prefs");
       if (!res.ok) return [];
       const body = (await res.json()) as PrefsResponse;
       return body.recent_projects ?? [];

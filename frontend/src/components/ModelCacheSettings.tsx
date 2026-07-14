@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { Button } from "@pdomain/pdomain-ui/primitives";
+import { apiFetch } from "../api/apiFetch";
 
 interface ModelCacheFile {
   filename: string;
@@ -30,7 +31,7 @@ export function ModelCacheSettings() {
       setLoading(true);
       setError("");
       try {
-        const res = await fetch("/api/models/cache");
+        const res = await apiFetch("/api/models/cache");
         if (!res.ok) {
           throw new Error(`GET /api/models/cache failed: ${res.status}`);
         }
@@ -51,7 +52,7 @@ export function ModelCacheSettings() {
     setPrecaching(true);
     setError("");
     try {
-      const res = await fetch("/api/models/precache", { method: "POST" });
+      const res = await apiFetch("/api/models/precache", { method: "POST" });
       if (!res.ok) {
         throw new Error(`POST /api/models/precache failed: ${res.status}`);
       }

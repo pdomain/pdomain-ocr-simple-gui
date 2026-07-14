@@ -15,6 +15,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button, Input } from "@pdomain/pdomain-ui/primitives";
+import { apiFetch } from "../api/apiFetch";
 import { APP_TEST_IDS } from "../lib/testids";
 
 /** Shape of the GET /api/prefs response we care about here. */
@@ -43,7 +44,7 @@ export function JobsLocationSettings() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/prefs");
+        const res = await apiFetch("/api/prefs");
         if (!res.ok) return;
         const data = (await res.json()) as PrefsResponse;
         if (cancelled) return;
@@ -71,7 +72,7 @@ export function JobsLocationSettings() {
       const merged = { ...prefs, jobs_location: value };
       // effective_jobs_location is a read-only echo — don't send it back.
       delete merged.effective_jobs_location;
-      const res = await fetch("/api/prefs", {
+      const res = await apiFetch("/api/prefs", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(merged),
@@ -93,7 +94,7 @@ export function JobsLocationSettings() {
       // Re-fetch effective location so the read-only display reflects the new
       // resolution (env may still override, in which case it stays unchanged).
       try {
-        const fresh = await fetch("/api/prefs");
+        const fresh = await apiFetch("/api/prefs");
         if (fresh.ok) {
           const freshData = (await fresh.json()) as PrefsResponse;
           setEffective(freshData.effective_jobs_location ?? effective);
