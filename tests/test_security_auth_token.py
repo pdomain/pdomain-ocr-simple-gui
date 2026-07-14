@@ -223,6 +223,26 @@ class TestListJobsAuth:
 
 
 # ---------------------------------------------------------------------------
+# Token authentication tests — POST/DELETE /api/uploads
+# ---------------------------------------------------------------------------
+
+
+class TestUploadsAuth:
+    async def test_post_uploads_requires_token(self, secured_app_client: AsyncClient) -> None:
+        """POST /api/uploads with no auth header → 401 when token env var is set."""
+        resp = await secured_app_client.post(
+            "/api/uploads",
+            files={"files": ("a.png", b"fake-bytes", "image/png")},
+        )
+        assert resp.status_code == 401
+
+    async def test_delete_uploads_requires_token(self, secured_app_client: AsyncClient) -> None:
+        """DELETE /api/uploads/{id} with no auth header → 401 when token env var is set."""
+        resp = await secured_app_client.delete("/api/uploads/deadbeef")
+        assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
 # Suite middleware tests — /api/suite/launch and /api/suite/stop
 # ---------------------------------------------------------------------------
 

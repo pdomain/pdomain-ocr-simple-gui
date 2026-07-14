@@ -12,9 +12,11 @@ import uuid
 import zipfile
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
+
+from pdomain_ocr_simple_gui.auth import require_token
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +55,7 @@ class UploadResponse(BaseModel):
     upload_id: str
 
 
-@router.post("/api/uploads", response_model=UploadResponse)
+@router.post("/api/uploads", response_model=UploadResponse, dependencies=[Depends(require_token)])
 async def post_upload(files: list[UploadFile]) -> UploadResponse:
     """Accept multipart file uploads and stream them into a staging directory.
 
@@ -98,7 +100,7 @@ async def post_upload(files: list[UploadFile]) -> UploadResponse:
         raise
 
 
-@router.delete("/api/uploads/{upload_id}", response_class=Response)
+@router.delete("/api/uploads/{upload_id}", response_class=Response, dependencies=[Depends(require_token)])
 async def delete_upload(upload_id: str) -> Response:
     """Delete the staging directory for *upload_id*.
 
