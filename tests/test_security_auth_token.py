@@ -279,6 +279,23 @@ class TestSuiteAuth:
         )
         assert resp.status_code == 401
 
+    @pytest.mark.parametrize(
+        ("method", "path"),
+        [
+            ("PUT", "/api/suite/device"),
+            ("PUT", "/api/suite/prefs/common"),
+            ("PUT", "/api/suite/prefs/apps/some-app"),
+            ("POST", "/api/suite/update"),
+            ("POST", "/api/suite/launch"),  # already protected — regression guard
+        ],
+    )
+    async def test_mutating_suite_routes_require_token(
+        self, secured_app_client: AsyncClient, method: str, path: str
+    ) -> None:
+        """Every mutating /api/suite/* path requires the token, not just launch."""
+        resp = await secured_app_client.request(method, path, json={})
+        assert resp.status_code == 401
+
 
 # ---------------------------------------------------------------------------
 # No-token env-var mode — all endpoints accessible

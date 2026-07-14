@@ -28,13 +28,12 @@ if TYPE_CHECKING:
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
-# Suite paths that need middleware-level protection (can't use Depends).
-SUITE_PROTECTED_PATHS = frozenset(
-    {
-        "/api/suite/launch",
-        "/api/suite/stop",
-    }
-)
+# HTTP methods that mutate state; suite routes using any of these under the
+# /api/suite/ prefix require the token (see suite_token_middleware). This
+# replaces a hardcoded path set — new suite mounts are protected without a
+# manual allowlist edit, and GETs stay open.
+_SUITE_MUTATING_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
+_SUITE_PATH_PREFIX = "/api/suite/"
 
 
 def _configured_token() -> str:
@@ -82,14 +81,15 @@ async def require_token(
 
 
 async def suite_token_middleware(request: Request, call_next: RequestResponseEndpoint) -> Response:
-    """Starlette middleware that protects /api/suite/* paths.
+    """Starlette middleware that protects mutating /api/suite/* paths.
 
     Suite routes are mounted externally (pdomain_ops.suite.routes) and
-    cannot use FastAPI Depends. This middleware intercepts requests to the
-    suite paths and applies the same token check before forwarding.
+    cannot use FastAPI Depends. This middleware intercepts mutating requests
+    (POST/PUT/DELETE/PATCH) under the suite prefix and applies the same
+    token check before forwarding; GETs stay open.
     """
     path = request.url.path
-    if path in SUITE_PROTECTED_PATHS:
+    if path.startswith(_SUITE_PATH_PREFIX) and request.method in _SUITE_MUTATING_METHODS:
         token = _configured_token()
         if token:
             # Must carry a valid token.
