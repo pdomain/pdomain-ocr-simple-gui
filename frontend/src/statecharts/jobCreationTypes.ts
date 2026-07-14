@@ -6,6 +6,8 @@ export interface RuntimeConfig {
   detected_device: string;
   gpu_available: boolean;
   ocr_engines?: OcrEngineConfig[];
+  upload_max_bytes?: number;
+  upload_max_files?: number;
 }
 
 export interface OcrEngineConfig {

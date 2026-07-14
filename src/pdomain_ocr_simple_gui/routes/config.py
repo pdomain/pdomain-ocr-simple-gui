@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from pdomain_ocr_simple_gui.routes.uploads import upload_max_bytes, upload_max_files
 from pdomain_ocr_simple_gui.runtime.container_detect import detect_containerized
 from pdomain_ocr_simple_gui.runtime.mode import read_mode
 from pdomain_ocr_simple_gui.runtime.ocr_engines import detect_ocr_engines
@@ -19,6 +20,8 @@ class ConfigResponse(BaseModel):
     detected_device: str
     gpu_available: bool
     ocr_engines: list[dict[str, object]]
+    upload_max_bytes: int
+    upload_max_files: int
 
 
 def _detect_device() -> str:
@@ -45,4 +48,6 @@ def get_config() -> ConfigResponse:
         detected_device=device,
         gpu_available=device != "cpu",
         ocr_engines=detect_ocr_engines(),
+        upload_max_bytes=upload_max_bytes(),
+        upload_max_files=upload_max_files(),
     )

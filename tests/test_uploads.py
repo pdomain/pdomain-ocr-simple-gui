@@ -1,4 +1,5 @@
 # tests/test_uploads.py
+import asyncio
 import io
 import zipfile
 from pathlib import Path
@@ -11,6 +12,14 @@ from pdomain_ocr_simple_gui.app import create_app
 def _client(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("PD_OCR_SIMPLE_GUI_UPLOAD_ROOT", str(tmp_path))
     return TestClient(create_app())
+
+
+def _make_zip(entries: dict[str, bytes]) -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for name, data in entries.items():
+            zf.writestr(name, data)
+    return buf.getvalue()
 
 
 def test_single_image_upload(tmp_path: Path, monkeypatch) -> None:
@@ -83,3 +92,34 @@ def test_delete_upload_rejects_unsafe_id(tmp_path: Path, monkeypatch) -> None:
     resp = client.delete("/api/uploads/..foo..")
     assert resp.status_code == 400
     assert victim.exists(), "validation must reject before any filesystem op"
+
+
+def test_zip_bomb_rejected(tmp_path: Path, monkeypatch) -> None:
+    """A zip that declares far more decompressed bytes than compressed is rejected 413."""
+    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_UPLOAD_MAX_EXTRACTED_BYTES", "1024")
+    client = _client(tmp_path, monkeypatch)
+    bomb = _make_zip({"a.png": b"\0" * 10_000})  # 10 KB declared, tiny compressed
+    resp = client.post(
+        "/api/uploads",
+        files={"files": ("b.zip", bomb, "application/zip")},
+    )
+    assert resp.status_code == 413
+
+
+def test_zip_extraction_offloaded(tmp_path: Path, monkeypatch) -> None:
+    """Zip extraction runs via asyncio.to_thread so it does not block the event loop."""
+    called: dict[str, str] = {}
+    real_to_thread = asyncio.to_thread
+
+    async def spy(fn, *args, **kwargs):
+        called["fn"] = getattr(fn, "__name__", "?")
+        return await real_to_thread(fn, *args, **kwargs)
+
+    monkeypatch.setattr(asyncio, "to_thread", spy)
+    client = _client(tmp_path, monkeypatch)
+    resp = client.post(
+        "/api/uploads",
+        files={"files": ("c.zip", _make_zip({"a.png": b"x"}), "application/zip")},
+    )
+    assert resp.status_code == 200
+    assert called["fn"] == "_extract_in_place"

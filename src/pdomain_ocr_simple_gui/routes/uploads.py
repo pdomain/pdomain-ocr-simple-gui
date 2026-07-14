@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
@@ -39,14 +40,27 @@ def _upload_root() -> Path:
     return root
 
 
-def _max_bytes() -> int:
+def upload_max_bytes() -> int:
     """Return the per-request upload size cap in bytes."""
     return int(os.environ.get("PD_OCR_SIMPLE_GUI_UPLOAD_MAX_BYTES", _DEFAULT_MAX_BYTES))
 
 
-def _max_files() -> int:
+def upload_max_files() -> int:
     """Return the per-request file count cap."""
     return int(os.environ.get("PD_OCR_SIMPLE_GUI_UPLOAD_MAX_FILES", _DEFAULT_MAX_FILES))
+
+
+def _max_extracted_bytes() -> int:
+    """Return the cap on total decompressed bytes for a single zip extraction.
+
+    Defaults to the compressed-bytes cap (``upload_max_bytes()``) when unset, so a
+    zip whose declared uncompressed size wildly exceeds its upload size (a
+    zip bomb) is rejected before any entry is written to disk.
+    """
+    raw = os.environ.get("PD_OCR_SIMPLE_GUI_UPLOAD_MAX_EXTRACTED_BYTES")
+    if raw is not None:
+        return int(raw)
+    return upload_max_bytes()
 
 
 class UploadResponse(BaseModel):
@@ -65,14 +79,14 @@ async def post_upload(files: list[UploadFile]) -> UploadResponse:
     """
     if not files:
         raise HTTPException(status_code=400, detail="no files supplied")
-    if len(files) > _max_files():
+    if len(files) > upload_max_files():
         raise HTTPException(status_code=413, detail="too many files")
 
     upload_id = uuid.uuid4().hex
     staging = _upload_root() / upload_id
     staging.mkdir(parents=True)
     total = 0
-    max_total = _max_bytes()
+    max_total = upload_max_bytes()
     try:
         for upload in files:
             name = Path(upload.filename or "unnamed").name  # strip path traversal
@@ -86,7 +100,9 @@ async def post_upload(files: list[UploadFile]) -> UploadResponse:
                 tmp_path = Path(tmp.name)
             _ = tmp_path.rename(target)
             if target.suffix.lower() == ".zip":
-                _extract_in_place(target)
+                # Extraction is CPU/IO-bound synchronous work — run it off the
+                # event loop so one large zip doesn't stall other requests.
+                await asyncio.to_thread(_extract_in_place, target)
         return UploadResponse(upload_id=upload_id)
     except HTTPException:
         shutil.rmtree(staging, ignore_errors=True)
@@ -132,10 +148,16 @@ def _extract_in_place(zip_path: Path) -> None:
     """Extract a zip file into its parent directory, then remove the zip.
 
     Raises HTTPException(400) if any entry would escape the parent directory
-    (traversal guard).
+    (traversal guard), and HTTPException(413) if the total decompressed size
+    exceeds ``_max_extracted_bytes()`` (zip-bomb guard) — checked before any
+    entry is written to disk. Runs synchronously; callers on the event loop
+    must dispatch via ``asyncio.to_thread``.
     """
     extract_to = zip_path.parent
     with zipfile.ZipFile(zip_path) as zf:
+        total = sum(info.file_size for info in zf.infolist())
+        if total > _max_extracted_bytes():
+            raise HTTPException(status_code=413, detail="zip expands beyond extraction cap")
         for info in zf.infolist():
             target = (extract_to / info.filename).resolve()
             if not str(target).startswith(str(extract_to.resolve()) + "/"):

@@ -710,6 +710,55 @@ class TestRunProject:
         assert all(p.state == "failed" for p in status.pages)
         assert elapsed < 5.0, f"run_project took {elapsed:.1f}s — dispatcher wait was not bounded"
 
+    async def test_run_project_times_out_hung_dispatcher(self, tmp_path: Path, monkeypatch) -> None:
+        """A dispatcher that never returns is bounded by PDOMAIN_OCR_BATCH_TIMEOUT_S.
+
+        The wall-clock assertion (not just the terminal state) is the point:
+        without the timeout wired in, the chunk would still end up "failed"
+        eventually (indexing the never-returned batch result raises), but
+        only after the full 30s sleep — the job would sit "running" for
+        30s instead of failing in ~0.05s.
+        """
+        import asyncio
+        import time
+
+        root = tmp_path / "projects"
+        root.mkdir()
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT", str(root))
+        monkeypatch.setenv("PDOMAIN_OCR_BATCH_TIMEOUT_S", "0.05")
+
+        src = tmp_path / "source"
+        src.mkdir()
+        (src / "page0.png").write_bytes(b"fake-png")
+
+        spec = _make_spec(tmp_path, source_path=str(src))
+        from pdomain_ocr_simple_gui.storage import read_project, write_project
+
+        write_project(
+            spec,
+            ProjectStatus(
+                project_id=spec.project_id,
+                state="queued",
+                page_count=1,
+                pages_done=0,
+                pages=[PageResult(page_idx=0, page_name="page0.png", state="queued")],
+            ),
+        )
+
+        class HungDispatcher:
+            async def run_ocr_batch(self, req: object) -> list[dict[str, object]]:
+                await asyncio.sleep(30)
+                return []
+
+        start = time.monotonic()
+        await run_project(spec, HungDispatcher(), AsyncMock())
+        elapsed = time.monotonic() - start
+
+        _, status = read_project(spec.project_id)
+        assert status.state == "failed"
+        assert all(p.state == "failed" for p in status.pages)
+        assert elapsed < 5.0, f"run_project took {elapsed:.1f}s — dispatcher wait was not bounded"
+
     async def test_extracts_text_from_page_dict(self, tmp_path: Path, monkeypatch) -> None:
         """run_project extracts text from the page dict and writes it."""
 
