@@ -61,13 +61,10 @@ ApiJobState: TypeAlias = Literal["queued", "running", "succeeded", "failed", "ca
 class OCRDispatcher(Protocol):
     """Structural type for OCR dispatchers used by this module.
 
-    NOTE: ``run_ocr_batch`` does not accept a device parameter — device
-    selection is handled internally by the LocalStageDispatcher (VRAM sizing
-    + OOM backoff + CPU fallback).  The user's device choice (spec.device)
-    is therefore not forwarded to the batch seam.  This is a known gap:
-    when the pdomain-ops OcrBatchRequest gains a device field, wire
-    spec.device through here.  See: follow-up on device override in
-    Wave-3 batch seam (ocr-container-meta).
+    ``run_ocr_batch`` accepts ``OcrBatchRequest.device`` — populated from
+    ``resolve_device(spec.device)`` where the request is built (see
+    :func:`run_project`) — and consumed by
+    ``pdomain_ops.gpu.LocalStageDispatcher.run_ocr_batch``.
     """
 
     async def run_ocr_batch(
@@ -82,15 +79,16 @@ class OCRDispatcher(Protocol):
 
 
 def resolve_device(choice: str) -> str | None:
-    """Translate a job's device choice into a run_stage override.
+    """Translate a job's device choice into a run_stage/run_ocr_batch override.
 
     - "auto" -> None (dispatcher auto-detects via pick_device)
     - "cpu"  -> "cpu"
     - "gpu"  -> the detected accelerator ("local"/"mps"); falls back to the
       detected device, which run_stage degrades to cpu when no GPU impl.
 
-    NOTE: This function is preserved for informational use but is NOT
-    forwarded to run_ocr_batch (which has no device parameter yet).
+    The result is forwarded to both dispatch seams: :func:`run_project`
+    passes it as ``OcrBatchRequest.device``, and ``routes.pages.rerun_page``
+    passes it as ``run_stage(..., device=...)``.
     """
     if choice == "cpu":
         return "cpu"
@@ -346,12 +344,11 @@ async def run_project(
        not abort the whole job.
     5. Calls *status_callback* after each chunk.
 
-    **Device note:** ``run_ocr_batch`` does not accept a device parameter;
-    device selection (VRAM sizing, OOM backoff, CPU fallback) is handled
-    internally by the LocalStageDispatcher.  The user's ``spec.device``
-    choice is therefore not forwarded.  When the pdomain-ops
-    ``OcrBatchRequest`` gains a device field this should be wired here.
-    See: follow-up on device override in Wave-3 batch seam.
+    **Device note:** ``OcrBatchRequest.device`` is populated from
+    ``resolve_device(spec.device)`` when the request is built below, and is
+    consumed by ``LocalStageDispatcher.run_ocr_batch`` (VRAM sizing, OOM
+    backoff, CPU fallback still happen inside the dispatcher, but the
+    caller's device choice is honored as the starting point).
 
     The project must already be written to storage with a ``pages`` list
     matching the discovered images (page names = image filenames) before

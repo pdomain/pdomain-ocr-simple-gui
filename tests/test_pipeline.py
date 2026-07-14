@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
 from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
 from pdomain_ocr_simple_gui.pipeline import (
     build_sidecar_payload,
@@ -601,8 +603,21 @@ class TestRunProject:
         assert received[0].project_id == spec.project_id
         assert isinstance(received[0], ProjectStatus)
 
-    async def test_run_ocr_batch_request_fields(self, tmp_path: Path, monkeypatch) -> None:
-        """run_project passes correct engine, language, and image bytes to run_ocr_batch."""
+    @pytest.mark.parametrize(
+        ("device_choice", "expected_req_device"),
+        [
+            ("auto", None),
+            ("cpu", "cpu"),
+        ],
+    )
+    async def test_run_ocr_batch_request_fields(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+        device_choice: str,
+        expected_req_device: str | None,
+    ) -> None:
+        """run_project passes correct engine, language, image bytes, and device to run_ocr_batch."""
 
         root = tmp_path / "projects"
         root.mkdir()
@@ -613,7 +628,7 @@ class TestRunProject:
         img = src / "pg.png"
         img.write_bytes(b"fake-image-bytes")
 
-        spec = _make_spec(tmp_path, source_path=str(src))
+        spec = _make_spec(tmp_path, source_path=str(src)).model_copy(update={"device": device_choice})
         pages = [PageResult(page_idx=0, page_name="pg.png", state="queued")]
         from pdomain_ocr_simple_gui.storage import write_project
 
@@ -644,6 +659,7 @@ class TestRunProject:
         assert req.engine == spec.engine
         assert req.language == spec.language
         assert req.images == [b"fake-image-bytes"]
+        assert req.device == expected_req_device
 
     async def test_run_project_times_out_hung_dispatcher(self, tmp_path: Path, monkeypatch) -> None:
         """A dispatcher that never returns is bounded by PDOMAIN_OCR_BATCH_TIMEOUT_S.
