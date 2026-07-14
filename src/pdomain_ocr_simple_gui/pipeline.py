@@ -11,7 +11,9 @@ Entry points:
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Protocol, TypeAlias, cast
 
@@ -46,6 +48,9 @@ _IMAGE_SUFFIXES: frozenset[str] = frozenset(
 
 # Default batch size when spec.batch_pages is None.
 _DEFAULT_BATCH_PAGES: int = 8
+
+# Default per-chunk dispatcher timeout in seconds (15 minutes).
+_DEFAULT_BATCH_TIMEOUT_S: float = 900.0
 
 JsonPrimitive: TypeAlias = str | int | float | bool | None
 JsonValue: TypeAlias = JsonPrimitive | list["JsonValue"] | dict[str, "JsonValue"]
@@ -97,6 +102,21 @@ def resolve_device(choice: str) -> str | None:
         except (ImportError, ValueError, RuntimeError):
             return None
     return None
+
+
+def batch_timeout_s() -> float | None:
+    """Return the per-chunk dispatcher wait timeout in seconds, or ``None`` to disable it.
+
+    Reads ``PDOMAIN_OCR_BATCH_TIMEOUT_S`` (float seconds, default
+    :data:`_DEFAULT_BATCH_TIMEOUT_S`). A value ``<= 0`` disables the timeout
+    (``asyncio.wait_for(..., timeout=None)`` waits indefinitely) — some
+    deployments run engines whose per-chunk latency is unbounded by design
+    and need to opt out. Shared by :func:`run_project` (batch dispatch) and
+    ``routes.pages.rerun_page`` (single-page dispatch).
+    """
+    raw = os.environ.get("PDOMAIN_OCR_BATCH_TIMEOUT_S")
+    timeout = float(raw) if raw else _DEFAULT_BATCH_TIMEOUT_S
+    return timeout if timeout > 0 else None
 
 
 def _json_object_or_none(value: object) -> JsonObject | None:
@@ -426,7 +446,29 @@ async def run_project(
                 device=resolve_device(spec.device),
             )
 
-            page_dicts: list[dict[str, object]] = await dispatcher.run_ocr_batch(req)
+            # Bound the dispatcher wait so a hung engine fails the chunk
+            # instead of wedging the job in "running" forever and leaking a
+            # semaphore slot. Limitation: asyncio.wait_for cancels the
+            # awaiting coroutine here, but run_ocr_batch's actual OCR work
+            # runs in a pdomain-ops LocalStageDispatcher executor thread,
+            # which keeps running after cancellation and can still mutate
+            # the dispatcher's lock-free module-level _predictor_cache from
+            # that detached thread while a later chunk/job runs. This turns
+            # a permanent wedge into a bounded failure; it does not stop the
+            # leaked thread. Tracked separately: ocr-container-meta issue:
+            # predictor-cache lock (number TBD).
+            timeout_s = batch_timeout_s()
+            try:
+                page_dicts: list[dict[str, object]] = await asyncio.wait_for(
+                    dispatcher.run_ocr_batch(req), timeout=timeout_s
+                )
+            except TimeoutError:
+                logger.exception(
+                    "OCR batch timed out after %.1fs (PDOMAIN_OCR_BATCH_TIMEOUT_S); marking chunk failed",
+                    timeout_s,
+                    extra={"context": f"chunk_start={chunk_start}, chunk_end={chunk_end}"},
+                )
+                raise
 
             # Post-process each page in the successful chunk
             for local_i, (idx, img_path) in enumerate(zip(chunk_indices, chunk_images, strict=True)):
