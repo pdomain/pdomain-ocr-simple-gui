@@ -27,6 +27,8 @@ from unittest.mock import MagicMock
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from pdomain_ocr_simple_gui.testing.fake_dispatcher import FakeStageDispatcher
+
 pytestmark = pytest.mark.anyio
 
 _TOKEN = "test-secret-token"
@@ -339,6 +341,41 @@ class TestNoTokenMode:
         assert resp.status_code == 200
 
 
+async def _create_succeeded_project(client: AsyncClient, tmp_path: Path) -> str:
+    """Create a job that runs to completion via the fake dispatcher; return its id.
+
+    Requires the ``use_fake_dispatcher`` fixture to already be active so the
+    background pipeline run uses fake OCR instead of loading model weights.
+    """
+    from io import BytesIO
+
+    from PIL import Image
+
+    src = tmp_path / "rerun-source"
+    src.mkdir()
+    buf = BytesIO()
+    Image.new("RGB", (4, 4), color="white").save(buf, format="PNG")
+    (src / "page001.png").write_bytes(buf.getvalue())
+
+    resp = await client.post(
+        "/api/jobs",
+        json={
+            "name": "rerun-cap-test",
+            "source_path": str(src),
+            "output_dir": str(tmp_path / "rerun-output"),
+            "engine": "doctr",
+            "language": "en",
+        },
+    )
+    assert resp.status_code == 202
+    project_id = resp.json()["project_id"]
+
+    status_resp = await client.get(f"/api/jobs/{project_id}")
+    assert status_resp.status_code == 200
+    assert status_resp.json()["state"] == "succeeded"
+    return project_id
+
+
 # ---------------------------------------------------------------------------
 # Concurrent jobs semaphore — 429 when exhausted
 # ---------------------------------------------------------------------------
@@ -374,4 +411,26 @@ class TestMaxConcurrentJobs:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             resp = await ac.post("/api/jobs", json=_JOB_PAYLOAD)
 
+        assert resp.status_code == 429
+
+    async def test_rerun_respects_concurrency_cap(
+        self,
+        open_app_client: AsyncClient,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        use_fake_dispatcher: FakeStageDispatcher,
+    ) -> None:
+        """Rerun is blocked by the same concurrency cap as create_job (429).
+
+        Strategy: run a job to completion via the fake dispatcher, then
+        exhaust the semaphore and confirm POST .../rerun also sees the cap
+        instead of bypassing it.
+        """
+        project_id = await _create_succeeded_project(open_app_client, tmp_path)
+
+        import pdomain_ocr_simple_gui.routes.jobs as jobs_mod
+
+        monkeypatch.setattr(jobs_mod, "_job_semaphore", asyncio.Semaphore(0))
+
+        resp = await open_app_client.post(f"/api/jobs/{project_id}/rerun")
         assert resp.status_code == 429

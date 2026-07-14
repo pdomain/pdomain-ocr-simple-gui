@@ -476,26 +476,37 @@ async def rerun_job(project_id: str, background_tasks: BackgroundTasks) -> dict[
     except InvalidJobTransition as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    # Reset all pages to queued
-    reset_pages = [
-        PageResult(
-            page_idx=page.page_idx,
-            page_name=page.page_name,
-            state="queued",
-        )
-        for page in status.pages
-    ]
-    reset_status = ProjectStatus(
-        project_id=project_id,
-        state=reset_state,
-        page_count=status.page_count,
-        pages_done=0,
-        pages=reset_pages,
-    )
-    write_project(spec, reset_status)
+    # Check concurrent-jobs cap before mutating any stored state — see
+    # create_job's comment on why the check-then-acquire is race-free here.
+    if _job_semaphore._value <= 0:  # asyncio.Semaphore internal; safe in single-threaded async
+        raise HTTPException(status_code=429, detail="Too many concurrent jobs; try again later")
+    _ = await _job_semaphore.acquire()
 
-    # Re-enqueue the pipeline
-    background_tasks.add_task(_pipeline_run_job, spec)
+    try:
+        # Reset all pages to queued
+        reset_pages = [
+            PageResult(
+                page_idx=page.page_idx,
+                page_name=page.page_name,
+                state="queued",
+            )
+            for page in status.pages
+        ]
+        reset_status = ProjectStatus(
+            project_id=project_id,
+            state=reset_state,
+            page_count=status.page_count,
+            pages_done=0,
+            pages=reset_pages,
+        )
+        write_project(spec, reset_status)
+
+        # Re-enqueue the pipeline
+        background_tasks.add_task(_pipeline_run_job_with_semaphore, spec)
+    except Exception:
+        # Release the slot we acquired — the job will not run.
+        _job_semaphore.release()
+        raise
     return {"project_id": project_id, "state": reset_state}
 
 
