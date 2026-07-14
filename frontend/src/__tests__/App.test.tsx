@@ -405,6 +405,13 @@ describe("App", () => {
     });
   });
 
+  it("renders no dead header affordances", () => {
+    renderApp();
+    expect(screen.queryByTestId("app-header-bell")).toBeNull();
+    expect(screen.queryByTestId("app-header-user")).toBeNull();
+    expect(screen.queryByLabelText("Search")).toBeNull();
+  });
+
   it("renders shell with empty content at unknown route (no crash)", () => {
     // App uses BrowserRouter internally; override window.location via history.
     // We test via a custom wrapper that injects an unknown path.

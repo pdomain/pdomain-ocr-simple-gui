@@ -23,7 +23,7 @@
 //
 // Step 5 — app header + useActiveJobs:
 // Polls GET /api/jobs every 5s, filters to state==="running", maps to
-// ActiveJob shape. No search affordance yet (simple-gui has no search feature).
+// ActiveJob shape.
 //
 // @pdomain/pdomain-ui 0.4.0 — utility dock migration:
 // JobsPill hover popover removed upstream. JobsPill.onClick now wires to
@@ -38,7 +38,7 @@
 // onJobOpen navigates to /jobs/:id. No cancel/pause API exists in simple-gui,
 // so onJobCancel and onJobPauseResume are omitted (both fully optional).
 
-import { useEffect, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import {
@@ -65,6 +65,7 @@ import type {
   Job,
   JobStatus,
   SettingsPanelDescriptor,
+  UpdatePolicy,
 } from "@pdomain/pdomain-ui/shell";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -140,14 +141,99 @@ function ComputePanelContent() {
   );
 }
 
-/** Inner component for the Updates panel — calls hooks inside the component tree. */
+/** Shape of the `common` slice of GET/PUT /api/suite/prefs (partial — we
+ * only read/write the fields we know about; unknown fields must survive a
+ * read-modify-write round trip, so this stays a loose record). */
+type SuiteCommonPrefs = Record<string, unknown> & {
+  update_policy?: UpdatePolicy | null;
+};
+
+/**
+ * Inner component for the Updates panel — calls hooks inside the component
+ * tree.
+ *
+ * The update-policy selector is backed by suite prefs, not local state:
+ * `GET /api/suite/prefs` supplies `common.update_policy` on mount, and each
+ * selector change re-reads `common` fresh and PUTs the WHOLE object back to
+ * `/api/suite/prefs/common` — that route replaces `common` wholesale, so a
+ * partial body would blank sibling fields (theme, density, ...).
+ */
 function UpdatePanelContent() {
   const update = useUpdateCheck(_updateConfig);
+  const [policy, setPolicy] = useState<UpdatePolicy>("notify");
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch("/api/suite/prefs");
+        if (!res.ok) {
+          if (!cancelled) {
+            setLoadError(`GET /api/suite/prefs failed: ${res.status}`);
+          }
+          return;
+        }
+        const data = (await res.json()) as { common?: SuiteCommonPrefs };
+        if (!cancelled) {
+          setPolicy(data.common?.update_policy ?? "notify");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : String(err));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handlePolicyChange = useCallback((next: UpdatePolicy): void => {
+    void (async () => {
+      try {
+        const getRes = await apiFetch("/api/suite/prefs");
+        if (!getRes.ok) {
+          throw new Error(`GET /api/suite/prefs failed: ${getRes.status}`);
+        }
+        const data = (await getRes.json()) as { common?: SuiteCommonPrefs };
+        const common: SuiteCommonPrefs = {
+          ...(data.common ?? {}),
+          update_policy: next,
+        };
+        const putRes = await apiFetch("/api/suite/prefs/common", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(common),
+        });
+        if (!putRes.ok) {
+          throw new Error(
+            `PUT /api/suite/prefs/common failed: ${putRes.status}`,
+          );
+        }
+        setPolicy(next);
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        toast.error("Update policy not saved — server error", {
+          description: detail,
+        });
+      }
+    })();
+  }, []);
+
+  if (loadError) {
+    return (
+      <p role="alert" style={{ margin: 0, color: "var(--color-danger)" }}>
+        {loadError}
+      </p>
+    );
+  }
+
   return (
     <UpdatePanel
       info={update.info}
-      policy="notify"
-      onPolicyChange={() => undefined}
+      policy={policy}
+      onPolicyChange={handlePolicyChange}
       onApply={() => void update.applyAndRestart()}
     />
   );
@@ -490,27 +576,9 @@ function SimpleGuiHeader({
           OCR Simple GUI
         </span>
       </div>
-      <button
-        type="button"
-        aria-label="Search"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          height: 32,
-          padding: "0 12px",
-          background: "var(--bg-sunk)",
-          border: "1px solid var(--border-2)",
-          borderRadius: 6,
-          color: "var(--ink-3)",
-          cursor: "default",
-          width: "100%",
-          textAlign: "left",
-          fontFamily: "var(--ui-font)",
-          fontSize: 12.5,
-        }}
-      >
-        Search...
-      </button>
+      {/* Flexible spacer — keeps brand left-aligned and actions right-aligned
+          now that the header has no middle affordance. */}
+      <div aria-hidden />
       <div
         style={{
           display: "flex",
@@ -525,22 +593,6 @@ function SimpleGuiHeader({
           <JobsPill activeJobs={activeJobs} onClick={() => toggle("jobs")} />
         </div>
         <UpdateBadgeHeaderWrapper />
-        <button
-          type="button"
-          data-testid="app-header-bell"
-          aria-label="Notifications"
-          className="app-header__icon-button"
-        >
-          !
-        </button>
-        <button
-          type="button"
-          data-testid="app-header-user"
-          aria-label="User menu"
-          className="app-header__icon-button"
-        >
-          u
-        </button>
       </div>
     </header>
   );
