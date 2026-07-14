@@ -57,7 +57,9 @@ describe("apiFetch", () => {
 
     await apiFetch("/api/jobs");
 
-    expect(new Headers(spy.mock.calls[0][1]?.headers).get("Authorization")).toBeNull();
+    expect(
+      new Headers(spy.mock.calls[0][1]?.headers).get("Authorization"),
+    ).toBeNull();
   });
 
   it("preserves caller-supplied headers given as a plain object", async () => {
