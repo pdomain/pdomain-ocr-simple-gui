@@ -43,6 +43,17 @@ None.
   lists, opens, and deletes jobs, and recent projects are recorded at creation.
   A dedicated catalogue with page count, engine, and last-opened metadata is
   still unbuilt and should start only if the dock proves insufficient.
+- **Job cancellation — deferred ([ocr-container-meta#395](https://github.com/ConcaveTrillion/ocr-container-meta/issues/395)).**
+  The `cancelled` state is modeled end-to-end in the job statechart, models, and
+  API types, but no route fires the `cancel` event and the frontend no-ops
+  cancellation. Decide ship-or-strip.
+- **Config-fetch deduplication — deferred ([ocr-container-meta#396](https://github.com/ConcaveTrillion/ocr-container-meta/issues/396)).**
+  `ConfigContext` and `jobCreationMachine` each fetch `/api/config`
+  independently. Config-load failures are now surfaced to the user, but the
+  duplicate fetch remains.
+- **API-token Settings field — deferred ([ocr-container-meta#398](https://github.com/ConcaveTrillion/ocr-container-meta/issues/398)).**
+  The frontend now sends a bearer token from `localStorage` via `apiFetch`, set
+  through a browser-console command. A proper masked Settings input is unbuilt.
 - **Launcher opener isolation — blocked upstream.** This app does not own the
   shared `window.open` call. `@pdomain/pdomain-ui` must add
   `noopener,noreferrer`; after its release, bump the dependency and verify the

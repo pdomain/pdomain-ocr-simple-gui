@@ -42,6 +42,9 @@ class JobLifecycleMachine(StateMachine):
     start = queued.to(running)
     succeed = running.to(succeeded)
     fail = queued.to(failed) | running.to(failed)
+    # Modeled but unreachable: no cancel endpoint ships yet
+    # (ocr-container-meta#395, deferred). The frontend no-ops cancellation
+    # (frontend/src/api/useOcrJob.ts).
     cancel = running.to(cancelled)
     rerun_requested = succeeded.to(queued) | failed.to(queued) | cancelled.to(queued)
     # Models in-place single-page rerun: a page can be rerun from a
