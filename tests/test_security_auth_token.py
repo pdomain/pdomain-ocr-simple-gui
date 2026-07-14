@@ -243,6 +243,18 @@ class TestUploadsAuth:
 
 
 # ---------------------------------------------------------------------------
+# Token authentication tests — GET /api/jobs/{project_id}
+# ---------------------------------------------------------------------------
+
+
+class TestGetJobByIdAuth:
+    async def test_get_job_by_id_requires_token(self, secured_app_client: AsyncClient) -> None:
+        """GET /api/jobs/{id} with no auth header → 401 when token env var is set."""
+        resp = await secured_app_client.get("/api/jobs/0123456789abcdef")
+        assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
 # Suite middleware tests — /api/suite/launch and /api/suite/stop
 # ---------------------------------------------------------------------------
 

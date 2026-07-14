@@ -363,7 +363,7 @@ async def list_jobs() -> list[ProjectStatus]:
     ]
 
 
-@router.get("/{project_id}", response_model=ProjectStatus)
+@router.get("/{project_id}", response_model=ProjectStatus, dependencies=[Depends(require_token)])
 async def get_job(project_id: str) -> ProjectStatus:
     """Return ProjectStatus enriched with name, output_dir, and output_mode from sidecar."""
     try:
