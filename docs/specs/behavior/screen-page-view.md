@@ -16,6 +16,7 @@ Kind: spec
 - **Effect on result:** Shipped behavior remains active; obsolete UI or workflow assumptions are not treated as current truth.
 - **Implementation deviations:** The shared jobs dock and fixed job-level download buttons replaced parts of the earlier projected surfaces. Recent projects are written at job creation. Upload/edit/download coverage does not prove edited text is present in the exported ZIP.
 - **Residual risks:** Per-page edits and reruns can leave the job output mirror stale; the download redesign remains deferred.
+- **2026-07-14 re-verification (review-fixes plan Task 20):** the earlier 2026-07-14 pass above left B-PAGEVIEW-016 and the selectors table pointing at the pre-Task-9 download UI (`page-download-text`/`page-download-json`/`page-download-both`, shortcuts `mod+shift+t`/`mod+shift+j`/`mod+d`) — stale since commit `8d49ad3` (2026-06-04). Corrected against current `frontend/src/pages/PageViewPage.tsx` + `frontend/src/lib/testids.ts`: two buttons, `download-images-text` (`?include=text`, shortcut `mod+shift+t`) and `download-images-text-json` (`?include=text,json`, shortcut `mod+d`). Verified every selector cited by this doc against `rg -o 'data-testid="[^"]+"' frontend/src | sort -u`.
 
 - **Unit type:** screen
 - **Address:** `/jobs/:id/pages/:idx`
@@ -41,7 +42,8 @@ surface (DOM / toasts / route).
 > cheatsheet record (formerly B-PAGEVIEW-018) was dropped to M6 — the `?`
 > cheatsheet is owned by the AppShell ShortcutsProvider; this screen's own
 > shortcut keys are captured inside its behavior records (nav j/k/←/→, save
-> mod+s, rerun mod+r / mod+shift+r, download mod+shift+t/j / mod+d).
+> mod+s, rerun mod+r / mod+shift+r, download mod+shift+t (text) / mod+d
+> (text+JSON)).
 
 ### Selectors (confirmed in `frontend/src/lib/testids.ts` + the components)
 
@@ -54,7 +56,7 @@ surface (DOM / toasts / route).
 | Prev / Next page | `data-testid="page-prev-button" \| "page-next-button"` | `APP_TEST_IDS.pagePrevButton` / `.pageNextButton` |
 | Save edits | `data-testid="page-save-button"` | `APP_TEST_IDS.pageSaveButton` |
 | Re-run DocTR / Tesseract | `data-testid="page-rerun-doctr" \| "page-rerun-tesseract"` | `APP_TEST_IDS.pageRerunDoctr` / `.pageRerunTesseract` |
-| Download .txt / .json / .zip | `data-testid="page-download-text" \| "page-download-json" \| "page-download-both"` | `APP_TEST_IDS.pageDownloadText` / `.pageDownloadJson` / `.pageDownloadBoth` |
+| Download images+text / images+text+JSON | `data-testid="download-images-text" \| "download-images-text-json"` | literal string in `PageViewPage.tsx` (also registered as `APP_TEST_IDS.downloadImagesText` / `.downloadImagesTextJson` in `testids.ts`, though the component uses the literal, not the constant) |
 | Job progress message (job in flight) | `data-testid="page-progress-message"` | `APP_TEST_IDS.pageProgressMessage` |
 | Editor toolbar | `data-testid="page-editor-toolbar"` | literal in `PageViewPage.tsx` |
 | OCR text textarea | `get_by_label("OCR text")` (NOT a testid) | `aria-label="OCR text"` |
@@ -421,15 +423,21 @@ against `storage.py`:
   `frontend/src/pages/__tests__/PageViewPage.test.tsx` ("page-not-found" /
   "page-error" cases)
 
-### B-PAGEVIEW-016 — Download from the page (txt / json / zip)
+### B-PAGEVIEW-016 — Download from the page (images+text / images+text+JSON)
 
 - **Flow(s):** —
-- **Trigger:** Click `data-testid="page-download-text"` / `page-download-json`
-  / `page-download-both` (or `mod+shift+t` / `mod+shift+j` / `mod+d`).
-- **Preconditions:** `!loading`.
-- **Observable output:** Browser navigates to (downloads) the job-level zip;
-  no in-page state change. `.txt` → `?include=text`; `.json` → `?include=json`;
-  `.zip` → `?include=text,json`.
+- **Trigger:** Click `data-testid="download-images-text"` (or `mod+shift+t`)
+  for the images+text zip, or `data-testid="download-images-text-json"` (or
+  `mod+d`) for the images+text+JSON zip. Both buttons live in the page's own
+  editor toolbar (`page-editor-toolbar`) — these shortcuts are bound only on
+  PageViewPage, not globally.
+- **Preconditions:** `!loading`. Unlike ResultsPage's download buttons, these
+  are NOT gated on `output_mode === "managed"` — they render whenever the page
+  has loaded (confirmed: `PageViewPage.tsx` has no `output_mode` reference).
+- **Observable output:** Browser navigates to (downloads) the job-level zip
+  via `window.location.href`; no in-page state change. `download-images-text`
+  → `?include=text`; `download-images-text-json` →
+  `?include=${encodeURIComponent("text,json")}`.
 - **Backend / side-effects:** `GET /api/jobs/{id}/download?include=<tokens>`
   streams the `spec.output_dir` mirror as a zip filtered by include tokens
   (same contract as B-RESULTS-006/-007 on ResultsPage). These per-page buttons
@@ -447,8 +455,17 @@ against `storage.py`:
   > triggers the download (Playwright download event) + the endpoint serves a
   > ZIP, to avoid duplicating the membership coverage.
 - **Regression:** no
+  > **Corrected 2026-07-14:** this record previously named the pre-Task-9
+  > (commit `8d49ad3`) three-button UI (`page-download-text`/`-json`/`-both`,
+  > shortcuts `mod+shift+t`/`mod+shift+j`/`mod+d`). Confirmed against
+  > `PageViewPage.tsx` and `frontend/src/lib/testids.ts`: only two buttons
+  > exist today, and there is no JSON-only shortcut (removed — no corresponding
+  > button in the UI, per the `// JSON-only shortcut removed` comment at
+  > `PageViewPage.tsx`).
 - **Test:** `tests/e2e/test_click_paths_page_viewer.py::test_page_download_triggers_job_zip`,
-  `…::test_page_download_unknown_token_400` (bad path)
+  `…::test_page_download_unknown_token_400` (bad path);
+  `frontend/src/pages/__tests__/PageViewPage.test.tsx` ("renders
+  download-images-text and download-images-text-json shortcut buttons")
 
 ### B-PAGEVIEW-017 — Job-progress message while a job is still running
 
@@ -473,7 +490,7 @@ against `storage.py`:
 > cheatsheet and `ShortcutsProvider` are owned by the AppShell, so the
 > cheatsheet behavior moves to M6 (`screen-app-shell.md`). This screen's own
 > shortcut keys (nav ←/→ + j/k, save `mod+s`, rerun `mod+r` / `mod+shift+r`,
-> download `mod+shift+t/j` / `mod+d`) are captured inside the records above
+> download `mod+shift+t` / `mod+d`) are captured inside the records above
 > (B-PAGEVIEW-008/-009/-011/-013/-014/-016). The B-PAGEVIEW-018 slot is
 > intentionally retired and not reused.
 

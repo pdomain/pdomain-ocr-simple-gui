@@ -16,6 +16,7 @@ Kind: spec
 - **Effect on result:** Shipped behavior remains active; obsolete UI or workflow assumptions are not treated as current truth.
 - **Implementation deviations:** The shared jobs dock and fixed job-level download buttons replaced parts of the earlier projected surfaces. Recent projects are written at job creation. Upload/edit/download coverage does not prove edited text is present in the exported ZIP.
 - **Residual risks:** Per-page edits and reruns can leave the job output mirror stale; the download redesign remains deferred.
+- **2026-07-14 re-verification (review-fixes plan Task 20):** the earlier 2026-07-14 pass above left B-RESULTS-006/-007 and the download zip-membership notes pointing at the pre-Task-9 checkbox-filter UI (`download-results-button`, `download-filter-text`, `download-filter-json`) — stale since commit `8d49ad3` (2026-06-04), which replaced the single button + two filter checkboxes with two explicit buttons: `download-images-text` (`?include=text`) and `download-images-text-json` (`?include=text,json`). Corrected against current `frontend/src/pages/ResultsPage.tsx` + `frontend/src/lib/testids.ts`. Note: unlike PageViewPage, ResultsPage's download buttons carry no keyboard shortcuts (click-only). Verified every selector cited by this doc against `rg -o 'data-testid="[^"]+"' frontend/src | sort -u`.
 
 - **Unit type:** screen
 - **Address:** `/jobs/:id`
@@ -67,10 +68,13 @@ ResultsPage reads/writes across the same locations HomePage documents (see
 `GET /api/jobs/{id}/download?include=<tokens>` streams `spec.output_dir`
 (falls back to `<OUTPUT_ROOT>/<job_id>` for legacy jobs) as a zip:
 
-- `include` tokens are `{text, json}`, comma- / plus- / space-separated.
-  **Default `text,json`.** ResultsPage now assembles `?include=` from the two
-  filter toggles (text/json); deselecting JSON sends `?include=text`, etc.
-  (B-RESULTS-006 feature; was a hardcoded `?include=text,json`).
+- `include` tokens are `{text, json}`, comma- / plus- / space-separated. The
+  backend still accepts any combination of these tokens; ResultsPage's UI
+  drives only two fixed combinations via two explicit buttons (Task 9, commit
+  `8d49ad3`, replacing the earlier text/json filter-checkbox pair):
+  `download-images-text` sends `?include=text`; `download-images-text-json`
+  sends `?include=text,json` (URL-encoded). There is no UI path to
+  `?include=json` alone — only the API supports it directly.
 - A `.txt` file is included iff `text` ∈ tokens; a `.json` file iff
   `json` ∈ tokens; **every other file (images, etc.) is ALWAYS included**
   regardless of tokens (legacy "zip everything" behaviour).
@@ -214,54 +218,76 @@ ResultsPage reads/writes across the same locations HomePage documents (see
 - **Test:** `tests/e2e/test_click_paths_results.py::test_results_page_table_rows_and_preview`,
   `::test_results_page_empty_preview_shows_dash`
 
-### B-RESULTS-006 — Download results zip (managed mode) + include-filter
+### B-RESULTS-006 — Download results zip (managed mode) — two explicit buttons
 
 - **Flow(s):** F-UPLOAD-OCR-DOWNLOAD-01
-- **Trigger:** User clicks "Download results (.zip)"
-  (`data-testid="download-results-button"`, `APP_TEST_IDS.downloadResultsButton`).
+- **Trigger:** User clicks "Download (images + text)"
+  (`data-testid="download-images-text"`) or "Download (images + text + JSON)"
+  (`data-testid="download-images-text-json"`).
 - **Preconditions:** `state === "succeeded"` **AND** `output_mode === "managed"`
-  (the button only renders for that combination).
-- **Observable output:** Two filter checkboxes render next to the button —
-  `data-testid="download-filter-text"` and `download-filter-json` (both on by
-  default; images always included, noted in-UI). Clicking "Download results
-  (.zip)" does `window.location.assign('/api/jobs/<id>/download?include=<tokens>')`
-  where `<tokens>` is assembled from the toggles (deselecting JSON →
-  `?include=text`). In Playwright this surfaces as a `download` event with a
-  `<id>.zip` filename. The button disables when both toggles are off.
+  (`showDownload` — both buttons only render for that combination; see
+  `ResultsPage.tsx`).
+- **Observable output:** No filter checkboxes — Task 9 (commit `8d49ad3`,
+  2026-06-04) replaced the single button + text/json filter-checkbox pair with
+  two always-enabled buttons that drive fixed `include` values. Clicking
+  "Download (images + text)" does
+  `window.location.assign('/api/jobs/<id>/download?include=text')`; clicking
+  "Download (images + text + JSON)" does
+  `window.location.assign('/api/jobs/<id>/download?include=' +
+  encodeURIComponent('text,json'))`. In Playwright this surfaces as a
+  `download` event with a `<id>.zip` filename. Neither button has a `disabled`
+  prop or a keyboard shortcut on this screen (contrast PageViewPage's mirrored
+  buttons, which are keyboard-bound to `mod+shift+t` / `mod+d` —
+  `screen-page-view.md` B-PAGEVIEW-016).
 - **Backend / side-effects:** `GET /api/jobs/{id}/download?include=<tokens>`
-  streams the **output mirror** (`spec.output_dir`) as a zip. With `text,json`
-  the members are the per-page `<stem>.txt` + `<stem>.json` + the combined
-  `<sanitized-name>.txt` (and any images, always included); with `text` only,
-  the `.json` member is **excluded** (asserted against real ZIP membership).
-  200, `Content-Disposition: attachment; filename="<id>.zip"`.
+  streams the **output mirror** (`spec.output_dir`) as a zip. With
+  `text,json` the members are the per-page `<stem>.txt` + `<stem>.json` + the
+  combined `<sanitized-name>.txt` (and any images, always included); with
+  `text` only, the `.json` member is **excluded** (asserted against real ZIP
+  membership). 200, `Content-Disposition: attachment; filename="<id>.zip"`.
 - **Bad-state / error:** Output dir missing → endpoint 404 (`"job output not
-  found"`). A non-managed succeeded job hides the button + toggles entirely
+  found"`). A non-managed succeeded job hides both buttons entirely
   (B-RESULTS-007). Malformed/empty `include` token → 400.
 - **Tier(s):** A
-- **Regression:** no (the include-filter is a NEW feature; the prior hardcoded
-  `?include=text,json` was not a regression)
+- **Regression:** no (the two-button redesign is a UI change, not a
+  regression fix; the backend `include` contract is unchanged)
+  > **Corrected 2026-07-14:** this record previously described a single
+  > "Download results (.zip)" button (`download-results-button`) plus two
+  > filter checkboxes (`download-filter-text` / `download-filter-json`) that
+  > were removed over a month before this correction. Confirmed against
+  > current `ResultsPage.tsx` and `frontend/src/lib/testids.ts`.
 - **Test:** `tests/e2e/test_click_paths_downloads.py::test_download_zip_from_results_page`,
-  `::test_download_filter_text_only_drops_json`,
-  `::test_download_bad_include_token_rejected`
+  `::test_download_images_text_button_drops_json`,
+  `::test_download_bad_include_token_rejected`;
+  `frontend/src/pages/__tests__/ResultsPage.test.tsx` ("shows download
+  buttons when output_mode is managed and state is succeeded",
+  "renders two explicit download buttons (no checkboxes) in managed mode",
+  "download-images-text button assigns ?include=text URL",
+  "download-images-text-json button assigns ?include=text,json URL")
 
-### B-RESULTS-007 — Download button hidden for non-managed / non-succeeded
+### B-RESULTS-007 — Download buttons hidden for non-managed / non-succeeded
 
 - **Flow(s):** —
 - **Trigger:** Render Results for a job that is succeeded but
   `output_mode !== "managed"` (e.g. `next_to_source` / `specified`), OR any job
   not yet succeeded.
 - **Preconditions:** As above.
-- **Observable output:** No `data-testid="download-results-button"` in the DOM.
-  (The download endpoint still exists and works by URL; only the in-page button
-  is gated.)
+- **Observable output:** Neither `data-testid="download-images-text"` nor
+  `data-testid="download-images-text-json"` is in the DOM (`showDownload` is
+  `false`). (The download endpoint still exists and works by URL; only the
+  in-page buttons are gated.)
 - **Backend / side-effects:** None (no button → no request from this screen).
-- **Bad-state / error:** This IS the hidden/bad contrast to B-RESULTS-006. The
-  filter toggles are absent too. Non-managed succeeded jobs intentionally have
-  NO download affordance on Results — the user gets the Copy-path button
-  (B-RESULTS-008) to find the output on disk (managed-only download confirmed).
+- **Bad-state / error:** This IS the hidden/bad contrast to B-RESULTS-006.
+  Both buttons are absent together — there is no partial state. Non-managed
+  succeeded jobs intentionally have NO download affordance on Results — the
+  user gets the Copy-path button (B-RESULTS-008) to find the output on disk
+  (managed-only download confirmed).
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** `tests/e2e/test_click_paths_downloads.py::test_download_button_hidden_for_non_managed`
+- **Test:** `tests/e2e/test_click_paths_downloads.py::test_download_button_hidden_for_non_managed`;
+  `frontend/src/pages/__tests__/ResultsPage.test.tsx` ("hides download
+  buttons when output_mode is next_to_source", "hides download buttons when
+  state is not succeeded")
 
 ### B-RESULTS-008 — Copy output path to clipboard
 
