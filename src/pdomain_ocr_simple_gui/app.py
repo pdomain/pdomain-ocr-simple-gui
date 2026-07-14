@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import importlib.metadata
 import importlib.resources
+import json
 import logging
 import os
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,11 +18,14 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from pdomain_ocr_simple_gui.constants import APP_ID
+
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 
     from pdomain_ops.gpu.local_stage import LocalStageDispatcher
     from pdomain_ops.suite.prefs import PrefsAdapter
+    from pdomain_ops.suite.types import CommonUIPrefs, InstalledApp, UIPrefs
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +43,107 @@ def get_prefs_adapter() -> PrefsAdapter | None:
 def get_dispatcher() -> LocalStageDispatcher | None:
     """Return the current stage dispatcher (None before startup)."""
     return _dispatcher
+
+
+class _SharedPrefsAdapter:
+    """``PrefsAdapter`` that prefers the lifespan-managed singleton.
+
+    The suite mount (``mount_routes()``) is wired synchronously inside
+    ``create_app()``, which runs *before* FastAPI's lifespan — and therefore
+    before module-level ``_prefs_adapter`` is set. This proxy lets suite
+    routes share the exact same ``LocalFilePrefs`` instance as ``/api/prefs``
+    once lifespan has started (so a mocked/patched ``_prefs_adapter`` is
+    visible to suite routes too), while still working for callers that build
+    the app without ever running lifespan (e.g. a bare
+    ``TestClient(create_app())``): a fallback adapter is constructed lazily,
+    on first actual use, so it resolves env-var-driven paths (e.g.
+    ``PD_SUITE_DATA_DIR``) as of *call* time rather than at mount time.
+    """
+
+    def __init__(self) -> None:
+        self._fallback: PrefsAdapter | None = None
+
+    def _resolve(self) -> PrefsAdapter:
+        adapter = get_prefs_adapter()
+        if adapter is not None:
+            return adapter
+        if self._fallback is None:
+            from pdomain_ops.suite.prefs import LocalFilePrefs
+
+            self._fallback = LocalFilePrefs()
+        return self._fallback
+
+    def read(self) -> UIPrefs:
+        """Delegate to the resolved adapter's ``read()``."""
+        return self._resolve().read()
+
+    def write_common(self, common: CommonUIPrefs) -> None:
+        """Delegate to the resolved adapter's ``write_common()``."""
+        self._resolve().write_common(common)
+
+    def write_app(self, app_id: str, payload: dict[str, object]) -> None:
+        """Delegate to the resolved adapter's ``write_app()``.
+
+        ``dict[str, object]`` here is narrower than upstream
+        ``PrefsAdapter.write_app``'s ``dict[str, Any]`` (pdomain_ops.suite.prefs)
+        — this proxy never inspects ``payload``, only forwards it, so the
+        narrower value type is both accurate and accepted at the delegation
+        call site.
+        """
+        self._resolve().write_app(app_id, payload)
+
+
+def _migrate_unknown_app_prefs(prefs_adapter: PrefsAdapter, app_id: str) -> None:
+    """One-time migration: recover a compute-device pref stranded under "unknown".
+
+    Before this fix, ``mount_routes()`` was called with no ``suite_app``, so
+    ``mount_device_routes()`` defaulted to ``app_id="unknown"`` — any
+    compute-device preference a user set via Settings persisted under
+    ``apps["unknown"]`` instead of ``apps[app_id]``. Copy it over so existing
+    installs don't silently lose the setting.
+
+    ``PrefsAdapter`` (pdomain_ops.suite.prefs) exposes no delete primitive —
+    only ``read``/``write_common``/``write_app`` — so the stray
+    ``compute_device`` key is cleared from the "unknown" section rather than
+    the section being removed outright; an app section with no
+    ``compute_device`` is otherwise inert.
+    """
+    snapshot = prefs_adapter.read()
+    unknown_section = snapshot.apps.get("unknown")
+    if not unknown_section:
+        return
+    stray_device = unknown_section.get("compute_device")
+    if not stray_device:
+        return
+    real_section = dict(snapshot.apps.get(app_id) or {})
+    if real_section.get("compute_device"):
+        return  # real app key already has an explicit device — don't clobber it
+    real_section["compute_device"] = stray_device
+    prefs_adapter.write_app(app_id, real_section)
+    cleared_unknown = dict(unknown_section)
+    del cleared_unknown["compute_device"]
+    prefs_adapter.write_app("unknown", cleared_unknown)
+
+
+def _build_suite_app() -> InstalledApp:
+    """Build the ``InstalledApp`` descriptor this process registers under.
+
+    Reads the bundled ``pdomain-suite.json`` fragment (the same source
+    ``__main__.py``'s desktop-shortcut/suite-registry flows use) and fills in
+    the two runtime-only fields, ``binary`` and ``version``. Used solely so
+    ``mount_routes()`` mounts device/update routes under our real
+    ``app_id`` ("pdomain-ocr-simple-gui") instead of the "unknown" default.
+    """
+    from pdomain_ops.suite.types import InstalledApp
+
+    pkg = "pdomain_ocr_simple_gui"
+    raw = (importlib.resources.files(pkg) / "pdomain-suite.json").read_text(encoding="utf-8")
+    fragment = cast("dict[str, object]", json.loads(raw))
+    try:
+        version = importlib.metadata.version(pkg)
+    except importlib.metadata.PackageNotFoundError:
+        version = "0.0.0"
+    return InstalledApp.model_validate({**fragment, "binary": sys.executable, "version": version})
 
 
 @asynccontextmanager
@@ -70,6 +177,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             extra={"context": "LocalFilePrefs()"},
         )
         _prefs_adapter = None
+
+    if _prefs_adapter is not None:
+        try:
+            _migrate_unknown_app_prefs(_prefs_adapter, APP_ID)
+        except Exception:  # one-time migration is best-effort — never block startup
+            logger.exception(
+                "Failed to migrate stray 'unknown' app prefs to the real app_id",
+                extra={"context": "_migrate_unknown_app_prefs", "app_id": APP_ID},
+            )
+
     if os.environ.get("PDOMAIN_OCR_FAKE_DISPATCHER"):
         logger.warning(
             "PDOMAIN_OCR_FAKE_DISPATCHER is set: using FakeStageDispatcher — OCR output is FAKE. Do not use in production."
@@ -154,17 +271,26 @@ def create_app() -> FastAPI:
     _app.include_router(words_router)
     _app.include_router(model_cache_router)
 
-    # Mount suite plumbing routes (/api/suite/*, /api/icons/*, /healthz)
+    # Mount suite plumbing routes (/api/suite/*, /api/icons/*, /healthz).
+    # adapters.prefs is a proxy that shares state with the app's own
+    # _prefs_adapter (once lifespan has started) and suite_app carries our
+    # real app_id — mounting with neither (the pre-fix behaviour) made
+    # mount_device_routes() default to app_id="unknown", so every
+    # compute-device preference silently landed in the wrong prefs section.
     try:
         from pdomain_ops.suite.routes import (
             mount_routes as _mount_suite_routes,
         )
+        from pdomain_ops.suite.types import SuiteAdapters
 
-        _mount_suite_routes(_app)
+        adapters = SuiteAdapters.local()
+        adapters.prefs = _SharedPrefsAdapter()
+        suite_app = _build_suite_app()
+        _mount_suite_routes(_app, adapters, suite_app=suite_app)
     except Exception:  # suite plumbing routes optional — app serves without them
         logger.exception(
             "Failed to mount suite plumbing routes; /api/suite/* will be unavailable",
-            extra={"context": "mount_routes(_app)"},
+            extra={"context": "mount_routes(_app, adapters, suite_app=suite_app)"},
         )
 
     @_app.get("/api/health")

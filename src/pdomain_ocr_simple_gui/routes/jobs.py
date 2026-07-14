@@ -16,6 +16,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from pdomain_ocr_simple_gui.auth import require_token
+from pdomain_ocr_simple_gui.constants import APP_ID as _APP_ID
 from pdomain_ocr_simple_gui.models import AppPrefs, PageResult, ProjectSpec, ProjectStatus
 from pdomain_ocr_simple_gui.output.config import OutputConfig, OutputConfigError, resolve_output_dir
 from pdomain_ocr_simple_gui.pipeline import collect_images, run_project
@@ -40,7 +41,6 @@ from pdomain_ocr_simple_gui.storage import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
-_APP_ID = "pdomain-ocr-simple-gui"
 
 # ---------------------------------------------------------------------------
 # Concurrent-jobs semaphore

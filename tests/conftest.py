@@ -120,6 +120,19 @@ def projects_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return root
 
 
+@pytest.fixture
+def tmp_prefs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Redirect the pdomain-suite data dir (ui-prefs.json et al.) to tmp_path.
+
+    Returns the suite data root so tests can read/seed ``ui-prefs.json``
+    directly (e.g. via ``LocalFilePrefs(root=tmp_prefs / "ui-prefs.json")``).
+    """
+    root = tmp_path / "suite_data"
+    root.mkdir()
+    monkeypatch.setenv("PD_SUITE_DATA_DIR", str(root))
+    return root
+
+
 # ---------------------------------------------------------------------------
 # Bare async HTTP client
 # ---------------------------------------------------------------------------
