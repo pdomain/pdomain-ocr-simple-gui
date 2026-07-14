@@ -6,7 +6,7 @@
 // compiled @pdomain/pdomain-ui AppShell bundle. Our own <a> elements don't use
 // target="_blank". The upstream fix (add "noopener,noreferrer" to window.open call)
 // must land in pdomain-ui; once that is released, bump @pdomain/pdomain-ui here.
-// See: Cross-repo recommendation in docs/research/2026-05-22-deep-code-review-security-scan.md
+// Tracked as blocked upstream in docs/context/intent-map.md.
 //
 // A9.4 stores swap notes:
 // - pdomain-ui createUIPrefsStore is already consumed via AppShell.uiPrefsConfig

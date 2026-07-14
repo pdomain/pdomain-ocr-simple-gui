@@ -463,8 +463,8 @@ def test_delete_removes_all_artifacts_and_blocks_download(
 ) -> None:
     """Covers: B-RESULTS-014 (Regression) — delete removes mirror + meta; ZIP 404s.
 
-    There is no UI delete control (deferred to the future Projects page —
-    docs/specs/2026-05-29-projects-page.md), so this drives the API directly.
+    ResultsPage has no delete control; the shared AppShell jobs dock owns that
+    affordance, so this focused backend-contract test drives the API directly.
     """
     project_id = "e2edel-" + uuid.uuid4().hex[:12]
     projects_root = e2e_data_root / "projects"

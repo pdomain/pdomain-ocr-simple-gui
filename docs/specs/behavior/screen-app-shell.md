@@ -1,4 +1,21 @@
+---
+Status: active
+Owner: CT
+Created: 2026-05-30
+Last verified: 2026-07-14
+Kind: spec
+---
+
 # Behavior unit spec — App shell
+
+## Adversarial Review
+
+- **Stage:** post-implementation
+- **Source:** 2026-07-14 docgraph migration; independent read-only review of current code, tests, history, and related docs.
+- **Accepted findings:** The review compared the documented contract with current implementation and accepted the material deviations recorded in the architecture and authored context.
+- **Effect on result:** Shipped behavior remains active; obsolete UI or workflow assumptions are not treated as current truth.
+- **Implementation deviations:** The shared jobs dock and fixed job-level download buttons replaced parts of the earlier projected surfaces. Recent projects are written at job creation. Upload/edit/download coverage does not prove edited text is present in the exported ZIP.
+- **Residual risks:** Per-page edits and reruns can leave the job output mirror stale; the download redesign remains deferred.
 
 - **Unit type:** screen
 - **Address:** shell / header (wraps every route)

@@ -1,3 +1,11 @@
+---
+Status: active
+Owner: CT
+Created: 2026-06-03
+Last verified: 2026-07-14
+Kind: reference
+---
+
 # Changelog
 
 All notable changes to `pdomain-ocr-simple-gui` are documented here.

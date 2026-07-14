@@ -6,9 +6,9 @@ Marked ``slow`` and ``e2e`` — excluded from ``make test``, included in
 Covers: B-HOME-012 (recent-projects list renders from prefs; empty state)
 Covers: B-HOME-013 (clicking a recent-project row navigates to its results)
 
-Population of recent_projects is future Projects-page work (see
-docs/specs/2026-05-29-projects-page.md); this screen only RENDERS from prefs,
-so the row is seeded via PUT /api/prefs. Then:
+Job creation populates recent_projects. This focused screen test seeds a row via
+PUT /api/prefs so it can exercise rendering and navigation without creating a
+job first. Then:
 - visits the home page
 - waits for the recent-projects table to render with that row
 - clicks the row

@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-13
-Last verified: 2026-07-13
+Last verified: 2026-07-14
 Kind: context
 ---
 
@@ -20,6 +20,33 @@ Kind: context
 None.
 
 ## Deferred work
+
+- **Download truth separation — deferred.** Per-page edits and reruns update
+  canonical page artifacts but do not rebuild the job output mirror. Preserve
+  separate original and modified downloads, explicit provenance, and a test that
+  proves an edited page appears in the selected export. The current two fixed
+  job-level download buttons replaced the earlier checkbox proposal.
+- **Multilingual OCR profiles — deferred.** The shipped narrow rule maps `en`
+  to Tesseract `eng`. A future `OcrProfile` should separate language, script,
+  engine, model, and capability data. Runtime ownership belongs in a capability
+  statechart with unresolved, checking, available, unavailable, and error
+  states. Regression coverage must include missing traineddata, mixed scripts,
+  engine/profile mismatch, managed-mode restrictions, and fallback behavior.
+  Evaluate PAGE-XML import before building a new annotation format. Prioritize
+  historical-document ground truth, then modern layout data, scene text, and
+  handwriting only when those product surfaces exist. Dataset work must record
+  license, redistribution, script coverage, layout labels, and train/test split
+  constraints. Open decisions include profile ownership, mixed-script policy,
+  model download authority, managed-mode capability reporting, and whether a
+  broader engine such as PaddleOCR is justified.
+- **Richer project browsing — deferred.** The shared AppShell jobs dock now
+  lists, opens, and deletes jobs, and recent projects are recorded at creation.
+  A dedicated catalogue with page count, engine, and last-opened metadata is
+  still unbuilt and should start only if the dock proves insufficient.
+- **Launcher opener isolation — blocked upstream.** This app does not own the
+  shared `window.open` call. `@pdomain/pdomain-ui` must add
+  `noopener,noreferrer`; after its release, bump the dependency and verify the
+  compiled AppShell bundle. Evidence: `frontend/src/App.tsx`.
 
 - **Hosted deployment — deferred.** The app ships local and managed mode
   selection, capability-token protection through `PDOMAIN_API_TOKEN`, and
@@ -46,3 +73,10 @@ None.
 ## Needs owner decision
 
 None.
+
+## Legacy-unverified sweep
+
+The 2026-07-14 migration verified retained architecture, process, runbook, and
+behavior documents against current code, tests, and history. Implemented,
+superseded, and historical documents were promoted and retired; no owner-only
+lifecycle decision remains.

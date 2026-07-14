@@ -1,9 +1,19 @@
+---
+Status: active
+Owner: CT
+Created: 2026-05-17
+Last verified: 2026-07-14
+Kind: usage
+---
+
 # pdomain-ocr-simple-gui
 
 A minimal drag-and-drop OCR app — drop a folder of scanned images, run OCR,
 get plain-text output. Built on FastAPI + React/Vite, using `pdomain-book-tools`
 for OCR and `pdomain-ops` for suite plumbing. Serves as the Phase 3 reference
 consumer that validates `pdomain-ops`' `LocalStageDispatcher`.
+
+Contributors and coding agents must start with [AGENTS.md](AGENTS.md).
 
 The app runs as a local web server and **opens your default browser automatically**
 on launch. No native window or Qt library is required.

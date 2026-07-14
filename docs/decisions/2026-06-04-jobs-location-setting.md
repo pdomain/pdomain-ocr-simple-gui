@@ -1,3 +1,11 @@
+---
+Status: active
+Owner: CT
+Created: 2026-06-04
+Last verified: 2026-07-14
+Kind: decision
+---
+
 # Decision: configurable jobs/projects location
 
 Date: 2026-06-04
@@ -14,6 +22,11 @@ Users had no in-app way to choose where new OCR output lands.
 
 Add a user-facing `jobs_location` app pref, surfaced in a Settings → Jobs
 panel, with a three-tier resolution order.
+
+## Supersedes / Superseded-by
+
+This decision supersedes the hardcoded-default-only behavior. No later decision
+supersedes it.
 
 ### Precedence: env > pref > default
 
@@ -50,5 +63,7 @@ location even when the env var is overriding the pref.
 
 - Test isolation is preserved: env precedence is first, and the autouse
   conftest guard still fails the session if any resolved root escapes tmp.
+- New jobs use the environment override, saved preference, or default in that
+  order. Changing the preference does not move existing jobs.
 - Output/jobs-meta/uploads roots are unchanged — scope is the jobs/projects
   root only.

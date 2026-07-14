@@ -420,8 +420,8 @@ async def delete_job(project_id: str) -> Response:
     user-visible output mirror (spec.output_dir), and the per-job meta sidecar
     (<JOBS_META_ROOT>/<id>/). Previously only the canonical dir was removed,
     leaving the mirror + meta orphaned so a deleted job's ZIP still downloaded
-    (B-RESULTS-014). No UI delete control exists yet — the affordance is
-    deferred to the future Projects page (docs/specs/2026-05-29-projects-page.md).
+    (B-RESULTS-014). ResultsPage has no delete control; the shared AppShell jobs
+    dock owns the current delete affordance (docs/context/intent-map.md).
     """
     from pdomain_ocr_simple_gui.storage import get_project_dir
 

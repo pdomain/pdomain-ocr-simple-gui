@@ -1,3 +1,11 @@
+---
+Status: active
+Owner: CT
+Created: 2026-06-14
+Last verified: 2026-07-14
+Kind: architecture
+---
+
 # pdomain-ocr-simple-gui — Runtime Flows
 
 **Last updated:** 2026-06-14

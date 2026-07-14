@@ -1,3 +1,11 @@
+---
+Status: active
+Owner: CT
+Created: 2026-05-17
+Last verified: 2026-07-14
+Kind: process
+---
+
 # CLAUDE — pdomain-ocr-simple-gui
 
 Minimal drag-and-drop OCR web app. User drops a folder of scanned images,
@@ -14,7 +22,8 @@ Plans: workspace `docs/archive/plans/2026-05-17-pdomain-ocr-simple-gui.md` (comp
 Architecture doc: `docs/architecture/00-overview.md`.
 
 - **Backend:** FastAPI + uvicorn, Python 3.11+. `src/pdomain_ocr_simple_gui/`.
-- **Frontend:** React + Vite + TS + `@pdomain/pdomain-ui`. `frontend/` (shipped M3+).
+- **Frontend:** React + Vite + TS + `@pdomain/pdomain-ui`. Source lives in
+  `frontend/`; the packaged build lives in `src/pdomain_ocr_simple_gui/frontend/`.
 - **OCR pipeline:** `pdomain-ops` `LocalStageDispatcher` +
   `register_default_stages()`. `pdomain-book-tools` supplies the runners.
 - **Suite integration:** `pdomain-ops.suite.register_self()` wires the
@@ -30,7 +39,7 @@ Architecture doc: `docs/architecture/00-overview.md`.
 | `make smoke AI=1` | httpx end-to-end smoke (xfails without model weights) |
 | `make e2e-browser AI=1` | Playwright browser e2e (requires chromium) |
 | `make frontend-test AI=1` | vitest frontend component tests |
-| `make frontend-build AI=1` | Vite build → `src/pdomain_ocr_simple_gui/static/` |
+| `make frontend-build AI=1` | Vite build → `src/pdomain_ocr_simple_gui/frontend/` |
 | `make lint AI=1` / `make format AI=1` | ruff check / format |
 | `make typecheck AI=1` | basedpyright |
 | `make pre-commit-check AI=1` | all pre-commit hooks on every tracked file |

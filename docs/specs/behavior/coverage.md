@@ -1,4 +1,21 @@
+---
+Status: active
+Owner: CT
+Created: 2026-05-30
+Last verified: 2026-07-14
+Kind: spec
+---
+
 # Behavior coverage (generated — do not edit)
+
+## Adversarial Review
+
+- **Stage:** post-implementation
+- **Source:** 2026-07-14 docgraph migration; independent repository evidence review.
+- **Accepted findings:** This remains generated traceability output for the live behavior system.
+- **Effect on result:** Governance metadata is emitted by this generator rather than hand-maintained.
+- **Implementation deviations:** Fixed job-level downloads and the shared jobs dock replaced older projected surfaces.
+- **Residual risks:** Exported text can remain stale after per-page edits or reruns.
 
 Run `make behavior-coverage` to regenerate.
 

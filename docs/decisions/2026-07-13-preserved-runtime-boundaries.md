@@ -2,11 +2,31 @@
 Status: active
 Owner: CT
 Created: 2026-07-13
-Last verified: 2026-07-13
+Last verified: 2026-07-14
 Kind: decision
 ---
 
 # Preserved runtime boundaries
+
+## Context
+
+The application is the suite's minimal OCR consumer. Its test and distribution
+boundaries must prove isolation without importing broader product scope.
+
+## Decision
+
+Keep shared behavior upstream, purge recognized test artifacts instead of
+hiding them, and verify built distributions separately from source tests.
+
+## Consequences
+
+Specialized labeling and training stay out of this app. Test leakage remains
+visible, and packaging failures have their own verification surface.
+
+## Supersedes / Superseded-by
+
+These decisions supersede earlier filtering and one-time packaging proposals.
+No later decision supersedes them.
 
 ## Agent Index
 

@@ -1,3 +1,11 @@
+---
+Status: active
+Owner: CT
+Created: 2026-05-27
+Last verified: 2026-07-14
+Kind: process
+---
+
 # Local-dev workflow — pdomain-ocr-simple-gui
 
 This repo follows the workspace [local-dev pattern](../../../docs/process/local-dev.md)

@@ -1,64 +1,59 @@
+---
+Status: active
+Owner: CT
+Created: 2026-06-05
+Last verified: 2026-07-14
+Kind: runbook
+---
+
 # CUDA setup
 
-This guide explains how to make `pdomain-ocr-simple-gui` use an NVIDIA GPU for
-DocTR OCR.
+## Agent Index
 
-## What the app detects
+- **Kind:** runbook
+- **Status:** active
+- **Read when:** an NVIDIA GPU is detected but DocTR cannot use CUDA.
+- **Search terms:** CUDA, NVIDIA, PyTorch, DocTR, GPU detection.
 
-The settings panel separates two facts:
+## Trigger
 
-- An NVIDIA GPU can be detected even when CUDA is not usable by PyTorch.
-- CUDA is usable only when the NVIDIA driver, CUDA-compatible PyTorch build,
-  and runtime libraries are visible to the Python environment running
-  `pdomain-ocr-simple-gui`.
+Use this runbook when the settings panel reports an NVIDIA GPU but CUDA is not
+usable, or when DocTR unexpectedly runs on CPU.
 
-If the app says an NVIDIA GPU was detected but CUDA is not usable, the hardware
-is present but OCR will run on CPU until the runtime setup is fixed.
+An NVIDIA GPU can be detected even when CUDA is not usable by PyTorch. The
+driver, CUDA-compatible PyTorch build, and runtime libraries must all be visible
+inside the application environment.
 
-## Check the NVIDIA driver
+## Preconditions
 
-Run:
+For a tool install, use the application's settings panel because it probes the
+environment that launches `pdomain-ocr-simple-gui`. From a synced source
+checkout, run the command below in that checkout's environment.
+Hardware detection alone does not prove that the installed PyTorch build can
+use CUDA.
 
-```bash
-nvidia-smi
-```
+## Steps
 
-Expected: the command prints your GPU model and driver version. If the command
-is missing or fails, install or update the NVIDIA driver for your operating
-system before changing Python packages.
-
-## Check PyTorch CUDA visibility
-
-Run this check in the same Python environment that runs or launches
-`pdomain-ocr-simple-gui`:
+First run `nvidia-smi` and confirm the driver sees the GPU. Then inspect the
+application environment:
 
 ```bash
-python - <<'PY'
-import torch
-
-print("torch:", torch.__version__)
-print("cuda available:", torch.cuda.is_available())
-print("device count:", torch.cuda.device_count())
-if torch.cuda.is_available():
-    print("device 0:", torch.cuda.get_device_name(0))
-PY
+uv run python -c \
+  'import torch; print(torch.cuda.is_available(), torch.cuda.device_count())'
 ```
 
-Expected for GPU OCR:
+This source-checkout command uses the same Python environment that runs or
+launches `pdomain-ocr-simple-gui` during development. If CUDA is unavailable,
+reinstall through the supported installer path so its
+CUDA compatibility checks can select the appropriate dependencies. Do not mix
+an unrelated system Python with the `uv tool` environment.
 
-```text
-cuda available: True
-device count: 1
-```
+## Verification
 
-If `nvidia-smi` works but `torch.cuda.is_available()` is `False`, install a
-CUDA-enabled PyTorch build that matches your platform. Use PyTorch's selector
-for the exact command:
+Restart the app and confirm the settings panel reports CUDA usable. The command
+above must print `True` and a positive device count.
 
-[PyTorch Get Started](https://pytorch.org/get-started/locally/)
+## Rollback
 
-## Recheck the app
-
-Restart `pdomain-ocr-simple-gui` after changing drivers or Python packages.
-Open Settings, then Compute. A usable CUDA device appears as a selectable GPU
-target. If only CPU is selectable, OCR will still run correctly, just slower.
+Reinstall the CPU-compatible package set through the standard installer. OCR
+remains supported on CPU when CUDA cannot be configured safely.

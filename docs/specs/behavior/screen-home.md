@@ -1,4 +1,21 @@
+---
+Status: active
+Owner: CT
+Created: 2026-05-30
+Last verified: 2026-07-14
+Kind: spec
+---
+
 # Behavior unit spec — Home
+
+## Adversarial Review
+
+- **Stage:** post-implementation
+- **Source:** 2026-07-14 docgraph migration; independent read-only review of current code, tests, history, and related docs.
+- **Accepted findings:** The review compared the documented contract with current implementation and accepted the material deviations recorded in the architecture and authored context.
+- **Effect on result:** Shipped behavior remains active; obsolete UI or workflow assumptions are not treated as current truth.
+- **Implementation deviations:** The shared jobs dock and fixed job-level download buttons replaced parts of the earlier projected surfaces. Recent projects are written at job creation. Upload/edit/download coverage does not prove edited text is present in the exported ZIP.
+- **Residual risks:** Per-page edits and reruns can leave the job output mirror stale; the download redesign remains deferred.
 
 - **Unit type:** screen
 - **Address:** `/` and `/new-job` (the `/new-job` route renders `<HomePage />`
@@ -354,13 +371,12 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   (`APP_TEST_IDS.recentProjectsList`) shows: "Loading…" while fetching;
   "No recent projects" when the list is empty; otherwise a table (capped at 10)
   with Name / Last opened / Pages / Engine / Status (`JobStatusPip`), one
-  `data-testid="recent-project-row"` per project. This screen only **renders
-  from** prefs — it does not populate them.
+  `data-testid="recent-project-row"` per project. This screen renders the saved
+  preference list; job creation and deletion maintain that list in the backend.
 - **Backend / side-effects:** `GET /api/prefs` → `recent_projects` array
-  (seeded by `PUT /api/prefs`). **Population is future work** — the writer that
-  records a completed job into `recent_projects` belongs to a future Projects
-  page (see `docs/specs/2026-05-29-projects-page.md`); nothing on this screen
-  writes it.
+  (seedable by `PUT /api/prefs`). `POST /api/jobs` records the job at creation,
+  and `DELETE /api/jobs/{id}` removes it. The shared AppShell jobs dock owns the
+  richer list/open/delete surface.
 - **Bad-state / error:** Non-ok `/api/prefs` or unexpected shape → treated as an
   empty list (`throwOnError:false`, `return []`) → "No recent projects" (no
   error UI).
@@ -373,9 +389,8 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
 - **Flow(s):** —
 - **Trigger:** User clicks (or presses Enter/Space on) a recent-project row
   (`data-testid="recent-project-row"`).
-- **Preconditions:** At least one recent project rendered (seeded via prefs;
-  population is future Projects-page work — see
-  `docs/specs/2026-05-29-projects-page.md`).
+- **Preconditions:** At least one recent project rendered, either from job
+  creation or a seeded preference fixture.
 - **Observable output:** App navigates to `/jobs/<project_id>`; the results page
   (`data-testid="results-page"`) for that project loads; URL contains the id.
 - **Backend / side-effects:** None at click time (results page does its own

@@ -1,4 +1,21 @@
+---
+Status: active
+Owner: CT
+Created: 2026-05-29
+Last verified: 2026-07-14
+Kind: spec
+---
+
 # Behavior unit spec — Page view
+
+## Adversarial Review
+
+- **Stage:** post-implementation
+- **Source:** 2026-07-14 docgraph migration; independent read-only review of current code, tests, history, and related docs.
+- **Accepted findings:** The review compared the documented contract with current implementation and accepted the material deviations recorded in the architecture and authored context.
+- **Effect on result:** Shipped behavior remains active; obsolete UI or workflow assumptions are not treated as current truth.
+- **Implementation deviations:** The shared jobs dock and fixed job-level download buttons replaced parts of the earlier projected surfaces. Recent projects are written at job creation. Upload/edit/download coverage does not prove edited text is present in the exported ZIP.
+- **Residual risks:** Per-page edits and reruns can leave the job output mirror stale; the download redesign remains deferred.
 
 - **Unit type:** screen
 - **Address:** `/jobs/:id/pages/:idx`
@@ -78,7 +95,7 @@ against `storage.py`:
 > download zip therefore serves **stale** text after an edit or rerun. Per the
 > maintainer, this is a **pending-design limitation, not a regression** — it is
 > NOT regression-tagged. The fix is the original-vs-modified split designed in
-> [`docs/specs/2026-05-29-download-model.md`](../../2026-05-29-download-model.md):
+> [`docs/specs/2026-05-29-download-model.md`](../2026-05-29-download-model.md):
 > a "modified" download reads the live sidecar `edited_text` rather than the
 > mirror. The save/download records below assert sidecar + per-page `.txt`
 > only and explicitly note the combined/mirror staleness.
@@ -270,7 +287,7 @@ against `storage.py`:
   > per-page `.txt` ONLY. It does NOT update `combined.txt` and does NOT update
   > the `spec.output_dir` mirror that the download zip streams — so a download
   > after a save serves stale text. This is pending the download-model redesign
-  > ([`2026-05-29-download-model.md`](../../2026-05-29-download-model.md)), not a
+  > ([`2026-05-29-download-model.md`](../2026-05-29-download-model.md)), not a
   > re-broken behavior, so it is NOT regression-tagged. The test asserts the
   > sidecar + per-page `.txt` only.
 - **Test:** `tests/e2e/test_click_paths_page_viewer.py::test_save_button_persists_edit_to_sidecar_and_txt`,
@@ -418,7 +435,7 @@ against `storage.py`:
   (same contract as B-RESULTS-006/-007 on ResultsPage). These per-page buttons
   are **whole-job** downloads exposed on the page screen, NOT a single-page
   download — see the download-model stub
-  ([`2026-05-29-download-model.md`](../../2026-05-29-download-model.md)), which
+  ([`2026-05-29-download-model.md`](../2026-05-29-download-model.md)), which
   designs a genuine per-page scope + an "original vs modified" split. Because
   the mirror is only refreshed by `run_project`, this serves stale text after a
   save/rerun (the same documented limitation as B-PAGEVIEW-010/-013).
@@ -477,4 +494,4 @@ commit and a green covering test:
 update only the per-page sidecar `.json` + `.txt`; they do NOT regenerate
 `combined.txt` or the `spec.output_dir` mirror, so the download zip serves
 stale text after an edit/rerun. This is pending the download-model redesign
-([`2026-05-29-download-model.md`](../../2026-05-29-download-model.md)).
+([`2026-05-29-download-model.md`](../2026-05-29-download-model.md)).

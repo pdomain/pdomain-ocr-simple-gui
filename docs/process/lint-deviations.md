@@ -1,3 +1,11 @@
+---
+Status: active
+Owner: CT
+Created: 2026-05-26
+Last verified: 2026-07-14
+Kind: process
+---
+
 # Lint-rule Deviations — pdomain-ocr-simple-gui
 
 Standing suppressions and per-file rule overrides in this repo.
@@ -11,7 +19,6 @@ the justification. Update this file whenever a new suppression is added.
 | Rule | Justification |
 |------|---------------|
 | `B008` | FastAPI's `Depends()` is called in function defaults — the canonical FastAPI DI pattern; flagging it is a false positive. |
-| `UP042` | No current use; reserved so rule doesn't block future stdlib compat code. |
 | `E501` | Line-length enforced by formatter at `line-length = 110`; no need to duplicate as an error. |
 | `D203` | Conflicts with `D211` (no blank line before class docstring). `D212` style chosen. |
 | `D212` | See `D203` — pydocstyle multi-line format; only one of the pair can be active. |
@@ -21,6 +28,7 @@ the justification. Update this file whenever a new suppression is added.
 | `PLR0913` | Too-many-arguments — FastAPI route functions necessarily accept many path/query/body parameters at once. |
 | `PLR2004` | Magic-value comparison — HTTP status codes (`== 200`, `== 404`, etc.) are more readable as literals. |
 | `TRY003` | Long exception messages — informative error messages in `raise` are preferred over short codes. |
+| `TRY301` | Abstract-raise helpers would split short, local validation branches without improving reuse. |
 | `COM812` | Trailing comma enforcement conflicts with ruff formatter's own comma handling; formatter is authoritative. |
 | `PLC0415` | Import not at top-level — suite registration block in `app.py` uses deferred import to avoid circular deps on startup. |
 | `PLR0912` | Too-many-branches — pipeline and route handlers have inherent branching; refactoring would obscure intent. |
@@ -76,23 +84,22 @@ Suppressed: `ANN D T201`
 
 ## Inline suppressions
 
-Each inline suppression below also carries a concise rationale comment
-**at the suppression point** in source, per the workspace "Document
-every lint-rule suppression" rule. The entries here are the catalogued
-summary; the trailing comment in code is the point-of-deviation
-justification.
+This inventory records every current inline suppression location. New entries
+must use a narrow Ruff code or basedpyright-native `pyright: ignore` rule and a
+local safety rationale. Historical mypy-style comments are migration debt, not
+an approved pattern.
 
 ### `BLE001` (blind exception catch) — multiple files
 
-**Files:** `app.py`, `storage.py`, `routes/jobs.py`, `routes/pages.py`, `pipeline.py`, `__main__.py`
+**Files:** `src/pdomain_ocr_simple_gui/scripts/purge_test_jobs.py` and
+`installer/install_engine.py`.
 
 **Suppression form:** `except Exception:  # noqa: BLE001`
 
 **Justification:** At startup and in background tasks, broad exception catching is
-intentional — the app must not crash if optional integrations (suite registration,
-prefs loading, OCR engine init) fail. Each `except` block logs the error and
-continues gracefully. The `S110` co-suppression (`try-except-pass` without logging
-is also silenced where logging is deliberately omitted for non-critical paths).
+intentional at these boundaries. The purge command treats malformed JSON and I/O
+failures as unreadable input; installer probes treat unavailable system commands
+as absent capabilities.
 
 ### `TC002`/`TC003` (type-checking imports) — `models.py`
 
@@ -114,73 +121,71 @@ would break Pydantic's runtime introspection.
 The globals are initialized once in `startup` and torn down in `shutdown`; this
 is the standard pattern for FastAPI app-level state before `app.state` was common.
 
-### `E402` (module-level import not at top) — `app.py`
+### Other inline Ruff suppressions
 
-**Files:** `src/pdomain_ocr_simple_gui/app.py`
+- `N818`: `statecharts/job_lifecycle.py` and `sources/__init__.py`; public
+  exception names preserve the domain vocabulary used by callers.
+- `TC002`/`TC003`: `models.py` and `output/config.py`; Pydantic needs these
+  annotation types at runtime.
+- `SIM112`: `runtime/container_detect.py`; OCI runtimes define the lowercase
+  `container` variable.
+- `S104`: `__main__.py`; wildcard bind addresses are normalized to loopback for
+  browser launch.
+- `S603`, `S607`, and `T201`: `installer/install_engine.py`,
+  `installer/wizard.py`, and `scripts/purge_test_jobs.py`; these command-line
+  tools intentionally run fixed subprocess arguments and print operator output.
 
-**Suppression form:** `# noqa: E402` on three router imports
+### Type-checker boundary suppressions
 
-**Justification:** Router imports follow a try/except block that loads optional
-suite integration. Placing the imports before the try block would introduce a
-circular import. The deferred pattern is intentional.
+**Production and installer files:** `app.py`, `auth.py`, `models.py`,
+`storage.py`, `routes/downloads.py`, `runtime/ocr_engines.py`,
+`statecharts/job_lifecycle.py`, `scripts/purge_test_jobs.py`,
+`installer/install_engine.py`, and `installer/wizard.py`.
 
-### `type: ignore[no-any-return]` / `type: ignore[arg-type]` / `type: ignore[attr-defined]` — various
-
-**Files:** `storage.py`, `app.py`, `tests/test_suite.py`, `tests/e2e/conftest.py`
-
-**Suppression form:** `# type: ignore[<code>]`
+**Test files:** `tests/conftest.py`, `tests/e2e/conftest.py`,
+`tests/e2e/fixtures/_make_known_good_page.py`, `tests/factories.py`,
+`tests/packaging/test_install_engine.py`, `tests/smoke/test_e2e.py`,
+`tests/test_dynamic_port.py`, `tests/test_entrypoint.py`,
+`tests/test_fake_dispatcher.py`, `tests/test_jobs_location_pref.py`,
+`tests/test_models.py`, `tests/test_pipeline.py`, `tests/test_purge_test_jobs.py`,
+`tests/test_security_auth_token.py`, `tests/test_suite.py`,
+and `tests/test_update_github_actions.py`.
 
 **Justification:**
 
-- `storage.py: no-any-return` — `json.loads()` returns `Any`; the caller knows
-  the shape and validates via Pydantic downstream.
-- `storage.py: arg-type` — aggregated state value from a dict comprehension is
-  a string, which the `ProjectStatusState` literal accepts; basedpyright doesn't
-  narrow through the dict lookup.
-- `app.py: attr-defined` — `importlib.resources` traversable objects have
-  `.read_bytes()` at runtime but basedpyright doesn't resolve the protocol fully.
-- `test_suite.py: attr-defined` — same importlib traversable issue in test helpers.
-- `conftest.py: return-value` — `socket.getsockname()` returns a tuple; indexing
-  returns `Any` which we know is `int` here.
+- Third-party boundaries cover dynamic FastAPI dependency defaults,
+  `python-statemachine`, untyped `pytesseract`, and resource traversables.
+- Test-only boundaries cover dynamic fixtures, monkeypatches, fake callables,
+  `subprocess.CompletedProcess` generics, socket tuples, and deliberately broad
+  factory inputs.
+- `scripts/purge_test_jobs.py`, `storage.py`, `app.py`, and several tests still
+  contain historical mypy-style comments. They are fully catalogued here but
+  must be converted when the affected boundary is next changed.
+
+### Configured basedpyright suppression
+
+**Rule:** `reportImportCycles = "none"` in `pyproject.toml`.
+
+**Justification:** FastAPI route registration and application assembly create
+intentional import cycles that do not affect runtime initialization. All other
+recommended diagnostics remain enabled and warnings fail the type gate.
 
 ---
 
 ## Frontend ESLint suppressions
 
-### `@typescript-eslint/no-explicit-any` — test files
+### `react-hooks/exhaustive-deps` — `PageViewPage.tsx`
 
-**Files:** `App.test.tsx`, `JobConfigDialog.test.tsx`, `PageViewPage.test.tsx`,
-`ResultsPage.test.tsx`
-
-**Suppression form:** `// eslint-disable-next-line @typescript-eslint/no-explicit-any`
-
-**Justification:** Test mocks for `vi.fn()` return types and MSW handler bodies
-need `any` to accept arbitrary response shapes. Production code does not use `any`.
-
-### `react-hooks/exhaustive-deps` — `ResultsPage.tsx`
-
-**Files:** `frontend/src/pages/ResultsPage.tsx`
+**Files:** `frontend/src/pages/PageViewPage.tsx` (two focused disables)
 
 **Suppression form:** `// eslint-disable-next-line react-hooks/exhaustive-deps`
 
-**Justification:** The polling `useEffect` deliberately excludes `pollingActive`
-from its dependency array to avoid re-starting the interval on every render tick.
-The interval is controlled by the `pollingActive` ref, not re-created on state
-changes. Adding it to deps would break the polling logic.
+**Justification:** The page loader and navigation effects intentionally exclude
+derived callbacks whose identity changes without changing the requested job or
+page. The local comments identify the dependency boundary.
 
-### `react/no-unknown-property` — `DropZone.tsx`
+## Audit method
 
-**Files:** `frontend/src/components/DropZone.tsx`
-
-**Suppression form:** `// eslint-disable-next-line react/no-unknown-property`
-
-**Justification:** The `webkitdirectory` attribute is a non-standard but widely
-supported DOM attribute for directory picker inputs. React's JSX type definitions
-do not include it; the suppression is intentional and the attribute works in all
-target browsers.
-
----
-
-## Needs review
-
-None currently flagged.
+The 2026-07-14 migration compared this catalogue with source and configuration
+using `rg` over Python, TOML, YAML, and frontend files, then ran Ruff and
+basedpyright. The unused speculative `UP042` global ignore was removed.

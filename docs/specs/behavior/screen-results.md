@@ -1,4 +1,21 @@
+---
+Status: active
+Owner: CT
+Created: 2026-05-29
+Last verified: 2026-07-14
+Kind: spec
+---
+
 # Behavior unit spec — Results
+
+## Adversarial Review
+
+- **Stage:** post-implementation
+- **Source:** 2026-07-14 docgraph migration; independent read-only review of current code, tests, history, and related docs.
+- **Accepted findings:** The review compared the documented contract with current implementation and accepted the material deviations recorded in the architecture and authored context.
+- **Effect on result:** Shipped behavior remains active; obsolete UI or workflow assumptions are not treated as current truth.
+- **Implementation deviations:** The shared jobs dock and fixed job-level download buttons replaced parts of the earlier projected surfaces. Recent projects are written at job creation. Upload/edit/download coverage does not prove edited text is present in the exported ZIP.
+- **Residual risks:** Per-page edits and reruns can leave the job output mirror stale; the download redesign remains deferred.
 
 - **Unit type:** screen
 - **Address:** `/jobs/:id`
@@ -398,11 +415,10 @@ ResultsPage reads/writes across the same locations HomePage documents (see
 
 - **Flow(s):** —
 - **Trigger:** `DELETE /api/jobs/{id}`.
-  > **There is NO delete control in ResultsPage.tsx** (nor on HomePage /
-  > RecentProjects). The delete UI is deferred to the future Projects page
-  > (`docs/specs/2026-05-29-projects-page.md`). This record is the backend
-  > contract; the Tier-A test drives the API directly + asserts the observable
-  > not-found render when re-navigating to a deleted job.
+  > **There is NO delete control in ResultsPage.tsx.** The shared AppShell jobs
+  > dock owns the current delete affordance. This record is the backend contract;
+  > the Tier-A test drives the API directly and asserts the observable not-found
+  > render when re-navigating to a deleted job.
 - **Preconditions:** —
 - **Observable output:** None on this screen at delete time (no UI trigger).
   After delete, re-navigating to `/jobs/<id>` renders the

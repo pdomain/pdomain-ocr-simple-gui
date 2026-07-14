@@ -1,7 +1,15 @@
+---
+Status: active
+Owner: CT
+Created: 2026-05-17
+Last verified: 2026-07-14
+Kind: architecture
+---
+
 # pdomain-ocr-simple-gui — Architecture Overview
 
 **Status:** Shipped (M0–M8 complete; verification milestone and behavior-E2E pilot complete)
-**Last updated:** 2026-06-14
+**Last updated:** 2026-07-14
 
 ---
 
@@ -15,7 +23,33 @@ runs OCR, and gets `.txt` output files. Phase 3 reference consumer that validate
 Ships as a single Python wheel: `uv tool install pdomain-ocr-simple-gui`.
 Default launch: `http://localhost:8004`.
 
+The supported installer launches the browser application. Historical desktop
+extras and Qt launch instructions were removed; installer tests require the
+plain package and reject a `desktop` extra.
+
 ---
+
+## Migration evidence and deviations
+
+The shared fixture, fake-dispatcher, browser-E2E, behavior-contract, and
+statechart systems shipped in commits `d61dd42`, `c6af2ee`, and `195c67d`
+through `b5c9fef`. The final test design is less absolute than its original
+audit plan: specialized tests retain inline clients when setup timing or
+isolation requires them.
+
+Most security findings from the 2026-05-22 scan were addressed across commits
+`9afd500`, `ac3577a`, `e9aac52`, `db544d8`, `5c6f052`, `218b152`, `398ed04`,
+and later hardening. One residual finding remains upstream: the shared
+`@pdomain/pdomain-ui` launcher must add `noopener,noreferrer` to its
+`window.open` call. Current security truth lives in the source, security tests,
+this architecture, and the intent map rather than the retired scan.
+
+## Evidence
+
+- Code: `src/pdomain_ocr_simple_gui/`, `frontend/src/`
+- Tests: `tests/`, `frontend/src/**/__tests__/`, `tests/e2e/`
+- Artifacts: the Vite build is packaged under `src/pdomain_ocr_simple_gui/frontend/`
+- Verified: 2026-07-14 with source inspection and `make ci AI=1`
 
 ## 2. Stack
 
@@ -70,7 +104,7 @@ pdomain-ocr-simple-gui/
       purge_test_jobs.py   Dev utility: purge jobs with test_ prefix
     pdomain-suite.json     Suite registration metadata
     icons/                 PNG icons (16–256 px) + simple-gui.ico
-    static/                Built React SPA (populated by `make frontend-build`)
+    frontend/              Built React SPA (populated by `make frontend-build`)
   frontend/
     src/
       App.tsx              React Router root + AppShell wiring + ComputeStateWarmup prefetch
@@ -271,8 +305,8 @@ Job config is inline on the home page (`JobConfigInline`), not a modal dialog.
 ## 10. Build + release
 
 ```sh
-make frontend-build   # vite build → src/pdomain_ocr_simple_gui/static/
-uv build              # wheel (requires populated static/)
+make frontend-build   # vite build → src/pdomain_ocr_simple_gui/frontend/
+uv build              # wheel (requires populated frontend/)
 ```
 
 Published to `pdomain-index-pip` (GitHub Pages PEP 503 index).
