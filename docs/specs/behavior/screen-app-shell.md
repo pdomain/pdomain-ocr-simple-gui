@@ -56,7 +56,7 @@ bad path.
 |---------|----------|------|
 | App header outer `<header>` | `data-testid="app-header"` | `APP_TEST_IDS.appHeader` |
 | Active-jobs count badge | `data-testid="jobs-pill-count"` | `APP_TEST_IDS.jobsPillCount` — only present when 1+ jobs running |
-| Jobs popover container | `data-testid="jobs-pill-popover"` | `APP_TEST_IDS.jobsPillPopover` — disabled in simple-gui so hover does not own job details |
+| Jobs dock surface | `data-testid="jobs-panel-body"` (inside `data-testid="utility-dock"`) | `PD_UI_TEST_IDS.JOBS_PANEL_BODY` — `JobsPill.onClick` calls `useUtilityDock().toggle("jobs")`, opening the shared dock's Jobs surface (`App.tsx:593`); there is no separate hover popover |
 | Jobs right panel | `data-testid="right-panel"` + `data-testid="jobs-drawer"` | Rendered by pdomain-ui when the Jobs button is clicked |
 | Shortcuts cheatsheet dialog | `data-testid="shortcuts-cheatsheet"` | `APP_TEST_IDS.shortcutsCheatsheet` — hardcoded in bundle, not in testids catalog |
 

@@ -63,28 +63,8 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    let aborted = false;
-    void (async () => {
-      try {
-        const res = await apiFetch("/api/config");
-        if (aborted) return;
-        if (!res.ok) {
-          setError(true);
-          return;
-        }
-        const body = (await res.json()) as RuntimeConfig;
-        if (!aborted) {
-          setCfg(body);
-          setError(false);
-        }
-      } catch {
-        if (!aborted) setError(true);
-      }
-    })();
-    return () => {
-      aborted = true;
-    };
-  }, []);
+    void load();
+  }, [load]);
 
   return (
     <ConfigCtx.Provider value={cfg}>
