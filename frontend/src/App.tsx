@@ -76,6 +76,7 @@ import TesseractHelpPage from "./pages/TesseractHelpPage";
 import { JobsLocationSettings } from "./components/JobsLocationSettings";
 import { CudaSetupGuidance } from "./components/CudaSetupGuidance";
 import { ModelCacheSettings } from "./components/ModelCacheSettings";
+import { apiFetch } from "./api/apiFetch";
 
 /**
  * API-backed update config for UpdatePanel.
@@ -208,7 +209,7 @@ function handlePersistError(err: unknown): void {
 export const uiPrefsConfig: UIPrefsConfig = {
   load: async () => {
     try {
-      const res = await fetch("/api/prefs");
+      const res = await apiFetch("/api/prefs");
       if (!res.ok)
         return {
           theme: "dark" as const,
@@ -245,7 +246,7 @@ export const uiPrefsConfig: UIPrefsConfig = {
     // theme/density/fontScale slice), so this object shape is correct — do
     // NOT unwrap it. The backend read-modify-merges this partial body, so
     // sending only ui_prefs no longer resets sibling app prefs to defaults.
-    const res = await fetch("/api/prefs", {
+    const res = await apiFetch("/api/prefs", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ui_prefs: prefs }),
@@ -261,7 +262,7 @@ export const uiPrefsConfig: UIPrefsConfig = {
     // backend saw an all-defaults body and clobbered every saved pref. The
     // backend now read-modify-merges partial bodies, so sending only the
     // changed app fields is safe and preserves siblings.
-    const res = await fetch("/api/prefs", {
+    const res = await apiFetch("/api/prefs", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(appPrefs),
@@ -275,7 +276,7 @@ export const uiPrefsConfig: UIPrefsConfig = {
 /** Minimal suite siblings fetcher — discovers installed pd-* apps. */
 const fetchInstalled = async (): Promise<InstalledApp[]> => {
   try {
-    const res = await fetch("/api/suite/installed");
+    const res = await apiFetch("/api/suite/installed");
     if (!res.ok) return [];
     return (await res.json()) as InstalledApp[];
   } catch {
@@ -285,7 +286,7 @@ const fetchInstalled = async (): Promise<InstalledApp[]> => {
 
 const postLaunch = async (id: string): Promise<LaunchResult> => {
   try {
-    const res = await fetch("/api/suite/launch", {
+    const res = await apiFetch("/api/suite/launch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
@@ -365,7 +366,7 @@ function useActiveJobs(): ActiveJobsResult {
   const { data } = useQuery<RawJob[]>({
     queryKey: ["active-jobs"],
     queryFn: async () => {
-      const res = await fetch("/api/jobs");
+      const res = await apiFetch("/api/jobs");
       if (!res.ok) return [];
       return (await res.json()) as RawJob[];
     },
@@ -560,7 +561,7 @@ function AppShellWithHeader() {
    */
   async function deleteJob(id: string): Promise<void> {
     try {
-      await fetch(`/api/jobs/${id}`, { method: "DELETE" });
+      await apiFetch(`/api/jobs/${id}`, { method: "DELETE" });
     } finally {
       await queryClient.invalidateQueries({ queryKey: ["active-jobs"] });
     }

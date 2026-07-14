@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { SourcePicker } from "../components/SourcePicker";
 import { RecentProjectsList } from "../components/RecentProjectsList";
 import { JobConfigInline } from "../components/JobConfigInline";
+import { apiFetch } from "../api/apiFetch";
 import { APP_TEST_IDS } from "../lib/testids";
 import { jobCreationMachine } from "../statecharts/jobCreationMachine";
 import type { JobForm } from "../statecharts/jobCreationTypes";
@@ -39,7 +40,7 @@ export function HomePage() {
   const { data: prefs } = useQuery<PrefsResponse | null>({
     queryKey: ["home-source-picker-prefs"],
     queryFn: async () => {
-      const response = await fetch("/api/prefs");
+      const response = await apiFetch("/api/prefs");
       if (!response.ok) return null;
       return (await response.json()) as PrefsResponse;
     },
@@ -53,7 +54,7 @@ export function HomePage() {
   const chooseFiles = useCallback(
     (files: File[]) => {
       if (source?.kind === "upload") {
-        void fetch(`/api/uploads/${encodeURIComponent(source.uploadId)}`, {
+        void apiFetch(`/api/uploads/${encodeURIComponent(source.uploadId)}`, {
           method: "DELETE",
         }).catch(() => {});
       }
@@ -67,7 +68,7 @@ export function HomePage() {
   );
   const clearSource = useCallback(async () => {
     if (source?.kind === "upload") {
-      await fetch(`/api/uploads/${encodeURIComponent(source.uploadId)}`, {
+      await apiFetch(`/api/uploads/${encodeURIComponent(source.uploadId)}`, {
         method: "DELETE",
       }).catch(() => {});
     }

@@ -19,6 +19,7 @@ import {
 } from "@pdomain/pdomain-ui/primitives";
 import { useShortcuts, formatShortcut } from "@pdomain/pdomain-ui/hooks";
 import type { ShortcutBinding } from "@pdomain/pdomain-ui/hooks";
+import { apiFetch } from "../api/apiFetch";
 import { APP_TEST_IDS } from "../lib/testids";
 import {
   PageViewerWithZoom,
@@ -127,7 +128,7 @@ export default function PageViewPage() {
   // Load job status to know total page count
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/jobs/${id ?? ""}`)
+    apiFetch(`/api/jobs/${id ?? ""}`)
       .then(async (res) => {
         if (!res.ok || cancelled) return;
         const data = (await res.json()) as JobStatus;
@@ -148,7 +149,7 @@ export default function PageViewPage() {
     setSaveStatus("idle");
     setFetchError(null);
 
-    fetch(`/api/pages/${id ?? ""}/${pageIdx}`)
+    apiFetch(`/api/pages/${id ?? ""}/${pageIdx}`)
       .then(async (res) => {
         if (cancelled) return;
         if (!res.ok) {
@@ -183,7 +184,7 @@ export default function PageViewPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch(`/api/pages/${id ?? ""}/${pageIdx}/words`);
+        const res = await apiFetch(`/api/pages/${id ?? ""}/${pageIdx}/words`);
         if (!res.ok || cancelled) return;
         const body = (await res.json()) as { words: ApiWord[] };
         if (!cancelled) {
@@ -202,7 +203,7 @@ export default function PageViewPage() {
     if (!id) return;
     setSaveStatus("saving");
     try {
-      const res = await fetch(`/api/pages/${id}/${pageIdx}/text`, {
+      const res = await apiFetch(`/api/pages/${id}/${pageIdx}/text`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
@@ -223,14 +224,14 @@ export default function PageViewPage() {
     if (!id) return;
     setRerunStatus("running");
     try {
-      const res = await fetch(`/api/pages/${id}/${pageIdx}/rerun`, {
+      const res = await apiFetch(`/api/pages/${id}/${pageIdx}/rerun`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ engine }),
       });
       if (res.ok) {
         // Refetch page data to update textarea
-        const pageRes = await fetch(`/api/pages/${id}/${pageIdx}`);
+        const pageRes = await apiFetch(`/api/pages/${id}/${pageIdx}`);
         if (pageRes.ok) {
           const data = (await pageRes.json()) as PageData;
           setPageData(data);

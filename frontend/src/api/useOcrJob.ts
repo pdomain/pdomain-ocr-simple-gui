@@ -11,7 +11,7 @@
  *   idle | pending | running | done | error | cancelled
  *
  * This adapter:
- *   1. Wraps fetch('/api/jobs/:id') in a pollFn passed to useLongJob.
+ *   1. Wraps apiFetch('/api/jobs/:id') in a pollFn passed to useLongJob.
  *   2. Maps backend JobState → LongJobStatus inside the pollFn.
  *   3. Stores the raw backend response in React state so callers can
  *      access extra fields (pages, output_dir, output_mode, name, page_count).
@@ -25,6 +25,7 @@ import * as React from "react";
 import { useLongJob } from "@pdomain/pdomain-ui/stores";
 import type { LongJobStatus } from "@pdomain/pdomain-ui/stores";
 import type { JobState } from "@pdomain/pdomain-ui/types";
+import { apiFetch } from "./apiFetch";
 
 /**
  * Error thrown by the job-status fetch carrying the HTTP status code.
@@ -143,12 +144,12 @@ function stripRerunKey(jobId: string): string {
 
 async function defaultFetchFn(jobId: string): Promise<OcrJobData> {
   const rawId = stripRerunKey(jobId);
-  // A network-level failure (server down, DNS, CORS) rejects fetch() before a
-  // Response exists — surface it as a JobFetchError with status 0 so the hook
-  // treats it as transient (retryable), not as a terminal 404.
+  // A network-level failure (server down, DNS, CORS) rejects apiFetch() before
+  // a Response exists — surface it as a JobFetchError with status 0 so the
+  // hook treats it as transient (retryable), not as a terminal 404.
   let res: Response;
   try {
-    res = await fetch(`/api/jobs/${rawId}`);
+    res = await apiFetch(`/api/jobs/${rawId}`);
   } catch (err) {
     throw new JobFetchError(
       `GET /api/jobs/${rawId} failed: ${err instanceof Error ? err.message : String(err)}`,

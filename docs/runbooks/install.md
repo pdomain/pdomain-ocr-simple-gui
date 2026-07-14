@@ -45,6 +45,21 @@ The default URL is `http://localhost:8004`. Jobs default to
 `~/.local/share/pdomain-suite/installed.toml`. A configured environment or
 saved jobs-location preference can override the project root.
 
+## API token
+
+When `PDOMAIN_API_TOKEN` is set on the server, every mutating request must
+carry a matching bearer token or the backend returns 401. The browser app has
+no Settings field for this yet; set the token from the browser's developer
+console instead:
+
+```js
+localStorage.setItem('pdomain.apiToken', '<token>');
+```
+
+The frontend reads this key on every API call and attaches
+`Authorization: Bearer <token>` automatically. Clear it with
+`localStorage.removeItem('pdomain.apiToken')`.
+
 ## Verification
 
 Confirm the process starts, the browser can open the default URL, and a small
