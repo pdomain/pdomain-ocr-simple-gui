@@ -11,7 +11,9 @@ Entry points:
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Protocol, TypeAlias, cast
 
@@ -47,6 +49,9 @@ _IMAGE_SUFFIXES: frozenset[str] = frozenset(
 # Default batch size when spec.batch_pages is None.
 _DEFAULT_BATCH_PAGES: int = 8
 
+# Default per-chunk dispatcher timeout in seconds (15 minutes).
+_DEFAULT_BATCH_TIMEOUT_S: float = 900.0
+
 JsonPrimitive: TypeAlias = str | int | float | bool | None
 JsonValue: TypeAlias = JsonPrimitive | list["JsonValue"] | dict[str, "JsonValue"]
 JsonObject: TypeAlias = dict[str, JsonValue]
@@ -56,13 +61,10 @@ ApiJobState: TypeAlias = Literal["queued", "running", "succeeded", "failed", "ca
 class OCRDispatcher(Protocol):
     """Structural type for OCR dispatchers used by this module.
 
-    NOTE: ``run_ocr_batch`` does not accept a device parameter — device
-    selection is handled internally by the LocalStageDispatcher (VRAM sizing
-    + OOM backoff + CPU fallback).  The user's device choice (spec.device)
-    is therefore not forwarded to the batch seam.  This is a known gap:
-    when the pdomain-ops OcrBatchRequest gains a device field, wire
-    spec.device through here.  See: follow-up on device override in
-    Wave-3 batch seam (ocr-container-meta).
+    ``run_ocr_batch`` accepts ``OcrBatchRequest.device`` — populated from
+    ``resolve_device(spec.device)`` where the request is built (see
+    :func:`run_project`) — and consumed by
+    ``pdomain_ops.gpu.LocalStageDispatcher.run_ocr_batch``.
     """
 
     async def run_ocr_batch(
@@ -77,15 +79,16 @@ class OCRDispatcher(Protocol):
 
 
 def resolve_device(choice: str) -> str | None:
-    """Translate a job's device choice into a run_stage override.
+    """Translate a job's device choice into a run_stage/run_ocr_batch override.
 
     - "auto" -> None (dispatcher auto-detects via pick_device)
     - "cpu"  -> "cpu"
     - "gpu"  -> the detected accelerator ("local"/"mps"); falls back to the
       detected device, which run_stage degrades to cpu when no GPU impl.
 
-    NOTE: This function is preserved for informational use but is NOT
-    forwarded to run_ocr_batch (which has no device parameter yet).
+    The result is forwarded to both dispatch seams: :func:`run_project`
+    passes it as ``OcrBatchRequest.device``, and ``routes.pages.rerun_page``
+    passes it as ``run_stage(..., device=...)``.
     """
     if choice == "cpu":
         return "cpu"
@@ -97,6 +100,21 @@ def resolve_device(choice: str) -> str | None:
         except (ImportError, ValueError, RuntimeError):
             return None
     return None
+
+
+def batch_timeout_s() -> float | None:
+    """Return the per-chunk dispatcher wait timeout in seconds, or ``None`` to disable it.
+
+    Reads ``PDOMAIN_OCR_BATCH_TIMEOUT_S`` (float seconds, default
+    :data:`_DEFAULT_BATCH_TIMEOUT_S`). A value ``<= 0`` disables the timeout
+    (``asyncio.wait_for(..., timeout=None)`` waits indefinitely) — some
+    deployments run engines whose per-chunk latency is unbounded by design
+    and need to opt out. Shared by :func:`run_project` (batch dispatch) and
+    ``routes.pages.rerun_page`` (single-page dispatch).
+    """
+    raw = os.environ.get("PDOMAIN_OCR_BATCH_TIMEOUT_S")
+    timeout = float(raw) if raw else _DEFAULT_BATCH_TIMEOUT_S
+    return timeout if timeout > 0 else None
 
 
 def _json_object_or_none(value: object) -> JsonObject | None:
@@ -326,12 +344,11 @@ async def run_project(
        not abort the whole job.
     5. Calls *status_callback* after each chunk.
 
-    **Device note:** ``run_ocr_batch`` does not accept a device parameter;
-    device selection (VRAM sizing, OOM backoff, CPU fallback) is handled
-    internally by the LocalStageDispatcher.  The user's ``spec.device``
-    choice is therefore not forwarded.  When the pdomain-ops
-    ``OcrBatchRequest`` gains a device field this should be wired here.
-    See: follow-up on device override in Wave-3 batch seam.
+    **Device note:** ``OcrBatchRequest.device`` is populated from
+    ``resolve_device(spec.device)`` when the request is built below, and is
+    consumed by ``LocalStageDispatcher.run_ocr_batch`` (VRAM sizing, OOM
+    backoff, CPU fallback still happen inside the dispatcher, but the
+    caller's device choice is honored as the starting point).
 
     The project must already be written to storage with a ``pages`` list
     matching the discovered images (page names = image filenames) before
@@ -426,7 +443,29 @@ async def run_project(
                 device=resolve_device(spec.device),
             )
 
-            page_dicts: list[dict[str, object]] = await dispatcher.run_ocr_batch(req)
+            # Bound the dispatcher wait so a hung engine fails the chunk
+            # instead of wedging the job in "running" forever and leaking a
+            # semaphore slot. Limitation: asyncio.wait_for cancels the
+            # awaiting coroutine here, but run_ocr_batch's actual OCR work
+            # runs in a pdomain-ops LocalStageDispatcher executor thread,
+            # which keeps running after cancellation and can still mutate
+            # the dispatcher's lock-free module-level _predictor_cache from
+            # that detached thread while a later chunk/job runs. This turns
+            # a permanent wedge into a bounded failure; it does not stop the
+            # leaked thread. Tracked separately: ocr-container-meta issue:
+            # predictor-cache lock (number TBD).
+            timeout_s = batch_timeout_s()
+            try:
+                page_dicts: list[dict[str, object]] = await asyncio.wait_for(
+                    dispatcher.run_ocr_batch(req), timeout=timeout_s
+                )
+            except TimeoutError:
+                logger.exception(
+                    "OCR batch timed out after %.1fs (PDOMAIN_OCR_BATCH_TIMEOUT_S); marking chunk failed",
+                    timeout_s,
+                    extra={"context": f"chunk_start={chunk_start}, chunk_end={chunk_end}"},
+                )
+                raise
 
             # Post-process each page in the successful chunk
             for local_i, (idx, img_path) in enumerate(zip(chunk_indices, chunk_images, strict=True)):
