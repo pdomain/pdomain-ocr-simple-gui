@@ -14,6 +14,7 @@ from pdomain_ocr_simple_gui.storage import (
     list_projects,
     read_page_sidecar,
     read_project,
+    update_page_result,
     write_combined_txt,
     write_page_sidecar,
     write_project,
@@ -226,6 +227,49 @@ class TestDeleteProject:
     def test_delete_missing_is_noop(self, projects_root: Path) -> None:
         # Should not raise
         delete_project("does-not-exist")
+
+
+class TestUpdatePageResult:
+    """update_page_result aggregates through aggregate_pages_state (statechart)."""
+
+    def test_single_page_succeed_aggregates_to_succeeded(self, projects_root: Path, tmp_path: Path) -> None:
+        spec = _make_spec(tmp_path)
+        status = ProjectStatus(
+            project_id="test-proj-id-001",
+            state="running",
+            page_count=1,
+            pages_done=0,
+            pages=[PageResult(page_idx=0, page_name="page_001.png", state="running")],
+        )
+        write_project(spec, status)
+
+        update_page_result(spec, PageResult(page_idx=0, page_name="page_001.png", state="succeeded"))
+
+        _, restored = read_project("test-proj-id-001")
+        assert restored.state == "succeeded"
+        assert restored.pages_done == 1
+
+    def test_page_rerun_of_failed_job_reaches_running(self, projects_root: Path, tmp_path: Path) -> None:
+        """Regression guard: rerun_page never gates on project state, so a
+        single-page rerun must succeed even when the stored job is "failed".
+        """
+        spec = _make_spec(tmp_path)
+        status = ProjectStatus(
+            project_id="test-proj-id-001",
+            state="failed",
+            page_count=2,
+            pages_done=0,
+            pages=[
+                PageResult(page_idx=0, page_name="page_001.png", state="failed"),
+                PageResult(page_idx=1, page_name="page_002.png", state="succeeded"),
+            ],
+        )
+        write_project(spec, status)
+
+        update_page_result(spec, PageResult(page_idx=0, page_name="page_001.png", state="running"))
+
+        _, restored = read_project("test-proj-id-001")
+        assert restored.state == "running"
 
 
 class TestListProjectsNoFiltering:

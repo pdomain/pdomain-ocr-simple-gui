@@ -10,15 +10,21 @@ import re
 import shutil
 import tempfile
 from pathlib import Path
-from typing import TypeAlias, cast
+from typing import Literal, TypeAlias, cast
 
 from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
+from pdomain_ocr_simple_gui.statecharts.job_lifecycle import aggregate_pages_state
 
 logger = logging.getLogger(__name__)
 
 _PROJECTS_ROOT_DEFAULT: Path = Path.home() / ".local" / "share" / "pdomain-suite" / "simple-gui" / "projects"
 
 _APP_ID = "pdomain-ocr-simple-gui"
+
+# ProjectStatus.state never observes "new" — that value only exists
+# transiently before a project is written the first time — so this is a
+# narrower alias of statecharts.job_lifecycle.JobState.
+ApiJobState: TypeAlias = Literal["queued", "running", "succeeded", "failed", "cancelled"]
 
 
 def _jobs_location_pref() -> str:
@@ -320,20 +326,10 @@ def update_page_result(spec: ProjectSpec, page_result: PageResult) -> None:
     s, status = read_project(spec.project_id)
     new_pages = [p if p.page_idx != page_result.page_idx else page_result for p in status.pages]
     pages_done = sum(1 for p in new_pages if p.state == "succeeded")
-    all_states = {p.state for p in new_pages}
-    if "running" in all_states:
-        agg_state: str = "running"
-    elif "failed" in all_states:
-        agg_state = "failed"
-    elif all_states == {"succeeded"}:
-        agg_state = "succeeded"
-    elif "queued" in all_states:
-        agg_state = "queued"
-    else:
-        agg_state = status.state
+    agg_state = cast("ApiJobState", aggregate_pages_state(new_pages, status.state))
     new_status = ProjectStatus(
         project_id=status.project_id,
-        state=agg_state,  # type: ignore[arg-type]  # str literal accepted by ProjectStatusState; not narrowed
+        state=agg_state,
         page_count=status.page_count,
         pages_done=pages_done,
         pages=new_pages,

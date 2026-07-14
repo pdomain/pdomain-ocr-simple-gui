@@ -18,7 +18,6 @@ the plan specifies.
 
 from __future__ import annotations
 
-import contextlib
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException
@@ -185,6 +184,11 @@ def load_page_words(job_id: str, idx: int) -> Iterable[dict[str, object]] | None
     Returns ``None`` when the project or page sidecar does not exist,
     which the route maps to a 404 response.
 
+    ``job_id`` must already be validated by the caller (``get_words`` does
+    this before invoking ``load_page_words``). This raises ``ValueError``
+    if called with an unvalidated id, rather than silently reading off-root
+    as the old ``contextlib.suppress(ValueError)`` wrapper allowed.
+
     This function is defined at module top-level so tests can monkeypatch
     ``pdomain_ocr_simple_gui.routes.words.load_page_words`` without ceremony.
     """
@@ -194,8 +198,7 @@ def load_page_words(job_id: str, idx: int) -> Iterable[dict[str, object]] | None
         validate_project_id,
     )
 
-    with contextlib.suppress(ValueError):
-        validate_project_id(job_id)
+    validate_project_id(job_id)
     # If the project or sidecar is missing, return None → 404
     try:
         spec, _ = read_project(job_id)
@@ -223,8 +226,15 @@ def get_words(job_id: str, idx: int) -> WordsResponse:
 
     Each word includes its text, a page-relative bounding box
     ``{x, y, w, h}`` (values in 0.0-1.0 range), and the OCR confidence
-    score.  Returns 404 if the job or page sidecar does not exist.
+    score.  Returns 400 if ``job_id`` fails traversal validation, 404 if
+    the job or page sidecar does not exist.
     """
+    from pdomain_ocr_simple_gui.storage import validate_project_id
+
+    try:
+        validate_project_id(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     payload = load_page_words(job_id, idx)
     if payload is None:
         raise HTTPException(status_code=404, detail="page not found")
