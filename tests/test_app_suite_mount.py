@@ -5,7 +5,8 @@ Before this fix, ``app.py`` called ``mount_routes(_app)`` with no
 ``app_id="unknown"`` — every compute-device preference set via Settings was
 silently written to ``apps["unknown"]`` instead of
 ``apps["pdomain-ocr-simple-gui"]``. These tests exercise the fix through the
-real released pdomain-ops API (``mount_routes(adapters=, suite_app=)``).
+real released pdomain-ops API (``mount_routes(adapters=, suite_app=)``), and
+(Task 19) that the OCR dispatcher's device_resolver reads that same pref.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pdomain_ops.suite.prefs import LocalFilePrefs
 
+import pdomain_ocr_simple_gui.app as app_mod
 from pdomain_ocr_simple_gui.app import create_app, lifespan
 from pdomain_ocr_simple_gui.constants import APP_ID
 
@@ -74,3 +76,25 @@ async def test_lifespan_migrates_unknown_device_pref_to_real_app_id(
     snap = _prefs_snapshot(tmp_prefs)
     assert snap.apps[APP_ID]["compute_device"] == "cuda:0"
     assert snap.apps.get("unknown", {}).get("compute_device") is None
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_resolver_follows_suite_pref(
+    tmp_prefs: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """LocalStageDispatcher's device_resolver reads the suite compute-device pref.
+
+    The resolver is a closure over the module-level prefs adapter, not a
+    value captured at dispatcher-construction time, so it must be re-read
+    on every call — verified here by calling it directly after startup.
+    """
+    monkeypatch.delenv("PDOMAIN_OCR_FAKE_DISPATCHER", raising=False)
+    seed_adapter = LocalFilePrefs(root=tmp_prefs / "ui-prefs.json")
+    seed_adapter.write_app(APP_ID, {"compute_device": "cpu"})
+
+    async with lifespan(FastAPI()):
+        dispatcher = app_mod.get_dispatcher()
+        assert dispatcher is not None
+        assert dispatcher._device_resolver is not None
+        assert dispatcher._device_resolver() == "cpu"

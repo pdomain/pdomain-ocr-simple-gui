@@ -146,6 +146,28 @@ def _build_suite_app() -> InstalledApp:
     return InstalledApp.model_validate({**fragment, "binary": sys.executable, "version": version})
 
 
+def _resolve_device() -> str:
+    """Return the effective compute device, resolved fresh on every call.
+
+    Passed as ``LocalStageDispatcher(device_resolver=...)`` — the dispatcher
+    calls this once per stage dispatch rather than once at construction, so a
+    compute-device preference change in Settings takes effect on the next OCR
+    run without restarting the process. Reads the module-level
+    ``_prefs_adapter`` (not a snapshot captured at definition time) so it
+    reflects whatever lifespan most recently wired in.
+
+    Falls back to ``pick_device()`` directly when the prefs adapter failed to
+    initialise, matching ``resolve_effective_device``'s own behaviour when no
+    preference is persisted.
+    """
+    from pdomain_ops.gpu.device import pick_device
+    from pdomain_ops.suite.device_prefs import resolve_effective_device
+
+    if _prefs_adapter is None:
+        return pick_device()
+    return resolve_effective_device(_prefs_adapter, APP_ID)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Wire prefs adapter, stage dispatcher, and suite registration at startup."""
@@ -201,7 +223,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 register_default_stages,
             )
 
-            _dispatcher = LocalStageDispatcher()
+            _dispatcher = LocalStageDispatcher(device_resolver=_resolve_device)
             register_default_stages(_dispatcher)
         except Exception:  # default stages optional — fall back to bare dispatcher
             logger.exception(
@@ -210,7 +232,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             )
             from pdomain_ops.gpu import LocalStageDispatcher
 
-            _dispatcher = LocalStageDispatcher()
+            _dispatcher = LocalStageDispatcher(device_resolver=_resolve_device)
     # Auth startup notice.
     api_token = os.environ.get("PDOMAIN_API_TOKEN", "").strip()
     if not api_token:
