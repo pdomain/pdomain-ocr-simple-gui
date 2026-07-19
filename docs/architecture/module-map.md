@@ -2,13 +2,13 @@
 Status: active
 Owner: CT
 Created: 2026-06-14
-Last verified: 2026-07-14
+Last verified: 2026-07-19
 Kind: architecture
 ---
 
 # pdomain-ocr-simple-gui — Module Map
 
-**Last updated:** 2026-06-14
+**Last updated:** 2026-07-19
 
 Per-module reference. Each entry gives a one-line responsibility and its
 key public surface (types, functions, hooks). Derived from current source.
@@ -46,7 +46,7 @@ key public surface (types, functions, hooks). Derived from current source.
 
 | Module | Responsibility | Key public surface |
 |--------|---------------|-------------------|
-| `local_path.py` | Validate and resolve a local filesystem path source | `LocalPathSource`, `get_allowlist()` |
+| `local_path.py` | Validate and resolve a local filesystem path source against `SOURCE_ROOT_ALLOWLIST`; ZIP size/traversal checks | `LocalPathSource`, `get_allowlist()` |
 | `uploaded_files.py` | Manage an uploaded-file-backed source directory | `UploadedFilesSource` |
 
 ### `output/`
@@ -111,6 +111,7 @@ key public surface (types, functions, hooks). Derived from current source.
 
 | File | Responsibility | Key exports |
 |------|---------------|-------------|
+| `api/apiFetch.ts` | Shared fetch wrapper: reads `localStorage["pdomain.apiToken"]` and attaches `Authorization: Bearer` when set | `apiFetch()` |
 | `api/useOcrJob.ts` | React Query hooks for job CRUD, live polling, page operations | `useOcrJob()`, `OcrJobData`, `UseOcrJobResult`, `JobFetchError` |
 
 ### Statecharts — `statecharts/`

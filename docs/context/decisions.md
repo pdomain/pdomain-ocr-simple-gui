@@ -62,34 +62,44 @@ Kind: context
 - Rationale kept: this decision log and the replacement architecture.
 - Remaining work: deferred download and multilingual ideas remain in the intent map.
 
+### 2026-07-19 — Retired: 2026-07-14 review-fixes plan
+
+- **Old path:** `docs/plans/2026-07-14-review-fixes.md`
+- **Outcome:** implemented (Phases A–F present in code, tests, and architecture)
+- **Superseded by:** `docs/architecture/00-overview.md`,
+  `docs/architecture/runtime-flows.md`, `docs/architecture/module-map.md`, and
+  this decisions log
+- **Removal commit:** (this cleanup commit)
+- **Rationale kept:** durable design decisions in the 2026-07-14 review-fix
+  entry below; residual deferred product work in `intent-map.md` (meta #395–#398)
+- **Remaining work:** none for the plan itself
+
 ### 2026-07-14 — Review-fix decisions (multi-lens review + red team)
 
 - **Context:** A multi-lens review plus a three-lens adversarial red team of the
-  shipped app produced the [2026-07-14 review-fixes plan](../plans/2026-07-14-review-fixes.md).
+  shipped app produced the now-retired 2026-07-14 review-fixes plan.
 - **Decisions:**
   - Device vocabulary is normalized in `pdomain-ops` at the route and dispatcher
     boundaries (`canonical_execution_device` / `display_device_id`), not inside
     `resolve_effective_device`, so a stored `cuda:0` preference round-trips
     unchanged for display and normalizes to `local` for execution.
   - All mutating routes require the API token: the app-level upload and per-id
-    job GET gained `Depends(require_token)`, and `suite_token_middleware` now
-    guards every mutating `/api/suite/*` path by method+prefix rather than a
-    hardcoded two-path allowlist (which had listed a nonexistent `/stop` route
-    and left device/prefs/update mutations open).
+    job GET use `Depends(require_token)`, and `suite_token_middleware` guards
+    every mutating `/api/suite/*` path by method+prefix rather than a hardcoded
+    path allowlist.
   - The frontend sends the token via a shared `apiFetch` wrapper reading
-    `localStorage`; before this, no frontend call sent a token, so any
-    token-enabled deployment was already broken.
+    `localStorage`.
   - Upload limits are served by `GET /api/config` so the drop-zone copy cannot
     drift from the backend cap; zip extraction is capped by decompressed size
     and runs off the event loop.
-  - Suite routes will be mounted with the real `app_id`
-    (`pdomain-ocr-simple-gui`) and a shared prefs adapter, replacing the current
-    `app_id="unknown"` orphan-adapter mount (Phase D, pending the pdomain-ops
-    release).
+  - Suite routes mount with the real `app_id` (`pdomain-ocr-simple-gui`) and a
+    shared prefs adapter; the dispatcher uses `device_resolver` so Settings
+    device changes apply on the next OCR stage.
 - **Rationale:** The red team confirmed each gap against code; several were
   pre-existing (frontend token, suite mount, unauthenticated suite mutations)
   and would have silently broken or exposed a token-enabled deployment.
-- **Evidence:** Plan `docs/plans/2026-07-14-review-fixes.md`; issues
-  ocr-container-meta #394–#398; the Phase A/B/E/F commits on `master`.
-- **Remaining work:** Phase C (pdomain-ops device-vocabulary release) and
-  Phase D (settings-to-execution wiring) are gated on human release approval.
+- **Evidence:** Architecture overview / runtime-flows / module-map (2026-07-19
+  refresh); ocr-container-meta #395–#398 for residual deferred work;
+  `pdomain-ops>=0.11.1` pin.
+- **Remaining work:** deferred product items only (see intent-map), not plan
+  execution.

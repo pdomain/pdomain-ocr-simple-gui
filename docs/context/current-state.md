@@ -24,18 +24,14 @@ React OCR application described in
 The supported install path is browser-based; the removed desktop extra and Qt
 launch mode are not current product behavior.
 
+The 2026-07-14 review-fixes execution plan is **implemented and retired** —
+auth, suite mount, device resolution, concurrent-job caps, zip limits,
+`apiFetch`, and related hardening live in architecture and code. The GitHub
+issue migration repair (ledger + deletion journal) is on `master`.
+
 ## In-flight work
 
-- **GitHub → docgraph issue migration (repair).** Issues were deleted on
-  2026-07-17; the 2026-07-19 repair adds
-  [the migration ledger](github-issue-migration-ledger.md),
-  [the deletion journal](github-issue-deletion-journal.md), installs
-  `docs/issues/` templates, reclassifies the roadmap, and keeps Issues
-  **enabled** on GitHub by owner choice.
-- **Review-fixes plan.** [2026-07-14 review-fixes](../plans/2026-07-14-review-fixes.md):
-  Phases A, B, E, and F landed on `master`; the pdomain-ops device-vocabulary
-  release (Phase C) and settings-to-execution wiring (Phase D) remain pending a
-  human release gate where still applicable after later ops bumps.
+None for execution plans. Open product residue is deferred/blocked only.
 
 ## Open product residue
 
@@ -54,4 +50,6 @@ per-page edits or reruns; the deferred redesign is tracked in
 The dispatcher timeout bounds a hung OCR await but does not stop the underlying
 executor thread, which can still race the shared predictor cache in pdomain-ops
 ([ocr-container-meta#397](https://github.com/ConcaveTrillion/ocr-container-meta/issues/397)).
-No flaky test is currently recorded.
+GitHub Actions CI may still fail e2e tests that expect Tesseract when only DocTR
+is available in the runner image — treat as a known CI environment gap, not as
+missing product work.
