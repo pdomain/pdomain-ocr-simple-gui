@@ -47,7 +47,7 @@ migrated GitHub issues for `pdomain/pdomain-ocr-simple-gui`. Companion to
 
 - **Journal write timestamp (UTC):** 2026-07-19T11:00:30Z
 - **Repair branch commit (pre-merge):** `076e16f` (migration repair docs).
-- **Merged default-branch commit:** _filled after merge to `master`_.
+- **Merged default-branch commit:** `0aed22680ae99064a14e1fe057eaa477db4b6c92` (PR #46).
 - **API check before journal close:** GraphQL
   `repository.issues.totalCount == 0`; `gh issue list --state all` empty
   (PRs excluded). Sample GraphQL lookups for #1, #16, #26, #38:
@@ -101,8 +101,8 @@ migrated GitHub issues for `pdomain/pdomain-ocr-simple-gui`. Companion to
 
 - `2026-07-19T11:00:30Z` — Batch 1 verified: 0 issues remain on GitHub; 37 journal rows
   recorded; Issues feature left enabled; no disable step.
-- `_pending_` — After merge to `master`, append merged commit SHA and re-run
-  API absence check.
+- `2026-07-19T11:05:58Z` — PR #46 merged to `master` as `0aed22680ae99064a14e1fe057eaa477db4b6c92`. Re-checked API:
+  `issues.totalCount == 0`; no residual issues to delete. Issues feature remains enabled.
 
 ## Related
 
