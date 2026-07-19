@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-14
-Last verified: 2026-07-14
+Last verified: 2026-07-19
 Kind: context
 ---
 
@@ -13,7 +13,29 @@ Kind: context
 - **Kind:** context
 - **Status:** active
 - **Read when:** checking why documentation or product direction changed.
-- **Search terms:** decisions, deviations, retirement, tombstones, security, tests.
+- **Search terms:** decisions, deviations, retirement, tombstones, security, tests,
+  GitHub issue migration.
+
+### 2026-07-19 — GitHub issue migration repair (ledger over false backlog)
+
+- **Context:** On 2026-07-17 all 37 repository GitHub issues were deleted after
+  dumping bodies into a temporary archive (`ec3979f`, removed in `7f3be6b`) and
+  listing them as open work on `docs/roadmap.md`. That roadmap claim conflicted
+  with code: most issues were already fixed.
+- **Decision:** Keep a recomputable
+  [migration ledger](github-issue-migration-ledger.md) with one row per former
+  issue (archive section digests + evidence). Represent residual open work in
+  `docs/issues/`, the intent map, and a short honest roadmap. Do **not** disable
+  the GitHub Issues feature in this repair (owner choice). Do not re-create the
+  deleted GitHub issues.
+- **Rationale:** Permanent deletion without a truthful ledger loses provenance;
+  reopening fixed items as backlog wastes agent and human attention.
+- **Evidence:** Archive at `ec3979f`; API issue totalCount 0; code paths cited in
+  the ledger; governed issue for #26.
+- **Remaining work:** None required for migration hygiene. GitHub Issues stays
+  enabled. Deletion journal reconstructed 2026-07-19 (most GraphQL node IDs
+  unavailable after prior deletion; only #26 node id retained from an earlier
+  worktree note).
 
 ### 2026-07-14 — Preserve implemented behavior in architecture
 

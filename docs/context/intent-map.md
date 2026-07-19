@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-13
-Last verified: 2026-07-14
+Last verified: 2026-07-19
 Kind: context
 ---
 
@@ -12,12 +12,19 @@ Kind: context
 
 - **Kind:** context
 - **Status:** active
-- **Read when:** deciding whether to expand deployment or packaging scope.
-- **Search terms:** intent, hosted deployment, Windows, macOS, packaging.
+- **Read when:** deciding whether to expand deployment or packaging scope, or
+  checking deferred and blocked product bets.
+- **Search terms:** intent, hosted deployment, Windows, macOS, packaging,
+  deferred, blocked, open issues, cancellation, config fetch, API token.
 
 ## Active bets
 
 None.
+
+## Open issues (governed)
+
+- [Isolate suite launcher tabs from the opener](../issues/2026-07-19-gh-026-suite-launcher-opener-isolation.md)
+  — former GitHub #26; blocked on `@pdomain/pdomain-ui`.
 
 ## Deferred work
 
@@ -54,11 +61,6 @@ None.
 - **API-token Settings field — deferred ([ocr-container-meta#398](https://github.com/ConcaveTrillion/ocr-container-meta/issues/398)).**
   The frontend now sends a bearer token from `localStorage` via `apiFetch`, set
   through a browser-console command. A proper masked Settings input is unbuilt.
-- **Launcher opener isolation — blocked upstream.** This app does not own the
-  shared `window.open` call. `@pdomain/pdomain-ui` must add
-  `noopener,noreferrer`; after its release, bump the dependency and verify the
-  compiled AppShell bundle. Evidence: `frontend/src/App.tsx`.
-
 - **Hosted deployment — deferred.** The app ships local and managed mode
   selection, capability-token protection through `PDOMAIN_API_TOKEN`, and
   managed-mode source/output restrictions. It does not ship a hosted service,
@@ -71,23 +73,34 @@ None.
   maintainers. Require platform-native install, uninstall, launch, and upgrade
   tests before support is claimed.
 
+## Blocked (waiting on)
+
+- **Launcher opener isolation — blocked upstream (former GitHub #26).** This app
+  does not own the shared `window.open` call. `@pdomain/pdomain-ui` must add
+  `noopener,noreferrer`; after its release, bump the dependency and verify the
+  compiled AppShell bundle. Evidence: `frontend/src/App.tsx`. Governed record:
+  [suite launcher opener isolation](../issues/2026-07-19-gh-026-suite-launcher-opener-isolation.md).
+- **Predictor-cache lock — blocked upstream ([ocr-container-meta#397](https://github.com/ConcaveTrillion/ocr-container-meta/issues/397)).**
+  Bounded dispatcher timeouts cancel the awaiter but not the executor thread,
+  which can still race `_predictor_cache` in `pdomain-ops`.
+
 ## Rejected directions
 
 - Do not describe authentication or mode selection as wholly unbuilt. Token
   auth and local/managed branching already ship in `auth.py`, `runtime/mode.py`,
   route guards, and their tests.
-
-## Blocked (waiting on)
-
-None.
+- Do not treat the 2026-07-17 roadmap dump of all 37 GitHub issues as open work.
+  Most were already implemented; see
+  [the migration ledger](github-issue-migration-ledger.md).
 
 ## Needs owner decision
 
-None.
+None for lifecycle of retained docs. Product ship-or-strip for job cancellation
+remains under deferred work (meta#395).
 
 ## Legacy-unverified sweep
 
 The 2026-07-14 migration verified retained architecture, process, runbook, and
-behavior documents against current code, tests, and history. Implemented,
-superseded, and historical documents were promoted and retired; no owner-only
-lifecycle decision remains.
+behavior documents against current code, tests, and history. The 2026-07-19
+GitHub-issue repair reclassified the deleted tracker against code; no
+owner-only lifecycle decision remains for those 37 issues.
