@@ -2,14 +2,14 @@
 Status: active
 Owner: CT
 Created: 2026-05-17
-Last verified: 2026-07-14
+Last verified: 2026-07-19
 Kind: architecture
 ---
 
 # pdomain-ocr-simple-gui — Architecture Overview
 
 **Status:** Shipped (M0–M8 complete; verification milestone and behavior-E2E pilot complete)
-**Last updated:** 2026-07-14
+**Last updated:** 2026-07-19
 
 ---
 
@@ -200,7 +200,7 @@ pdomain-ocr-simple-gui/
 | `GET` | `/api/config` | none | Runtime config (deploy mode, engine caps, CUDA) |
 | `POST` | `/api/jobs` | token | Create project + enqueue OCR job |
 | `GET` | `/api/jobs` | token | List recent projects |
-| `GET` | `/api/jobs/{id}` | none | Get project status (for polling) |
+| `GET` | `/api/jobs/{id}` | token | Get project status (for polling) |
 | `DELETE` | `/api/jobs/{id}` | token | Delete project + files |
 | `POST` | `/api/jobs/{id}/rerun` | token | Re-run all pages |
 | `GET` | `/api/jobs/{id}/download` | none | Stream job output as zip |
@@ -211,8 +211,8 @@ pdomain-ocr-simple-gui/
 | `GET` | `/api/pages/{id}/{idx}/words` | none | Word overlays (bbox + confidence) |
 | `GET` | `/api/prefs` | token | Read app prefs (recent projects, defaults) |
 | `PUT` | `/api/prefs` | token | Update app prefs |
-| `POST` | `/api/uploads` | none | Upload image files or zip |
-| `DELETE` | `/api/uploads/{id}` | none | Delete uploaded source |
+| `POST` | `/api/uploads` | token | Upload image files or zip |
+| `DELETE` | `/api/uploads/{id}` | token | Delete uploaded source |
 | `GET` | `/api/models/cache` | token | DocTR model cache status |
 | `POST` | `/api/models/precache` | token | Pre-download DocTR models |
 | `GET` | `/api/health` | none | Health check (Playwright fixture) |
@@ -220,8 +220,21 @@ pdomain-ocr-simple-gui/
 | `GET/…` | `/api/suite/*` | middleware | Suite routes (mounted by pdomain-ops) |
 | `GET` | `/{full_path:path}` | none | SPA catch-all (serves index.html) |
 
-"token" = `require_token` FastAPI dependency (`auth.py`). Suite routes use
-`suite_token_middleware` applied via `BaseHTTPMiddleware`.
+"token" = `require_token` FastAPI dependency (`auth.py`). When
+`PDOMAIN_API_TOKEN` is unset or empty, the dependency no-ops (open local
+dev). Suite mutating methods (`POST`/`PUT`/`PATCH`/`DELETE` under
+`/api/suite/`) use `suite_token_middleware` (method+prefix), not a fixed
+path allowlist.
+
+The SPA sends the token through `frontend/src/api/apiFetch.ts`: every API
+call reads `localStorage["pdomain.apiToken"]` and, when set, adds
+`Authorization: Bearer <token>`. There is no Settings UI yet — operators set
+the key from the browser console (a Settings field remains deferred).
+
+Concurrency: `POST /api/jobs` and `POST /api/jobs/{id}/rerun` share an
+in-process `asyncio.Semaphore` sized by `PDOMAIN_MAX_CONCURRENT_JOBS`
+(default 3) and return **429** when full. Single-page page rerun does not
+take this semaphore.
 
 ---
 
@@ -232,10 +245,18 @@ pdomain-ocr-simple-gui/
 1. `collect_images(source_path)` — accepts file or dir; filters `.png/.jpg/.tiff`; sorted.
 2. `run_project(spec, dispatcher, status_callback)` — async; iterates pages; calls
    `dispatcher.run_stage("ocr", ...)` per page; writes sidecar + `.txt` via storage
-   helpers; calls `status_callback` for progress.
+   helpers; calls `status_callback` for progress. Batch waits are bounded by
+   `PDOMAIN_OCR_BATCH_TIMEOUT_S` (`asyncio.wait_for`); cancelling the await does
+   not stop the executor thread (predictor-cache lock is upstream in
+   pdomain-ops).
 
 `LocalStageDispatcher` (from `pdomain-ops`) is wired at app startup via the FastAPI
-lifespan. `register_default_stages()` registers DocTR and Tesseract runners.
+lifespan with `device_resolver=_resolve_device`. That resolver calls
+`resolve_effective_device(prefs, APP_ID)` on each dispatch so Settings device
+changes apply on the next OCR stage without restart. `register_default_stages()`
+registers DocTR and Tesseract runners. When `PDOMAIN_OCR_FAKE_DISPATCHER` is
+set, lifespan swaps in `FakeStageDispatcher` and logs a production warning that
+OCR output is fake (test isolation only).
 
 ---
 
@@ -261,6 +282,13 @@ this app in their launcher. The launcher hides when no siblings are installed.
 `pdomain-suite.json` inside the wheel package provides the registration metadata:
 `app_id`, `display_name`, `package`, `default_port`, `icon`, `description`.
 
+Suite HTTP routes mount under the real `app_id` `pdomain-ocr-simple-gui`
+(`constants.APP_ID`), not the ops default `"unknown"`. Prefs use a shared
+adapter so suite device/update routes and app routes hit the same
+`LocalFilePrefs` instance (and honor `PD_SUITE_DATA_DIR` at call time). Startup
+best-effort migrates a stranded `apps["unknown"].compute_device` into the real
+app section.
+
 ---
 
 ## 8. Frontend screens
@@ -268,7 +296,7 @@ this app in their launcher. The launcher hides when no siblings are installed.
 | Screen | Route | Component | Notes |
 |--------|-------|-----------|-------|
 | Home | `/` or `/new-job` | `HomePage` | `SourcePicker` + `JobConfigInline` + `RecentProjectsList` |
-| Results | `/jobs/:id` | `ResultsPage` | Live-polls `/api/jobs/:id`; per-page rows |
+| Results | `/jobs/:id` | `ResultsPage` | Live-polls `/api/jobs/:id`; per-page rows; two managed download buttons |
 | Page view | `/jobs/:id/pages/:idx` | `PageViewPage` | `PageViewerWithZoom` + editable textarea + save/rerun |
 | Help | `/help/tesseract` | `TesseractHelpPage` | Tesseract engine setup guide |
 
@@ -277,6 +305,10 @@ from `@pdomain/pdomain-ui`. `ComputeStateWarmup` (in `App.tsx`) prefetches
 device info and config state on mount.
 
 Job config is inline on the home page (`JobConfigInline`), not a modal dialog.
+Managed-mode downloads after success expose two fixed actions (images+text and
+images+text+JSON), not include-filter checkboxes. Both hit the job-level
+download API and zip the **output mirror** (edited-page truth separation is
+still deferred).
 
 ---
 
@@ -292,11 +324,13 @@ Job config is inline on the home page (`JobConfigInline`), not a modal dialog.
   subprocess; submits a real job; asserts `state=done` (xfails on missing weights).
 - **Browser e2e (Tier A):** `tests/e2e/` — 25 Playwright (Chromium) files; fake-dispatcher
   `live_server` fixture; behavior-asserting tests cite stable IDs from
-  `docs/specs/behavior/screen-*.md` and `flows.md`.
+  `docs/specs/behavior/screen-*.md` and `flows.md`. Boots with
+  `PD_SUITE_DATA_DIR` under a pytest tmp tree and asserts the path is tmp-like
+  before launch so prefs-reset fixtures cannot wipe real suite data.
 - **Behavior coverage gate:** `tests/test_behavior_coverage.py` asserts all spec IDs
   are cited in e2e tests; run via `make behavior-coverage`.
 - **Browser e2e (Tier B):** `tests/e2e/test_real_ocr_*.py` — real OCR engine,
-  GPU-backed, opt-in via `make e2e-real-ocr`.
+  GPU-backed, opt-in via `make e2e-real-ocr` (does not set the fake dispatcher).
 - **SPA serving contract:** `tests/test_routes_root.py` — monkeypatch + `tmp_path`
   fake `index.html`; always runs even without a built frontend.
 
@@ -322,4 +356,15 @@ Published to `pdomain-index-pip` (GitHub Pages PEP 503 index).
 - Decisions that preserve the minimal-consumer, test-isolation, and
   distribution-verification boundaries:
   [`docs/decisions/2026-07-13-preserved-runtime-boundaries.md`](../decisions/2026-07-13-preserved-runtime-boundaries.md)
+- Former GitHub issue ledger (implemented backlog provenance):
+  [`docs/context/github-issue-migration-ledger.md`](../context/github-issue-migration-ledger.md)
 - Historical spec: workspace `docs/specs/2026-05-17-pdomain-ocr-simple-gui-design.md`
+
+## Evidence (2026-07-19 architecture refresh)
+
+- Code: `auth.py`, `app.py`, `pipeline.py`, `routes/jobs.py`, `routes/pages.py`,
+  `routes/uploads.py`, `sources/local_path.py`, `frontend/src/api/apiFetch.ts`
+- Tests: `tests/test_security_auth_token.py`, `tests/test_security_source_allowlist.py`,
+  `tests/test_uploads.py`, `tests/test_app_suite_mount.py`,
+  `tests/test_e2e_conftest_guard.py`, `frontend/src/api/__tests__/apiFetch.test.ts`
+- Verified: 2026-07-19 source inspection after completed-issue migration repair

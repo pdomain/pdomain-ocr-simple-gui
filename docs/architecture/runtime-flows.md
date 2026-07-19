@@ -2,13 +2,13 @@
 Status: active
 Owner: CT
 Created: 2026-06-14
-Last verified: 2026-07-14
+Last verified: 2026-07-19
 Kind: architecture
 ---
 
 # pdomain-ocr-simple-gui — Runtime Flows
 
-**Last updated:** 2026-06-14
+**Last updated:** 2026-07-19
 
 Step-by-step reference for the major request flows. Each flow shows the
 actors involved, the state transitions from `job_lifecycle.py`, and the
@@ -92,20 +92,33 @@ flow:
 
 Local paths and uploaded files enter through different authority boundaries.
 `LocalPathSource` is available only in local mode. It resolves a requested path
-against the configured allowlist before reading a file or directory. Managed
-mode accepts an upload identifier instead of granting arbitrary host-path
-access.
+against `SOURCE_ROOT_ALLOWLIST` (colon-separated allowed roots) before reading a
+file or directory. When the allowlist is set, the path must resolve to a strict
+child of one root (symlink targets included via `resolve()`). When unset or
+empty, any host path is accepted and lifespan logs a warning. Managed mode
+accepts an upload identifier instead of granting arbitrary host-path access.
 
 Both ZIP paths validate every member before extraction. A member must remain
-inside its temporary or upload root after resolution. Local ZIP sources also
-enforce the total uncompressed-size cap before extracting. Uploaded filenames
-are reduced to their basename, upload identifiers reject traversal characters,
-and extracted data stays under the upload root.
+inside its temporary or upload root after resolution. Local ZIP materialization
+sums declared member sizes before extract and hard-caps total uncompressed size
+at **2 GiB** (`SourceTooLarge`). Upload extraction caps at
+`PD_OCR_SIMPLE_GUI_UPLOAD_MAX_EXTRACTED_BYTES` (default matches the compressed
+upload max), returns **413** when over the cap, and runs extraction in
+`asyncio.to_thread`. Uploaded filenames are reduced to their basename, upload
+identifiers reject traversal characters, and extracted data stays under the
+upload root.
+
+In-process concurrent OCR work is capped by `PDOMAIN_MAX_CONCURRENT_JOBS`
+(default **3**). `POST /api/jobs` and full-job `POST /api/jobs/{id}/rerun` return
+**429** when no semaphore slot is free; the slot is released in
+`_pipeline_run_job_with_semaphore`'s `finally`. Single-page rerun does not take
+this semaphore.
 
 These controls preserve the local-first convenience without treating browser
 input as filesystem authority. Current evidence is in
-`sources/local_path.py`, `routes/uploads.py`, `tests/test_sources_local_path.py`,
-and `tests/test_uploads.py`.
+`sources/local_path.py`, `routes/uploads.py`, `routes/jobs.py`,
+`tests/test_sources_local_path.py`, `tests/test_uploads.py`, and
+`tests/test_security_auth_token.py`.
 
 ---
 
@@ -181,8 +194,11 @@ This flow runs in the background after job creation returns 202.
 **Actors:** `POST /api/pages/{id}/{idx}/rerun`, `routes/pages.py`,
 `LocalStageDispatcher`.
 
-Unlike a full-project rerun, this flow runs synchronously in the request
-handler (it does not use `BackgroundTasks`).
+Unlike a full-project rerun, this flow runs **inline** in the request handler
+(it does not use `BackgroundTasks` and **must not** call `run_project`, which
+would reprocess the whole job and historically corrupted page indices). Full-job
+`POST /api/jobs/{id}/rerun` still resets all pages and re-enters background
+`run_project` under the concurrent-jobs semaphore.
 
 1. Validate `project_id` allowlist + containment.
 2. Read `project.json` — resolve `spec`, `status`, and the page entry for
@@ -193,7 +209,8 @@ handler (it does not use `BackgroundTasks`).
 5. Mark the page `running` via `update_page_result(spec, running_page)`.
    **On-disk:** `project.json` updated (page state = `running`).
 6. Call `dispatcher.run_stage("ocr", page_id, image_path=..., engine=..., language=..., device=...)`.
-   This is a single-page call (not a batch request).
+   This is a single-page call (not a batch request), bounded by
+   `PDOMAIN_OCR_BATCH_TIMEOUT_S`.
 7. `first_page_dict(stage_result.metadata)` — extract the page dict from
    the stage result.
 8. Same reorganize + normalize pipeline as the batch flow (steps d.1–d.2).
@@ -230,16 +247,18 @@ handler (it does not use `BackgroundTasks`).
 7. Return `{"status": "saved"}`.
 
 Note: saving text does NOT write to `spec.output_dir`. The output mirror
-is only updated during OCR runs. Download will reflect the saved `.txt`
-from the canonical pages dir, not the output mirror, if they differ.
-The `GET /api/pages/{id}/{idx}` route surfaces `edited_text` over `text`
-when both are present.
+is only updated during full-project OCR runs (`run_project`), not on save
+or single-page rerun. The `GET /api/pages/{id}/{idx}` route surfaces
+`edited_text` over `text` when both are present. Download truth
+separation (live edited tree vs original engine output) remains deferred —
+see intent-map and `docs/specs/2026-05-29-download-model.md`.
 
 ---
 
 ## 5. Job download
 
-**Actors:** `GET /api/jobs/{id}/download`, `routes/downloads.py`.
+**Actors:** `GET /api/jobs/{id}/download`, `routes/downloads.py`, Results and
+Page view managed-mode buttons.
 
 1. Parse the `include` query param (default `text,json`). Valid tokens:
    `text`, `json`. Unknown tokens → 400.
@@ -250,13 +269,19 @@ when both are present.
    - Fall back to `<output_root>/{job_id}` for jobs created before
      `output_dir` was always set.
    - Return None if nothing found → 404.
-3. Build a zip in memory:
+3. Build a zip in memory from the **output mirror** (not the live canonical
+   pages tree with `edited_text`):
    - Walk the output dir recursively (`rglob("*")`).
    - Filter: `.txt` included when `"text" in tokens`; `.json` included
      when `"json" in tokens`; all other files (images etc.) always included.
    - Archive each file with a path relative to the output dir root.
 4. Stream the zip as `application/zip` with
    `Content-Disposition: attachment; filename="<job_id>.zip"`.
+
+**UI contract:** After success in managed mode, Results and Page view expose
+two fixed download actions — images+text (`?include=text`) and
+images+text+JSON (`?include=text,json`) — not include-filter checkboxes.
+Both still call this job-level endpoint (whole-job ZIP).
 
 ---
 

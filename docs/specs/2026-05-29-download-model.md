@@ -2,7 +2,7 @@
 Status: draft
 Owner: CT
 Created: 2026-05-29
-Last verified: 2026-07-14
+Last verified: 2026-07-19
 Kind: spec
 ---
 
@@ -11,11 +11,19 @@ Kind: spec
 ## Adversarial Review
 
 - **Stage:** design
-- **Source:** 2026-07-14 docgraph migration; independent read-only review of current code, tests, history, and related docs.
-- **Accepted findings:** The review compared the documented contract with current implementation and accepted the material deviations recorded in the architecture and authored context.
-- **Effect on result:** Shipped behavior remains active; obsolete UI or workflow assumptions are not treated as current truth.
-- **Implementation deviations:** The shared jobs dock and fixed job-level download buttons replaced parts of the earlier projected surfaces. Recent projects are written at job creation. Upload/edit/download coverage does not prove edited text is present in the exported ZIP.
-- **Residual risks:** Per-page edits and reruns can leave the job output mirror stale; the download redesign remains deferred.
+- **Source:** 2026-07-14 docgraph migration; re-checked 2026-07-19 against code,
+  architecture runtime-flows §4–5, and intent-map "Download truth separation".
+- **Accepted findings:** The review compared the documented contract with current
+  implementation and accepted the material deviations recorded in the architecture
+  and authored context.
+- **Effect on result:** Shipped behavior remains active; obsolete UI or workflow
+  assumptions are not treated as current truth.
+- **Implementation deviations:** The shared jobs dock and fixed job-level download
+  buttons replaced parts of the earlier projected surfaces. Recent projects are
+  written at job creation. Upload/edit/download coverage does not prove edited text
+  is present in the exported ZIP.
+- **Residual risks:** Per-page edits and reruns can leave the job output mirror
+  stale; the download redesign remains deferred.
 
 - **Date:** 2026-05-29
 - **Repo:** pdomain-ocr-simple-gui
