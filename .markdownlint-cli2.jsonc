@@ -12,5 +12,8 @@
     // longer than others). The "compact" / "aligned" enforcement adds a
     // lot of churn for no reader benefit.
     "MD060": false
-  }
+  },
+  // Issue-report template is fill-in boilerplate with <placeholders>; keep it
+  // out of lint so copy-paste fidelity to the shared-devtools bundle remains.
+  "ignores": ["docs/issues/TEMPLATE.md"]
 }
