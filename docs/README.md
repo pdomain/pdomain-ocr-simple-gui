@@ -30,7 +30,7 @@ Empty folders are intentional and tracked via `.gitkeep`.
 ## Current document index
 
 - Architecture: [overview](architecture/00-overview.md), [module map](architecture/module-map.md), and [runtime flows](architecture/runtime-flows.md).
-- Context: [current state](context/current-state.md), [intent map](context/intent-map.md), [decisions](context/decisions.md), and [GitHub issue migration ledger](context/github-issue-migration-ledger.md).
+- Context: [current state](context/current-state.md), [intent map](context/intent-map.md), [decisions](context/decisions.md), [GitHub issue migration ledger](context/github-issue-migration-ledger.md), and [deletion journal](context/github-issue-deletion-journal.md).
 - Issues: [index](issues/README.md) and open [suite launcher opener isolation](issues/2026-07-19-gh-026-suite-launcher-opener-isolation.md).
 - Roadmap: [open priorities](roadmap.md) (reclassified 2026-07-19).
 - Decisions: [jobs location](decisions/2026-06-04-jobs-location-setting.md) and [preserved runtime boundaries](decisions/2026-07-13-preserved-runtime-boundaries.md).

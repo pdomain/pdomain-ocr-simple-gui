@@ -117,10 +117,11 @@ roadmap that the issues were closed without implementation.
 | Roadmap reclassified vs code | Done (2026-07-19) |
 | `docs/issues` template bundle | Done |
 | GitHub Issues feature disabled | **Not done** (owner chose to leave enabled) |
-| Append-only deletion journal with node IDs | Not reconstructed (no live node IDs after deletion) |
+| Append-only deletion journal | Done (reconstructed) — [deletion journal](github-issue-deletion-journal.md) |
 
 ## Related documents
 
+- [Deletion journal](github-issue-deletion-journal.md)
 - [Current state](current-state.md)
 - [Intent map](intent-map.md)
 - [Roadmap](../roadmap.md)

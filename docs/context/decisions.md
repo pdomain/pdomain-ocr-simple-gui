@@ -32,8 +32,10 @@ Kind: context
   reopening fixed items as backlog wastes agent and human attention.
 - **Evidence:** Archive at `ec3979f`; API issue totalCount 0; code paths cited in
   the ledger; governed issue for #26.
-- **Remaining work:** Optional later disable of GitHub Issues; optional deletion
-  journal if node IDs are ever recovered from audit logs.
+- **Remaining work:** None required for migration hygiene. GitHub Issues stays
+  enabled. Deletion journal reconstructed 2026-07-19 (most GraphQL node IDs
+  unavailable after prior deletion; only #26 node id retained from an earlier
+  worktree note).
 
 ### 2026-07-14 — Preserve implemented behavior in architecture
 

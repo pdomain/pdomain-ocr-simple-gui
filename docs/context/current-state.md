@@ -28,10 +28,10 @@ launch mode are not current product behavior.
 
 - **GitHub → docgraph issue migration (repair).** Issues were deleted on
   2026-07-17; the 2026-07-19 repair adds
-  [the migration ledger](github-issue-migration-ledger.md), installs
+  [the migration ledger](github-issue-migration-ledger.md),
+  [the deletion journal](github-issue-deletion-journal.md), installs
   `docs/issues/` templates, reclassifies the roadmap, and keeps Issues
-  **enabled** on GitHub by owner choice. Disabling the Issues feature is
-  deliberately out of scope for this repair.
+  **enabled** on GitHub by owner choice.
 - **Review-fixes plan.** [2026-07-14 review-fixes](../plans/2026-07-14-review-fixes.md):
   Phases A, B, E, and F landed on `master`; the pdomain-ops device-vocabulary
   release (Phase C) and settings-to-execution wiring (Phase D) remain pending a
