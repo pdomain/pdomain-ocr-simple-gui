@@ -44,8 +44,12 @@ than in per-machine harness memory.
   `Won't fix` / `Duplicate`) and a final `## Resolution` section. Map the governed
   `Status:`:
   - **Open** → `Status: active`.
-  - **Resolved / Won't fix / Duplicate** → `Status: retired`, routed through
-    `doc-retirer`, with the resolving commit/spec linked in `## Resolution`.
+  - **Resolved / Won't fix / Duplicate** → route through `doc-retirer`, which
+    **deletes** the report. Promote any specific a reader still needs into the
+    architecture or process doc that owns it, repoint inbound references at the
+    resolving commit, drop the pointer below, and append a tombstone to
+    `docs/context/decisions.md`. Git history keeps the report, so no resolved
+    file stays in the tree and there is no resolved index to maintain.
 - **Link it (no orphans):** reference every new issue from a governed doc — by
   default an **Open issues** bullet in `docs/context/intent-map.md`, or a Risk in
   `docs/context/current-state.md`. This `README` also links the live issues below,
@@ -72,7 +76,7 @@ Lead with the **smallest decisive evidence**, separate **observation** from
 - [Isolate suite launcher tabs from the opener](2026-07-19-gh-026-suite-launcher-opener-isolation.md)
   — former GitHub #26; blocked on `@pdomain/pdomain-ui`.
 
-## Resolved issues
+## Where resolved work is recorded
 
 - *None tracked as separate issue files.* The other 36 former GitHub issues are
   represented as **implemented** rows in
