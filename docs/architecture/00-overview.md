@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-17
-Last verified: 2026-07-19
+Last verified: 2026-08-08
 Kind: architecture
 ---
 
@@ -122,8 +122,10 @@ pdomain-ocr-simple-gui/
         PageViewerWithZoom.tsx   Zoomable page image viewer wrapper
         RecentProjectsList.tsx   Recent projects from /api/prefs
         SourcePicker.tsx         Source selection (local path / upload / drag-drop)
+        ApiTokenSettings.tsx     Settings panel: view (masked), set, clear API token
       api/
         useOcrJob.ts        React Query hooks for job CRUD + polling
+        config.ts           Single fetch+parse site for GET /api/config
       statecharts/
         jobCreationMachine.ts    XState job creation state machine
         jobCreationBehavior.ts   Side effects wired to the machine
@@ -228,8 +230,11 @@ path allowlist.
 
 The SPA sends the token through `frontend/src/api/apiFetch.ts`: every API
 call reads `localStorage["pdomain.apiToken"]` and, when set, adds
-`Authorization: Bearer <token>`. There is no Settings UI yet — operators set
-the key from the browser console (a Settings field remains deferred).
+`Authorization: Bearer <token>`. Operators set, view (masked), and clear the
+token from **Settings > API Token**
+(`frontend/src/components/ApiTokenSettings.tsx`). Setting the same
+`pdomain.apiToken` key from the browser console remains a documented headless
+fallback for setups with no browser session (`docs/runbooks/install.md`).
 
 Concurrency: `POST /api/jobs` and `POST /api/jobs/{id}/rerun` share an
 in-process `asyncio.Semaphore` sized by `PDOMAIN_MAX_CONCURRENT_JOBS`

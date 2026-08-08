@@ -15,8 +15,6 @@ import {
 } from "react";
 import { fetchRuntimeConfig, type RuntimeConfig } from "../api/config";
 
-export type { RuntimeConfig, OcrEngineConfig } from "../api/config";
-
 export interface ConfigStatus {
   /** True once a fetch has failed (non-ok response or network error). */
   error: boolean;

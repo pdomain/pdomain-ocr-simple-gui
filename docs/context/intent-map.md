@@ -63,13 +63,15 @@ None.
   The wire-level Literals (`ApiJobState`, `ProjectStatus.state`,
   `PageResult.state`) still list `"cancelled"` — kept for compatibility with
   the shared `@pdomain/pdomain-ui` `JobState` type, not an oversight.
-- **Config-fetch deduplication — deferred ([ocr-container-meta#396](https://github.com/ConcaveTrillion/ocr-container-meta/issues/396)).**
-  `ConfigContext` and `jobCreationMachine` each fetch `/api/config`
-  independently. Config-load failures are now surfaced to the user, but the
-  duplicate fetch remains.
-- **API-token Settings field — deferred ([ocr-container-meta#398](https://github.com/ConcaveTrillion/ocr-container-meta/issues/398)).**
-  The frontend now sends a bearer token from `localStorage` via `apiFetch`, set
-  through a browser-console command. A proper masked Settings input is unbuilt.
+- **Config-fetch deduplication — shipped ([ocr-container-meta#396](https://github.com/ConcaveTrillion/ocr-container-meta/issues/396)).**
+  `ConfigContext` and `jobCreationMachine` both now call the single
+  `fetchRuntimeConfig()` in `frontend/src/api/config.ts`. Config-load failures
+  are surfaced to the user; no duplicate fetch remains.
+- **API-token Settings field — shipped ([ocr-container-meta#398](https://github.com/ConcaveTrillion/ocr-container-meta/issues/398)).**
+  `frontend/src/components/ApiTokenSettings.tsx` provides Settings > API Token:
+  view (masked), set, and clear the `pdomain.apiToken` localStorage key that
+  `apiFetch` reads. The browser-console command remains a documented headless
+  fallback.
 - **Hosted deployment — deferred.** The app ships local and managed mode
   selection, capability-token protection through `PDOMAIN_API_TOKEN`, and
   managed-mode source/output restrictions. It does not ship a hosted service,
@@ -104,8 +106,8 @@ None.
 
 ## Needs owner decision
 
-None for lifecycle of retained docs. Product ship-or-strip for job cancellation
-remains under deferred work (meta#395).
+None for lifecycle of retained docs. Job cancellation ship-or-strip
+(meta#395) was decided and executed as strip — see "Deferred work" above.
 
 ## Legacy-unverified sweep
 

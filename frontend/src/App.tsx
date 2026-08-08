@@ -618,8 +618,10 @@ function SimpleGuiHeader({
  * retrying (it reappears if a later reload() call fails again).
  *
  * Distinct from HomePage's own `home-config-error` banner, which is driven
- * by jobCreationMachine's independent /api/config fetch (Phase E issue 3
- * tracks deduplicating the two fetchers — cosmetic follow-up).
+ * by jobCreationMachine's own /api/config load. Both banners now share the
+ * same fetch site (`api/config.ts`'s `fetchRuntimeConfig()`, deduplicated
+ * per ocr-container-meta#396) but stay separate UI surfaces on purpose —
+ * one lives in AppShell, the other inline on HomePage.
  */
 function ConfigErrorBanner() {
   const { error, reload } = useConfigStatus();
