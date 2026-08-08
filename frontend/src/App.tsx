@@ -77,6 +77,7 @@ import TesseractHelpPage from "./pages/TesseractHelpPage";
 import { JobsLocationSettings } from "./components/JobsLocationSettings";
 import { CudaSetupGuidance } from "./components/CudaSetupGuidance";
 import { ModelCacheSettings } from "./components/ModelCacheSettings";
+import { ApiTokenSettings } from "./components/ApiTokenSettings";
 import { apiFetch } from "./api/apiFetch";
 
 /**
@@ -246,6 +247,8 @@ function UpdatePanelContent() {
  * "compute" provides app-specific device controls backed by /api/suite/device.
  * "updates" comes from pdomain-ui.
  * "models" exposes local OCR checkpoint cache status and precache.
+ * "api-token" (#398) lets the user view/set/clear the `pdomain.apiToken`
+ * localStorage key that apiFetch.ts reads — no backend endpoint involved.
  */
 export const settingsPanels: SettingsPanelDescriptor[] = [
   {
@@ -267,6 +270,11 @@ export const settingsPanels: SettingsPanelDescriptor[] = [
     id: "updates",
     label: "Updates",
     content: <UpdatePanelContent />,
+  },
+  {
+    id: "api-token",
+    label: "API Token",
+    content: <ApiTokenSettings />,
   },
 ];
 

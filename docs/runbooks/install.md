@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-17
-Last verified: 2026-07-14
+Last verified: 2026-08-08
 Kind: runbook
 ---
 
@@ -48,9 +48,12 @@ saved jobs-location preference can override the project root.
 ## API token
 
 When `PDOMAIN_API_TOKEN` is set on the server, every mutating request must
-carry a matching bearer token or the backend returns 401. The browser app has
-no Settings field for this yet; set the token from the browser's developer
-console instead:
+carry a matching bearer token or the backend returns 401. Set it from
+**Settings > API Token** in the browser app: paste the token, click Save, and
+the status line reads `set`. Clear clears it.
+
+For headless setups (no browser session available), set the same
+`pdomain.apiToken` localStorage key from the browser's developer console:
 
 ```js
 localStorage.setItem('pdomain.apiToken', '<token>');

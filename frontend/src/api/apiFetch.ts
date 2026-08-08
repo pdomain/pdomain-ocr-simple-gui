@@ -14,7 +14,7 @@
  * console); that follow-up is tracked separately.
  */
 
-const TOKEN_STORAGE_KEY = "pdomain.apiToken";
+export const TOKEN_STORAGE_KEY = "pdomain.apiToken";
 
 export function apiFetch(
   input: RequestInfo | URL,
