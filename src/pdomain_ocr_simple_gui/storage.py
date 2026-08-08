@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Literal, TypeAlias, cast
 
 from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
-from pdomain_ocr_simple_gui.statecharts.job_lifecycle import aggregate_pages_state
+from pdomain_ocr_simple_gui.statecharts.job_lifecycle import aggregate_pages_state, narrow_job_state
 
 logger = logging.getLogger(__name__)
 
@@ -326,7 +326,7 @@ def update_page_result(spec: ProjectSpec, page_result: PageResult) -> None:
     s, status = read_project(spec.project_id)
     new_pages = [p if p.page_idx != page_result.page_idx else page_result for p in status.pages]
     pages_done = sum(1 for p in new_pages if p.state == "succeeded")
-    agg_state = cast("ApiJobState", aggregate_pages_state(new_pages, status.state))
+    agg_state = cast("ApiJobState", aggregate_pages_state(new_pages, narrow_job_state(status.state)))
     new_status = ProjectStatus(
         project_id=status.project_id,
         state=agg_state,

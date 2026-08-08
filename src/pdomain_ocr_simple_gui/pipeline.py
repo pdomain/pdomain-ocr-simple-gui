@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypeAlias, cast
 
 from pdomain_ops.gpu.types import OcrBatchRequest
 
-from pdomain_ocr_simple_gui.statecharts.job_lifecycle import assert_job_transition
+from pdomain_ocr_simple_gui.statecharts.job_lifecycle import assert_job_transition, narrow_job_state
 
 logger = logging.getLogger(__name__)
 
@@ -383,7 +383,9 @@ async def run_project(
 
     # Mark project as running
     _, current_status = read_project(spec.project_id)
-    running_state = cast("ApiJobState", assert_job_transition(current_status.state, "start"))
+    running_state = cast(
+        "ApiJobState", assert_job_transition(narrow_job_state(current_status.state), "start")
+    )
     running_status = ProjectStatus(
         project_id=spec.project_id,
         state=running_state,
@@ -587,7 +589,9 @@ async def run_project(
 
     all_done = all(p.state == "succeeded" for p in final_status.pages)
     terminal_event = "succeed" if all_done else "fail"
-    final_state = cast("ApiJobState", assert_job_transition(final_status.state, terminal_event))
+    final_state = cast(
+        "ApiJobState", assert_job_transition(narrow_job_state(final_status.state), terminal_event)
+    )
     terminal_status = ProjectStatus(
         project_id=spec.project_id,
         state=final_state,

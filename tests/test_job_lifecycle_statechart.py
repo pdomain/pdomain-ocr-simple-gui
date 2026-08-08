@@ -40,10 +40,8 @@ def test_statecharts_package_exports_public_lifecycle_adapter_names() -> None:
         ("queued", "fail", "failed"),
         ("running", "succeed", "succeeded"),
         ("running", "fail", "failed"),
-        ("running", "cancel", "cancelled"),
         ("succeeded", "rerun_requested", "queued"),
         ("failed", "rerun_requested", "queued"),
-        ("cancelled", "rerun_requested", "queued"),
         ("succeeded", "page_rerun", "running"),
         ("failed", "page_rerun", "running"),
     ],
@@ -63,7 +61,7 @@ def test_valid_job_lifecycle_transitions(
         ("queued", "succeed"),
         ("succeeded", "start"),
         ("failed", "succeed"),
-        ("cancelled", "fail"),
+        ("running", "cancel"),
     ],
 )
 def test_invalid_job_lifecycle_transitions_raise(current: JobState, event: JobLifecycleEvent) -> None:
@@ -74,6 +72,15 @@ def test_invalid_job_lifecycle_transitions_raise(current: JobState, event: JobLi
 def test_invalid_starting_state_raises_invalid_job_transition() -> None:
     with pytest.raises(InvalidJobTransition):
         _ = transition_job_state(cast("JobState", cast("object", "bogus")), "queue")
+
+
+def test_cancel_is_not_a_valid_lifecycle_event() -> None:
+    """cancel was removed (ocr-container-meta#395, strip decision): no route
+    ever fired it, and the wire-level ApiJobState/PageResult.state Literals
+    keep "cancelled" only so the frontend can still *receive* the value from
+    the shared pdomain-ui JobState type — the backend never emits it."""
+    with pytest.raises(InvalidJobTransition):
+        _ = transition_job_state("running", cast("JobLifecycleEvent", cast("object", "cancel")))
 
 
 def test_lifecycle_behavior_mapping_uses_documented_ids() -> None:

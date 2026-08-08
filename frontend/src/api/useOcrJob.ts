@@ -95,8 +95,6 @@ export interface UseOcrJobResult {
   progress: number | null;
   /** Raw backend payload — null until first poll resolves. */
   jobData: OcrJobData | null;
-  /** Call to request job cancellation (no-op — backend lacks cancel endpoint). */
-  cancel: () => void;
   /**
    * True when the status fetch returned 404 — the job does not exist (never
    * existed, or was deleted). This is a TERMINAL condition: polling stops and
@@ -222,7 +220,7 @@ export function useOcrJob(
     setTransientError(false);
   }, [jobId]);
 
-  const { status, progress, cancel } = useLongJob(jobId, {
+  const { status, progress } = useLongJob(jobId, {
     pollFn,
     pollIntervalMs,
   });
@@ -231,7 +229,6 @@ export function useOcrJob(
     longJobStatus: status,
     progress,
     jobData,
-    cancel,
     notFound,
     transientError,
   };

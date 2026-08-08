@@ -10,17 +10,16 @@ if TYPE_CHECKING:
 
     from pdomain_ocr_simple_gui.models import PageResult
 
-JobState = Literal["new", "queued", "running", "succeeded", "failed", "cancelled"]
+JobState = Literal["new", "queued", "running", "succeeded", "failed"]
 JobLifecycleEvent = Literal[
     "queue",
     "start",
     "succeed",
     "fail",
-    "cancel",
     "rerun_requested",
     "page_rerun",
 ]
-JOB_STATES: tuple[JobState, ...] = ("new", "queued", "running", "succeeded", "failed", "cancelled")
+JOB_STATES: tuple[JobState, ...] = ("new", "queued", "running", "succeeded", "failed")
 
 
 class InvalidJobTransition(ValueError):  # noqa: N818
@@ -36,17 +35,12 @@ class JobLifecycleMachine(StateMachine):
     running = State("running")
     succeeded = State("succeeded")
     failed = State("failed")
-    cancelled = State("cancelled")
 
     queue = new.to(queued)
     start = queued.to(running)
     succeed = running.to(succeeded)
     fail = queued.to(failed) | running.to(failed)
-    # Modeled but unreachable: no cancel endpoint ships yet
-    # (ocr-container-meta#395, deferred). The frontend no-ops cancellation
-    # (frontend/src/api/useOcrJob.ts).
-    cancel = running.to(cancelled)
-    rerun_requested = succeeded.to(queued) | failed.to(queued) | cancelled.to(queued)
+    rerun_requested = succeeded.to(queued) | failed.to(queued)
     # Models in-place single-page rerun: a page can be rerun from a
     # succeeded or failed job without first cycling the whole job back
     # through "queued" (see aggregate_pages_state / routes/pages.py rerun_page).
@@ -56,6 +50,24 @@ class JobLifecycleMachine(StateMachine):
 JOB_LIFECYCLE_BEHAVIOR: dict[tuple[str, str, str], tuple[str, ...]] = {
     ("new", "queue", "queued"): ("B-HOME-011",),
 }
+
+
+def narrow_job_state(state: str) -> JobState:
+    """Validate a wire-level state string and narrow it to the live JobState.
+
+    The wire-level Literals (``ApiJobState`` / ``ProjectStatus.state`` /
+    ``PageResult.state``) keep ``"cancelled"`` as a legal value for
+    backward-compat with the shared frontend JobState type, even though the
+    backend statechart no longer models it (ocr-container-meta#395: the
+    ``cancel`` transition was unreachable and was stripped). A caller holding
+    a wire-typed state must run it through this check before treating it as
+    a machine ``JobState`` — a stored ``"cancelled"`` value, which nothing in
+    this codebase writes anymore, raises ``InvalidJobTransition`` here
+    instead of silently mismatching the static type.
+    """
+    if state not in JOB_STATES:
+        raise InvalidJobTransition(f"not a valid job state: {state!r}")
+    return state
 
 
 def transition_job_state(current: JobState, event: JobLifecycleEvent) -> JobState:
@@ -89,7 +101,6 @@ _AGG_EVENT: dict[tuple[JobState, JobState], JobLifecycleEvent] = {
     ("failed", "running"): "page_rerun",
     ("succeeded", "queued"): "rerun_requested",
     ("failed", "queued"): "rerun_requested",
-    ("cancelled", "queued"): "rerun_requested",
 }
 
 
