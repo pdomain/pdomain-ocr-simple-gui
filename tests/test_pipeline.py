@@ -148,7 +148,7 @@ SIMPLE_PAGE_DICT: dict[str, Any] = {
 }
 
 
-def _word_node(text: str, x0: float, y0: float, x1: float, y1: float, conf: float = 0.9) -> dict[str, Any]:
+def _word_node(*, text: str, x0: float, y0: float, x1: float, y1: float, conf: float = 0.9) -> dict[str, Any]:
     return {
         "type": "Word",
         "text": text,
@@ -190,8 +190,8 @@ def _bboxed_page_dict() -> dict[str, Any]:
                 "baseline": None,
                 "bounding_box": None,
                 "items": [
-                    _word_node("Hello", 0.1, 0.1, 0.3, 0.15, conf=0.95),
-                    _word_node("world", 0.35, 0.1, 0.55, 0.15, conf=0.80),
+                    _word_node(text="Hello", x0=0.1, y0=0.1, x1=0.3, y1=0.15, conf=0.95),
+                    _word_node(text="world", x0=0.35, y0=0.1, x1=0.55, y1=0.15, conf=0.80),
                 ],
                 "override_page_sort_order": None,
                 "unmatched_ground_truth_words": [],
