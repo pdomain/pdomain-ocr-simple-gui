@@ -1,21 +1,7 @@
 import { type JobCreationBehaviorId } from "./jobCreationBehavior";
+import { type RuntimeConfig } from "../api/config";
 
-export interface RuntimeConfig {
-  mode: "local" | "managed";
-  is_containerized: boolean;
-  detected_device: string;
-  gpu_available: boolean;
-  ocr_engines?: OcrEngineConfig[];
-  upload_max_bytes?: number;
-  upload_max_files?: number;
-}
-
-export interface OcrEngineConfig {
-  id: "doctr" | "tesseract";
-  label: string;
-  available: boolean;
-  reason: string | null;
-}
+export type { RuntimeConfig, OcrEngineConfig } from "../api/config";
 
 export type RuntimeProfile =
   | { kind: "local-host"; canUpload: true; canUsePath: true }

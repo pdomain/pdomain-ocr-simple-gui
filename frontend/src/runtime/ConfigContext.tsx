@@ -13,22 +13,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { apiFetch } from "../api/apiFetch";
+import { fetchRuntimeConfig, type RuntimeConfig } from "../api/config";
 
-export interface RuntimeConfig {
-  mode: "local" | "managed";
-  is_containerized: boolean;
-  detected_device: string;
-  gpu_available: boolean;
-  ocr_engines?: OcrEngineConfig[];
-}
-
-export interface OcrEngineConfig {
-  id: "doctr" | "tesseract";
-  label: string;
-  available: boolean;
-  reason: string | null;
-}
+export type { RuntimeConfig, OcrEngineConfig } from "../api/config";
 
 export interface ConfigStatus {
   /** True once a fetch has failed (non-ok response or network error). */
@@ -49,12 +36,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
 
   const load = useCallback(async () => {
     try {
-      const res = await apiFetch("/api/config");
-      if (!res.ok) {
-        setError(true);
-        return;
-      }
-      const body = (await res.json()) as RuntimeConfig;
+      const body = await fetchRuntimeConfig();
       setCfg(body);
       setError(false);
     } catch {

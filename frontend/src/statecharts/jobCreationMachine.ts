@@ -1,5 +1,6 @@
 import { assign, fromPromise, setup } from "xstate";
 import { apiFetch } from "../api/apiFetch";
+import { fetchRuntimeConfig } from "../api/config";
 import {
   type ChosenSource,
   type JobCreationContext,
@@ -46,12 +47,6 @@ function profileFromConfig(config: RuntimeConfig): RuntimeProfile {
   }
 
   return { kind: "local-host", canUpload: true, canUsePath: true };
-}
-
-async function defaultLoadConfig(): Promise<RuntimeConfig> {
-  const res = await apiFetch("/api/config");
-  if (!res.ok) throw new Error(`GET /api/config failed: ${res.status}`);
-  return (await res.json()) as RuntimeConfig;
 }
 
 async function defaultUploadFiles(input: {
@@ -104,7 +99,7 @@ export const jobCreationMachine = setup({
     events: {} as JobCreationEvent,
   },
   actors: {
-    loadConfig: fromPromise(defaultLoadConfig),
+    loadConfig: fromPromise(fetchRuntimeConfig),
     uploadFiles: fromPromise(({ input }: { input: { files: File[] } }) =>
       defaultUploadFiles(input),
     ),
