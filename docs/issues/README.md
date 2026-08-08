@@ -75,6 +75,9 @@ Lead with the **smallest decisive evidence**, separate **observation** from
 
 - [Isolate suite launcher tabs from the opener](2026-07-19-gh-026-suite-launcher-opener-isolation.md)
   — former GitHub #26; blocked on `@pdomain/pdomain-ui`.
+- [`dep-refresh` cannot auto-land; branches/PRs pile up until someone sweeps by hand](2026-08-08-dep-refresh-cannot-auto-land.md)
+  — dated branch naming + `delete_branch_on_merge: false` let 8 weekly PRs
+  accumulate across three manual sweeps; needs the `pdomain-ui` auto-land design.
 
 ## Where resolved work is recorded
 
