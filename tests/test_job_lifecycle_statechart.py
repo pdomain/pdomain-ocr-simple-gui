@@ -11,6 +11,7 @@ from pdomain_ocr_simple_gui.statecharts.job_lifecycle import (
     JobState,
     aggregate_pages_state,
     assert_job_transition,
+    narrow_job_state,
     transition_job_state,
 )
 
@@ -22,12 +23,14 @@ def test_statecharts_package_exports_public_lifecycle_adapter_names() -> None:
     assert statecharts.JOB_LIFECYCLE_BEHAVIOR is JOB_LIFECYCLE_BEHAVIOR
     assert statecharts.transition_job_state is transition_job_state
     assert statecharts.assert_job_transition is assert_job_transition
+    assert statecharts.narrow_job_state is narrow_job_state
     assert statecharts.__all__ == (
         "JOB_LIFECYCLE_BEHAVIOR",
         "InvalidJobTransition",
         "JobLifecycleEvent",
         "JobState",
         "assert_job_transition",
+        "narrow_job_state",
         "transition_job_state",
     )
 
@@ -62,6 +65,7 @@ def test_valid_job_lifecycle_transitions(
         ("succeeded", "start"),
         ("failed", "succeed"),
         ("running", "cancel"),
+        ("cancelled", "fail"),
     ],
 )
 def test_invalid_job_lifecycle_transitions_raise(current: JobState, event: JobLifecycleEvent) -> None:
@@ -81,6 +85,21 @@ def test_cancel_is_not_a_valid_lifecycle_event() -> None:
     the shared pdomain-ui JobState type — the backend never emits it."""
     with pytest.raises(InvalidJobTransition):
         _ = transition_job_state("running", cast("JobLifecycleEvent", cast("object", "cancel")))
+
+
+def test_narrow_job_state_passes_through_a_legal_state() -> None:
+    assert narrow_job_state("running") == "running"
+
+
+def test_narrow_job_state_rejects_cancelled() -> None:
+    """narrow_job_state is the boundary between wire-level ApiJobState (which
+    keeps "cancelled" for frontend compatibility) and the narrowed local
+    JobState. A stored "cancelled" value — nothing writes one anymore, but
+    pre-strip data could hold one — must raise here rather than silently
+    mismatching the static type at the six call sites that use it
+    (pipeline.py, routes/jobs.py, storage.py)."""
+    with pytest.raises(InvalidJobTransition):
+        _ = narrow_job_state("cancelled")
 
 
 def test_lifecycle_behavior_mapping_uses_documented_ids() -> None:
