@@ -48,6 +48,7 @@ React/Vite consumer, pnpm lockfile, Git, Make, and docgraph.
 ### Task 1: Verify the shipped dependency evidence
 
 **Files:**
+
 - Inspect: `frontend/package.json`
 - Inspect: `frontend/pnpm-lock.yaml`
 - Inspect: `frontend/node_modules/@pdomain/pdomain-ui` after installation
@@ -93,6 +94,7 @@ Expected: the source uses `window.open(result.url, '_blank', 'noopener,noreferre
 ### Task 2: Remove stale local blocker guidance
 
 **Files:**
+
 - Modify: `frontend/src/App.tsx:4`
 
 - [ ] **Step 1: Delete only the obsolete issue-26 comment**
@@ -123,6 +125,7 @@ git commit -m "docs(frontend): remove resolved launcher blocker note"
 ### Task 3: Promote evidence and retire the issue
 
 **Files:**
+
 - Modify: `docs/architecture/00-overview.md`
 - Modify: `docs/context/current-state.md`
 - Modify: `docs/context/intent-map.md`

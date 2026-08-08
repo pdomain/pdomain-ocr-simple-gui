@@ -69,6 +69,10 @@ must stay aligned. Treat caller-controlled paths and IDs as untrusted. Run
 
 ## Next
 
+The three actionable items below are planned in the
+[2026-07-21 deferred follow-ups plan](plans/2026-07-21-deferred-followups.md)
+(TDD steps + the #395 ship-or-strip decision, recorded as **strip**).
+
 Product deferred work (not part of the deleted 37-issue set as open bugs):
 
 - Job cancellation ship-or-strip —
