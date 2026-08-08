@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-13
-Last verified: 2026-07-19
+Last verified: 2026-08-08
 Kind: context
 ---
 
@@ -50,17 +50,28 @@ None.
   lists, opens, and deletes jobs, and recent projects are recorded at creation.
   A dedicated catalogue with page count, engine, and last-opened metadata is
   still unbuilt and should start only if the dock proves insufficient.
-- **Job cancellation — deferred ([ocr-container-meta#395](https://github.com/ConcaveTrillion/ocr-container-meta/issues/395)).**
-  The `cancelled` state is modeled end-to-end in the job statechart, models, and
-  API types, but no route fires the `cancel` event and the frontend no-ops
-  cancellation. Decide ship-or-strip.
-- **Config-fetch deduplication — deferred ([ocr-container-meta#396](https://github.com/ConcaveTrillion/ocr-container-meta/issues/396)).**
-  `ConfigContext` and `jobCreationMachine` each fetch `/api/config`
-  independently. Config-load failures are now surfaced to the user, but the
-  duplicate fetch remains.
-- **API-token Settings field — deferred ([ocr-container-meta#398](https://github.com/ConcaveTrillion/ocr-container-meta/issues/398)).**
-  The frontend now sends a bearer token from `localStorage` via `apiFetch`, set
-  through a browser-console command. A proper masked Settings input is unbuilt.
+- **Job cancellation — decided: strip ([ocr-container-meta#395](https://github.com/ConcaveTrillion/ocr-container-meta/issues/395)).**
+  The `cancel` event and `cancelled` state were unreachable — no route ever
+  fired `cancel`, and the frontend's `cancel()` was a documented no-op — so
+  they were removed from `job_lifecycle.py`'s local `JobState`/
+  `JobLifecycleEvent` and from `useOcrJob`'s `UseOcrJobResult`. A cooperative,
+  chunk-boundary cancel was rejected: it can't meet the issue's bar of
+  actually interrupting the running dispatcher call, because
+  `LocalStageDispatcher` runs OCR batches in a `ThreadPoolExecutor` work item
+  that `concurrent.futures` cannot cancel once running (tracked separately as
+  `ocr-container-meta#397`), and there was no UI cancel button to wire it to.
+  The wire-level Literals (`ApiJobState`, `ProjectStatus.state`,
+  `PageResult.state`) still list `"cancelled"` — kept for compatibility with
+  the shared `@pdomain/pdomain-ui` `JobState` type, not an oversight.
+- **Config-fetch deduplication — shipped ([ocr-container-meta#396](https://github.com/ConcaveTrillion/ocr-container-meta/issues/396)).**
+  `ConfigContext` and `jobCreationMachine` both now call the single
+  `fetchRuntimeConfig()` in `frontend/src/api/config.ts`. Config-load failures
+  are surfaced to the user; no duplicate fetch remains.
+- **API-token Settings field — shipped ([ocr-container-meta#398](https://github.com/ConcaveTrillion/ocr-container-meta/issues/398)).**
+  `frontend/src/components/ApiTokenSettings.tsx` provides Settings > API Token:
+  view (masked), set, and clear the `pdomain.apiToken` localStorage key that
+  `apiFetch` reads. The browser-console command remains a documented headless
+  fallback.
 - **Hosted deployment — deferred.** The app ships local and managed mode
   selection, capability-token protection through `PDOMAIN_API_TOKEN`, and
   managed-mode source/output restrictions. It does not ship a hosted service,
@@ -95,8 +106,8 @@ None.
 
 ## Needs owner decision
 
-None for lifecycle of retained docs. Product ship-or-strip for job cancellation
-remains under deferred work (meta#395).
+None for lifecycle of retained docs. Job cancellation ship-or-strip
+(meta#395) was decided and executed as strip — see "Deferred work" above.
 
 ## Legacy-unverified sweep
 

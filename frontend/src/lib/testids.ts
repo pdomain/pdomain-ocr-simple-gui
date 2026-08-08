@@ -101,4 +101,15 @@ export const APP_TEST_IDS = {
   settingsJobsLocationReset: "settings-jobs-location-reset",
   settingsJobsLocationError: "settings-jobs-location-error",
   settingsJobsLocationSaved: "settings-jobs-location-saved",
+  // ---- Settings: API Token panel ---------------------------------------------
+  // Injected into pdomain-ui's SettingsModal via AppShell.settingsPanels.
+  // The panel id is "api-token"; pdomain-ui renders the tab as
+  // "settings-modal-tab-api-token" and the body as
+  // "settings-modal-panel-api-token".
+  settingsApiTokenStatus: "settings-api-token-status",
+  settingsApiTokenInput: "settings-api-token-input",
+  settingsApiTokenReveal: "settings-api-token-reveal",
+  settingsApiTokenSave: "settings-api-token-save",
+  settingsApiTokenClear: "settings-api-token-clear",
+  settingsApiTokenSaved: "settings-api-token-saved",
 } as const;

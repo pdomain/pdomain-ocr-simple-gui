@@ -2,13 +2,13 @@
 Status: active
 Owner: CT
 Created: 2026-06-14
-Last verified: 2026-07-19
+Last verified: 2026-08-08
 Kind: architecture
 ---
 
 # pdomain-ocr-simple-gui — Runtime Flows
 
-**Last updated:** 2026-07-19
+**Last updated:** 2026-08-08
 
 Step-by-step reference for the major request flows. Each flow shows the
 actors involved, the state transitions from `job_lifecycle.py`, and the
@@ -27,7 +27,6 @@ on-disk side effects.
 | `running` | Pipeline is processing pages |
 | `succeeded` | All pages processed successfully |
 | `failed` | At least one page failed, or the whole job errored |
-| `cancelled` | Job was cancelled while running |
 
 | Event | Transition |
 |-------|-----------|
@@ -35,8 +34,20 @@ on-disk side effects.
 | `start` | `queued → running` |
 | `succeed` | `running → succeeded` |
 | `fail` | `queued → failed` or `running → failed` |
-| `cancel` | `running → cancelled` |
-| `rerun_requested` | `succeeded/failed/cancelled → queued` |
+| `rerun_requested` | `succeeded/failed → queued` |
+
+**No `cancel` event or `cancelled` state.** These were modeled but
+unreachable — no route ever fired `cancel` — and were stripped
+([ocr-container-meta#395](https://github.com/ConcaveTrillion/ocr-container-meta/issues/395)).
+The wire-level Literals (`ApiJobState`, `ProjectStatus.state`,
+`PageResult.state` in `models.py`/`storage.py`/`pipeline.py`/`routes/jobs.py`)
+still list `"cancelled"` as a legal value, and `job_lifecycle.py` exports a
+`narrow_job_state()` helper that validates a wire-level state against the
+live machine states before it's used in a transition. This is intentional
+compatibility with the frontend's shared `@pdomain/pdomain-ui` `JobState`
+type, not an oversight — do not "helpfully" narrow those wire Literals to
+match the machine; the backend must still be able to *receive* a stored
+`"cancelled"` value even though it will never emit one again.
 
 ---
 

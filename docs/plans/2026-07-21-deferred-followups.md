@@ -1,8 +1,8 @@
 ---
-Status: draft
+Status: implemented
 Owner: CT
 Created: 2026-07-21
-Last verified: 2026-07-21
+Last verified: 2026-08-08
 Kind: plan
 ---
 
@@ -16,10 +16,11 @@ Kind: plan
 ## Agent Index
 
 - **Kind:** plan
-- **Status:** draft
-- **Read when:** implementing the three deferred `simple-gui` follow-ups from the
-  2026-07-14 review — API-token Settings field, `/api/config` fetch dedup, and
-  the job-cancellation ship-or-strip decision.
+- **Status:** implemented
+- **Read when:** checking how the three deferred `simple-gui` follow-ups from
+  the 2026-07-14 review were shipped — API-token Settings field, `/api/config`
+  fetch dedup, and the job-cancellation ship-or-strip decision — or auditing
+  the Plan A / Plan B record for #395.
 - **Search terms:** deferred follow-ups, API token settings, apiFetch token,
   config fetch dedup, fetchRuntimeConfig, job cancellation, cancel endpoint,
   strip cancelled state, ocr-container-meta 395 396 398.
@@ -139,25 +140,25 @@ already consumes — no devtools console required. No backend endpoint.
 
 **Steps (TDD):**
 
-- [ ] **1.** Write the failing test `ApiTokenSettings.test.tsx` (use
+- [x] **1.** Write the failing test `ApiTokenSettings.test.tsx` (use
   `renderWithProviders`, `userEvent`, `APP_TEST_IDS`): not-set status + masked
   empty input with no stored key; seeds from localStorage still masked; type +
   Save writes the key and shows the "Saved" confirmation; reveal toggle flips
   `input.type` to `text`; Clear removes the key and empties the input; saving an
   empty value clears the key.
-- [ ] **2.** `make frontend-test AI=1` → FAIL (component missing).
-- [ ] **3.** Add `export` to `TOKEN_STORAGE_KEY` in `apiFetch.ts:19` (no other
+- [x] **2.** `make frontend-test AI=1` → FAIL (component missing).
+- [x] **3.** Add `export` to `TOKEN_STORAGE_KEY` in `apiFetch.ts:19` (no other
   change to that file).
-- [ ] **4.** Add the `settingsApiToken*` testids block after `testids.ts:103`.
-- [ ] **5.** Implement `ApiTokenSettings.tsx` matching sibling styling
+- [x] **4.** Add the `settingsApiToken*` testids block after `testids.ts:103`.
+- [x] **5.** Implement `ApiTokenSettings.tsx` matching sibling styling
   (`className="label"` heading, `<code>` status value, helper text).
-- [ ] **6.** Wire the panel into `App.tsx` `settingsPanels` and extend the panel
+- [x] **6.** Wire the panel into `App.tsx` `settingsPanels` and extend the panel
   doc comment above it.
-- [ ] **7.** `make frontend-test AI=1` → PASS, no regressions in `App.test.tsx`
+- [x] **7.** `make frontend-test AI=1` → PASS, no regressions in `App.test.tsx`
   or `JobsLocationSettings.test.tsx`.
-- [ ] **8.** `make frontend-build AI=1` → clean.
-- [ ] **9.** Update `install.md` API-token section.
-- [ ] **10.** `make ci AI=1` → green. Commit —
+- [x] **8.** `make frontend-build AI=1` → clean.
+- [x] **9.** Update `install.md` API-token section.
+- [x] **10.** `make ci AI=1` → green. Commit —
   `feat(frontend): add Settings field for the API token (#398)`.
 
 **Open questions:** exporting `TOKEN_STORAGE_KEY` is a 1-line change outside the
@@ -225,18 +226,18 @@ simply collapses into the catch — no behavior change.
 
 **Steps (TDD):**
 
-- [ ] **1.** Write failing `config.test.ts` (mock `globalThis.fetch`): fetches +
+- [x] **1.** Write failing `config.test.ts` (mock `globalThis.fetch`): fetches +
   parses `/api/config`; throws on a non-ok (500) response; propagates a network
   error.
-- [ ] **2.** Implement `config.ts`; the test passes.
-- [ ] **3.** Update `ConfigContext.tsx` (re-export types; `load()` delegates; drop
+- [x] **2.** Implement `config.ts`; the test passes.
+- [x] **3.** Update `ConfigContext.tsx` (re-export types; `load()` delegates; drop
   `apiFetch` import). Its existing test must pass unmodified.
-- [ ] **4.** Update `jobCreationTypes.ts` to re-export; `tsc --noEmit` clean
+- [x] **4.** Update `jobCreationTypes.ts` to re-export; `tsc --noEmit` clean
   (verifies `JobConfigInline` and other consumers).
-- [ ] **5.** Update `jobCreationMachine.ts` (`loadConfig: fromPromise(fetchRuntimeConfig)`;
+- [x] **5.** Update `jobCreationMachine.ts` (`loadConfig: fromPromise(fetchRuntimeConfig)`;
   keep `apiFetch` import). Its existing test passes unmodified (tests always
   `.provide()` a stub `loadConfig`).
-- [ ] **6.** Verify: `grep -rn '"/api/config"' frontend/src` returns exactly one
+- [x] **6.** Verify: `grep -rn '"/api/config"' frontend/src` returns exactly one
   hit (`config.ts`); `make frontend-test AI=1`; `make typecheck`;
   `make frontend-lint`; `make frontend-knip`. Commit —
   `refactor(frontend): consolidate /api/config fetch into fetchRuntimeConfig() (#396)`.
@@ -271,32 +272,32 @@ it again.
 
 **Steps (TDD — the failing-test-first step is the statechart contract change):**
 
-- [ ] **1.** In `test_job_lifecycle_statechart.py`: remove the
+- [x] **1.** In `test_job_lifecycle_statechart.py`: remove the
   `("running", "cancel", "cancelled")` valid-transition case (line 43) and the
   `("cancelled", "rerun_requested", "queued")` case (line 46); add
   `("running", "cancel")` to the invalid-event parametrization — this fails
   today because `cancel` still succeeds, which is the red step.
-- [ ] **2.** Add an explicit `test_cancel_is_not_a_valid_lifecycle_event` so the
+- [x] **2.** Add an explicit `test_cancel_is_not_a_valid_lifecycle_event` so the
   removal is asserted, not just implied.
-- [ ] **3.** Remove `cancel = running.to(cancelled)` and the
+- [x] **3.** Remove `cancel = running.to(cancelled)` and the
   `cancelled = State("cancelled")` declaration (`job_lifecycle.py:39,48`) and the
   stale comment (lines 45-47).
-- [ ] **4.** Drop `| cancelled.to(queued)` from `rerun_requested` (line 49) and
+- [x] **4.** Drop `| cancelled.to(queued)` from `rerun_requested` (line 49) and
   `("cancelled", "queued"): "rerun_requested"` from `_AGG_EVENT` (line 92).
-- [ ] **5.** Narrow the **local** `JobLifecycleEvent` Literal (drop `"cancel"`),
+- [x] **5.** Narrow the **local** `JobLifecycleEvent` Literal (drop `"cancel"`),
   `JOB_STATES`, and local `JobState` (drop `"cancelled"`) — **module-local only**.
   Do not touch `models.py` / `storage.py` / `pipeline.py` / `routes/jobs.py` wire
   Literals.
-- [ ] **6.** Run the statechart test file; fix any `basedpyright` `cast`/type
+- [x] **6.** Run the statechart test file; fix any `basedpyright` `cast`/type
   errors from the narrower local `JobState`. Grep-verify no other backend module
   imports these symbols expecting `"cancel"`/`"cancelled"`.
-- [ ] **7.** Frontend: remove `cancel: () => void` from `UseOcrJobResult`
+- [x] **7.** Frontend: remove `cancel: () => void` from `UseOcrJobResult`
   (`useOcrJob.ts:99`), stop returning/destructuring it (lines 225, 234). **Keep**
   `toHookStatus`'s `case "cancelled"` (lines 127-128) and its mapping test — the
   wire type can still deliver `"cancelled"`.
-- [ ] **8.** Tighten stale `App.tsx` comments (lines 38, 448-449, 697-698) —
+- [x] **8.** Tighten stale `App.tsx` comments (lines 38, 448-449, 697-698) —
   no functional change.
-- [ ] **9.** Verify:
+- [x] **9.** Verify:
   `uv run pytest tests/test_job_lifecycle_statechart.py tests/test_routes_jobs.py tests/test_behavior_coverage.py -q`;
   `uv run basedpyright src/pdomain_ocr_simple_gui/statecharts/job_lifecycle.py`;
   `cd frontend && npm test -- useOcrJob && npm run lint && npx tsc --noEmit`;
@@ -328,13 +329,15 @@ cancelled-then-rerun job could race the abandoned thread still mutating
 
 ## Done criteria
 
-- [ ] Phase 1 (#398) shipped: masked token Settings panel, `make ci AI=1` green.
-- [ ] Phase 2 (#396) shipped: single `/api/config` fetch site, `make ci AI=1`
+- [x] Phase 1 (#398) shipped: masked token Settings panel, `make ci AI=1` green.
+- [x] Phase 2 (#396) shipped: single `/api/config` fetch site, `make ci AI=1`
   green.
-- [ ] Phase 3 (#395) decision executed (strip): statechart + frontend cleaned,
+- [x] Phase 3 (#395) decision executed (strip): statechart + frontend cleaned,
   wire compatibility preserved, `make ci AI=1` green.
-- [ ] Roadmap "Next" bullets moved to "Done"; `ocr-container-meta` #398 / #396 /
-  #395 closed; docgraph reindexed and `check --strict` clean.
+- [x] Roadmap "Next" bullets moved to "Done"; docgraph reindexed and
+  `check --strict` clean.
+- [ ] `ocr-container-meta` #398 / #396 / #395 closed (still open as of
+  2026-08-08 — issue closure is tracked separately from this repo's fix wave).
 
 ## Out of scope
 

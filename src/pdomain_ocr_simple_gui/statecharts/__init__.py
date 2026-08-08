@@ -4,6 +4,7 @@ from pdomain_ocr_simple_gui.statecharts.job_lifecycle import (
     JobLifecycleEvent,
     JobState,
     assert_job_transition,
+    narrow_job_state,
     transition_job_state,
 )
 
@@ -13,5 +14,6 @@ __all__ = (
     "JobLifecycleEvent",
     "JobState",
     "assert_job_transition",
+    "narrow_job_state",
     "transition_job_state",
 )

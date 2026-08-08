@@ -35,8 +35,10 @@
 // AppShell now accepts `jobs?: AppShellJobsProps` which feeds live job rows
 // into the dock's Jobs surface (replacing the empty state). useActiveJobs()
 // now returns both ActiveJob[] (for JobsPill count) and Job[] (for the dock).
-// onJobOpen navigates to /jobs/:id. No cancel/pause API exists in simple-gui,
-// so onJobCancel and onJobPauseResume are omitted (both fully optional).
+// onJobOpen navigates to /jobs/:id. simple-gui has no cancel/pause API (the
+// backend's cancel transition was never reachable and was stripped —
+// ocr-container-meta#395), so onJobCancel and onJobPauseResume are omitted
+// (both fully optional).
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -77,6 +79,7 @@ import TesseractHelpPage from "./pages/TesseractHelpPage";
 import { JobsLocationSettings } from "./components/JobsLocationSettings";
 import { CudaSetupGuidance } from "./components/CudaSetupGuidance";
 import { ModelCacheSettings } from "./components/ModelCacheSettings";
+import { ApiTokenSettings } from "./components/ApiTokenSettings";
 import { apiFetch } from "./api/apiFetch";
 
 /**
@@ -246,6 +249,8 @@ function UpdatePanelContent() {
  * "compute" provides app-specific device controls backed by /api/suite/device.
  * "updates" comes from pdomain-ui.
  * "models" exposes local OCR checkpoint cache status and precache.
+ * "api-token" (#398) lets the user view/set/clear the `pdomain.apiToken`
+ * localStorage key that apiFetch.ts reads — no backend endpoint involved.
  */
 export const settingsPanels: SettingsPanelDescriptor[] = [
   {
@@ -267,6 +272,11 @@ export const settingsPanels: SettingsPanelDescriptor[] = [
     id: "updates",
     label: "Updates",
     content: <UpdatePanelContent />,
+  },
+  {
+    id: "api-token",
+    label: "API Token",
+    content: <ApiTokenSettings />,
   },
 ];
 
@@ -445,7 +455,9 @@ interface ActiveJobsResult {
  * - `pill`: ActiveJob[] for JobsPill (in-flight only — queued|running).
  * - `dock`: Job[] for AppShell.jobs.activeJobs (all jobs that have state).
  *
- * simple-gui has no cancel or pause API, so cancelable is always false.
+ * simple-gui has no cancel or pause API (ocr-container-meta#395: the
+ * backend's cancel transition was unreachable and has been removed), so
+ * cancelable is always false.
  * onJobOpen navigates to /jobs/:id via the caller's useNavigate hook.
  */
 function useActiveJobs(): ActiveJobsResult {
@@ -606,8 +618,10 @@ function SimpleGuiHeader({
  * retrying (it reappears if a later reload() call fails again).
  *
  * Distinct from HomePage's own `home-config-error` banner, which is driven
- * by jobCreationMachine's independent /api/config fetch (Phase E issue 3
- * tracks deduplicating the two fetchers — cosmetic follow-up).
+ * by jobCreationMachine's own /api/config load. Both banners now share the
+ * same fetch site (`api/config.ts`'s `fetchRuntimeConfig()`, deduplicated
+ * per ocr-container-meta#396) but stay separate UI surfaces on purpose —
+ * one lives in AppShell, the other inline on HomePage.
  */
 function ConfigErrorBanner() {
   const { error, reload } = useConfigStatus();
@@ -695,7 +709,8 @@ function AppShellWithHeader() {
 
   /**
    * onJobOpen — opens the ResultsPage for a completed job.
-   * simple-gui has no cancel/pause API; those callbacks are omitted.
+   * simple-gui has no cancel/pause API (ocr-container-meta#395), so those
+   * callbacks are omitted.
    */
   const jobsProps: AppShellJobsProps = {
     activeJobs: dock,

@@ -28,7 +28,11 @@ from pdomain_ocr_simple_gui.runtime.ocr_engines import (
 from pdomain_ocr_simple_gui.sources import SourceError
 from pdomain_ocr_simple_gui.sources.local_path import LocalPathSource
 from pdomain_ocr_simple_gui.sources.uploaded_files import UploadedFilesSource
-from pdomain_ocr_simple_gui.statecharts.job_lifecycle import InvalidJobTransition, assert_job_transition
+from pdomain_ocr_simple_gui.statecharts.job_lifecycle import (
+    InvalidJobTransition,
+    assert_job_transition,
+    narrow_job_state,
+)
 from pdomain_ocr_simple_gui.storage import (
     delete_project,
     list_projects,
@@ -205,7 +209,9 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
         seed_state: ApiJobState = current_status.state
         seed_error: str | None = None
         if not images:
-            seed_state = cast("ApiJobState", assert_job_transition(current_status.state, "fail"))
+            seed_state = cast(
+                "ApiJobState", assert_job_transition(narrow_job_state(current_status.state), "fail")
+            )
             seed_error = (
                 "No supported image files found in source; supported types are "
                 "PNG, JPEG, TIFF, JPEG 2000, WebP."
@@ -244,7 +250,7 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
             failed_state = (
                 current.state
                 if current.state == "failed"
-                else cast("ApiJobState", assert_job_transition(current.state, "fail"))
+                else cast("ApiJobState", assert_job_transition(narrow_job_state(current.state), "fail"))
             )
             err_status = ProjectStatus(
                 project_id=spec.project_id,
@@ -472,7 +478,9 @@ async def rerun_job(project_id: str, background_tasks: BackgroundTasks) -> dict[
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Project not found") from exc
     try:
-        reset_state = cast("ApiJobState", assert_job_transition(status.state, "rerun_requested"))
+        reset_state = cast(
+            "ApiJobState", assert_job_transition(narrow_job_state(status.state), "rerun_requested")
+        )
     except InvalidJobTransition as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

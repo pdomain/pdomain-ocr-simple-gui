@@ -2,13 +2,13 @@
 Status: active
 Owner: CT
 Created: 2026-06-14
-Last verified: 2026-07-19
+Last verified: 2026-08-08
 Kind: architecture
 ---
 
 # pdomain-ocr-simple-gui — Module Map
 
-**Last updated:** 2026-07-19
+**Last updated:** 2026-08-08
 
 Per-module reference. Each entry gives a one-line responsibility and its
 key public surface (types, functions, hooks). Derived from current source.
@@ -106,6 +106,7 @@ key public surface (types, functions, hooks). Derived from current source.
 | `components/OutputConfigPanel.tsx` | Output directory and format configuration |
 | `components/PageViewerWithZoom.tsx` | Wraps `PageImageCanvas` with pinch/scroll zoom |
 | `components/RecentProjectsList.tsx` | Recent projects list from `/api/prefs` |
+| `components/ApiTokenSettings.tsx` | Settings panel to view (masked), set, and clear the `pdomain.apiToken` localStorage key |
 
 ### API hooks — `api/`
 
@@ -113,6 +114,7 @@ key public surface (types, functions, hooks). Derived from current source.
 |------|---------------|-------------|
 | `api/apiFetch.ts` | Shared fetch wrapper: reads `localStorage["pdomain.apiToken"]` and attaches `Authorization: Bearer` when set | `apiFetch()` |
 | `api/useOcrJob.ts` | React Query hooks for job CRUD, live polling, page operations | `useOcrJob()`, `OcrJobData`, `UseOcrJobResult`, `JobFetchError` |
+| `api/config.ts` | Single fetch+parse site for `GET /api/config`, consumed by `ConfigContext` and `jobCreationMachine` | `fetchRuntimeConfig()`, `RuntimeConfig`, `OcrEngineConfig` |
 
 ### Statecharts — `statecharts/`
 
@@ -126,7 +128,7 @@ key public surface (types, functions, hooks). Derived from current source.
 
 | File | Responsibility | Key exports |
 |------|---------------|-------------|
-| `runtime/ConfigContext.tsx` | Provides `RuntimeConfig` (mode, engine caps) via React context; wraps the app | `ConfigProvider`, `useConfig()`, `useConfigStatus()`, `RuntimeConfig` |
+| `runtime/ConfigContext.tsx` | Provides `RuntimeConfig` (mode, engine caps) via React context; wraps the app | `ConfigProvider`, `useConfig()`, `useConfigStatus()` |
 | `runtime/ocrEngines.ts` | Engine capability constants (display names, supported languages) | — |
 
 ### App root

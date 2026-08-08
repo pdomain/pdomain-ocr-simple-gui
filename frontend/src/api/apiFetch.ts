@@ -9,12 +9,13 @@
  * `apiFetch` instead of calling `fetch` directly.
  *
  * The token itself is read from `localStorage` under the
- * `pdomain.apiToken` key. There is deliberately no Settings UI for it yet
- * (see docs/runbooks/install.md for how to set it from the browser
- * console); that follow-up is tracked separately.
+ * `pdomain.apiToken` key. The primary way to set it is the Settings > API
+ * Token panel (`components/ApiTokenSettings.tsx`); setting the same key
+ * from the browser console (see docs/runbooks/install.md) remains a
+ * documented headless fallback.
  */
 
-const TOKEN_STORAGE_KEY = "pdomain.apiToken";
+export const TOKEN_STORAGE_KEY = "pdomain.apiToken";
 
 export function apiFetch(
   input: RequestInfo | URL,

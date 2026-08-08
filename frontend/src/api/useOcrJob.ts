@@ -3,8 +3,14 @@
  *
  * Strategy A: frontend adapter only (no backend changes).
  *
- * The backend emits the canonical pd-suite JobState enum:
+ * The backend can receive the canonical pd-suite JobState enum:
  *   queued | running | succeeded | failed | cancelled
+ * This app's backend statechart never sends `cancelled` — the unreachable
+ * `cancel` transition was stripped (ocr-container-meta#395). The value stays
+ * in the wire type only for compatibility with the shared
+ * `@pdomain/pdomain-ui` `JobState` type, so this frontend can still parse a
+ * `cancelled` state without a runtime error if it ever appears. That is a
+ * schema-compatibility guard, not license to re-add a cancel transition.
  *
  * useLongJob (from @pdomain/pdomain-ui/stores) expects its own internal
  * LongJobStatus enum:
@@ -95,8 +101,6 @@ export interface UseOcrJobResult {
   progress: number | null;
   /** Raw backend payload — null until first poll resolves. */
   jobData: OcrJobData | null;
-  /** Call to request job cancellation (no-op — backend lacks cancel endpoint). */
-  cancel: () => void;
   /**
    * True when the status fetch returned 404 — the job does not exist (never
    * existed, or was deleted). This is a TERMINAL condition: polling stops and
@@ -222,7 +226,7 @@ export function useOcrJob(
     setTransientError(false);
   }, [jobId]);
 
-  const { status, progress, cancel } = useLongJob(jobId, {
+  const { status, progress } = useLongJob(jobId, {
     pollFn,
     pollIntervalMs,
   });
@@ -231,7 +235,6 @@ export function useOcrJob(
     longJobStatus: status,
     progress,
     jobData,
-    cancel,
     notFound,
     transientError,
   };

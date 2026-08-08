@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-17
-Last verified: 2026-07-19
+Last verified: 2026-08-08
 Kind: plan
 ---
 
@@ -69,18 +69,12 @@ must stay aligned. Treat caller-controlled paths and IDs as untrusted. Run
 
 ## Next
 
-The three actionable items below are planned in the
-[2026-07-21 deferred follow-ups plan](plans/2026-07-21-deferred-followups.md)
-(TDD steps + the #395 ship-or-strip decision, recorded as **strip**).
+The [2026-07-21 deferred follow-ups plan](plans/2026-07-21-deferred-followups.md)
+shipped all three of its items — #398, #396, and #395 (decided and executed as
+**strip**) — see "Done" below.
 
 Product deferred work (not part of the deleted 37-issue set as open bugs):
 
-- Job cancellation ship-or-strip —
-  [ocr-container-meta#395](https://github.com/ConcaveTrillion/ocr-container-meta/issues/395)
-- Config-fetch deduplication —
-  [ocr-container-meta#396](https://github.com/ConcaveTrillion/ocr-container-meta/issues/396)
-- API-token Settings field —
-  [ocr-container-meta#398](https://github.com/ConcaveTrillion/ocr-container-meta/issues/398)
 - Download truth separation (edited pages in export) — intent map
 - Upstream predictor-cache lock (affects timeout cancellation safety) —
   [ocr-container-meta#397](https://github.com/ConcaveTrillion/ocr-container-meta/issues/397)
@@ -94,6 +88,16 @@ Product deferred work (not part of the deleted 37-issue set as open bugs):
 - Hosted deployment / Windows / macOS packaging — intent map (explicitly deferred)
 
 ## Done (former GitHub issues — do not re-open)
+
+**2026-07-21 deferred follow-ups** (plan:
+[deferred-followups](plans/2026-07-21-deferred-followups.md)):
+
+- API-token Settings field —
+  [ocr-container-meta#398](https://github.com/ConcaveTrillion/ocr-container-meta/issues/398)
+- Config-fetch deduplication —
+  [ocr-container-meta#396](https://github.com/ConcaveTrillion/ocr-container-meta/issues/396)
+- Job cancellation ship-or-strip — decided and executed as **strip** —
+  [ocr-container-meta#395](https://github.com/ConcaveTrillion/ocr-container-meta/issues/395)
 
 Implemented against current code (see ledger for digests and commits):
 
