@@ -1,7 +1,7 @@
 import { type JobCreationBehaviorId } from "./jobCreationBehavior";
 import { type RuntimeConfig } from "../api/config";
 
-export type { RuntimeConfig, OcrEngineConfig } from "../api/config";
+export type { RuntimeConfig } from "../api/config";
 
 export type RuntimeProfile =
   | { kind: "local-host"; canUpload: true; canUsePath: true }
