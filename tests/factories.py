@@ -10,6 +10,7 @@ from pdomain_ocr_simple_gui.storage import write_project
 
 
 def make_project_spec(
+    *,
     project_id: str = "test-proj-id-001",
     name: str = "Test Project",
     source_path: str = "/tmp/source",

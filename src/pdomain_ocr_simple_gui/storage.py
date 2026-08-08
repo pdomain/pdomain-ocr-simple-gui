@@ -78,7 +78,7 @@ def get_projects_root() -> Path:
     return _projects_root()
 
 
-JSONValue: TypeAlias = str | int | float | bool | None | list["JSONValue"] | dict[str, "JSONValue"]
+JSONValue: TypeAlias = str | int | float | bool | list["JSONValue"] | dict[str, "JSONValue"] | None
 JSONObject: TypeAlias = dict[str, JSONValue]
 
 
