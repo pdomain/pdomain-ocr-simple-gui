@@ -50,7 +50,7 @@ saved jobs-location preference can override the project root.
 When `PDOMAIN_API_TOKEN` is set on the server, every mutating request must
 carry a matching bearer token or the backend returns 401. Set it from
 **Settings > API Token** in the browser app: paste the token, click Save, and
-the status line reads `set`. Clear clears it.
+the status line reads `set`. Click Clear to remove it.
 
 For headless setups (no browser session available), set the same
 `pdomain.apiToken` localStorage key from the browser's developer console:
