@@ -78,6 +78,12 @@ source = "vcs"
 # target, because hatchling builds the wheel in a non-git temp dir from the
 # sdist and applies the per-target artifact spec against that dir.
 artifacts = ["src/pdomain_ocr_simple_gui/frontend/**/*"]
+# Virtual environments must never reach the sdist: they contain absolute
+# symlinks to the uv-managed interpreter, which uv refuses to unpack.
+exclude = [
+    ".venv/**",
+    ".venv-container/**",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pdomain_ocr_simple_gui"]
