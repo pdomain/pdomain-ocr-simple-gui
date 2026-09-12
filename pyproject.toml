@@ -161,8 +161,13 @@ exclude = ["**/__pycache__", "**/.venv", "**/node_modules"]
 typeCheckingMode = "recommended"
 failOnWarnings = true
 reportImportCycles = "none"
-venvPath = "."
-venv = ".venv"
+# venvPath/venv are deliberately unset. This workspace names its environment
+# ".venv-container" via UV_PROJECT_ENVIRONMENT, so a hardcoded ".venv" silently
+# resolves a stale environment: after any merge that changes uv.lock, every new
+# third-party symbol reports as a missing attribute until .venv is re-synced.
+# Run under `uv run` and basedpyright resolves from the active interpreter.
+# Matches pdomain-book-tools, pdomain-ocr-labeler-spa and pdomain-pgdp-measure,
+# which unset these for the same reason.
 
 [[tool.basedpyright.executionEnvironments]]
 root = "tests"
@@ -187,6 +192,12 @@ pythonpath = ["src", "."]
 asyncio_mode = "auto"
 filterwarnings = [
     "error",
+    # starlette 1.6.0 reads `anyio.abc.BlockingPortal` at import time, an
+    # alias anyio 4.15.1 deprecated. Importing the FastAPI test client is
+    # enough to raise it and nothing here can avoid that. Matched on the
+    # message so every other DeprecationWarning still fails. Drop this once
+    # starlette stops reading the deprecated alias.
+    "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
     "ignore::pytest.PytestUnraisableExceptionWarning",
     "ignore::ResourceWarning:coverage.*",
     'ignore:hf_xet\.download_files\(\) is deprecated:DeprecationWarning',

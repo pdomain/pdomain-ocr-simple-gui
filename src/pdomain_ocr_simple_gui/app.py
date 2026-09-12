@@ -316,12 +316,12 @@ def create_app() -> FastAPI:
         )
 
     @_app.get("/api/health")
-    async def health() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+    async def health() -> dict[str, str]:
         """Health check endpoint."""
         return {"status": "ok"}
 
     @_app.get("/api/self/icons/{size}")
-    async def get_self_icon(size: int) -> Response:  # pyright: ignore[reportUnusedFunction]
+    async def get_self_icon(size: int) -> Response:
         """Serve this app's own icon for the given size (PNG)."""
         if size not in _ALLOWED_SELF_ICON_SIZES:
             raise HTTPException(
@@ -351,7 +351,7 @@ def create_app() -> FastAPI:
     # served directly when they exist as real files in the frontend build root.
     # Vite copies frontend/public/ into the build root, so these arrive there.
     @_app.get("/{full_path:path}", include_in_schema=False)
-    async def spa_fallback(full_path: str) -> FileResponse:  # pyright: ignore[reportUnusedFunction]
+    async def spa_fallback(full_path: str) -> FileResponse:
         """Serve static root files or the React SPA index.html.
 
         Path traversal guard: resolve the candidate path and verify it is
