@@ -82,6 +82,13 @@ JSONValue: TypeAlias = str | int | float | bool | list["JSONValue"] | dict[str, 
 JSONObject: TypeAlias = dict[str, JSONValue]
 
 
+def _current_umask() -> int:
+    """Read the process umask without leaving it changed."""
+    value = os.umask(0)
+    _ = os.umask(value)
+    return value
+
+
 def write_text_atomic(path: Path, text: str, encoding: str = "utf-8") -> None:
     """Write *text* to *path* atomically: same-dir tmp file + ``os.replace``.
 
@@ -97,6 +104,11 @@ def write_text_atomic(path: Path, text: str, encoding: str = "utf-8") -> None:
     try:
         with os.fdopen(fd, "w", encoding=encoding) as fh:
             _ = fh.write(text)
+        # mkstemp hardcodes 0600 and ignores the umask by design, and a rename
+        # preserves that mode, so without this chmod the published file is
+        # unreadable to any other uid — the host's restic backup included.
+        # Start from 0666, never 0777: nothing written here is a program.
+        Path(tmp_name).chmod(0o666 & ~_current_umask())
         os.replace(tmp_name, path)
     except BaseException:
         with contextlib.suppress(OSError):

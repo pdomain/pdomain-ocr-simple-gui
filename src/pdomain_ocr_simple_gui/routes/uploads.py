@@ -32,6 +32,13 @@ _DEFAULT_MAX_BYTES = 2 * 1024**3  # 2 GiB total per request
 _DEFAULT_MAX_FILES = 5000
 
 
+def _current_umask() -> int:
+    """Read the process umask without leaving it changed."""
+    value = os.umask(0)
+    _ = os.umask(value)
+    return value
+
+
 def _upload_root() -> Path:
     """Return (and create) the staging root directory for uploads."""
     raw = os.environ.get("PD_OCR_SIMPLE_GUI_UPLOAD_ROOT")
@@ -98,6 +105,10 @@ async def post_upload(files: list[UploadFile]) -> UploadResponse:
                         raise HTTPException(status_code=413, detail="upload exceeds size cap")
                     _ = tmp.write(chunk)
                 tmp_path = Path(tmp.name)
+            # NamedTemporaryFile creates at 0600 and ignores the umask by
+            # design, and a rename preserves that mode, so without this chmod
+            # the stored upload is unreadable to any other uid.
+            tmp_path.chmod(0o666 & ~_current_umask())
             _ = tmp_path.rename(target)
             if target.suffix.lower() == ".zip":
                 # Extraction is CPU/IO-bound synchronous work — run it off the
