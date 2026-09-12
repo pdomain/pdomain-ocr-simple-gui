@@ -32,11 +32,21 @@ _DEFAULT_MAX_BYTES = 2 * 1024**3  # 2 GiB total per request
 _DEFAULT_MAX_FILES = 5000
 
 
-def _current_umask() -> int:
-    """Read the process umask without leaving it changed."""
+def _shared_file_mode() -> int:
+    """The mode a plain ``open()`` would produce here: 0666 minus the umask.
+
+    ``os.umask`` has no read-only form, so reading the umask means setting it
+    to zero and putting it back, and that is process-global. Calling this per
+    write would expose a zero umask to every other thread for those two
+    syscalls. Call it once at import instead, while the module is still
+    single-threaded, and reuse the result.
+    """
     value = os.umask(0)
     _ = os.umask(value)
-    return value
+    return 0o666 & ~value
+
+
+_FILE_MODE = _shared_file_mode()
 
 
 def _upload_root() -> Path:
@@ -108,7 +118,7 @@ async def post_upload(files: list[UploadFile]) -> UploadResponse:
             # NamedTemporaryFile creates at 0600 and ignores the umask by
             # design, and a rename preserves that mode, so without this chmod
             # the stored upload is unreadable to any other uid.
-            tmp_path.chmod(0o666 & ~_current_umask())
+            tmp_path.chmod(_FILE_MODE)
             _ = tmp_path.rename(target)
             if target.suffix.lower() == ".zip":
                 # Extraction is CPU/IO-bound synchronous work — run it off the

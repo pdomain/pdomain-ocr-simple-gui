@@ -82,11 +82,21 @@ JSONValue: TypeAlias = str | int | float | bool | list["JSONValue"] | dict[str, 
 JSONObject: TypeAlias = dict[str, JSONValue]
 
 
-def _current_umask() -> int:
-    """Read the process umask without leaving it changed."""
+def _shared_file_mode() -> int:
+    """The mode a plain ``open()`` would produce here: 0666 minus the umask.
+
+    ``os.umask`` has no read-only form, so reading the umask means setting it
+    to zero and putting it back, and that is process-global. Calling this per
+    write would expose a zero umask to every other thread for those two
+    syscalls. Call it once at import instead, while the module is still
+    single-threaded, and reuse the result.
+    """
     value = os.umask(0)
     _ = os.umask(value)
-    return value
+    return 0o666 & ~value
+
+
+_FILE_MODE = _shared_file_mode()
 
 
 def write_text_atomic(path: Path, text: str, encoding: str = "utf-8") -> None:
@@ -108,7 +118,7 @@ def write_text_atomic(path: Path, text: str, encoding: str = "utf-8") -> None:
         # preserves that mode, so without this chmod the published file is
         # unreadable to any other uid — the host's restic backup included.
         # Start from 0666, never 0777: nothing written here is a program.
-        Path(tmp_name).chmod(0o666 & ~_current_umask())
+        Path(tmp_name).chmod(_FILE_MODE)
         os.replace(tmp_name, path)
     except BaseException:
         with contextlib.suppress(OSError):
