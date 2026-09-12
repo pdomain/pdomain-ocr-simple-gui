@@ -36,7 +36,7 @@ endef
 
 PEER_BOOK_TOOLS_PATH ?= ../pdomain-book-tools
 
-.PHONY: help setup install uninstall remove-venv reset lint format format-check typecheck \
+.PHONY: help setup install-hooks install uninstall remove-venv reset lint format format-check typecheck \
         pre-commit-check test behavior-coverage e2e-fast e2e-browser e2e-real-ocr frontend-install frontend-build frontend-dev \
         frontend-test frontend-lint frontend-format frontend-format-check frontend-knip \
         openapi-export clean ci ci-full upgrade-deps dev-local \
@@ -56,8 +56,22 @@ setup: ## Sync deps + install pre-commit hooks + install Playwright chromium
 	@echo "🌐 Installing Playwright chromium..."
 	PLAYWRIGHT_BROWSERS_PATH=$${PLAYWRIGHT_BROWSERS_PATH:-/cache/shared-ai/ms-playwright} uv run --group e2e playwright install chromium || true
 	@echo "🪝 Setting up pre-commit hooks..."
-	@[ -n "$$(git config --get core.hooksPath 2>/dev/null)" ] || [ -f .git ] || uv run pre-commit install
+	@$(MAKE) --no-print-directory install-hooks
 	@echo "✅ Setup complete!"
+
+install-hooks: ## (Re)install pre-commit hooks (repairs a stale interpreter path)
+	@# `pre-commit install` bakes an absolute interpreter path into .git/hooks.
+	@# A hook written against a different environment name, or against a worktree
+	@# that has since been deleted, keeps failing until it is rewritten — and a
+	@# "skip if the file exists" guard never rewrites it. Rewriting costs ~0.2s,
+	@# so do it every time this repo owns its hooks directory.
+	@if [ -f .git ]; then \
+	  echo "hooks: worktree checkout — the canonical repo owns them, skipping"; \
+	elif [ -n "$$(git config --get core.hooksPath 2>/dev/null)" ]; then \
+	  echo "hooks: core.hooksPath is set — leaving it alone, skipping"; \
+	else \
+	  uv run pre-commit install --hook-type pre-commit --hook-type commit-msg; \
+	fi
 
 install: setup ## Alias for setup
 
