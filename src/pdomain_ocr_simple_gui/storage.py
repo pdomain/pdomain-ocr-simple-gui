@@ -8,9 +8,9 @@ import logging
 import os
 import re
 import shutil
-import tempfile
 from pathlib import Path
 from typing import Literal, TypeAlias, cast
+from uuid import uuid4
 
 from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
 from pdomain_ocr_simple_gui.statecharts.job_lifecycle import aggregate_pages_state, narrow_job_state
@@ -82,21 +82,25 @@ JSONValue: TypeAlias = str | int | float | bool | list["JSONValue"] | dict[str, 
 JSONObject: TypeAlias = dict[str, JSONValue]
 
 
-def _shared_file_mode() -> int:
-    """The mode a plain ``open()`` would produce here: 0666 minus the umask.
+def _open_staged(path: Path) -> tuple[int, Path]:
+    """Create a staging file beside *path*, open for writing.
 
-    ``os.umask`` has no read-only form, so reading the umask means setting it
-    to zero and putting it back, and that is process-global. Calling this per
-    write would expose a zero umask to every other thread for those two
-    syscalls. Call it once at import instead, while the module is still
-    single-threaded, and reuse the result.
+    Not ``tempfile.mkstemp``: that hardcodes 0600 and ignores the umask, which
+    is right for a private scratch file and wrong for one about to be
+    published, because a rename preserves the mode. Passing the mode to
+    ``os.open`` lets the kernel apply the umask exactly as for a plain
+    ``open()``, so there is no chmod to forget and no umask to read. 0666, not
+    0777: nothing published this way is a program.
+
+    ``O_EXCL`` keeps ``mkstemp``'s guarantee that creation fails rather than
+    opening an existing file or following a symlink into one.
     """
-    value = os.umask(0)
-    _ = os.umask(value)
-    return 0o666 & ~value
-
-
-_FILE_MODE = _shared_file_mode()
+    while True:
+        staged = path.parent / f".{path.name}.{uuid4().hex}.tmp"
+        try:
+            return os.open(staged, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o666), staged
+        except FileExistsError:  # pragma: no cover - needs a uuid4 collision
+            continue
 
 
 def write_text_atomic(path: Path, text: str, encoding: str = "utf-8") -> None:
@@ -110,19 +114,14 @@ def write_text_atomic(path: Path, text: str, encoding: str = "utf-8") -> None:
     target's directory so the rename never crosses a filesystem boundary; it
     is removed if anything fails before the replace lands.
     """
-    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    fd, staged = _open_staged(path)
     try:
         with os.fdopen(fd, "w", encoding=encoding) as fh:
             _ = fh.write(text)
-        # mkstemp hardcodes 0600 and ignores the umask by design, and a rename
-        # preserves that mode, so without this chmod the published file is
-        # unreadable to any other uid — the host's restic backup included.
-        # Start from 0666, never 0777: nothing written here is a program.
-        Path(tmp_name).chmod(_FILE_MODE)
-        os.replace(tmp_name, path)
+        _ = staged.replace(path)
     except BaseException:
         with contextlib.suppress(OSError):
-            os.unlink(tmp_name)
+            staged.unlink()
         raise
 
 

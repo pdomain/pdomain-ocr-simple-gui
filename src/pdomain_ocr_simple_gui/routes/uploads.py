@@ -8,7 +8,6 @@ import logging
 import os
 import re
 import shutil
-import tempfile
 import uuid
 import zipfile
 from pathlib import Path
@@ -32,21 +31,23 @@ _DEFAULT_MAX_BYTES = 2 * 1024**3  # 2 GiB total per request
 _DEFAULT_MAX_FILES = 5000
 
 
-def _shared_file_mode() -> int:
-    """The mode a plain ``open()`` would produce here: 0666 minus the umask.
+def _open_staged(path: Path) -> tuple[int, Path]:
+    """Create a staging file beside *path*, open for writing.
 
-    ``os.umask`` has no read-only form, so reading the umask means setting it
-    to zero and putting it back, and that is process-global. Calling this per
-    write would expose a zero umask to every other thread for those two
-    syscalls. Call it once at import instead, while the module is still
-    single-threaded, and reuse the result.
+    Not ``tempfile.NamedTemporaryFile``: that creates at 0600 and ignores the
+    umask, which is right for a private scratch file and wrong for one about
+    to be renamed into place, because a rename preserves the mode. Passing the
+    mode to ``os.open`` lets the kernel apply the umask exactly as for a plain
+    ``open()``, so there is no chmod to forget. 0666, not 0777: an upload is
+    not a program. ``O_EXCL`` means creation fails rather than following a
+    symlink into an existing file.
     """
-    value = os.umask(0)
-    _ = os.umask(value)
-    return 0o666 & ~value
-
-
-_FILE_MODE = _shared_file_mode()
+    while True:
+        staged = path.parent / f".{path.name}.{uuid.uuid4().hex}.tmp"
+        try:
+            return os.open(staged, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o666), staged
+        except FileExistsError:  # pragma: no cover - needs a uuid4 collision
+            continue
 
 
 def _upload_root() -> Path:
@@ -108,17 +109,13 @@ async def post_upload(files: list[UploadFile]) -> UploadResponse:
         for upload in files:
             name = Path(upload.filename or "unnamed").name  # strip path traversal
             target = staging / name
-            with tempfile.NamedTemporaryFile(delete=False, dir=staging) as tmp:
+            fd, tmp_path = _open_staged(target)
+            with os.fdopen(fd, "wb") as tmp:
                 while chunk := await upload.read(64 * 1024):
                     total += len(chunk)
                     if total > max_total:
                         raise HTTPException(status_code=413, detail="upload exceeds size cap")
                     _ = tmp.write(chunk)
-                tmp_path = Path(tmp.name)
-            # NamedTemporaryFile creates at 0600 and ignores the umask by
-            # design, and a rename preserves that mode, so without this chmod
-            # the stored upload is unreadable to any other uid.
-            tmp_path.chmod(_FILE_MODE)
             _ = tmp_path.rename(target)
             if target.suffix.lower() == ".zip":
                 # Extraction is CPU/IO-bound synchronous work — run it off the
