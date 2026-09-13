@@ -626,10 +626,14 @@ function SimpleGuiHeader({
 function ConfigErrorBanner() {
   const { error, reload } = useConfigStatus();
   const [dismissed, setDismissed] = useState(false);
-
-  useEffect(() => {
+  // Un-dismiss whenever a (new) error arrives, without forcing an extra
+  // render via an effect — adjust state during render by comparing against
+  // the previously seen `error` value (https://react.dev/learn/you-might-not-need-an-effect).
+  const [prevError, setPrevError] = useState(error);
+  if (error !== prevError) {
+    setPrevError(error);
     if (error) setDismissed(false);
-  }, [error]);
+  }
 
   if (!error || dismissed) return null;
 

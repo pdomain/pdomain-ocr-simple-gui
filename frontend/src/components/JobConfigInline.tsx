@@ -130,9 +130,17 @@ export function JobConfigInline({
   );
   const [outputTouched, setOutputTouched] = useState(false);
 
-  // Reset output config + project name when source/mode changes
-  useEffect(() => {
-    if (sourceForDefaults === null) return;
+  // Reset output config + project name when source/mode changes. Adjusted
+  // during render (comparing against the previously seen source/mode key)
+  // rather than in an effect — see
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes.
+  // onFormChanged is called in the same conditional, right after the state
+  // it reports on is set, matching the docs' "notify a parent component"
+  // extension of this pattern.
+  const defaultsKey = `${sourceKey}|${mode}`;
+  const [prevDefaultsKey, setPrevDefaultsKey] = useState(defaultsKey);
+  if (sourceForDefaults !== null && defaultsKey !== prevDefaultsKey) {
+    setPrevDefaultsKey(defaultsKey);
     const output = defaultOutputMode(sourceForDefaults, mode);
     const name = defaultProjectName(sourceForDefaults);
     const patch: Partial<JobForm> = {};
@@ -145,22 +153,23 @@ export function JobConfigInline({
       patch.name = name;
     }
     if (Object.keys(patch).length > 0) onFormChanged?.(patch);
-  }, [
-    mode,
-    onFormChanged,
-    outputTouched,
-    projectNameTouched,
-    sourceForDefaults,
-    sourceKey,
-  ]);
+  }
 
-  useEffect(() => {
+  // Re-clamp the selected engine to what's available whenever runtimeConfig
+  // changes (e.g. it finishes loading, or later reports different engine
+  // availability). Adjusted during render, keyed on the previously seen
+  // runtimeConfig, rather than in an effect — see
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes.
+  const [prevRuntimeConfigForEngine, setPrevRuntimeConfigForEngine] =
+    useState(runtimeConfig);
+  if (runtimeConfig !== prevRuntimeConfigForEngine) {
+    setPrevRuntimeConfigForEngine(runtimeConfig);
     const nextEngine = normalizeEngine(runtimeConfig, engine);
     if (nextEngine !== engine) {
       setEngine(nextEngine);
       onFormChanged?.({ engine: nextEngine });
     }
-  }, [engine, onFormChanged, runtimeConfig]);
+  }
 
   // Load engine/language defaults from prefs on mount
   useEffect(() => {

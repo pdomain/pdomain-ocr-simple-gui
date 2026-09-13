@@ -30,8 +30,10 @@ export default defineConfig({
     dedupe: ["react", "react-dom", "react-konva"],
   },
   test: {
-    deps: {
-      inline: [/@pdomain\/pdomain-ui/],
+    server: {
+      deps: {
+        inline: [/@pdomain\/pdomain-ui/],
+      },
     },
     environment: "jsdom",
     globals: true,

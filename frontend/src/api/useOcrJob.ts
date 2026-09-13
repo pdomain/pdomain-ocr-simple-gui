@@ -220,11 +220,16 @@ export function useOcrJob(
 
   // Reset all derived state when jobId changes (mirrors useLongJob's own reset
   // on id change). A new job must not inherit a stale notFound/transient flag.
-  React.useEffect(() => {
+  // Adjusted during render (comparing against the previously seen jobId)
+  // rather than in an effect, per
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes.
+  const [prevJobId, setPrevJobId] = React.useState(jobId);
+  if (jobId !== prevJobId) {
+    setPrevJobId(jobId);
     setJobData(null);
     setNotFound(false);
     setTransientError(false);
-  }, [jobId]);
+  }
 
   const { status, progress } = useLongJob(jobId, {
     pollFn,

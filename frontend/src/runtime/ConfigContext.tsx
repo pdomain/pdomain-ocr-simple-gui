@@ -43,8 +43,20 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    // Defined inline (rather than calling the `load` callback directly) so
+    // the setState calls stay behind the `await` inside this effect's own
+    // scope instead of a directly-invoked named async function.
+    async function run() {
+      try {
+        const body = await fetchRuntimeConfig();
+        setCfg(body);
+        setError(false);
+      } catch {
+        setError(true);
+      }
+    }
+    void run();
+  }, []);
 
   return (
     <ConfigCtx.Provider value={cfg}>

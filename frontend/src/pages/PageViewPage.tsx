@@ -142,12 +142,22 @@ export default function PageViewPage() {
     };
   }, [id]);
 
-  // Load page data
-  useEffect(() => {
-    let cancelled = false;
+  // Reset loading/save/error state whenever the page identity (id + pageIdx)
+  // changes, adjusted during render rather than in an effect — see
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes.
+  // Matches the initial useState defaults, so this is a no-op on mount.
+  const pageKey = `${id ?? ""}|${pageIdx}`;
+  const [prevPageKey, setPrevPageKey] = useState(pageKey);
+  if (pageKey !== prevPageKey) {
+    setPrevPageKey(pageKey);
     setLoading(true);
     setSaveStatus("idle");
     setFetchError(null);
+  }
+
+  // Load page data
+  useEffect(() => {
+    let cancelled = false;
 
     apiFetch(`/api/pages/${id ?? ""}/${pageIdx}`)
       .then(async (res) => {
@@ -283,20 +293,25 @@ export default function PageViewPage() {
     handleRerun,
     goToPage,
   });
-  // Keep ref current on every render (no extra re-renders caused).
-  shortcutCtxRef.current = {
-    pageIdx,
-    hasPrev,
-    hasNext,
-    loading,
-    saveStatus,
-    rerunStatus,
-    tesseractAvailable,
-    id,
-    handleSave,
-    handleRerun,
-    goToPage,
-  };
+  // Keep ref current on every render (no extra re-renders caused). Refs must
+  // only be written outside of render (event handlers or effects), so this
+  // runs as an effect with no dependency array rather than inline —
+  // https://react.dev/reference/react/useRef.
+  useEffect(() => {
+    shortcutCtxRef.current = {
+      pageIdx,
+      hasPrev,
+      hasNext,
+      loading,
+      saveStatus,
+      rerunStatus,
+      tesseractAvailable,
+      id,
+      handleSave,
+      handleRerun,
+      goToPage,
+    };
+  });
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const bindings = useMemo<ShortcutBinding[]>(

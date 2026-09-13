@@ -77,8 +77,17 @@ export function SourcePicker(props: SourcePickerProps) {
 
   const allowFolderBrowse = props.allowFolderBrowse ?? props.allowDrop;
 
-  useEffect(() => {
+  // Reset the local selection during render when resetToken changes, rather
+  // than in an effect (https://react.dev/learn/you-might-not-need-an-effect
+  // #adjusting-some-state-when-a-prop-changes). Clearing the native <input>
+  // DOM values stays in an effect since that's an external-system update.
+  const [prevResetToken, setPrevResetToken] = useState(props.resetToken);
+  if (props.resetToken !== prevResetToken) {
+    setPrevResetToken(props.resetToken);
     setChosen(null);
+  }
+
+  useEffect(() => {
     if (fileInput.current) fileInput.current.value = "";
     if (folderInput.current) folderInput.current.value = "";
   }, [props.resetToken]);
