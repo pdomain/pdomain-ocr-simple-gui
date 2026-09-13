@@ -13,9 +13,9 @@ readme = "README.md"
 license = { text = "Unlicense" }
 requires-python = ">=3.11"
 dependencies = [
-    "pdomain-book-tools>=0.21.0",
-    "pdomain-book-contracts>=0.1.0",
-    "pdomain-ops>=0.11.1",
+    "pdomain-book-tools>=0.28.0",
+    "pdomain-book-contracts>=0.2.0",
+    "pdomain-ops>=0.11.2",
     "fastapi>=0.111",
     "uvicorn[standard]>=0.29",
     "pydantic>=2.7",
