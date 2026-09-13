@@ -36,16 +36,22 @@ make release-major
 ```
 
 The helper creates an annotated semantic-version tag, pushes `master` and the
-tag, and dispatches the release workflow. The workflow builds one wheel and one
-source distribution, publishes both as GitHub Release artifacts, and dispatches
-`pdomain-index-pip` when `PDOMAIN_INDEX_DISPATCH` is available. Scheduled index
-regeneration is the fallback.
+tag, then builds one wheel and one source distribution and publishes both as
+GitHub Release artifacts. It does all of this locally: the workflows were
+removed on 2026-09-13.
+
+Publishing to the index is a separate, manual step, with no dispatch and no
+scheduled fallback:
+
+```bash
+(cd ../pdomain-index-pip && ./scripts/publish-index.sh)
+```
 
 ## Verification
 
-Confirm the tag, GitHub Release artifacts, workflow result, and index dispatch
-or scheduled fallback. The implementation sources are `scripts/do-release.sh`
-and `.github/workflows/release.yml`.
+Confirm the tag, the GitHub Release artifacts, and that the package appears on
+the index after running the publish script. The implementation sources are
+`scripts/do-release.sh` and `scripts/release-common.sh`.
 
 ## Rollback
 
