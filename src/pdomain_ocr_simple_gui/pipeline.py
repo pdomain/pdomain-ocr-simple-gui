@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypeAlias, cast
 
 from pdomain_ops.gpu.types import OcrBatchRequest
 
+from pdomain_ocr_simple_gui.layout_pass import LayoutSession, reorganize_ocr_page
 from pdomain_ocr_simple_gui.statecharts.job_lifecycle import assert_job_transition, narrow_job_state
 
 logger = logging.getLogger(__name__)
@@ -368,6 +369,7 @@ async def run_project(
 
     images = await collect_images(spec.source_path)
     total = len(images)
+    layout_session = LayoutSession(spec.device)
 
     # Resolve batch size: honor spec.batch_pages when set; fall back to default.
     batch_size: int = (
@@ -473,20 +475,20 @@ async def run_project(
             for local_i, (idx, img_path) in enumerate(zip(chunk_indices, chunk_images, strict=True)):
                 raw_page_dict = cast("JsonObject", page_dicts[local_i])
 
-                # Round-trip through pdomain-book-tools Page so reorganize_page()
-                # clusters flat OCR words into lines/paragraphs/blocks.
-                from pdomain_book_tools.ocr.page import Page
-
+                # Layout-aware reorganize. Word dropping stays off. If layout
+                # detection cannot run, reorganize still clusters the words.
                 raw_text = extract_text(raw_page_dict)
                 reorganized_dict: JsonObject = raw_page_dict
                 reorganized_text = ""
                 try:
-                    page_obj = Page.from_dict(raw_page_dict)
-                    page_obj.reorganize_page(
+                    reorganized_raw, reorganized_text = await asyncio.to_thread(
+                        reorganize_ocr_page,
+                        cast("dict[str, object]", raw_page_dict),
+                        img_path,
                         emit_illustration_placeholders=spec.emit_illustration_placeholders,
+                        session=layout_session,
                     )
-                    reorganized_dict = cast("JsonObject", page_obj.to_dict())
-                    reorganized_text = page_obj.text
+                    reorganized_dict = cast("JsonObject", reorganized_raw)
                 except Exception:
                     logger.exception(
                         "reorganize_page() failed; falling back to raw OCR dict",

@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from pdomain_ocr_simple_gui.auth import require_token
+from pdomain_ocr_simple_gui.layout_pass import LayoutSession, reorganize_ocr_page
 from pdomain_ocr_simple_gui.models import PageResponse, PageResult, ProjectSpec
 from pdomain_ocr_simple_gui.pipeline import (
     JsonObject,
@@ -348,14 +349,14 @@ async def rerun_page(
         reorganized_dict: JsonObject = page_dict
         reorganized_text = ""
         try:
-            from pdomain_book_tools.ocr.page import Page
-
-            page_obj = Page.from_dict(page_dict)
-            page_obj.reorganize_page(
+            reorganized_raw, reorganized_text = await asyncio.to_thread(
+                reorganize_ocr_page,
+                cast("dict[str, object]", page_dict),
+                image_path,
                 emit_illustration_placeholders=spec.emit_illustration_placeholders,
+                session=LayoutSession(spec.device),
             )
-            reorganized_dict = cast("JsonObject", page_obj.to_dict())
-            reorganized_text = page_obj.text
+            reorganized_dict = cast("JsonObject", reorganized_raw)
         except Exception:
             logger.exception(
                 "reorganize_page() failed on rerun; falling back to raw dict",

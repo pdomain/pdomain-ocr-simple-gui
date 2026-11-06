@@ -14,6 +14,31 @@ from httpx import ASGITransport, AsyncClient
 from pdomain_ocr_simple_gui.app import app
 from pdomain_ocr_simple_gui.testing.fake_dispatcher import FakeStageDispatcher
 
+
+@pytest.fixture(autouse=True)
+def _no_layout_weight_download(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ordinary tests must not download PP-DocLayout weights.
+
+    The pipeline loads ``pp-doclayout-plus-l`` after OCR. This replaces
+    ``get_detector`` for the whole session's tests. A test that needs a
+    specific detector patches ``load_layout_detector`` or ``get_detector``
+    again on top of this fixture.
+    """
+    from pdomain_book_contracts.layout.types import PageLayout
+
+    class _Detector:
+        def detect(self, source: object) -> PageLayout:
+            _ = source
+            return PageLayout(regions=[], detector="test")
+
+    def _get_detector(*_args: object, **_kwargs: object) -> _Detector:
+        return _Detector()
+
+    import pdomain_book_tools.layout as layout_mod
+
+    monkeypatch.setattr(layout_mod, "get_detector", _get_detector)
+
+
 # ---------------------------------------------------------------------------
 # Session-wide isolation guard
 #
