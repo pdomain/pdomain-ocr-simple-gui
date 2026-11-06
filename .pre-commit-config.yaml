@@ -1,5 +1,10 @@
 default_install_hook_types: [pre-commit, commit-msg]
 
+# mise keeps node under $HOME. pre-commit ignores binaries there and asks
+# nodeenv for the newest Node, which is an alpha version nodeenv cannot parse.
+default_language_version:
+    node: system
+
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
