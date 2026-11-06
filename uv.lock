@@ -2084,7 +2084,7 @@ wheels = [
 
 [[package]]
 name = "pdomain-book-tools"
-version = "0.28.0"
+version = "0.30.1"
 source = { registry = "https://pdomain.github.io/pdomain-index-pip/simple/" }
 dependencies = [
     { name = "deskew" },
@@ -2110,9 +2110,9 @@ dependencies = [
     { name = "torchvision" },
     { name = "transformers" },
 ]
-sdist = { url = "https://github.com/pdomain/pdomain-book-tools/releases/download/v0.28.0/pdomain_book_tools-0.28.0.tar.gz", hash = "sha256:8aeb66c6f682e6452c47d59dbde138b2def0338662cf976e619ef9da1220f4ae" }
+sdist = { url = "https://github.com/pdomain/pdomain-book-tools/releases/download/v0.30.1/pdomain_book_tools-0.30.1.tar.gz", hash = "sha256:b86619c3b5ec7231c32bcb8f659acc4ecd9f4a1ef13190230501bc63851eec31" }
 wheels = [
-    { url = "https://github.com/pdomain/pdomain-book-tools/releases/download/v0.28.0/pdomain_book_tools-0.28.0-py3-none-any.whl", hash = "sha256:2d1f6ce4b9172e2ab8e94e096a740545a20ce6a6f7c7615cc401b4671a3d8655" },
+    { url = "https://github.com/pdomain/pdomain-book-tools/releases/download/v0.30.1/pdomain_book_tools-0.30.1-py3-none-any.whl", hash = "sha256:500b222b75bf4a39b134e31c1e04b3ad570afa431e691b7adf0c597de6524630" },
 ]
 
 [[package]]
@@ -2155,7 +2155,7 @@ requires-dist = [
     { name = "aiofiles", specifier = ">=25.1" },
     { name = "fastapi", specifier = ">=0.141" },
     { name = "pdomain-book-contracts", specifier = ">=0.2.0", index = "https://pdomain.github.io/pdomain-index-pip/simple/" },
-    { name = "pdomain-book-tools", specifier = ">=0.28.0", index = "https://pdomain.github.io/pdomain-index-pip/simple/" },
+    { name = "pdomain-book-tools", specifier = "==0.30.1", index = "https://pdomain.github.io/pdomain-index-pip/simple/" },
     { name = "pdomain-ops", specifier = ">=0.11.2", index = "https://pdomain.github.io/pdomain-index-pip/simple/" },
     { name = "pydantic", specifier = ">=2.13" },
     { name = "pydantic-settings", specifier = ">=2.15" },
