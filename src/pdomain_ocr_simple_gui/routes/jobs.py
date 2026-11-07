@@ -19,7 +19,7 @@ from pdomain_ocr_simple_gui.auth import require_token
 from pdomain_ocr_simple_gui.constants import APP_ID as _APP_ID
 from pdomain_ocr_simple_gui.models import AppPrefs, PageResult, ProjectSpec, ProjectStatus
 from pdomain_ocr_simple_gui.output.config import OutputConfig, OutputConfigError, resolve_output_dir
-from pdomain_ocr_simple_gui.pipeline import collect_images, run_project
+from pdomain_ocr_simple_gui.pipeline import NO_IMAGES_ERROR, collect_images, run_project
 from pdomain_ocr_simple_gui.runtime.mode import Mode, read_mode
 from pdomain_ocr_simple_gui.runtime.ocr_engines import (
     is_engine_request_available,
@@ -212,10 +212,7 @@ async def _pipeline_run_job(spec: ProjectSpec) -> None:
             seed_state = cast(
                 "ApiJobState", assert_job_transition(narrow_job_state(current_status.state), "fail")
             )
-            seed_error = (
-                "No supported image files found in source; supported types are "
-                "PNG, JPEG, TIFF, JPEG 2000, WebP."
-            )
+            seed_error = NO_IMAGES_ERROR
         init_pages = [
             PageResult(page_idx=i, page_name=img.name, state="queued") for i, img in enumerate(images)
         ]

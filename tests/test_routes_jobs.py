@@ -500,6 +500,11 @@ class TestPipelineIntegration:
         # Error message mentions supported types
         err = data.get("error") or ""
         assert "supported" in err.lower(), f"expected supported-types hint in error, got {err!r}"
+        from pdomain_ocr_simple_gui.pipeline import _IMAGE_SUFFIXES
+
+        for suffix in _IMAGE_SUFFIXES:
+            assert suffix in err, f"accepted suffix {suffix!r} missing from error {err!r}"
+        assert "webp" not in err.lower(), f"error names a suffix collect_images rejects: {err!r}"
 
 
 class TestCanonicalJobStates:

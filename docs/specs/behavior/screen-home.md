@@ -509,9 +509,10 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
 - **Observable output:** `POST /api/jobs` is accepted (202) and the app
   navigates to the results page, but the job transitions to **failed**.
 - **Backend / side-effects:** `collect_images` returns `[]`; the background task
-  writes `state="failed"`, `page_count=0`, and `error` containing "No supported
-  image files found in source; supported types are PNG, JPEG, TIFF, JPEG 2000,
-  WebP." `GET /api/jobs/<id>` returns that failed status. No sidecars / `.txt`
+  writes `state="failed"`, `page_count=0`, and `error` set to
+  `pipeline.NO_IMAGES_ERROR`: "No supported image files found in source;
+  supported extensions are" followed by the sorted `_IMAGE_SUFFIXES` list
+  (no `.webp`). `GET /api/jobs/<id>` returns that failed status. No sidecars / `.txt`
   are written.
 - **Bad-state / error:** This record IS the bad path; the contrast is a job with
   ≥1 supported image (B-HOME-011 good path → succeeded).

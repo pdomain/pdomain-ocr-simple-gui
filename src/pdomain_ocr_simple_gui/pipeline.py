@@ -47,6 +47,12 @@ _IMAGE_SUFFIXES: frozenset[str] = frozenset(
     }
 )
 
+NO_IMAGES_ERROR = (
+    "No supported image files found in source; supported extensions are "
+    + ", ".join(sorted(_IMAGE_SUFFIXES))
+    + "."
+)
+
 # Default batch size when spec.batch_pages is None.
 _DEFAULT_BATCH_PAGES: int = 8
 

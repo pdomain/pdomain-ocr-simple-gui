@@ -30,6 +30,8 @@ from pathlib import Path
 import httpx
 import pytest
 
+from pdomain_ocr_simple_gui.pipeline import NO_IMAGES_ERROR
+
 # Minimal valid 1x1 greyscale PNG — used in fixtures that need a real image file
 # so the OCR pipeline does not find 0 images and immediately mark the job failed.
 _PNG_1X1 = (
@@ -595,9 +597,7 @@ def _write_failed_project_json(projects_root: Path, project_id: str, *, output_d
         "page_count": 0,
         "pages_done": 0,
         "pages": [],
-        "error": (
-            "No supported image files found in source; supported types are PNG, JPEG, TIFF, JPEG 2000, WebP."
-        ),
+        "error": NO_IMAGES_ERROR,
     }
     data = {"spec": spec, "status": status}
     (proj_dir / "project.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
