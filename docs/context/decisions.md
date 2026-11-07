@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-14
-Last verified: 2026-07-19
+Last verified: 2026-11-07
 Kind: context
 ---
 
@@ -103,3 +103,60 @@ Kind: context
   `pdomain-ops>=0.11.1` pin.
 - **Remaining work:** deferred product items only (see intent-map), not plan
   execution.
+
+### 2026-07-21 — Job cancellation: strip, not ship (ocr-container-meta#395)
+
+- **Context:** The backend statechart modeled a `cancel` event and a
+  `cancelled` state, but no route fired `cancel`, and the frontend `cancel()`
+  was a no-op with no button.
+- **Decision:** Remove the event and state from `job_lifecycle.py` and remove
+  `cancel` from `useOcrJob`. Keep `"cancelled"` in the wire-level Literals
+  (`ApiJobState`, `ProjectStatus.state`, `PageResult.state`) so the app can
+  still receive the value from the shared `@pdomain/pdomain-ui` `JobState`.
+- **Rationale:** The issue's bar was a cancel that interrupts the running
+  dispatcher call. `LocalStageDispatcher` runs each OCR batch in a
+  `ThreadPoolExecutor` work item, which `concurrent.futures` cannot cancel once
+  it runs (ocr-container-meta#397). A chunk-boundary cancel would still finish
+  the in-flight batch, and it would need new backend plumbing, race-safe status
+  writes, and a new UI button. Removing a transition that never fired changes
+  no runtime behavior.
+- **Evidence:** `src/pdomain_ocr_simple_gui/statecharts/job_lifecycle.py`;
+  `tests/test_job_lifecycle_statechart.py`
+  (`test_cancel_is_not_a_valid_lifecycle_event`,
+  `test_narrow_job_state_rejects_cancelled`); `frontend/src/api/useOcrJob.ts`;
+  `docs/architecture/runtime-flows.md` "State machine reference".
+- **Remaining work:** none. Re-adding cancel needs a new decision and, first,
+  the upstream executor fix in ocr-container-meta#397.
+
+### 2026-11-07 Retired: Deferred follow-ups plan (2026-07-21)
+
+- Old path: docs/plans/2026-07-21-deferred-followups.md
+- Outcome: implemented, and deleted as duplicate of the architecture
+- Superseded by: docs/architecture/00-overview.md (API token, Settings >
+  API Token), docs/architecture/module-map.md (`ApiTokenSettings.tsx`,
+  `api/config.ts`), docs/architecture/runtime-flows.md (no `cancel` event)
+- Removal commit: (fill after commit)
+- Rationale kept: the strip decision above; the three shipped items in the
+  architecture docs. Code: `frontend/src/components/ApiTokenSettings.tsx`,
+  `frontend/src/api/config.ts` (the only `"/api/config"` fetch),
+  `job_lifecycle.py` with no `cancel`. Tests:
+  `frontend/src/components/__tests__/ApiTokenSettings.test.tsx`,
+  `frontend/src/api/__tests__/config.test.ts`,
+  `tests/test_job_lifecycle_statechart.py`. ocr-container-meta #395, #396,
+  and #398 are closed (checked 2026-11-07).
+- Remaining work: none
+
+### 2026-11-07 Retired: Isolate suite launcher tabs from the opener (former GitHub #26)
+
+- Old path: docs/issues/2026-07-19-gh-026-suite-launcher-opener-isolation.md
+- Outcome: implemented upstream. The locked `@pdomain/pdomain-ui` 0.12.1
+  bundle calls `window.open(url, "_blank", "noopener,noreferrer")`; upstream
+  commit `562938d` and `LauncherTile.test.tsx` pin it.
+- Superseded by: docs/architecture/00-overview.md "Suite launcher tab
+  isolation"
+- Removal commit: (fill after commit)
+- Rationale kept: docs/architecture/00-overview.md; former issue body
+  recoverable with `git show ec3979f:docs/decisions/2026-07-17-closed-issues-archive.md`
+- Remaining work: remove the stale issue-#26 comment at the top of
+  `frontend/src/App.tsx` (Task 2 of
+  docs/plans/2026-07-21-suite-launcher-opener-closeout.md)

@@ -25,7 +25,20 @@ Kind: plan
 - **Read when:** executing the documentation closeout for former GitHub issue #26.
 - **Search terms:** issue 26 closeout, noopener, noreferrer, LauncherTile, doc-retirer.
 - **Relates to:** [closeout design](../specs/2026-07-21-suite-launcher-opener-closeout-design.md),
-  [governed issue](../issues/2026-07-19-gh-026-suite-launcher-opener-isolation.md).
+  [issue tombstone](../context/decisions.md),
+  [shipped boundary](../architecture/00-overview.md).
+
+## Progress (2026-11-07)
+
+Task 1 and Task 3 are done. The locked package is now
+`@pdomain/pdomain-ui` 0.12.1, not 0.11.0; its bundle still calls
+`window.open(url, "_blank", "noopener,noreferrer")`. The 2026-11-07
+documentation pass added the shipped boundary to the architecture overview,
+retired the governed issue, and wrote its tombstone in `docs/context/decisions.md`.
+
+Only Task 2 remains: delete the stale issue-#26 comment at the top of
+`frontend/src/App.tsx`, run the frontend build and `make ci AI=1`, then retire
+this plan and its design spec. Read the version patterns in Task 1 as 0.12.1.
 
 ## Goal
 

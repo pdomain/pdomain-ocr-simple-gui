@@ -31,8 +31,8 @@ Empty folders are intentional and tracked via `.gitkeep`.
 
 - Architecture: [overview](architecture/00-overview.md), [module map](architecture/module-map.md), and [runtime flows](architecture/runtime-flows.md).
 - Context: [current state](context/current-state.md), [intent map](context/intent-map.md), [decisions](context/decisions.md), [GitHub issue migration ledger](context/github-issue-migration-ledger.md), and [deletion journal](context/github-issue-deletion-journal.md).
-- Issues: [index](issues/README.md) and open [suite launcher opener isolation](issues/2026-07-19-gh-026-suite-launcher-opener-isolation.md).
-- Roadmap: [open priorities](roadmap.md) (reclassified 2026-07-19).
+- Issues: [index](issues/README.md) and open [dep-refresh auto-land](issues/2026-08-08-dep-refresh-cannot-auto-land.md).
+- Roadmap: [remaining work](roadmap.md).
 - Decisions: [jobs location](decisions/2026-06-04-jobs-location-setting.md) and [preserved runtime boundaries](decisions/2026-07-13-preserved-runtime-boundaries.md).
 - Process: [lint deviations](process/lint-deviations.md), [local development](process/local-dev.md), and [writing style](process/writing-style.md).
 - Runbooks: [installation](runbooks/install.md), [CUDA setup](runbooks/cuda-setup.md), and [release](runbooks/release.md).

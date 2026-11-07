@@ -8,7 +8,7 @@ Kind: architecture
 
 # pdomain-ocr-simple-gui — Runtime Flows
 
-**Last updated:** 2026-08-08
+**Last updated:** 2026-11-07
 
 Step-by-step reference for the major request flows. Each flow shows the
 actors involved, the state transitions from `job_lifecycle.py`, and the
@@ -165,9 +165,18 @@ This flow runs in the background after job creation returns 202.
         `LocalStageDispatcher` from `pdomain-ops`, which handles VRAM
         sizing, OOM backoff, and CPU fallback internally.
       - For each returned page dict:
-        1. `Page.from_dict(raw)` + `page_obj.reorganize_page()` —
-           clusters flat OCR words into lines/paragraphs/blocks
-           (`pdomain-book-tools`). Falls back to raw dict on error.
+        1. `reorganize_ocr_page(raw, img_path, session=...)` in
+           `layout_pass.py`, run off the event loop with
+           `asyncio.to_thread`. It runs the PP-DocLayout-Plus-L detector
+           (`pp-doclayout-plus-l`, confidence 0.5) on the upright page
+           image, then calls `Page.from_dict(raw).reorganize_page(layout=...,
+           drop_layout_words=False)` (`pdomain-book-tools`) to group the
+           words into lines, paragraphs, and blocks using the detected
+           regions. Words are never dropped for falling in a layout
+           region. If the image cannot be read or the detector
+           cannot load or run, the layout is `None` and reorganize still
+           clusters the words. If `Page.from_dict` or `reorganize_page`
+           raises, the step falls back to the raw OCR dict.
         2. `apply_text_normalizations(text, ...)` — curly-quote and
            em-dash cleanup (`pdomain-book-tools`).
         3. `build_sidecar_payload(page_dict, text)` — augments the page
@@ -198,6 +207,39 @@ This flow runs in the background after job creation returns 202.
 
 5. `_pipeline_run_job_with_semaphore` releases the semaphore slot in `finally`.
 
+### Layout pass
+
+`run_project` creates one `LayoutSession(spec.device)` per job. The session
+loads the PP-DocLayout-Plus-L detector on the first page that needs it and
+remembers a failed load for the rest of the job, so a missing checkpoint is
+not fetched again on every page. A process-wide lock makes `detect` calls run
+one at a time, because the `pdomain-book-tools` registry returns one shared
+model. The device follows the job choice: `cpu` stays on CPU, and `auto` or
+`gpu` use CUDA, then MPS, then CPU.
+
+The dispatcher returns `Page.to_dict()` without the upright pixels, so the
+layout pass rebuilds the upright frame. It tries the quarter-turns whose size
+matches the OCR page width and height. When two match, it keeps the turn
+whose word boxes cover more ink; a tie keeps the earlier turn.
+
+Evidence:
+
+- Code: `src/pdomain_ocr_simple_gui/layout_pass.py`
+  (`reorganize_ocr_page`, `LayoutSession`, `load_layout_detector`,
+  `_upright_image`), `src/pdomain_ocr_simple_gui/pipeline.py`
+  (`run_project`), `src/pdomain_ocr_simple_gui/routes/pages.py`
+  (`rerun_page`). Shipped in commit `b6806a2` (v0.5.0).
+- Tests: `tests/test_layout_reorg.py`
+  (`test_run_project_passes_layout_and_saves_reorganized_text`,
+  `test_rotated_90_page_detects_layout_on_the_upright_image`,
+  `test_rotated_180_page_detects_layout_on_the_upright_image`,
+  `test_small_dark_box_does_not_outvote_the_large_text_box`,
+  `test_layout_detect_runs_off_the_event_loop`,
+  `test_failed_layout_load_is_not_retried`,
+  `test_layout_sessions_detect_one_at_a_time`,
+  `test_load_layout_detector_uses_pp_doclayout_plus_l`).
+- Verified: 2026-11-07, source and test inspection.
+
 ---
 
 ## 3. Single-page rerun
@@ -224,7 +266,8 @@ would reprocess the whole job and historically corrupted page indices). Full-job
    `PDOMAIN_OCR_BATCH_TIMEOUT_S`.
 7. `first_page_dict(stage_result.metadata)` — extract the page dict from
    the stage result.
-8. Same reorganize + normalize pipeline as the batch flow (steps d.1–d.2).
+8. Same reorganize + normalize pipeline as the batch flow (steps d.1–d.2),
+   with a fresh `LayoutSession` for the one page.
 9. `build_sidecar_payload(page_dict, text)` — add `text`, `width`,
    `height`, `words`.
 10. Carry over `edited_text` from the prior sidecar if it exists — a rerun

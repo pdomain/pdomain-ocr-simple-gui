@@ -8,7 +8,7 @@ Kind: architecture
 
 # pdomain-ocr-simple-gui — Module Map
 
-**Last updated:** 2026-08-08
+**Last updated:** 2026-11-07
 
 Per-module reference. Each entry gives a one-line responsibility and its
 key public surface (types, functions, hooks). Derived from current source.
@@ -26,6 +26,7 @@ key public surface (types, functions, hooks). Derived from current source.
 | `models.py` | Pydantic data models | `ProjectSpec`, `ProjectStatus`, `PageResult`, `AppPrefs` |
 | `storage.py` | Sidecar read/write; project directory management; atomic text writes | `get_projects_root()`, `read_project()`, `write_project()`, `read_page_sidecar()`, `write_page_sidecar()`, `write_txt()`, `write_combined_txt()`, `write_output_page_files()`, `list_projects()`, `validate_project_id()` |
 | `pipeline.py` | Image collection + async OCR orchestration; DocTR sidecar building | `collect_images()`, `run_project()`, `build_sidecar_payload()`, `extract_words()`, `OCRDispatcher` (Protocol) |
+| `layout_pass.py` | PP-DocLayout-Plus-L detection on the upright page, passed to `Page.reorganize_page` (word dropping off) | `reorganize_ocr_page()`, `LayoutSession`, `load_layout_detector()`, `detect_page_layout()` |
 | `__main__.py` | CLI entry point — `pdomain-ocr-simple-gui [--port N] [--host H]` | — |
 | `_testjobs.py` | Test job factories for fake jobs in dev/test | — |
 

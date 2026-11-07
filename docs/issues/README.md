@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-19
-Last verified: 2026-07-19
+Last verified: 2026-11-07
 Kind: process
 Level: I1
 ---
@@ -14,7 +14,7 @@ Level: I1
 - **Kind:** process
 - **Status:** active
 - **Level:** I1
-- **Last verified:** 2026-07-19
+- **Last verified:** 2026-11-07
 - **Read when:** filing a bug / defect / investigation report, or looking up an
   open issue's status, evidence, or resolution.
 - **Search terms:** issues folder, bug report, defect report, issue template,
@@ -73,16 +73,14 @@ Lead with the **smallest decisive evidence**, separate **observation** from
 
 ## Open issues
 
-- [Isolate suite launcher tabs from the opener](2026-07-19-gh-026-suite-launcher-opener-isolation.md)
-  — former GitHub #26; blocked on `@pdomain/pdomain-ui`.
-- [`dep-refresh` cannot auto-land; branches/PRs pile up until someone sweeps by hand](2026-08-08-dep-refresh-cannot-auto-land.md)
-  — dated branch naming + `delete_branch_on_merge: false` let 8 weekly PRs
-  accumulate across three manual sweeps; needs the `pdomain-ui` auto-land design.
+- [`dep-refresh` cannot auto-land](2026-08-08-dep-refresh-cannot-auto-land.md)
+  — needs an owner decision: the workflow was deleted in `0bb3a4a`, so close
+  it as moot or keep it for when workflows return.
 
 ## Where resolved work is recorded
 
-- *None tracked as separate issue files.* The other 36 former GitHub issues are
-  represented as **implemented** rows in
-  [the migration ledger](../context/github-issue-migration-ledger.md), with
-  code and architecture evidence. Residual style debt from former #13 is listed
-  on the [roadmap](../roadmap.md) rather than as a full issue report.
+Resolved issue files are deleted. Their tombstones are in
+[decisions](../context/decisions.md), and the shipped behavior is in the
+architecture docs. Former GitHub issues are rows in
+[the migration ledger](../context/github-issue-migration-ledger.md). The
+remaining-work list is on the [roadmap](../roadmap.md).

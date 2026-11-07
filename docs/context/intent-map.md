@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-13
-Last verified: 2026-08-08
+Last verified: 2026-11-07
 Kind: context
 ---
 
@@ -15,7 +15,7 @@ Kind: context
 - **Read when:** deciding whether to expand deployment or packaging scope, or
   checking deferred and blocked product bets.
 - **Search terms:** intent, hosted deployment, Windows, macOS, packaging,
-  deferred, blocked, open issues, cancellation, config fetch, API token.
+  deferred, blocked, open issues, needs owner decision, dep-refresh.
 
 ## Active bets
 
@@ -23,8 +23,8 @@ None.
 
 ## Open issues (governed)
 
-- [Isolate suite launcher tabs from the opener](../issues/2026-07-19-gh-026-suite-launcher-opener-isolation.md)
-  — former GitHub #26; blocked on `@pdomain/pdomain-ui`.
+- [`dep-refresh` cannot auto-land](../issues/2026-08-08-dep-refresh-cannot-auto-land.md)
+  — needs an owner decision; see below.
 
 ## Deferred work
 
@@ -50,28 +50,6 @@ None.
   lists, opens, and deletes jobs, and recent projects are recorded at creation.
   A dedicated catalogue with page count, engine, and last-opened metadata is
   still unbuilt and should start only if the dock proves insufficient.
-- **Job cancellation — decided: strip ([ocr-container-meta#395](https://github.com/ConcaveTrillion/ocr-container-meta/issues/395)).**
-  The `cancel` event and `cancelled` state were unreachable — no route ever
-  fired `cancel`, and the frontend's `cancel()` was a documented no-op — so
-  they were removed from `job_lifecycle.py`'s local `JobState`/
-  `JobLifecycleEvent` and from `useOcrJob`'s `UseOcrJobResult`. A cooperative,
-  chunk-boundary cancel was rejected: it can't meet the issue's bar of
-  actually interrupting the running dispatcher call, because
-  `LocalStageDispatcher` runs OCR batches in a `ThreadPoolExecutor` work item
-  that `concurrent.futures` cannot cancel once running (tracked separately as
-  `ocr-container-meta#397`), and there was no UI cancel button to wire it to.
-  The wire-level Literals (`ApiJobState`, `ProjectStatus.state`,
-  `PageResult.state`) still list `"cancelled"` — kept for compatibility with
-  the shared `@pdomain/pdomain-ui` `JobState` type, not an oversight.
-- **Config-fetch deduplication — shipped ([ocr-container-meta#396](https://github.com/ConcaveTrillion/ocr-container-meta/issues/396)).**
-  `ConfigContext` and `jobCreationMachine` both now call the single
-  `fetchRuntimeConfig()` in `frontend/src/api/config.ts`. Config-load failures
-  are surfaced to the user; no duplicate fetch remains.
-- **API-token Settings field — shipped ([ocr-container-meta#398](https://github.com/ConcaveTrillion/ocr-container-meta/issues/398)).**
-  `frontend/src/components/ApiTokenSettings.tsx` provides Settings > API Token:
-  view (masked), set, and clear the `pdomain.apiToken` localStorage key that
-  `apiFetch` reads. The browser-console command remains a documented headless
-  fallback.
 - **Hosted deployment — deferred.** The app ships local and managed mode
   selection, capability-token protection through `PDOMAIN_API_TOKEN`, and
   managed-mode source/output restrictions. It does not ship a hosted service,
@@ -86,11 +64,6 @@ None.
 
 ## Blocked (waiting on)
 
-- **Launcher opener isolation — blocked upstream (former GitHub #26).** This app
-  does not own the shared `window.open` call. `@pdomain/pdomain-ui` must add
-  `noopener,noreferrer`; after its release, bump the dependency and verify the
-  compiled AppShell bundle. Evidence: `frontend/src/App.tsx`. Governed record:
-  [suite launcher opener isolation](../issues/2026-07-19-gh-026-suite-launcher-opener-isolation.md).
 - **Predictor-cache lock — blocked upstream ([ocr-container-meta#397](https://github.com/ConcaveTrillion/ocr-container-meta/issues/397)).**
   Bounded dispatcher timeouts cancel the awaiter but not the executor thread,
   which can still race `_predictor_cache` in `pdomain-ops`.
@@ -106,8 +79,15 @@ None.
 
 ## Needs owner decision
 
-None for lifecycle of retained docs. Job cancellation ship-or-strip
-(meta#395) was decided and executed as strip — see "Deferred work" above.
+- **`dep-refresh` auto-land issue: close or keep.** The issue asks for a
+  reusable branch and auto-merge re-arm in `.github/workflows/dep-refresh.yml`.
+  Commit `0bb3a4a` (2026-09-13, owner request) deleted every GitHub workflow,
+  including `dep-refresh.yml`, so the pile-up cannot recur today. Close the
+  issue as moot, or keep it for the day the workflows return. Record:
+  [dep-refresh cannot auto-land](../issues/2026-08-08-dep-refresh-cannot-auto-land.md).
+
+Job cancellation (meta#395) was decided as strip; the rationale is in
+[decisions](decisions.md).
 
 ## Legacy-unverified sweep
 

@@ -9,7 +9,7 @@ Kind: architecture
 # pdomain-ocr-simple-gui — Architecture Overview
 
 **Status:** Shipped (M0–M8 complete; verification milestone and behavior-E2E pilot complete)
-**Last updated:** 2026-07-19
+**Last updated:** 2026-11-07
 
 ---
 
@@ -39,10 +39,31 @@ isolation requires them.
 
 Most security findings from the 2026-05-22 scan were addressed across commits
 `9afd500`, `ac3577a`, `e9aac52`, `db544d8`, `5c6f052`, `218b152`, `398ed04`,
-and later hardening. One residual finding remains upstream: the shared
-`@pdomain/pdomain-ui` launcher must add `noopener,noreferrer` to its
-`window.open` call. Current security truth lives in the source, security tests,
-this architecture, and the intent map rather than the retired scan.
+and later hardening. Current security truth lives in the source, security
+tests, this architecture, and the intent map rather than the retired scan.
+
+### Suite launcher tab isolation
+
+The suite launcher belongs to `@pdomain/pdomain-ui`, not to this app. The
+locked package (0.12.1) opens sibling apps with
+`window.open(url, "_blank", "noopener,noreferrer")`, so a launched tab gets no
+`window.opener` handle back to this app. Upstream commit `562938d` added the
+isolation, and `LauncherTile.test.tsx` asserts all three arguments. This app's
+own anchors do not use `target="_blank"`, except the external CUDA link in
+`CudaSetupGuidance.tsx`, which sets `rel="noopener noreferrer"`.
+
+Evidence:
+
+- Code: `frontend/package.json` (`@pdomain/pdomain-ui` `^0.12.1`),
+  `frontend/pnpm-lock.yaml` (resolves 0.12.1); the installed bundle
+  `node_modules/@pdomain/pdomain-ui/dist/shell-BfHbj-R0.js` contains
+  `window.open(n.url, "_blank", "noopener,noreferrer")`; upstream
+  `pdomain-ui` `src/shell/LauncherTile.tsx` (commit `562938d`).
+- Tests: upstream `pdomain-ui` `src/shell/LauncherTile.test.tsx` (asserts
+  `toHaveBeenCalledWith(url, '_blank', 'noopener,noreferrer')`). This app adds
+  no duplicate test because it does not own `LauncherTile`.
+- Verified: 2026-11-07, source inspection of the lockfile, the installed
+  bundle, and the upstream commit.
 
 ## Evidence
 
@@ -75,6 +96,7 @@ pdomain-ocr-simple-gui/
     models.py          Pydantic: ProjectSpec, ProjectStatus, PageResult, AppPrefs
     storage.py         Sidecar read/write helpers (project dirs, .txt output)
     pipeline.py        collect_images() + run_project() OCR orchestration
+    layout_pass.py     PP-DocLayout-Plus-L layout pass before reorganize_page()
     _testjobs.py       Test job factories (used by testing/ and e2e fixtures)
     routes/
       config.py        GET /api/config

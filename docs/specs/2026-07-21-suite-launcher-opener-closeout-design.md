@@ -16,8 +16,10 @@ Former issue #26 is already fixed by the installed `@pdomain/pdomain-ui` 0.11.0 
 - **Status:** active
 - **Read when:** closing former GitHub issue #26 or auditing suite launcher tab isolation.
 - **Search terms:** issue 26, LauncherTile, noopener, noreferrer, pdomain-ui 0.11.0.
-- **Relates to:** [governed issue](../issues/2026-07-19-gh-026-suite-launcher-opener-isolation.md),
+- **Relates to:** [issue tombstone](../context/decisions.md),
   [closeout plan](../plans/2026-07-21-suite-launcher-opener-closeout.md).
+  The governed issue was retired on 2026-11-07; only the stale `App.tsx`
+  comment removal is still open.
 
 ## Adversarial Review
 

@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-14
-Last verified: 2026-07-19
+Last verified: 2026-11-07
 Kind: context
 ---
 
@@ -24,21 +24,22 @@ React OCR application described in
 The supported install path is browser-based; the removed desktop extra and Qt
 launch mode are not current product behavior.
 
-The 2026-07-14 review-fixes execution plan is **implemented and retired** —
-auth, suite mount, device resolution, concurrent-job caps, zip limits,
-`apiFetch`, and related hardening live in architecture and code. The GitHub
-issue migration repair (ledger + deletion journal) is on `master`.
+v0.5.0 (2026-11-06) adds a PP-DocLayout-Plus-L layout pass before
+`Page.reorganize_page`; see
+[runtime flows](../architecture/runtime-flows.md). The 2026-07-21 deferred
+follow-ups and former GitHub #26 are shipped and retired; tombstones are in
+[decisions](decisions.md).
 
 ## In-flight work
 
-None for execution plans. Open product residue is deferred/blocked only.
+One small closeout remains: removing the stale issue-#26 comment from
+`frontend/src/App.tsx`
+([closeout plan](../plans/2026-07-21-suite-launcher-opener-closeout.md)).
 
 ## Open product residue
 
-- Upstream launcher `noopener` —
-  [governed issue #26](../issues/2026-07-19-gh-026-suite-launcher-opener-isolation.md)
-- Deferred items and meta links — [intent map](intent-map.md) and
-  [roadmap](../roadmap.md)
+The full list of remaining work is on the [roadmap](../roadmap.md). Deferred
+and blocked bets are in the [intent map](intent-map.md).
 
 ## Verification and risks
 
@@ -50,6 +51,6 @@ per-page edits or reruns; the deferred redesign is tracked in
 The dispatcher timeout bounds a hung OCR await but does not stop the underlying
 executor thread, which can still race the shared predictor cache in pdomain-ops
 ([ocr-container-meta#397](https://github.com/ConcaveTrillion/ocr-container-meta/issues/397)).
-GitHub Actions CI may still fail e2e tests that expect Tesseract when only DocTR
-is available in the runner image — treat as a known CI environment gap, not as
-missing product work.
+The repository has no GitHub workflows since `0bb3a4a` (2026-09-13, owner
+request); `make ci AI=1` run locally is the gate, and releases run from
+`scripts/release-common.sh`.

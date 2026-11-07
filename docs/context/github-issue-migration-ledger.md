@@ -75,7 +75,7 @@ roadmap that the issues were closed without implementation.
 | 23 | [23](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/23) | `b83be35216c491fa86b1b032681d49638771465868a03d5897235dd493d53961` | Implemented | architecture; require_token on prefs/metadata | `e9aac52` |
 | 24 | [24](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/24) | `7d7386f89c4cfe92303fb4f41b8c593e54bb7a00a360093858113195e32a45a9` | Implemented | self-hosted @fontsource fonts | `5d3cbc7`; main.tsx imports |
 | 25 | [25](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/25) | `6d68e2c3514965b43f21b98917d76297b00594d671bddf35aaf67eb03bc33454` | Implemented | results download UI | `8091b72`; API download + clipboard path, no file:// open |
-| 26 | [26](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/26) | `778ce07050501a2bbfe6ae98b6ec8bab9a192db59559950ca79fa9996cbce5ef` | Active / blocked upstream | docs/issues/2026-07-19-gh-026-…; intent-map | `5c6f052` boundary note; shared window.open still upstream |
+| 26 | [26](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/26) | `778ce07050501a2bbfe6ae98b6ec8bab9a192db59559950ca79fa9996cbce5ef` | Implemented (upstream) | architecture/00-overview.md "Suite launcher tab isolation" | `pdomain-ui` `562938d`; locked 0.12.1 bundle passes `noopener,noreferrer` (verified 2026-11-07) |
 | 27 | [27](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/27) | `9a8c1144436864f8285988a7ad6e76b1ef8f825687fd03e0754c002037f29659` | Implemented | pyproject pdomain-ops pin | `218b152` lineage; `pdomain-ops>=0.11.1` |
 | 28 | [28](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/28) | `7779ff41553faa7b0bbcbbc9e3948577bf8cfbc71bc5170a30d511729ed67a1b` | Implemented | GitHub Actions SHA pins | `398ed04`; ci.yml uses commit SHAs + uv version |
 | 29 | [29](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/29) | `99db382ffd74edc7cd00038d38e7856a3e6924328c54ca079b106ae5ac644ea3` | Implemented | `app/__main__.py` logging | `4bf9440`; logger.exception on unregister |
@@ -92,8 +92,10 @@ roadmap that the issues were closed without implementation.
 
 ## Coverage notes
 
-- **#26** remains the only former issue with an active governed issue
-  document: [suite launcher opener isolation](../issues/2026-07-19-gh-026-suite-launcher-opener-isolation.md).
+- **#26** is fixed upstream. Its governed issue document was retired on
+  2026-11-07; the shipped boundary is in
+  [the architecture overview](../architecture/00-overview.md) and the
+  tombstone is in [decisions](decisions.md).
 - **#13** is residual style debt (divider banners reappeared or were never
   fully cleared in `tests/e2e/`). Tracked on the [roadmap](../roadmap.md);
   not worth a full issue report.
