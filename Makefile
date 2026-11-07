@@ -233,7 +233,7 @@ ci-full: ci e2e-browser smoke ## Full CI including all Playwright browser tests 
 # make `find` print a warning and the guard could misfire).
 SPA_BUNDLE := src/pdomain_ocr_simple_gui/frontend/index.html
 SPA_SRCS := frontend/src frontend/index.html frontend/package.json \
-        frontend/vite.config.ts frontend/tailwind.config.js \
+        frontend/vite.config.ts \
         frontend/postcss.config.js frontend/tsconfig.json \
         frontend/tsconfig.node.json
 
