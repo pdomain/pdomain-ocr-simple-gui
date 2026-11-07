@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 import sys
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 ID_RE = re.compile(r"\b([BF]-[A-Z0-9]+(?:-[A-Z0-9]+)*-\d+)\b")
@@ -17,6 +18,10 @@ RECORD_HEADING_RE = re.compile(r"^###\s+([BF]-[A-Z0-9]+(?:-[A-Z0-9]+)*-\d+)\b", 
 # This scanner's own unit-test file contains example IDs inside string
 # fixtures (not real citations). Skip it so it never pollutes the gate.
 _SELF_TEST = "test_behavior_coverage.py"
+
+# Last verified date render_markdown uses when the caller passes none.
+_DEFAULT_VERIFIED = date(2026, 7, 14)
+_VERIFIED_RE = re.compile(r"^Last verified: (\d{4}-\d{2}-\d{2})$", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -158,13 +163,13 @@ def build_report(
     )
 
 
-def render_markdown(report: Report) -> str:
+def render_markdown(report: Report, verified: date = _DEFAULT_VERIFIED) -> str:
     lines = [
         "---",
         "Status: active",
         "Owner: CT",
         "Created: 2026-05-30",
-        "Last verified: 2026-07-14",
+        f"Last verified: {verified.isoformat()}",
         "Kind: spec",
         "---",
         "",
@@ -200,6 +205,22 @@ def render_markdown(report: Report) -> str:
     return "\n".join(lines) + "\n"
 
 
+def write_coverage(path: Path, report: Report, today: date) -> None:
+    """Write coverage.md, keeping its Last verified date if nothing else changed.
+
+    A run whose output matches the existing file keeps that file's date, so
+    regenerating is deterministic. Any change to the table stamps ``today``.
+    """
+    if path.exists():
+        existing = path.read_text(encoding="utf-8")
+        match = _VERIFIED_RE.search(existing)
+        if match:
+            kept = render_markdown(report, verified=date.fromisoformat(match.group(1)))
+            if kept == existing:
+                return
+    path.write_text(render_markdown(report, verified=today), encoding="utf-8")
+
+
 def main(argv: list[str] | None = None) -> int:
     root = Path(__file__).resolve().parent.parent
     docs_dir = root / "docs" / "specs" / "behavior"
@@ -209,7 +230,7 @@ def main(argv: list[str] | None = None) -> int:
     modeled = scan_machine_modeled(root)
     machine_tested = scan_machine_tested(root)
     report = build_report(declared, cited, modeled, machine_tested)
-    (docs_dir / "coverage.md").write_text(render_markdown(report), encoding="utf-8")
+    write_coverage(docs_dir / "coverage.md", report, today=date.today())
     if not report.ok:
         print("BEHAVIOR COVERAGE GATE FAILED", file=sys.stderr)
         if report.unlinked:

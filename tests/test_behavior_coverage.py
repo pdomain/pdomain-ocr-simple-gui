@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 
 from scripts.behavior_coverage import (
@@ -8,6 +9,7 @@ from scripts.behavior_coverage import (
     scan_declared,
     scan_machine_modeled,
     scan_machine_tested,
+    write_coverage,
 )
 
 
@@ -215,3 +217,35 @@ def test_scan_machine_tested_finds_ids_in_machine_covers_lines(tmp_path: Path) -
         "B-HOME-003",
         "B-HOME-011",
     }
+
+
+def _clean_report():
+    declared = {"B-HOME-001": Record("B-HOME-001", regression=True)}
+    return build_report(declared, {"B-HOME-001"})
+
+
+def test_render_markdown_uses_given_verified_date() -> None:
+    md = render_markdown(_clean_report(), verified=date(2026, 11, 7))
+    assert "Last verified: 2026-11-07" in md
+
+
+def test_write_coverage_keeps_existing_date_when_content_unchanged(tmp_path: Path) -> None:
+    out = tmp_path / "coverage.md"
+    report = _clean_report()
+    out.write_text(render_markdown(report, verified=date(2026, 11, 7)), encoding="utf-8")
+    write_coverage(out, report, today=date(2026, 12, 25))
+    assert "Last verified: 2026-11-07" in out.read_text(encoding="utf-8")
+
+
+def test_write_coverage_uses_today_when_content_changes(tmp_path: Path) -> None:
+    out = tmp_path / "coverage.md"
+    old = build_report({"B-HOME-001": Record("B-HOME-001", regression=False)}, set())
+    out.write_text(render_markdown(old, verified=date(2026, 11, 7)), encoding="utf-8")
+    write_coverage(out, _clean_report(), today=date(2026, 12, 25))
+    assert "Last verified: 2026-12-25" in out.read_text(encoding="utf-8")
+
+
+def test_write_coverage_uses_today_for_new_file(tmp_path: Path) -> None:
+    out = tmp_path / "coverage.md"
+    write_coverage(out, _clean_report(), today=date(2026, 12, 25))
+    assert "Last verified: 2026-12-25" in out.read_text(encoding="utf-8")
