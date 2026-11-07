@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-17
-Last verified: 2026-08-08
+Last verified: 2026-11-07
 Kind: architecture
 ---
 
@@ -70,14 +70,14 @@ Evidence:
 - Code: `src/pdomain_ocr_simple_gui/`, `frontend/src/`
 - Tests: `tests/`, `frontend/src/**/__tests__/`, `tests/e2e/`
 - Artifacts: the Vite build is packaged under `src/pdomain_ocr_simple_gui/frontend/`
-- Verified: 2026-07-14 with source inspection and `make ci AI=1`
+- Verified: 2026-11-07 with source inspection
 
 ## 2. Stack
 
 | Layer | Technology |
 |-------|-----------|
 | Backend | FastAPI + uvicorn, Python 3.11+ |
-| Frontend | React 19 + Vite + TypeScript + `@pdomain/pdomain-ui` |
+| Frontend | React 19 + Vite + TypeScript + Tailwind CSS 4 + `@pdomain/pdomain-ui` |
 | OCR | `pdomain-book-tools` (DocTR / Tesseract runners) |
 | Suite plumbing | `pdomain-ops` (`LocalStageDispatcher`, `PrefsAdapter`, `register_self`) |
 | Storage | JSON sidecar files in `~/.local/share/pdomain-suite/simple-gui/projects/` |
@@ -91,13 +91,13 @@ Evidence:
 pdomain-ocr-simple-gui/
   src/pdomain_ocr_simple_gui/
     __main__.py        CLI entry: pdomain-ocr-simple-gui [--port N] [--host H]
-    app.py             FastAPI app + lifespan (prefs, dispatcher, suite, auth middleware)
+    app.py             create_app() (routes, suite mount, auth middleware) + lifespan (prefs, dispatcher)
     auth.py            require_token dependency + suite_token_middleware
     models.py          Pydantic: ProjectSpec, ProjectStatus, PageResult, AppPrefs
     storage.py         Sidecar read/write helpers (project dirs, .txt output)
     pipeline.py        collect_images() + run_project() OCR orchestration
     layout_pass.py     PP-DocLayout-Plus-L layout pass before reorganize_page()
-    _testjobs.py       Test job factories (used by testing/ and e2e fixtures)
+    _testjobs.py       Test-job signature (fixture id prefixes, pytest-tmp source check)
     routes/
       config.py        GET /api/config
       downloads.py     GET /api/jobs/{id}/download
@@ -123,7 +123,7 @@ pdomain-ocr-simple-gui/
     testing/
       fake_dispatcher.py   FakeStageDispatcher for test isolation
     scripts/
-      purge_test_jobs.py   Dev utility: purge jobs with test_ prefix
+      purge_test_jobs.py   Dev utility: purge leaked e2e test jobs (dry-run unless --apply)
     pdomain-suite.json     Suite registration metadata
     icons/                 PNG icons (16–256 px) + simple-gui.ico
     frontend/              Built React SPA (populated by `make frontend-build`)
@@ -140,21 +140,21 @@ pdomain-ocr-simple-gui/
         JobConfigInline.tsx      Inline job config form (engine, language, output dir)
         JobsLocationSettings.tsx Jobs output location preference settings
         ModelCacheSettings.tsx   DocTR model pre-cache controls
-        OutputConfigPanel.tsx    Output directory + format configuration
+        OutputConfigPanel.tsx    Output destination selector (next to source / specified / managed)
         PageViewerWithZoom.tsx   Zoomable page image viewer wrapper
         RecentProjectsList.tsx   Recent projects from /api/prefs
         SourcePicker.tsx         Source selection (local path / upload / drag-drop)
         ApiTokenSettings.tsx     Settings panel: view (masked), set, clear API token
       api/
-        useOcrJob.ts        React Query hooks for job CRUD + polling
+        useOcrJob.ts        Polls GET /api/jobs/:id through pdomain-ui useLongJob
         config.ts           Single fetch+parse site for GET /api/config
       statecharts/
         jobCreationMachine.ts    XState job creation state machine
-        jobCreationBehavior.ts   Side effects wired to the machine
+        jobCreationBehavior.ts   Behavior-spec IDs (B-HOME-*) traced by the machine
         jobCreationTypes.ts      Shared types for the machine
       runtime/
         ConfigContext.tsx    Runtime config (deploy mode, engine caps) context
-        ocrEngines.ts        Engine capability constants
+        ocrEngines.ts        Engine availability + language helpers
       lib/
         testids.ts           Stable test-ID constants for Playwright
   tests/
@@ -172,6 +172,7 @@ pdomain-ocr-simple-gui/
     test_uploads.py          /api/uploads POST/DELETE
     test_words_route.py      /api/pages/{id}/{idx}/words
     test_pipeline.py         collect_images + run_project
+    test_layout_reorg.py     PP-DocLayout layout pass + reorganize
     test_output_config.py    Output config helpers
     test_sources_local_path.py  Local path source validation
     test_sources_uploaded.py    Upload source handling
@@ -179,8 +180,9 @@ pdomain-ocr-simple-gui/
     test_security_*.py       Auth token, project-id, source allowlist, SPA catchall
     test_fake_dispatcher.py  FakeStageDispatcher contract
     test_suite.py            Suite registration
+    test_app_suite_mount.py  Suite route mount (real app_id, shared prefs)
     test_entrypoint.py       CLI entry point
-    test_behavior_coverage.py  Behavior-coverage gate (spec IDs vs e2e citations)
+    test_behavior_coverage.py  Unit tests for the behavior-coverage scanner
     test_container_detect.py   Container detection
     test_jobs_location_pref.py  Jobs location preference
     test_prefs_lock_timeout.py  Prefs lock timeout
@@ -188,7 +190,7 @@ pdomain-ocr-simple-gui/
     test_pwa_manifest.py     PWA manifest
     test_cuda_setup_doc.py   CUDA guidance content
     test_ocr_engines.py      Engine introspection
-    test_smoke.py            Miscellaneous smoke checks
+    test_smoke.py            Package import smoke check
     test_app_env_seam.py     App environment seam
     test_cli_*.py            CLI desktop + update
     test_dynamic_port.py     Dynamic port assignment
@@ -196,15 +198,14 @@ pdomain-ocr-simple-gui/
     test_e2e_conftest_guard.py  E2E conftest guard
     test_suite_device_update_routes.py  Suite device update routes
     test_testjobs.py         Test job factory
-    test_git_master_sources.py  Git master source validation
+    test_git_master_sources.py  git-master [tool.uv.sources] rewriter
     test_purge_test_jobs.py   Purge-test-jobs script
-    packaging/test_install_engine.py  Wheel install + launch integration
+    packaging/test_install_engine.py  Linux installer engine (distro detection, step plan, runner)
     test_packaging.py        Wheel contents check
     test_install_sh.py       install.sh smoke
     test_uninstall_sh.py     uninstall.sh smoke
-    test_update_github_actions.py  GitHub Actions update check
     smoke/test_e2e.py        httpx end-to-end (marked slow; xfails without weights)
-    e2e/                     Playwright browser e2e (25 files)
+    e2e/                     Playwright browser e2e (23 test files)
       conftest.py            live_server fixture (fake + real-OCR variants)
       test_browser_smoke.py  App loads + routing
       test_click_paths_*.py  Per-screen behavior-asserting Tier-A tests
@@ -269,13 +270,17 @@ take this semaphore.
 
 `pipeline.py`:
 
-1. `collect_images(source_path)` — accepts file or dir; filters `.png/.jpg/.tiff`; sorted.
-2. `run_project(spec, dispatcher, status_callback)` — async; iterates pages; calls
-   `dispatcher.run_stage("ocr", ...)` per page; writes sidecar + `.txt` via storage
-   helpers; calls `status_callback` for progress. Batch waits are bounded by
-   `PDOMAIN_OCR_BATCH_TIMEOUT_S` (`asyncio.wait_for`); cancelling the await does
-   not stop the executor thread (predictor-cache lock is upstream in
-   pdomain-ops).
+1. `collect_images(source_path)` — accepts file or dir; filters PNG, JPEG,
+   TIFF, and JPEG 2000 suffixes; sorted.
+2. `run_project(spec, dispatcher, status_callback)` — async; splits pages into
+   chunks of `spec.batch_pages` (default 8); calls `dispatcher.run_ocr_batch(req)`
+   per chunk; runs the PP-DocLayout-Plus-L layout pass and
+   `Page.reorganize_page` on each page (`layout_pass.py`); writes sidecar +
+   `.txt` via storage helpers; calls `status_callback` for progress. Batch
+   waits are bounded by `PDOMAIN_OCR_BATCH_TIMEOUT_S` (`asyncio.wait_for`);
+   cancelling the await does not stop the executor thread (predictor-cache
+   lock is upstream in pdomain-ops). Details:
+   [`runtime-flows.md`](runtime-flows.md#2-ocr-pipeline-execution).
 
 `LocalStageDispatcher` (from `pdomain-ops`) is wired at app startup via the FastAPI
 lifespan with `device_resolver=_resolve_device`. That resolver calls
@@ -291,23 +296,23 @@ OCR output is fake (test isolation only).
 
 ```text
 ~/.local/share/pdomain-suite/simple-gui/projects/{project_id}/
-  spec.json           ProjectSpec
-  status.json         ProjectStatus (state, page counts, timestamps)
-  page_{n:04d}.json   PageResult sidecar per page (DocTR export dict)
-  page_{n:04d}.txt    Extracted text per page
-  combined.txt        All pages joined
+  project.json            ProjectSpec + ProjectStatus (state, pages, timestamps)
+  pages/<page_name>.json  Page sidecar (DocTR export dict + text, words, edits)
+  pages/<page_name>.txt   Extracted or edited text per page
+  combined.txt            All pages joined
 ```
 
 ---
 
 ## 7. Suite integration
 
-On startup, `pdomain_ops.suite.register_self()` writes an entry into
+On startup, `__main__.py` calls `pdomain_ops.suite.bootstrap_spa()`, which
+calls `register_self()` to write an entry into
 `~/.local/share/pdomain-suite/installed.toml` so sibling suite apps can show
 this app in their launcher. The launcher hides when no siblings are installed.
 
 `pdomain-suite.json` inside the wheel package provides the registration metadata:
-`app_id`, `display_name`, `package`, `default_port`, `icon`, `description`.
+`app_id`, `display_name`, `package`, `default_port`, `icon`.
 
 Suite HTTP routes mount under the real `app_id` `pdomain-ocr-simple-gui`
 (`constants.APP_ID`), not the ops default `"unknown"`. Prefs use a shared
@@ -329,7 +334,7 @@ app section.
 
 All screens live inside `<AppShell deployMode="local" launcherSlot="header">`
 from `@pdomain/pdomain-ui`. `ComputeStateWarmup` (in `App.tsx`) prefetches
-device info and config state on mount.
+device info on mount.
 
 Job config is inline on the home page (`JobConfigInline`), not a modal dialog.
 Managed-mode downloads after success expose two fixed actions (images+text and
@@ -344,18 +349,27 @@ still deferred).
 - **Unit + integration:** pytest with `httpx.AsyncClient` for route tests;
   `tmp_path` for storage tests; no real fs side-effects outside fixtures.
   Shared fixtures in `tests/conftest.py`; test data in `tests/factories.py`.
-  ~46 test files in `tests/` (routes, models, storage, pipeline, sources,
-  output, security, statechart, packaging, CLI, smoke checks).
+  47 top-level test files in `tests/` (routes, models, storage, pipeline,
+  layout pass, sources, output, security, statechart, packaging, CLI, smoke
+  checks).
 - **Frontend:** vitest + `@testing-library/react` for component and hook tests.
 - **Smoke:** `tests/smoke/test_e2e.py` — httpx end-to-end; starts server via
-  subprocess; submits a real job; asserts `state=done` (xfails on missing weights).
-- **Browser e2e (Tier A):** `tests/e2e/` — 25 Playwright (Chromium) files; fake-dispatcher
+  subprocess; submits a real job; asserts `state=succeeded` and a `.txt`
+  output (xfails when the job fails, for example on missing weights). It uses
+  the first page image that exists: the dev-container `pdomain-book-tools`
+  page, the sibling `../pdomain-book-tools` page, then the in-repo
+  `tests/e2e/fixtures/known_good_page.png`. It skips only when none exists.
+- **Browser e2e (Tier A):** `tests/e2e/` — 23 test files, run in Playwright (Chromium); fake-dispatcher
   `live_server` fixture; behavior-asserting tests cite stable IDs from
   `docs/specs/behavior/screen-*.md` and `flows.md`. Boots with
   `PD_SUITE_DATA_DIR` under a pytest tmp tree and asserts the path is tmp-like
   before launch so prefs-reset fixtures cannot wipe real suite data.
-- **Behavior coverage gate:** `tests/test_behavior_coverage.py` asserts all spec IDs
-  are cited in e2e tests; run via `make behavior-coverage`.
+- **Behavior coverage gate:** `make behavior-coverage` runs
+  `scripts/behavior_coverage.py`. It matches the IDs declared in
+  `docs/specs/behavior/*.md` against citations in `tests/`, rewrites
+  `docs/specs/behavior/coverage.md`, and fails on a citation with no declared
+  ID or an uncovered regression record. `tests/test_behavior_coverage.py`
+  unit-tests the scanner.
 - **Browser e2e (Tier B):** `tests/e2e/test_real_ocr_*.py` — real OCR engine,
   GPU-backed, opt-in via `make e2e-real-ocr` (does not set the fake dispatcher).
 - **SPA serving contract:** `tests/test_routes_root.py` — monkeypatch + `tmp_path`
@@ -366,11 +380,13 @@ still deferred).
 ## 10. Build + release
 
 ```sh
-make frontend-build   # vite build → src/pdomain_ocr_simple_gui/frontend/
-uv build              # wheel (requires populated frontend/)
+make build   # frontend-build, then uv build --sdist and uv build --wheel
 ```
 
-Published to `pdomain-index-pip` (GitHub Pages PEP 503 index).
+`make release-patch` (or `-minor`, `-major`) attaches the wheel and sdist to a
+GitHub Release. `pdomain-index-pip`'s `scripts/publish-index.sh` then
+publishes them to its GitHub Pages PEP 503 index. Steps:
+[`docs/runbooks/release.md`](../runbooks/release.md).
 
 ---
 

@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-06-14
-Last verified: 2026-08-08
+Last verified: 2026-11-07
 Kind: architecture
 ---
 
@@ -35,6 +35,7 @@ on-disk side effects.
 | `succeed` | `running → succeeded` |
 | `fail` | `queued → failed` or `running → failed` |
 | `rerun_requested` | `succeeded/failed → queued` |
+| `page_rerun` | `succeeded/failed → running` (single-page rerun, via `aggregate_pages_state`) |
 
 **No `cancel` event or `cancelled` state.** These were modeled but
 unreachable — no route ever fired `cancel` — and were stripped
@@ -64,7 +65,8 @@ flow:
 
 1. **`loadingConfig`** — fetches `GET /api/config`; branches to
    `choosingSource.managedServer`, `choosingSource.localContainer`, or
-   `choosingSource.localHost` depending on the response.
+   `choosingSource.localHost` depending on the response. A failed fetch goes
+   to `configFailed`, which `CONFIG_RETRY` sends back to `loadingConfig`.
 2. **`choosingSource`** — user picks a local path or drops/selects files.
    - PATH_CHOSEN event → `configuringJob`
    - FILES_SELECTED event → `uploading`
@@ -89,6 +91,8 @@ flow:
      path against the allowlist. `source_is_folder = path.is_dir()`.
 5. Resolve the output directory via `OutputConfig` / `resolve_output_dir()`.
    Write `output_mode.json` sidecar in the jobs-meta dir.
+   Steps 4 and 5 run only when the request carries an `output` field. Without
+   it, the legacy path uses `source_path` and `output_dir` as given.
 6. Build a `ProjectSpec` (UUID project_id, engine, language, source_path,
    output_dir, normalizations, timestamps).
 7. Transition `new → queued` via `assert_job_transition("new", "queue")`.
@@ -219,8 +223,8 @@ model. The device follows the job choice: `cpu` stays on CPU, and `auto` or
 
 The dispatcher returns `Page.to_dict()` without the upright pixels, so the
 layout pass rebuilds the upright frame. It tries the quarter-turns whose size
-matches the OCR page width and height. When two match, it keeps the turn
-whose word boxes cover more ink; a tie keeps the earlier turn.
+matches the OCR page width and height. When more than one matches, it keeps
+the turn whose word boxes cover more ink; a tie keeps the earlier turn.
 
 Evidence:
 
@@ -319,7 +323,7 @@ Page view managed-mode buttons.
 2. `_resolve_job_output_dir(job_id)`:
    - Validate `job_id`.
    - Read `spec.output_dir` from `project.json`.
-   - Return `Path(spec.output_dir)` when it is a non-empty directory.
+   - Return `Path(spec.output_dir)` when it is an existing directory.
    - Fall back to `<output_root>/{job_id}` for jobs created before
      `output_dir` was always set.
    - Return None if nothing found → 404.
@@ -356,8 +360,9 @@ Both still call this job-level endpoint (whole-job ZIP).
    dir. **On-disk:** `<jobs_meta_root>/{project_id}/` removed.
 8. Return 200 `{"status": "deleted"}`.
 
-All three removals are best-effort (`ignore_errors=True`). A deleted job
-produces no 404 on the download endpoint after step 6.
+All three removals are best-effort (`ignore_errors=True`). After step 6 the
+download endpoint returns 404 for the deleted job, because neither
+`project.json` nor the output mirror remains.
 
 ---
 

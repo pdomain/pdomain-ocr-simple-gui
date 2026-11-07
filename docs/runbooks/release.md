@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-17
-Last verified: 2026-07-14
+Last verified: 2026-11-07
 Kind: runbook
 ---
 
@@ -13,7 +13,7 @@ Kind: runbook
 - **Kind:** runbook
 - **Status:** active
 - **Read when:** cutting a local release from `master`.
-- **Search terms:** release, tag, master, GitHub artifacts, index dispatch.
+- **Search terms:** release, tag, master, GitHub artifacts, index publish.
 
 ## Trigger
 
@@ -55,6 +55,8 @@ the index after running the publish script. The implementation sources are
 
 ## Rollback
 
-Do not rewrite a published tag. Stop before pushing if preflight fails. If an
-artifact or index dispatch fails after publication, correct the defect and cut
-a new patch release.
+Do not rewrite a published tag. If preflight fails, the helper stops and
+creates no tag. If the build fails after the tag is pushed, fix the build and
+run the `gh release create` command the helper prints. If a published
+artifact or the index publish is wrong, correct the defect and cut a new patch
+release.

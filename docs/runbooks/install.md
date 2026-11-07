@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-17
-Last verified: 2026-08-08
+Last verified: 2026-11-07
 Kind: runbook
 ---
 
@@ -21,15 +21,17 @@ Use this runbook to install or repair `pdomain-ocr-simple-gui` on Linux.
 
 ## Preconditions
 
-Use Linux x86_64 with internet access. The AppImage installer wizard is the
-preferred interactive route when a graphical session is available. The
-fallback requires `uv`; the installer can bootstrap it.
+Use Linux x86_64 with internet access. The install needs `uv`; the installer
+can bootstrap it.
 
 ## Steps
 
-Run `install.sh` from a release checkout or release bundle. It selects the
-AppImage wizard when supported and otherwise installs the plain
-`pdomain-ocr-simple-gui` package with `uv tool install`. The application is
+Run `install.sh` from a release checkout or release bundle. It uses the
+AppImage installer wizard when the latest release carries the AppImage and a
+graphical session is available. Otherwise it installs the plain
+`pdomain-ocr-simple-gui` package with `uv tool install`. Only releases v0.3.5
+through v0.4.0 carry the AppImage. The workflow that built it was removed on
+2026-09-13, so v0.5.0 installs through `uv tool install`. The application is
 browser-based; there is no supported `desktop` extra or Qt launch mode.
 
 For a direct fallback install, run:
@@ -40,7 +42,8 @@ uv tool install pdomain-ocr-simple-gui \
 pdomain-ocr-simple-gui
 ```
 
-The default URL is `http://localhost:8004`. Jobs default to
+The default URL is `http://127.0.0.1:8004`; if port 8004 is taken, the app
+uses the next free port. Jobs default to
 `~/.local/share/pdomain-suite/simple-gui/projects/`; suite registration uses
 `~/.local/share/pdomain-suite/installed.toml`. A configured environment or
 saved jobs-location preference can override the project root.

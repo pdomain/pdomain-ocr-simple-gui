@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-17
-Last verified: 2026-07-14
+Last verified: 2026-11-07
 Kind: usage
 ---
 
@@ -22,8 +22,9 @@ on launch. No native window or Qt library is required.
 
 ### Tier 1 — curl one-liner (easiest, Linux x86\_64)
 
-Paste this into a terminal. It downloads the AppImage, marks it executable, and
-launches the installer wizard automatically — no separate steps needed:
+Paste this into a terminal. When the latest release carries the AppImage, it
+downloads it, marks it executable, and launches the installer wizard
+automatically — no separate steps needed:
 
 ```sh
 curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/install.sh | sh
@@ -34,7 +35,9 @@ desktop shortcut).
 
 On non-desktop systems (CI, headless servers, macOS, non-x86\_64), or when the
 AppImage asset is unavailable, the script falls back to a uv-tool install
-automatically.
+automatically. The latest release, v0.5.0, has no AppImage asset: the workflow
+that built it was removed on 2026-09-13, so the one-liner currently takes the
+uv-tool path.
 
 To skip the AppImage wizard and use uv-tool directly:
 
@@ -46,6 +49,7 @@ curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/maste
 ### Tier 2 — AppImage download (Linux x86\_64)
 
 Download the `.AppImage` from the [Releases](https://github.com/pdomain/pdomain-ocr-simple-gui/releases) page.
+Only releases v0.3.5 through v0.4.0 carry it; v0.5.0 does not.
 
 Browsers download files without the executable bit set — this is standard Linux
 behavior, not specific to this app. You must mark the file executable once before
@@ -75,15 +79,16 @@ uv tool install pdomain-ocr-simple-gui \
 pdomain-ocr-simple-gui
 ```
 
-The app starts the local web server and opens `http://localhost:8004` in your
-default browser automatically. Drop a folder of images, pick an OCR engine,
+The app starts the local web server and opens `http://127.0.0.1:8004` in your
+default browser automatically. If port 8004 is taken, it uses the next free
+port and prints the URL. Drop a folder of images, pick an OCR engine,
 and run. Output `.txt` files appear in the directory you choose.
 
 To suppress the browser auto-open (headless servers, CI, docker):
 
 ```sh
 pdomain-ocr-simple-gui --no-browser
-# then open http://localhost:8004 in your browser
+# then open http://127.0.0.1:8004 (or the printed URL) in your browser
 ```
 
 ## Uninstall

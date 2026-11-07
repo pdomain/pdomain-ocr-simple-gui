@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-17
-Last verified: 2026-07-14
+Last verified: 2026-11-07
 Kind: process
 ---
 
@@ -14,8 +14,9 @@ that validates `pdomain-ops`' `LocalStageDispatcher` and the
 `register_default_stages()` helper before `pdomain-prep-for-pgdp` migrates.
 
 **Architecture:** `docs/architecture/00-overview.md` (primary).
-Historical spec: workspace `docs/specs/2026-05-17-pdomain-ocr-simple-gui-design.md`.
-Plans: workspace `docs/archive/plans/2026-05-17-pdomain-ocr-simple-gui.md` (complete).
+Historical spec: `docs/archive/specs/2026-05-17-pd-ocr-simple-gui-design.md`
+in the private workspace repo `ConcaveTrillion/ocr-container-meta`.
+Plans: `docs/archive/plans/2026-05-17-pd-ocr-simple-gui.md` in the same repo (complete).
 
 ## Quick orientation
 
@@ -26,15 +27,16 @@ Architecture doc: `docs/architecture/00-overview.md`.
   `frontend/`; the packaged build lives in `src/pdomain_ocr_simple_gui/frontend/`.
 - **OCR pipeline:** `pdomain-ops` `LocalStageDispatcher` +
   `register_default_stages()`. `pdomain-book-tools` supplies the runners.
-- **Suite integration:** `pdomain-ops.suite.register_self()` wires the
-  app into the installed.toml launcher registry.
-- **Port:** 8004 (default).
+- **Suite integration:** `pdomain_ops.suite.bootstrap_spa()`, called from
+  `__main__.py`, runs `register_self()` to wire the app into the
+  installed.toml launcher registry.
+- **Port:** 8004 (default; the next free port if 8004 is taken).
 
 ## Commands
 
 | Target | Does |
 |--------|------|
-| `make setup AI=1` | `uv sync` + pre-commit hooks |
+| `make setup AI=1` | `uv sync` + pre-commit hooks + Playwright chromium |
 | `make test AI=1` | pytest — unit + integration, excludes `slow`/`e2e` |
 | `make smoke AI=1` | httpx end-to-end smoke (xfails without model weights) |
 | `make e2e-browser AI=1` | Playwright browser e2e (requires chromium) |
@@ -43,7 +45,7 @@ Architecture doc: `docs/architecture/00-overview.md`.
 | `make lint AI=1` / `make format AI=1` | ruff check / format |
 | `make typecheck AI=1` | basedpyright |
 | `make pre-commit-check AI=1` | all pre-commit hooks on every tracked file |
-| `make ci AI=1` | full gate: setup + lint + typecheck + build + test + smoke + frontend-test |
+| `make ci AI=1` | full gate: setup + pre-commit + lint + typecheck + frontend-build + test + behavior-coverage + smoke + packaging-test + frontend format/lint/test/knip + e2e-fast |
 | `make ci-full AI=1` | `make ci` + `e2e-browser` (Playwright) |
 | `make run` | launch on :8004 |
 | `make local-setup` | clone any missing sibling pd-* repos |
@@ -63,7 +65,7 @@ Architecture doc: `docs/architecture/00-overview.md`.
 workflow); see [`docs/process/local-dev.md`](docs/process/local-dev.md)
 for why the two families are kept separate.
 
-See [workspace `docs/process/local-dev.md`](../docs/process/local-dev.md) for the canonical local-dev pattern (spec #362).
+See `docs/process/local-dev.md` in `ConcaveTrillion/ocr-container-meta` for the canonical local-dev pattern (spec #362).
 
 `AI=1` captures verbose output to `.ci-ai.log`; stdout shows ✅ on pass
 or filtered failure sections on error.
@@ -78,30 +80,30 @@ or filtered failure sections on error.
 
 ## Memory path
 
-Agent memory: `/workspaces/ocr-container/.claude/agent-memory/pdomain-ocr-simple-gui/`
-
-Always write to the **absolute path** above. Never use a relative
-`.claude/agent-memory/...` path — cwd at write time may not be the
-workspace root.
+The old devcontainer agent memory for this repo is in the private workspace
+repo `ConcaveTrillion/ocr-container-meta`, under
+`.claude/agent-memory/pdomain-ocr-simple-gui/`. This machine has no checkout
+of that repo, and it has had no commits since 2026-06-06.
 
 ## Current status
 
-All milestones shipped (M0–M8 + verification milestone). No open
-repo-scoped work. Lint deviations are catalogued in
+All milestones shipped (M0–M8 + verification milestone). Remaining
+repo-scoped work is listed in [`docs/roadmap.md`](docs/roadmap.md). Lint deviations are catalogued in
 `docs/process/lint-deviations.md` with inline rationale at each
 suppression point (ocr-container-meta #291).
 
 ## GH issues
 
-Cross-cut tasks tracked in `ConcaveTrillion/ocr-container-meta`.
-Milestone: `spec: 2026-05-17-pdomain-ocr-simple-gui (#211)` — all tasks closed.
+Cross-cut tasks tracked in `ConcaveTrillion/ocr-container-meta` (private; use
+the `ConcaveTrillion` gh account). Milestone:
+`spec: 2026-05-17-pd-ocr-simple-gui (#211)` — all tasks closed.
 
 Before starting: `gh issue view <N> --repo ConcaveTrillion/ocr-container-meta`
 After completing: `gh issue close <N> --repo ConcaveTrillion/ocr-container-meta`
 
 ## Sibling repos
 
-In `/workspaces/ocr-container/` (when present):
+In `/mnt/work/projects/pdomain/`:
 
 - `pdomain-book-tools/` — OCR, layout, image primitives. Hard dependency.
 - `pdomain-ops/` — suite plumbing, GPU dispatch, prefs. Hard dependency.
@@ -109,16 +111,16 @@ In `/workspaces/ocr-container/` (when present):
 
 ## Out of scope
 
-- Editing files outside `/workspaces/ocr-container/pdomain-ocr-simple-gui/`.
+- Editing files outside `/mnt/work/projects/pdomain/pdomain-ocr-simple-gui/`.
 - Touching shared OCR/layout logic (do that in `pdomain-book-tools`).
 - Releases, force-push, or wheel publish without explicit approval.
 
 ## docs/ folder
 
 This repo follows the workspace docs/ template — see [`docs/README.md`](docs/README.md). Active
-folders: `architecture/`, `decisions/`, `plans/`, `process/`, `research/`,
-`runbooks/`, `specs/`, `templates/`, `usage/`, plus parallel `archive/`
-subfolders.
+folders: `architecture/`, `context/`, `decisions/`, `issues/`, `plans/`,
+`process/`, `research/`, `runbooks/`, `specs/`, `templates/`, `usage/`, plus
+`archive/` subfolders for the nine folders other than `context/` and `issues/`.
 
 **Superpowers redirect.** When a superpowers skill (e.g. `brainstorming`,
 `writing-plans`) instructs you to save to `docs/superpowers/specs/<file>.md`
@@ -165,12 +167,13 @@ change any step below.
    confirm it isn't already closed; note its milestone.
 5. **Check for in-flight work.** Open PRs and existing branches touching the
    same area, to avoid colliding with work-in-progress.
-6. **Consult agent memory.** `.claude/agent-memory/<repo>/feedback_*.md` for
-   corrections not yet promoted to `CONVENTIONS.md`.
+6. **Consult agent memory.** `.claude/agent-memory/<repo>/` in
+   `ConcaveTrillion/ocr-container-meta` for corrections not yet promoted to
+   `CONVENTIONS.md`.
 7. **Locate code with `Explore` first.** Use an `Explore` subagent to find
    relevant files before broad `Read`/grep.
 8. **Isolate in a worktree.** Never work directly in the interactive checkout
-   at `/workspaces/ocr-container/<repo>/`. Use the `using-git-worktrees` skill
+   at `/mnt/work/projects/pdomain/<repo>/`. Use the `using-git-worktrees` skill
    to set up an isolated worktree. When delegating to a full-power
    implementation agent, pass `isolation: "worktree"` on the `Agent` call
    (skip for `-docs` agents and the `driver` agent). When an agent returns a
