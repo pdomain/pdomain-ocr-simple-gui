@@ -170,7 +170,7 @@ Kind: context
   `frontend/src/App.tsx`.
 - Superseded by: docs/architecture/00-overview.md "Suite launcher tab
   isolation"
-- Removal commit: (fill after commit)
+- Removal commit: c932c6ae0c7a7dcc16e4025ec2b9d1a05eb6aa53
 - Rationale kept: docs/architecture/00-overview.md; the issue #26 tombstone
   above. The locked `@pdomain/pdomain-ui` 0.12.1 bundle calls
   `window.open(url, "_blank", "noopener,noreferrer")`.
