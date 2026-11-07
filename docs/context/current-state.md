@@ -32,9 +32,8 @@ follow-ups and former GitHub #26 are shipped and retired; tombstones are in
 
 ## In-flight work
 
-One small closeout remains: removing the stale issue-#26 comment from
-`frontend/src/App.tsx`
-([closeout plan](../plans/2026-07-21-suite-launcher-opener-closeout.md)).
+None. The suite launcher opener closeout is finished and its plan and spec
+are retired; the tombstone is in [decisions](decisions.md).
 
 ## Open product residue
 

@@ -43,9 +43,6 @@ must stay aligned. Treat caller-controlled paths and IDs as untrusted. Run
 
 ## Remaining work
 
-- Remove the stale issue-#26 comment at the top of `frontend/src/App.tsx`, then
-  retire the closeout plan and spec.
-  [docs/plans/2026-07-21-suite-launcher-opener-closeout.md](plans/2026-07-21-suite-launcher-opener-closeout.md)
 - Separate original and modified downloads so edited pages reach the export.
   [docs/specs/2026-05-29-download-model.md](specs/2026-05-29-download-model.md)
 - Lock the shared predictor cache upstream so a timed-out batch cannot race

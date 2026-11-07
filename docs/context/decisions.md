@@ -157,6 +157,21 @@ Kind: context
 - Removal commit: 95f1690bbf4f8d7500a7800589b13ad7946e7825
 - Rationale kept: docs/architecture/00-overview.md; former issue body
   recoverable with `git show ec3979f:docs/decisions/2026-07-17-closed-issues-archive.md`
-- Remaining work: remove the stale issue-#26 comment at the top of
-  `frontend/src/App.tsx` (Task 2 of
-  docs/plans/2026-07-21-suite-launcher-opener-closeout.md)
+- Remaining work: none. The stale issue-#26 comment in
+  `frontend/src/App.tsx` is removed; see the closeout tombstone below.
+
+### 2026-11-07 Retired: Suite launcher opener isolation closeout plan and spec (2026-07-21)
+
+- Old path: docs/plans/2026-07-21-suite-launcher-opener-closeout.md,
+  docs/specs/2026-07-21-suite-launcher-opener-closeout-design.md
+- Outcome: implemented, and deleted as duplicate of the architecture. Task 1
+  (verify the locked package) and Task 3 (retire the issue) were done in
+  95f1690; Task 2 deleted the stale issue-#26 comment from
+  `frontend/src/App.tsx`.
+- Superseded by: docs/architecture/00-overview.md "Suite launcher tab
+  isolation"
+- Removal commit: (fill after commit)
+- Rationale kept: docs/architecture/00-overview.md; the issue #26 tombstone
+  above. The locked `@pdomain/pdomain-ui` 0.12.1 bundle calls
+  `window.open(url, "_blank", "noopener,noreferrer")`.
+- Remaining work: none
