@@ -45,6 +45,7 @@ Architecture doc: `docs/architecture/00-overview.md`.
 | `make lint AI=1` / `make format AI=1` | ruff check / format |
 | `make typecheck AI=1` | basedpyright |
 | `make pre-commit-check AI=1` | all pre-commit hooks on every tracked file |
+| `make update-hooks` | bump pre-commit hooks to their latest releases, frozen to commit SHAs (`pre-commit autoupdate --freeze`) |
 | `make ci AI=1` | full gate: setup + pre-commit + lint + typecheck + frontend-build + test + behavior-coverage + smoke + packaging-test + frontend format/lint/test/knip + e2e-fast |
 | `make ci-full AI=1` | `make ci` + `e2e-browser` (Playwright) |
 | `make run` | launch on :8004 |

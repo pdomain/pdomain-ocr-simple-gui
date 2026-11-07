@@ -37,7 +37,7 @@ endef
 PEER_BOOK_TOOLS_PATH ?= ../pdomain-book-tools
 
 .PHONY: help setup install-hooks install uninstall remove-venv reset lint format format-check typecheck \
-        pre-commit-check test behavior-coverage e2e-fast e2e-browser e2e-real-ocr frontend-install frontend-build frontend-dev \
+        pre-commit-check update-hooks test behavior-coverage e2e-fast e2e-browser e2e-real-ocr frontend-install frontend-build frontend-dev \
         frontend-test frontend-lint frontend-format frontend-format-check frontend-knip \
         openapi-export clean ci ci-full upgrade-deps dev-local \
         local-setup local-dev local-check local-upgrade-deps local-run \
@@ -117,6 +117,11 @@ typecheck: ## Run basedpyright at warnings level (failOnWarnings=true in pyproje
 
 pre-commit-check: ## Run pre-commit on all files
 	uv run pre-commit run --all-files
+
+update-hooks: ## Bump pre-commit hooks to their latest releases, frozen to commit SHAs
+	@echo "⬆️  Updating pre-commit hook revisions (frozen to commit SHAs)..."
+	uv run pre-commit autoupdate --freeze
+	@echo "✅ Hook revisions updated — review upstream release notes and the .pre-commit-config.yaml diff."
 
 test: ## Run pytest (excludes slow/e2e tests)
 	uv run pytest tests/ -v -n auto
