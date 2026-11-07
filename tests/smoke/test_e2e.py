@@ -19,10 +19,29 @@ from pathlib import Path
 import httpx
 import pytest
 
-_FIXTURE_IMAGE = Path("/workspaces/ocr-container/pdomain-book-tools/tests/ocr-test-image.png")
+# The dev-container checkout is not mounted on every machine. Prefer that
+# path, then the sibling pdomain-book-tools tree, then the in-repo page.
 _POLL_INTERVAL = 2.0  # seconds — slightly longer interval reduces noise under load
 _TIMEOUT = 300.0  # seconds — 5 min; first DocTR model load can be very slow under load
 _POLL_READ_TIMEOUT = 30.0  # seconds — per-poll httpx read timeout; 5 s was too tight under load
+
+
+def _fixture_candidates() -> tuple[Path, ...]:
+    """Container path, sibling book-tools page, then the in-repo page."""
+    repo_root = Path(__file__).resolve().parents[2]
+    return (
+        Path("/workspaces/ocr-container/pdomain-book-tools/tests/ocr-test-image.png"),
+        repo_root.parent / "pdomain-book-tools" / "tests" / "ocr-test-image.png",
+        repo_root / "tests" / "e2e" / "fixtures" / "known_good_page.png",
+    )
+
+
+def _resolve_fixture_image() -> Path | None:
+    """Return the first OCR page that exists, or None when every candidate is absent."""
+    for candidate in _fixture_candidates():
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def _free_port() -> int:
@@ -50,13 +69,15 @@ def _wait_ready(base_url: str, timeout: float = 20.0) -> None:
 @pytest.mark.e2e
 def test_e2e_job_completes(tmp_path: Path) -> None:
     """Start the server, submit a job, poll until terminal, assert .txt output."""
-    if not _FIXTURE_IMAGE.exists():
-        pytest.skip(f"Fixture image not found: {_FIXTURE_IMAGE}")
+    fixture_image = _resolve_fixture_image()
+    if fixture_image is None:
+        tried = ", ".join(str(path) for path in _fixture_candidates())
+        pytest.skip(f"No OCR page fixture found. Tried: {tried}")
 
     # Copy fixture image to a temp source dir so we control the path
     source_dir = tmp_path / "source"
     source_dir.mkdir()
-    shutil.copy(_FIXTURE_IMAGE, source_dir / _FIXTURE_IMAGE.name)
+    shutil.copy(fixture_image, source_dir / fixture_image.name)
 
     output_dir = tmp_path / "output"
     output_dir.mkdir()
