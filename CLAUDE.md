@@ -14,9 +14,6 @@ that validates `pdomain-ops`' `LocalStageDispatcher` and the
 `register_default_stages()` helper before `pdomain-prep-for-pgdp` migrates.
 
 **Architecture:** `docs/architecture/00-overview.md` (primary).
-Historical spec: `docs/archive/specs/2026-05-17-pd-ocr-simple-gui-design.md`
-in the private workspace repo `ConcaveTrillion/ocr-container-meta`.
-Plans: `docs/archive/plans/2026-05-17-pd-ocr-simple-gui.md` in the same repo (complete).
 
 ## Quick orientation
 
@@ -66,8 +63,6 @@ Architecture doc: `docs/architecture/00-overview.md`.
 workflow); see [`docs/process/local-dev.md`](docs/process/local-dev.md)
 for why the two families are kept separate.
 
-See `docs/process/local-dev.md` in `ConcaveTrillion/ocr-container-meta` for the canonical local-dev pattern (spec #362).
-
 `AI=1` captures verbose output to `.ci-ai.log`; stdout shows ✅ on pass
 or filtered failure sections on error.
 
@@ -79,28 +74,23 @@ or filtered failure sections on error.
 - **TDD-first** for all feature work: test first, then implementation.
 - Stub-shaped work (route stubs, protocol definitions) is exempt.
 
-## Memory path
-
-The old devcontainer agent memory for this repo is in the private workspace
-repo `ConcaveTrillion/ocr-container-meta`, under
-`.claude/agent-memory/pdomain-ocr-simple-gui/`. This machine has no checkout
-of that repo, and it has had no commits since 2026-06-06.
-
 ## Current status
 
 All milestones shipped (M0–M8 + verification milestone). Remaining
 repo-scoped work is listed in [`docs/roadmap.md`](docs/roadmap.md). Lint deviations are catalogued in
 `docs/process/lint-deviations.md` with inline rationale at each
-suppression point (ocr-container-meta #291).
+suppression point.
 
-## GH issues
+## Issues
 
-Cross-cut tasks tracked in `ConcaveTrillion/ocr-container-meta` (private; use
-the `ConcaveTrillion` gh account). Milestone:
-`spec: 2026-05-17-pd-ocr-simple-gui (#211)` — all tasks closed.
-
-Before starting: `gh issue view <N> --repo ConcaveTrillion/ocr-container-meta`
-After completing: `gh issue close <N> --repo ConcaveTrillion/ocr-container-meta`
+Work is tracked as Markdown files in `docs/issues/`. The open list is
+[`docs/issues/README.md`](docs/issues/README.md). Items that cut across
+several `pdomain-*` repos are filed in
+`/mnt/work/projects/pdomain/pdomain-book-tools/docs/issues/`. GitHub Issues is
+still enabled on `pdomain/pdomain-ocr-simple-gui`, but work is not tracked
+there. `ConcaveTrillion/ocr-container-meta` was the tracker for the old
+`/workspaces/ocr-container` workspace. Its last push was 2026-06-06, and it is
+no longer used.
 
 ## Sibling repos
 
@@ -164,24 +154,21 @@ change any step below.
    `plans/` (the work plan), `specs/` (design specs — follow any `Spec:`
    pointer from the issue), `research/` (prior investigations), `decisions/`
    (ADRs / constraints), `architecture/` (shipped design).
-4. **Check live issue status.** `gh issue view <N> --repo <owner/repo>` —
-   confirm it isn't already closed; note its milestone.
+4. **Check the issue file.** Read the matching file in `docs/issues/` and
+   confirm its Resolution is still Open.
 5. **Check for in-flight work.** Open PRs and existing branches touching the
    same area, to avoid colliding with work-in-progress.
-6. **Consult agent memory.** `.claude/agent-memory/<repo>/` in
-   `ConcaveTrillion/ocr-container-meta` for corrections not yet promoted to
-   `CONVENTIONS.md`.
-7. **Locate code with `Explore` first.** Use an `Explore` subagent to find
+6. **Locate code with `Explore` first.** Use an `Explore` subagent to find
    relevant files before broad `Read`/grep.
-8. **Isolate in a worktree.** Never work directly in the interactive checkout
+7. **Isolate in a worktree.** Never work directly in the interactive checkout
    at `/mnt/work/projects/pdomain/<repo>/`. Use the `using-git-worktrees` skill
    to set up an isolated worktree. When delegating to a full-power
    implementation agent, pass `isolation: "worktree"` on the `Agent` call
    (skip for `-docs` agents and the `driver` agent). When an agent returns a
    worktree path + branch, use the `finishing-a-development-branch` skill to
    decide how to integrate.
-9. **TDD.** Write the failing test first where the plan calls for it.
-10. **Verify before committing.** Focused verification plus `make ci`.
-11. **Commit locally; do not push** without explicit say-so.
+8. **TDD.** Write the failing test first where the plan calls for it.
+9. **Verify before committing.** Focused verification plus `make ci`.
+10. **Commit locally; do not push** without explicit say-so.
 
 <!-- workspace-process:end -->
