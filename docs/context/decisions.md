@@ -135,7 +135,7 @@ Kind: context
 - Superseded by: docs/architecture/00-overview.md (API token, Settings >
   API Token), docs/architecture/module-map.md (`ApiTokenSettings.tsx`,
   `api/config.ts`), docs/architecture/runtime-flows.md (no `cancel` event)
-- Removal commit: (fill after commit)
+- Removal commit: 95f1690bbf4f8d7500a7800589b13ad7946e7825
 - Rationale kept: the strip decision above; the three shipped items in the
   architecture docs. Code: `frontend/src/components/ApiTokenSettings.tsx`,
   `frontend/src/api/config.ts` (the only `"/api/config"` fetch),
@@ -154,7 +154,7 @@ Kind: context
   commit `562938d` and `LauncherTile.test.tsx` pin it.
 - Superseded by: docs/architecture/00-overview.md "Suite launcher tab
   isolation"
-- Removal commit: (fill after commit)
+- Removal commit: 95f1690bbf4f8d7500a7800589b13ad7946e7825
 - Rationale kept: docs/architecture/00-overview.md; former issue body
   recoverable with `git show ec3979f:docs/decisions/2026-07-17-closed-issues-archive.md`
 - Remaining work: remove the stale issue-#26 comment at the top of
