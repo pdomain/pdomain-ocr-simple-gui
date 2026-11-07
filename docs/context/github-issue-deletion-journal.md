@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-19
-Last verified: 2026-07-19
+Last verified: 2026-11-07
 Kind: context
 ---
 
@@ -103,6 +103,14 @@ migrated GitHub issues for `pdomain/pdomain-ocr-simple-gui`. Companion to
   recorded; Issues feature left enabled; no disable step.
 - `2026-07-19T11:05:58Z` — PR #46 merged to `master` as `0aed22680ae99064a14e1fe057eaa477db4b6c92`. Re-checked API:
   `issues.totalCount == 0`; no residual issues to delete. Issues feature remains enabled.
+- `2026-11-07` — Re-checked: GraphQL `issues.totalCount == 0`; lookups for #1,
+  #16, #26 and #38 still return `Could not resolve to an issue or pull request`;
+  Issues feature still enabled. All 37 `archive_section_digest` values recompute
+  from `ec3979f` and match the ledger. The #26 row's destination,
+  `docs/issues/2026-07-19-gh-026-suite-launcher-opener-isolation.md`, was retired
+  on 2026-11-07 in `95f1690`; its tombstone is in
+  [decisions](decisions.md) and the shipped boundary is in
+  [the architecture overview](../architecture/00-overview.md).
 
 ## Related
 

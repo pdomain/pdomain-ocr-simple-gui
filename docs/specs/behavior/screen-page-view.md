@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-29
-Last verified: 2026-07-14
+Last verified: 2026-11-07
 Kind: spec
 ---
 
@@ -25,7 +25,8 @@ Kind: spec
   `ArtifactViewer` from `@pdomain/pdomain-ui/stages/PageWorkbench`, Konva-backed)
 - **Backend / collaborators touched:** `routes/pages.py` (page metadata,
   image, PUT text, single-page rerun), `routes/words.py` (word overlays),
-  `routes/jobs.py` (page count + download), `storage.py` (artifact IO)
+  `routes/jobs.py` (page count), `routes/downloads.py` (download),
+  `storage.py` (artifact IO)
 
 ## Behavior records
 
@@ -59,13 +60,14 @@ surface (DOM / toasts / route).
 | Download images+text / images+text+JSON | `data-testid="download-images-text" \| "download-images-text-json"` | literal string in `PageViewPage.tsx` (also registered as `APP_TEST_IDS.downloadImagesText` / `.downloadImagesTextJson` in `testids.ts`, though the component uses the literal, not the constant) |
 | Job progress message (job in flight) | `data-testid="page-progress-message"` | `APP_TEST_IDS.pageProgressMessage` |
 | Editor toolbar | `data-testid="page-editor-toolbar"` | literal in `PageViewPage.tsx` |
-| OCR text textarea | `get_by_label("OCR text")` (NOT a testid) | `aria-label="OCR text"` |
+| OCR text textarea | `data-testid="ocr-text"` or `get_by_label("OCR text")` | literal in `PageViewPage.tsx` + `aria-label="OCR text"`; the e2e tests select by label |
 
 > DRAFT-NOTE: **Not every selector is DOM-addressable.** `ArtifactViewer` is
 > Konva-backed and drops unknown `data-*` props (per the gotchas doc), so the
 > word/image overlays themselves are NOT directly selectable. The wrapper
 > `page-image-canvas` carries `data-word-count="N"` as the observable proxy.
-> The textarea has no testid — tests select it by `aria-label="OCR text"`.
+> The textarea carries a literal `data-testid="ocr-text"` (not in
+> `APP_TEST_IDS`); the e2e tests select it by `aria-label="OCR text"`.
 
 ### On-disk artifacts (confirmed in `storage.py` + `routes/pages.py`)
 
@@ -75,8 +77,8 @@ against `storage.py`:
 
 - **Per-page sidecar** — `<PROJECTS_ROOT>/<project_id>/pages/<page_name>.json`.
   `<page_name>` is the source image filename (e.g. `scan.png`; the seeded
-  fixtures use a bare `page-001`). Carries `text`, `width`, `height`, `words[]`,
-  and `edited_text` (see `sidecar-shape-contract`). `GET /api/pages/{id}/{idx}`
+  fixtures use a bare `page-001`). Carries `text`, `width`, `height`, `words[]`
+  (from `pipeline.build_sidecar_payload`), and `edited_text` once saved. `GET /api/pages/{id}/{idx}`
   returns `edited_text` if a string (incl. `""`), else `text`, else the
   status `text_preview`.
 - **Per-page text** — `<PROJECTS_ROOT>/<project_id>/pages/<page_name>.txt`.
@@ -107,10 +109,11 @@ against `storage.py`:
 - Three independent fetches on mount / `idx` change:
   `GET /api/jobs/{id}` (page count → enables Next), `GET /api/pages/{id}/{idx}`
   (text/dims), `GET /api/pages/{id}/{idx}/words` (overlays).
-- `loading` starts `true` and is only set `false` inside the **success** branch
-  of the page fetch. A non-ok page response (`!res.ok`) returns early WITHOUT
-  clearing `loading`, so the canvas/editor never render. A network reject (the
-  `.catch`) DOES clear `loading`. (See B-PAGEVIEW-014.)
+- `loading` starts `true` and every branch of the page fetch clears it. A
+  non-ok page response sets `fetchError` (`"not-found"` for 404, `"error"`
+  otherwise) and a network reject sets `"error"`; either replaces the screen
+  with the matching error block, so the canvas/editor never render. (See
+  B-PAGEVIEW-015.)
 
 ### B-PAGEVIEW-001 — Page view loads (image canvas + editor + nav toolbar)
 
@@ -148,8 +151,8 @@ against `storage.py`:
   bbox:{x,y,w,h}, confidence}]}` (normalized 0–1 coords). Prefers the prebaked
   flat `words[]`; falls back to the DocTR-tree walker for legacy sidecars.
   No writes.
-- **Bad-state / error:** Words fetch fails / 404 → the `.catch` swallows it,
-  `wordBboxes` stays `[]`, `data-word-count="0"`; the image still renders
+- **Bad-state / error:** Words fetch non-ok / 404 → early return (a network
+  reject is caught and ignored), `wordBboxes` stays `[]`, `data-word-count="0"`; the image still renders
   (overlays are non-critical). A sidecar with no words → `data-word-count="0"`.
 - **Tier(s):** A
 - **Regression:** no — word/bbox overlays are **render-only** (assert the
@@ -343,7 +346,10 @@ against `storage.py`:
 - **Trigger:** Click `data-testid="page-rerun-doctr"` ("Re-run DocTR") (or
   `mod+r`).
 - **Preconditions:** Page loaded; `rerunStatus === "idle"`; the page's source
-  image file exists on disk.
+  image file exists on disk. **Known gap:** the `mod+r` binding's `when` guard
+  also requires `tesseractAvailable`, so when Tesseract is not installed the
+  binding is skipped without `preventDefault` and the browser's own Ctrl+R
+  reload runs; the button itself has no such guard.
 - **Observable output:** Button label flips to `"Re-running…"` while in flight;
   on success the textarea is refetched/updated with the new OCR text and a toast
   `"Re-run complete"` appears; on failure a toast `"Re-run failed"`.
@@ -362,7 +368,8 @@ against `storage.py`:
   ("Page not found"); missing source image → 404 ("Image file not found").
   An OCR exception is caught and recorded as a per-page `state:"failed"`
   (response still 200 with `state:"failed"`) — the UI toasts "Re-run complete"
-  on any 2xx. Engine omitted → falls back to `spec.engine`.
+  on any 2xx. Engine omitted → falls back to `spec.engine`. Engine or
+  language unavailable → 400 `engine: …` (toast "Re-run failed").
 - **Tier(s):** A and B
   > Tier B: the real engine re-OCRs the actual source image (a genuine real-OCR
   > producer). The Tier-B citation lives on `tests/e2e/test_real_ocr_rerun.py`.
@@ -380,7 +387,10 @@ against `storage.py`:
 - **Flow(s):** —
 - **Trigger:** Click `data-testid="page-rerun-tesseract"` ("Re-run Tesseract")
   (or `mod+shift+r`).
-- **Preconditions:** Same as B-PAGEVIEW-013.
+- **Preconditions:** Same as B-PAGEVIEW-013, and `GET /api/config` reports
+  Tesseract available — otherwise the button is not rendered. **Known gap:**
+  the `mod+shift+r` binding does not check availability, so it still POSTs
+  and the backend answers 400 (toast "Re-run failed").
 - **Observable output:** Same observable contract as B-PAGEVIEW-013 — toast +
   refreshed textarea.
 - **Backend / side-effects:** `POST .../rerun` body `{engine:"tesseract"}` —
@@ -388,8 +398,9 @@ against `storage.py`:
   B-PAGEVIEW-013), but the dispatcher runs the Tesseract engine.
 - **Bad-state / error:** Same as B-PAGEVIEW-013.
 - **Tier(s):** A and B
-  > Tier B: tesseract 5.3.0 + pytesseract 0.3.13 are installed, so a real
-  > Tesseract rerun is viable. The Tier-B citation lives on
+  > Tier B: tesseract + pytesseract are installed (checked 2026-11-07 on the
+  > GPU box: tesseract 5.5.3, pytesseract 0.3.13), so a real Tesseract rerun
+  > is viable. The Tier-B citation lives on
   > `tests/e2e/test_real_ocr_rerun.py`.
 - **Regression:** no
 - **Test:** `tests/e2e/test_click_paths_page_viewer.py::test_rerun_tesseract_toasts`,

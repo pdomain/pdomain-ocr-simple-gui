@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-08-08
-Last verified: 2026-08-08
+Last verified: 2026-11-07
 Kind: issue
 Level: I1
 ---
@@ -14,13 +14,16 @@ Level: I1
 - **Kind:** issue
 - **Status:** active
 - **Level:** I1
-- **Last verified:** 2026-08-08
-- **Resolution:** Open
+- **Last verified:** 2026-11-07
+- **Resolution:** Open; the workflow was deleted in `0bb3a4a` (2026-09-13).
+  The owner decides whether to close this. See [Resolution](#resolution).
 - **Severity:** Medium — no data loss; dependency currency silently stalls until
   a human notices and sweeps the accumulated pull requests by hand.
-- **Affected version:** `.github/workflows/dep-refresh.yml` at `5db3d78` (current `master`)
-- **Read when:** touching `dep-refresh.yml`, triaging why weekly dependency PRs
-  are piling up, or applying the `pdomain-ui` auto-land design to this repo.
+- **Affected version:** `.github/workflows/dep-refresh.yml` at `5db3d78`
+  (`master` on 2026-08-08; the file was deleted in `0bb3a4a`)
+- **Read when:** deciding what to do with the leftover `dep-refresh` PRs and
+  branches, restoring an automated dependency refresh, or applying the
+  `pdomain-ui` auto-land design to this repo.
 - **Search terms:** dep-refresh, weekly dependency refresh, stray branch,
   delete_branch_on_merge, gh pr merge --auto, ERR_PNPM_LOCKFILE_CONFIG_MISMATCH,
   branch protection required contexts.
@@ -214,7 +217,30 @@ blocks every PR forever. No branch-protection change is needed here.
 
 ## Resolution
 
-*Open.* The immediate symptom (CI-failing lockfile mismatch) was independently
+*Open, waiting on an owner decision.* The root cause is gone: commit `0bb3a4a`
+(2026-09-13) deleted `.github/workflows/dep-refresh.yml` along with `ci.yml`,
+`installer.yml` and `release.yml`, and releases now run locally. No weekly
+refresh runs any more, so no new PRs or branches can pile up. The "Defects to
+fix" and "Next steps" above describe the deleted workflow and no longer apply
+as written.
+
+Before the deletion the predicted pile-up happened again. Checked with `gh` on
+2026-11-07:
+
+- Five more weekly runs, 2026-08-09 to 2026-09-06, opened PRs #51 to #55.
+  All five failed the `ci` check, still have auto-merge armed, and are open.
+  Why they failed was not checked; their older run logs have expired.
+- Their five `dep-refresh/2026-08-09-…` to `dep-refresh/2026-09-06-…` branches
+  still exist next to `master`.
+- One more run, on 2026-09-13, failed before the workflow was deleted.
+- `delete_branch_on_merge` is still `false`.
+- `master` no longer has branch protection; the protection API returns
+  "Branch not protected", so the `["ci"]` context in Evidence §4 is gone.
+
+What is left for the owner: close or delete PRs #51 to #55 and their branches,
+and decide whether to close this issue as obsolete.
+
+Original resolution note from 2026-08-08: The immediate symptom (CI-failing lockfile mismatch) was independently
 fixed in commit `5db3d78` on 2026-08-08, and the resulting stale PRs
 (`#45`, `#49`, `#50`) were closed by hand in the same window. The structural
 defect that let 8 PRs accumulate over three manual sweeps — dated branch

@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-19
-Last verified: 2026-07-19
+Last verified: 2026-11-07
 Kind: context
 ---
 
@@ -34,10 +34,14 @@ roadmap that the issues were closed without implementation.
    `53dbaa82fac75e311a03710360f2aa403b51099cd6e6c58e9f67aa8aa4a8b4ca`.
 2. **Archive section digests:** SHA-256 of each `## #N` section in that
    file (recomputable; not the original live GitHub API export digest).
-3. **Code and git evidence** on current `master` (re-verified 2026-07-19).
-4. **Cross-repo open work** remains on
+3. **Code and git evidence** on `master` (re-verified 2026-07-19). Rechecked
+   2026-11-07: every cited commit exists, all 37 section digests and the
+   full-file SHA-256 recompute, and rows whose cited value has since moved
+   say "now …".
+4. **Cross-repo open work** was tracked on
    `ConcaveTrillion/ocr-container-meta` (#395–#398) and is **not**
-   re-created as GitHub issues in this repository.
+   re-created as GitHub issues in this repository. On 2026-11-07 only #397
+   is open; #395, #396 and #398 are closed.
 
 ## Classification rules
 
@@ -64,21 +68,21 @@ roadmap that the issues were closed without implementation.
 | 12 | [12](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/12) | `2f6165669b2ab61c032a2074d5e39f5ab912cdc075fc53cf6b9451bfef1277f3` | Implemented | runtime-flows; route handlers | `bbd40d6`; `response_model=` on handlers |
 | 13 | [13](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/13) | `dc65ba5589a102bb297a771108f45800191cda07145b992babf3112c3a16dfb8` | Active (residual) | roadmap (style debt) | Commit `fd83a28` claimed removal; `# ---` dividers remain in `tests/e2e/` |
 | 14 | [14](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/14) | `278c4713335dd40bd25247d9931bfbc9e04ca66c81c3a76bbe7330154f50eead` | Implemented | process/lint-deviations.md | `663f252`; catalog present |
-| 15 | [15](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/15) | `fcade8f5b8616dda7aca92f5e0748f8382bfc45f78cd9854e4c302a161eee575` | Implemented | frontend package; architecture | `9cd1378` lineage; `@pdomain/pdomain-ui` ^0.11.0 |
+| 15 | [15](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/15) | `fcade8f5b8616dda7aca92f5e0748f8382bfc45f78cd9854e4c302a161eee575` | Implemented | frontend package; architecture | `9cd1378` lineage; `@pdomain/pdomain-ui` ^0.11.0 (now ^0.12.1) |
 | 16 | [16](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/16) | `f75720cbdffcc055b1cb84b7c1e733db5a4bcf8d1ea5f0578604b89417653b94` | Implemented | runtime-flows; storage validate_project_id | `9afd500` |
 | 17 | [17](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/17) | `66574b4211c64924c54fff0795da292bc35da39366fe17e1feb624f086103241` | Implemented | runtime-flows; source allowlist | `ac3577a` |
 | 18 | [18](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/18) | `09386cecb2e9fc0ce407221961406c40965e3611a8dc6b92d022e268321b1a4f` | Implemented | architecture; auth + concurrent jobs | `e9aac52` |
 | 19 | [19](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/19) | `d63c446ff75fc0bac921a726e81c989cfe4ebfb6a645328aeb9b7bbf791b4f5e` | Implemented | architecture; suite token middleware | `e9aac52` + suite middleware hardening |
-| 20 | [20](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/20) | `b9cef82bd768fa680634df9be54f16683a5a876ff81fe2ace954635195ef84b7` | Implemented | frontend Vite pin | `4d1f68f`; vite ^7.3.6 |
+| 20 | [20](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/20) | `b9cef82bd768fa680634df9be54f16683a5a876ff81fe2ace954635195ef84b7` | Implemented | frontend Vite pin | `4d1f68f`; vite ^7.3.6 (now ^8.3.0) |
 | 21 | [21](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/21) | `c3ca6991afce6a143fdb4320641c76b391e9d6b4e9983613430dfa47c06bf94d` | Implemented | frontend Vite toolchain | `4d1f68f` |
 | 22 | [22](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/22) | `f7738b5c6a1b7800fe673c33750527924624d16dca680e1e2c21ea044003a17d` | Implemented | uv.lock hashes; pdomain-index | `c9c9fc4` / lockfile hashes |
 | 23 | [23](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/23) | `b83be35216c491fa86b1b032681d49638771465868a03d5897235dd493d53961` | Implemented | architecture; require_token on prefs/metadata | `e9aac52` |
 | 24 | [24](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/24) | `7d7386f89c4cfe92303fb4f41b8c593e54bb7a00a360093858113195e32a45a9` | Implemented | self-hosted @fontsource fonts | `5d3cbc7`; main.tsx imports |
 | 25 | [25](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/25) | `6d68e2c3514965b43f21b98917d76297b00594d671bddf35aaf67eb03bc33454` | Implemented | results download UI | `8091b72`; API download + clipboard path, no file:// open |
 | 26 | [26](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/26) | `778ce07050501a2bbfe6ae98b6ec8bab9a192db59559950ca79fa9996cbce5ef` | Implemented (upstream) | architecture/00-overview.md "Suite launcher tab isolation" | `pdomain-ui` `562938d`; locked 0.12.1 bundle passes `noopener,noreferrer` (verified 2026-11-07) |
-| 27 | [27](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/27) | `9a8c1144436864f8285988a7ad6e76b1ef8f825687fd03e0754c002037f29659` | Implemented | pyproject pdomain-ops pin | `218b152` lineage; `pdomain-ops>=0.11.1` |
-| 28 | [28](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/28) | `7779ff41553faa7b0bbcbbc9e3948577bf8cfbc71bc5170a30d511729ed67a1b` | Implemented | GitHub Actions SHA pins | `398ed04`; ci.yml uses commit SHAs + uv version |
-| 29 | [29](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/29) | `99db382ffd74edc7cd00038d38e7856a3e6924328c54ca079b106ae5ac644ea3` | Implemented | `app/__main__.py` logging | `4bf9440`; logger.exception on unregister |
+| 27 | [27](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/27) | `9a8c1144436864f8285988a7ad6e76b1ef8f825687fd03e0754c002037f29659` | Implemented | pyproject pdomain-ops pin | `218b152` lineage; `pdomain-ops>=0.11.1` (now `>=0.11.2`) |
+| 28 | [28](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/28) | `7779ff41553faa7b0bbcbbc9e3948577bf8cfbc71bc5170a30d511729ed67a1b` | Implemented | GitHub Actions SHA pins | `398ed04`; ci.yml used commit SHAs + uv version; all workflows deleted in `0bb3a4a` (2026-09-13) |
+| 29 | [29](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/29) | `99db382ffd74edc7cd00038d38e7856a3e6924328c54ca079b106ae5ac644ea3` | Implemented | `__main__.py` logging | `4bf9440`; logger.exception on unregister |
 | 30 | [30](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/30) | `aae731449eb786d9429c2076095d5a9536bbd49999fd05d3b89ddcca366ad944` | Implemented | app startup logging | `4bf9440`; registration failures logged |
 | 31 | [31](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/31) | `7848b4c80fb1f0742c0ab31dda0b7d19713a78ed7dcdd27c29921c14e424b42f` | Implemented | app suite mount logging | `4bf9440` |
 | 32 | [32](https://github.com/pdomain/pdomain-ocr-simple-gui/issues/32) | `749a70d4c4f82264c34671904e494160dc9a292e8802e6b25645dab54cd26bd6` | Implemented | jobs failure persistence logging | `4bf9440` |
@@ -115,7 +119,7 @@ roadmap that the issues were closed without implementation.
 | Verbatim archive in Git history | Done (`ec3979f`) |
 | GitHub issues deleted | Done (API totalCount 0; GraphQL cannot resolve #1–#38) |
 | Completed-issue ledger (this file) | Done (2026-07-19 repair) |
-| Active governed issue for residual #26 | Done |
+| Active governed issue for residual #26 | Done; retired 2026-11-07, tombstone in [decisions](decisions.md) |
 | Roadmap reclassified vs code | Done (2026-07-19) |
 | `docs/issues` template bundle | Done |
 | GitHub Issues feature disabled | **Not done** (owner chose to leave enabled) |

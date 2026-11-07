@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-30
-Last verified: 2026-07-14
+Last verified: 2026-11-07
 Kind: spec
 ---
 
@@ -44,7 +44,7 @@ does. The Playwright e2e tests assert against them.
 - `coverage.md` — generated traceability report
 
 See `/workspaces/ocr-container/docs/process/behavior-e2e-capture.md` for
-the methodology.
+the methodology when that workspace tree exists (it is not in this repo).
 
 ## Running the tests
 

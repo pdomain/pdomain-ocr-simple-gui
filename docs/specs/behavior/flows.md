@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-30
-Last verified: 2026-07-14
+Last verified: 2026-11-07
 Kind: spec
 ---
 
@@ -23,7 +23,7 @@ path. Flows are where the most valuable regression coverage lives.
 
 A *unit* here is a screen: home → results → page-view. See
 `/workspaces/ocr-container/docs/process/behavior-e2e-capture.md` for the
-full process.
+full process when that workspace tree exists (it is not in this repo).
 
 ## Flows
 
@@ -37,13 +37,18 @@ full process.
   4. B-RESULTS-003 — job reaches succeeded; per-page table renders
   5. B-RESULTS-010 — click a page-row to open page view
   6. B-PAGEVIEW-010 — edit OCR text and save; toast "Saved"; sidecar updated
-  7. B-RESULTS-006 — return to results; click Download (.zip); browser
-     download event fires; ZIP contains the edited per-page .txt
+  7. B-RESULTS-006 — open a pre-seeded managed job's results page; click
+     "Download (images + text + JSON)" (`download-images-text-json`); browser
+     download event fires with a non-empty `.zip`
 - **Expected end state (UI + backend):** ResultsPage has
   `data-testid="results-page"` visible with succeeded status. The managed
-  download ZIP (GET /api/jobs/{id}/download) contains `page-001.txt`.
-  The per-page sidecar `projects/<id>/pages/<name>.json` has `edited_text`
-  set. The textarea on PageViewPage shows the user's saved edit when reopened.
+  download (GET /api/jobs/{id}/download?include=text,json) returns 200 with a
+  non-empty ZIP; the test does not inspect its members, and the ZIP would not
+  carry the edit, because save does not refresh the output mirror
+  (B-PAGEVIEW-010 limitation). The per-page sidecar
+  `projects/<id>/pages/<name>.json` has `edited_text` set and
+  GET /api/pages/{id}/0 returns the edit, so the textarea on PageViewPage
+  shows it when reopened.
 - **Bad-state / error:** Upload API returns non-2xx (e.g. 413 oversize) →
   SourcePicker error alert; no navigation. Job fails (zero supported images)
   → results page shows failed state + error text + rerun affordance
@@ -62,14 +67,15 @@ full process.
   1. B-RESULTS-010 — click a page-row (seeded succeeded job) to open page view
   2. B-PAGEVIEW-010 — type and save an edit; sidecar `edited_text` set
   3. B-PAGEVIEW-013 — click "Re-run DocTR"; toast "Re-run complete"; page
-     refreshes with new OCR output
+     refetches, and the textarea still shows the saved edit
   4. B-PAGEVIEW-010 (verify) — assert sidecar still carries `edited_text`
      from step 2 (rerun must not discard the user's save)
 - **Expected end state (UI + backend):** Sidecar `pages/<name>.json` has both
   `text` (fresh OCR output, or preserved from fake dispatcher) and `edited_text`
   (the prior save preserved across the rerun). The textarea shows `edited_text`
   when reopened (GET /api/pages returns edited_text when present). Per-page
-  `.txt` reflects the current OCR text from after the rerun.
+  `.txt` also keeps the preserved edit (`rerun_page` writes `edited_text`
+  when present, else the fresh OCR text).
 - **Bad-state / error:** Rerun on a missing project → 404; page view toasts
   "Re-run failed". Source image missing → 404 ("Image file not found").
 - **Tier(s):** A+B
@@ -82,22 +88,23 @@ full process.
 
 - **Units:** app-shell (settings modal) → home → app-shell (reload verify)
 - **Steps (record IDs in order):**
-  1. B-SHELL-006 — click gear icon; settings modal opens
+  1. B-SHELL-006 — click gear icon; the settings panel (`slide-over-panel`)
+     opens
   2. B-SHELL-008 — click Light theme radio; data-theme="light" applied;
      PUT /api/prefs fires; theme persisted
   3. B-SHELL-009 — click Compact density radio; data-density="compact" applied;
      PUT /api/prefs fires; density persisted
-  4. B-SHELL-007 — click close button; settings modal closes
+  4. B-SHELL-007 — click `slide-over-panel-close`; the settings panel closes
   5. B-SHELL-011 — reload the page; GET /api/prefs returns persisted values;
-     shell re-applies theme="light" + density="compact" before first render
+     shell re-applies theme="light" + density="compact"
 - **Expected end state (UI + backend):** After reload, `data-theme="light"` is
   on `documentElement` and `data-density="compact"` is on the `app-shell`
   element. `ui-prefs.json` (at `suite_data/ui-prefs.json`) carries
   `apps.pdomain-ocr-simple-gui.ui_prefs.theme === "light"` and
-  `...density === "compact"`. Settings modal is closed.
+  `...density === "compact"`. The settings panel is closed and no toast shows.
 - **Bad-state / error:** PUT /api/prefs returns 500 → sonner toast
   "Preferences not saved — server error" (B-SHELL-008 regression fix); prefs
-  revert to defaults on reload.
+  revert to the last saved values on reload.
 - **Tier(s):** A
 - **Regression:** yes
 - **Test:** tests/e2e/test_flows.py::test_prefs_roundtrip_flow

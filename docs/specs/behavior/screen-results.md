@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-29
-Last verified: 2026-07-14
+Last verified: 2026-11-07
 Kind: spec
 ---
 
@@ -99,14 +99,15 @@ ResultsPage reads/writes across the same locations HomePage documents (see
   - **5xx / network** → swallowed: the pollFn returns a non-terminal status so
     `useLongJob` **keeps polling**; `useOcrJob` sets `transientError` (a
     non-fatal "retrying…" banner), cleared on the next successful poll.
-- `cancel()` is a **no-op** — the backend has no cancel endpoint
-  (`useOcrJob` documents this; nothing on ResultsPage calls it).
+- There is no cancel path: the backend has no cancel endpoint, and
+  `useOcrJob` does not expose `useLongJob`'s `cancel()` (stripped with the
+  unreachable cancel transition, ocr-container-meta#395).
 
 ### B-RESULTS-001 — Job page loads and shows name + status pip
 
 - **Flow(s):** —
 - **Trigger:** Navigate to `/jobs/:id` (from a HomePage submit redirect, a
-  recent-project row, the AppHeader active-jobs pill, or a direct URL).
+  recent-project row, a jobs-dock row's Open button, or a direct URL).
 - **Preconditions:** A project with that id exists on disk
   (`project.json` present).
 - **Observable output:** `data-testid="results-page"` container renders; the
@@ -325,7 +326,8 @@ ResultsPage reads/writes across the same locations HomePage documents (see
   the POST fires).
 - **Backend / side-effects:** `POST /api/jobs/{id}/rerun` (202) → resets ALL
   `status.pages` to `state="queued"`, `pages_done=0`, `state="queued"`, writes
-  `project.json`, and re-enqueues `_pipeline_run_job` as a background task. This
+  `project.json`, and re-enqueues `_pipeline_run_job_with_semaphore` as a
+  background task (429 when the concurrent-jobs cap is reached). This
   **re-OCRs every page through the dispatcher** (real engine in prod; the fake
   in Tier A) and rewrites the per-page sidecars/`.txt`, `combined.txt`, and the
   output mirror.
@@ -384,7 +386,8 @@ ResultsPage reads/writes across the same locations HomePage documents (see
   so `useLongJob` stops. No writes.
 - **Bad-state / error:** This record IS the 404/deleted-job bad path; the good
   contrast is B-RESULTS-001. A malformed (traversal) id → **400** from the same
-  endpoint (a 400 is not a 404, so it shows the generic error block, not the
+  endpoint (a 400 is not a 404, so `useOcrJob` treats it as transient: it
+  shows the `results-error` "retrying…" block and keeps polling, not the
   not-found block — B-RESULTS-001 bad path covers it). This is the path
   deferred here from B-HOME-013 (stale recent-row → 404-on-open).
 - **Tier(s):** A
@@ -400,9 +403,9 @@ ResultsPage reads/writes across the same locations HomePage documents (see
 - **Trigger:** A `GET /api/jobs/{id}` poll fails with a network error or 5xx
   while the job exists (server hiccup mid-poll).
 - **Preconditions:** Job exists; a poll throws.
-- **Observable output:** The page shows a non-fatal `data-testid="results-error"`
-  banner reading **"Error fetching job status — retrying…"** and **keeps
-  polling** under the hood. It is NOT the terminal not-found block. When a poll
+- **Observable output:** While the flag is set the page body is replaced by a
+  non-fatal `data-testid="results-error"` alert reading **"Error fetching job
+  status — retrying…"**, and the page **keeps polling** under the hood. It is NOT the terminal not-found block. When a poll
   recovers, the `transientError` flag clears and the loaded header/table render.
   (Previously a transient error flipped the hook to terminal `error` and stopped
   polling with no recovery.)

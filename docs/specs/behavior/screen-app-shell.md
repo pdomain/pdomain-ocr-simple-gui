@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-30
-Last verified: 2026-07-14
+Last verified: 2026-11-07
 Kind: spec
 ---
 
@@ -19,12 +19,14 @@ Kind: spec
 
 - **Unit type:** screen
 - **Address:** shell / header (wraps every route)
-- **Implementation:** `frontend/src/App.tsx` (AppShell + AppHeader from
-  `@pdomain/pdomain-ui/shell`; ShortcutsProvider + useShortcuts from
-  `@pdomain/pdomain-ui/hooks`; prefs via `uiPrefsConfig` callback object;
-  active-jobs via `useActiveJobs` hook)
+- **Implementation:** `frontend/src/App.tsx` (AppShell, JobsPill,
+  SettingsSlot + ShortcutsHelpButton from `@pdomain/pdomain-ui/shell`, placed
+  in the app's own `SimpleGuiHeader`; ShortcutsProvider from
+  `@pdomain/pdomain-ui/hooks`, with pages calling `useShortcuts`; prefs via
+  `uiPrefsConfig` callback object; active-jobs via `useActiveJobs` hook)
 - **Backend / collaborators touched:** `routes/prefs.py` (GET/PUT `/api/prefs`),
-  `routes/config.py` (GET `/api/config`), `routes/jobs.py` (GET `/api/jobs`)
+  `routes/config.py` (GET `/api/config`), `routes/jobs.py` (GET `/api/jobs`,
+  DELETE `/api/jobs/{id}` from the dock's delete button)
 
 ## Behavior records
 
@@ -36,17 +38,19 @@ bad path.
 >
 > **Shortcuts:** `ShortcutsProvider`, `useShortcuts`, `ShortcutsHelpButton`
 > from `@pdomain/pdomain-ui/hooks` and `@pdomain/pdomain-ui/shell` are present
-> in the registry 0.2.2 build (verified). The `?` and Escape key handlers are in
-> `ShortcutsContext-CAfy8e9D.js`. The `shortcuts-cheatsheet` testid is hardcoded
-> in the pdomain-ui bundle but NOT exported from the testids catalog — aliased
-> locally in `APP_TEST_IDS.shortcutsCheatsheet`.
+> in the registry 0.12.1 build (verified). The `?` and Escape key handlers are in
+> `ShortcutsContext-Di6p4MOx.js`. The `shortcuts-cheatsheet` dialog testid is
+> hardcoded in the pdomain-ui bundle but NOT exported from the testids catalog —
+> aliased locally in `APP_TEST_IDS.shortcutsCheatsheet`. Both open paths render
+> the bindings in `shortcuts-cheatsheet-body` (`PD_UI_TEST_IDS.SHORTCUTS_CHEATSHEET_BODY`).
 >
-> **Settings modal (B-SHELL-006/007):** `App.tsx` places `<SettingsSlot />` inside
-> `AppHeader.actions` alongside `<ShortcutsHelpButton />`. `SettingsSlot` calls
-> `useSettingsModal().openModal()` from `SettingsModalContext` provided by `AppShell`.
-> Since `AppHeader` is a descendant of `AppShell` (rendered via the `header` slot),
-> the context is available and the gear button opens the built-in settings modal.
-> All B-SHELL-006/007/008/009/010 behaviors are now testable via real UI clicks.
+> **Settings panel (B-SHELL-006/007):** `App.tsx` places `<SettingsSlot />` in
+> `SimpleGuiHeader`'s `actions` alongside `<ShortcutsHelpButton />`. Since
+> pdomain-ui 0.4.0, `SettingsSlot` toggles the utility dock's `settings`
+> surface, a `slide-over-panel`, instead of opening `settings-modal`. The
+> header is a descendant of `AppShell` (rendered via the `header` slot), so
+> the dock context is available. All B-SHELL-006/007/008/009/010 behaviors are
+> testable via real UI clicks.
 
 ### Selectors (confirmed against `frontend/src/lib/testids.ts` + pdomain-ui dist)
 
@@ -56,9 +60,8 @@ bad path.
 |---------|----------|------|
 | App header outer `<header>` | `data-testid="app-header"` | `APP_TEST_IDS.appHeader` |
 | Active-jobs count badge | `data-testid="jobs-pill-count"` | `APP_TEST_IDS.jobsPillCount` — only present when 1+ jobs running |
-| Jobs dock surface | `data-testid="jobs-panel-body"` (inside `data-testid="utility-dock"`) | `PD_UI_TEST_IDS.JOBS_PANEL_BODY` — `JobsPill.onClick` calls `useUtilityDock().toggle("jobs")`, opening the shared dock's Jobs surface (`App.tsx:593`); there is no separate hover popover |
-| Jobs right panel | `data-testid="right-panel"` + `data-testid="jobs-drawer"` | Rendered by pdomain-ui when the Jobs button is clicked |
-| Shortcuts cheatsheet dialog | `data-testid="shortcuts-cheatsheet"` | `APP_TEST_IDS.shortcutsCheatsheet` — hardcoded in bundle, not in testids catalog |
+| Jobs dock surface | `data-testid="jobs-panel-body"` (inside `data-testid="utility-dock"`) | `PD_UI_TEST_IDS.JOBS_PANEL_BODY` — `JobsPill.onClick` calls `useUtilityDock().toggle("jobs")`, opening the shared dock's Jobs surface (`App.tsx:605`); there is no separate hover popover |
+| Shortcuts cheatsheet dialog | `data-testid="shortcuts-cheatsheet"` | `APP_TEST_IDS.shortcutsCheatsheet` — hardcoded in bundle, not in testids catalog; opened by the `?` key |
 
 #### pdomain-ui catalog (`PD_UI_TEST_IDS`)
 
@@ -69,8 +72,10 @@ bad path.
 | Main zone | `data-testid="app-shell-main"` | `PD_UI_TEST_IDS.APP_SHELL_MAIN` |
 | `?` shortcuts help button | `data-testid="shortcuts-help-button"` | `PD_UI_TEST_IDS.SHORTCUTS_HELP_BUTTON` |
 | Settings gear trigger | `data-testid="settings-slot-trigger"` | `PD_UI_TEST_IDS.SETTINGS_SLOT_TRIGGER` |
-| Settings modal container | `data-testid="settings-modal"` | `PD_UI_TEST_IDS.SETTINGS_MODAL` |
-| Settings modal close button | `data-testid="settings-modal-close"` | `PD_UI_TEST_IDS.SETTINGS_MODAL_CLOSE` |
+| Dock slide-over (settings, jobs, keybinds surfaces) | `data-testid="slide-over-panel"` | `PD_UI_TEST_IDS.SLIDE_OVER_PANEL` |
+| Dock slide-over close button | `data-testid="slide-over-panel-close"` | `PD_UI_TEST_IDS.SLIDE_OVER_PANEL_CLOSE` |
+| Cheatsheet bindings list | `data-testid="shortcuts-cheatsheet-body"` | `PD_UI_TEST_IDS.SHORTCUTS_CHEATSHEET_BODY` |
+| Dock job row | `data-testid="job-row"` | `PD_UI_TEST_IDS.JOB_ROW` |
 | Theme dark radio | `data-testid="settings-appearance-theme-dark"` | `PD_UI_TEST_IDS.SETTINGS_APPEARANCE_THEME_DARK` |
 | Theme light radio | `data-testid="settings-appearance-theme-light"` | `PD_UI_TEST_IDS.SETTINGS_APPEARANCE_THEME_LIGHT` |
 | Density compact | `data-testid="settings-appearance-density-compact"` | `PD_UI_TEST_IDS.SETTINGS_APPEARANCE_DENSITY_COMPACT` |
@@ -94,16 +99,19 @@ pdomain-ui's AppShell**. They are DOM-addressable via the selectors above
 Prefs are stored by `pdomain-ops.suite.prefs.LocalFilePrefs` at:
 `<PD_SUITE_DATA_DIR>/ui-prefs.json` (default: `~/.local/share/pdomain-suite/ui-prefs.json`).
 
-The JSON has two top-level keys:
-
-- `"common"` — `{theme, density, fontScale, ...}` (written by `write_common()`
-  via `uiPrefsConfig.persistCommon`)
-- `"apps"` → `"pdomain-ocr-simple-gui"` — app-specific prefs (written by
-  `write_app()` via `uiPrefsConfig.persistApp`). The `AppPrefs` model stores
-  `default_engine`, `default_language`, `recent_projects`, etc. here.
+`PUT /api/prefs` writes only through `write_app()`, so everything this app
+saves lands under `"apps"` → `"pdomain-ocr-simple-gui"`. The `AppPrefs` model
+stores `default_engine`, `default_language`, `recent_projects`,
+`jobs_location` and `ui_prefs` there. `uiPrefsConfig.persistCommon` sends
+`{ui_prefs: {...}}`, stored as `apps.pdomain-ocr-simple-gui.ui_prefs`
+(a pdomain-ops `CommonUIPrefs`); `uiPrefsConfig.persistApp` sends flat
+`AppPrefs` fields. The file's top-level `"common"` key is written only by the
+suite routes (`/api/suite/prefs/common`, e.g. the Updates panel's
+`update_policy`).
 
 In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
-(see `tests/conftest.py`), which wipes the adapter before each test.
+(see `tests/e2e/conftest.py`), which PUTs the full `AppPrefs()` defaults
+before each test.
 
 ---
 
@@ -116,10 +124,14 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
   `data-testid="app-shell-header"` and `data-testid="app-shell-main"` are
   present; `data-testid="home-page"` is visible inside the main zone
 - **Backend / side-effects:** `GET /api/config` → 200 `{mode, is_containerized,
-  detected_device, gpu_available}` consumed by ConfigProvider; `GET /api/prefs`
+  detected_device, gpu_available, ocr_engines, upload_max_bytes,
+  upload_max_files}` consumed by ConfigProvider; `GET /api/prefs`
   → 200 `AppPrefs` consumed by AppShell's `uiPrefsConfig.load`; no writes
-- **Bad-state / error:** Server down → React renders shell but ConfigProvider
-  stays in loading state; `data-testid="home-page"` shows "Loading…" indefinitely
+- **Bad-state / error:** `GET /api/config` fails → React renders the shell;
+  ConfigProvider sets its error flag and `ConfigErrorBanner`
+  (`data-testid="app-config-error-banner"`, "Could not load app configuration —
+  some options are hidden." with Retry and Dismiss) appears above the routes,
+  while HomePage shows its own `home-config-error` block (B-HOME-014)
 - **Tier(s):** A
 - **Regression:** no
 - **Test:** `tests/e2e/test_click_paths_app_shell.py::test_app_shell_loads`
@@ -151,16 +163,19 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
 - **Flow(s):** —
 - **Trigger:** User clicks the jobs-pill button while 1+ jobs are active
 - **Preconditions:** At least one job is running/queued
-- **Observable output:** `data-testid="right-panel"` appears with a
-  `data-testid="jobs-drawer"` inside; each job row shows the job's title,
-  phase/progress message and progress percentage. Hovering the Jobs button
+- **Observable output:** The utility dock's `data-testid="slide-over-panel"`
+  appears with `data-testid="jobs-panel-body"` inside; each job from
+  GET `/api/jobs` renders as a `data-testid="job-row"` showing its name,
+  state and progress percentage. Hovering the Jobs button
   alone does **not** open `jobs-pill-popover`, preventing stale hover surfaces
   from sticking after a job finishes.
 - **Backend / side-effects:** No additional backend call on click; data is from
-  the existing `useActiveJobs` cache (GET /api/jobs poll). Clicking a drawer
-  row's "Open project" action navigates to `/jobs/<id>`.
+  the existing `useActiveJobs` cache (GET /api/jobs poll), passed to
+  `AppShell.jobs.activeJobs`. A finished row's Open button
+  (`data-testid="job-row-open"`) navigates to `/jobs/<id>`; its delete button
+  calls DELETE `/api/jobs/{id}` and refetches the list.
 - **Bad-state / error:** Jobs button hovered while active → no panel opens.
-  Dismissing the drawer hides the right panel. All jobs complete / GET
+  `slide-over-panel-close` hides the dock. All jobs complete / GET
   `/api/jobs` returns empty → count badge disappears.
 - **Tier(s):** A
 - **Regression:** no
@@ -174,11 +189,13 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
 - **Trigger:** User clicks the `?` button (`data-testid="shortcuts-help-button"`)
   in the header, OR presses the `?` key when focus is not in a text input
 - **Preconditions:** App is loaded with `ShortcutsProvider` mounted
-- **Observable output:** `data-testid="shortcuts-cheatsheet"` dialog appears;
-  it lists the keyboard shortcuts registered by whichever screen is currently
+- **Observable output:** `data-testid="shortcuts-cheatsheet-body"` appears —
+  inside the utility dock's keybinds surface for a button click, inside the
+  `data-testid="shortcuts-cheatsheet"` dialog for the `?` key. It lists the
+  keyboard shortcuts registered by whichever screen is currently
   mounted (e.g. PageViewPage registers j/k/←/→, Ctrl+S, Ctrl+R, etc.)
-- **Backend / side-effects:** None (purely client-side ShortcutsContext state:
-  `openCheatsheet()` → `isOpen = true`)
+- **Backend / side-effects:** None (purely client-side: the button toggles the
+  dock's `keybinds` surface; the `?` key sets ShortcutsContext `isOpen = true`)
 - **Bad-state / error:** Clicking `?` when no screen bindings are registered
   (e.g. on the HomePage which only registers the `n` binding) → cheatsheet opens
   with just the home-page binding listed
@@ -188,7 +205,7 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
   `tests/e2e/test_click_paths_app_shell.py::test_shortcuts_cheatsheet_opens_on_question_mark_key`
 - **Note (registry gap):** `ShortcutsProvider` + `useShortcuts` from
   `@pdomain/pdomain-ui/hooks` and the `?` keydown handler in `ShortcutsContext`
-  are present in the INSTALLED registry 0.2.2 bundle (verified). Local-dev
+  are present in the INSTALLED registry 0.12.1 bundle (verified). Local-dev
   symlink to pdomain-ui is not required for this behavior.
 
 ---
@@ -196,15 +213,16 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
 ### B-SHELL-005 — Shortcuts cheatsheet closes on Escape
 
 - **Flow(s):** —
-- **Trigger:** Cheatsheet dialog is open; user presses Escape
-- **Preconditions:** `data-testid="shortcuts-cheatsheet"` is visible (B-SHELL-004
-  completed)
-- **Observable output:** `data-testid="shortcuts-cheatsheet"` disappears from
-  the DOM (dialog unmounts or is hidden)
-- **Backend / side-effects:** None (ShortcutsContext: `closeCheatsheet()` →
-  `isOpen = false`)
-- **Bad-state / error:** No close control rendered → dialog can only be
-  dismissed by Escape (fallback behavior of the underlying dialog primitive)
+- **Trigger:** Cheatsheet is open; user presses Escape
+- **Preconditions:** `data-testid="shortcuts-cheatsheet-body"` is visible
+  (B-SHELL-004 completed)
+- **Observable output:** `data-testid="shortcuts-cheatsheet-body"` disappears
+  from the DOM (dock slide-over or dialog closes); the `?` button reopens it
+- **Backend / side-effects:** None (the dock's SlideOverPanel handles Escape;
+  for the dialog, ShortcutsContext sets `isOpen = false`)
+- **Bad-state / error:** The dock surface also closes via
+  `slide-over-panel-close`; the `?`-key dialog has no close control of its own
+  and is dismissed by Escape (behavior of the underlying dialog primitive)
 - **Tier(s):** A
 - **Regression:** no
 - **Test:** `tests/e2e/test_click_paths_app_shell.py::test_shortcuts_cheatsheet_closes_on_escape`
@@ -217,11 +235,12 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
 - **Trigger:** User clicks the gear icon (`data-testid="settings-slot-trigger"`)
   in the header
 - **Preconditions:** App is loaded
-- **Observable output:** `data-testid="settings-modal"` is visible; the
-  Appearance tab is active (font-scale slider, theme and density controls visible)
-- **Backend / side-effects:** None on open (settings-modal reads state already
-  loaded by `uiPrefsConfig.load` at startup); no API call on modal open
-- **Bad-state / error:** No bad-state for opening; the modal always renders
+- **Observable output:** The utility dock's `data-testid="slide-over-panel"`
+  is visible with the settings surface; the Appearance tab is active
+  (font-scale slider, theme and density controls visible)
+- **Backend / side-effects:** None on open (the settings panel reads state already
+  loaded by `uiPrefsConfig.load` at startup); no API call on open
+- **Bad-state / error:** No bad-state for opening; the panel always renders
 - **Tier(s):** A
 - **Regression:** no
 - **Test:** `tests/e2e/test_click_paths_app_shell.py::test_settings_modal_opens_on_gear_click`
@@ -231,12 +250,13 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
 ### B-SHELL-007 — Settings modal closes on close button
 
 - **Flow(s):** —
-- **Trigger:** Settings modal is open; user clicks
-  `data-testid="settings-modal-close"`
-- **Preconditions:** `data-testid="settings-modal"` is visible (B-SHELL-006
+- **Trigger:** Settings panel is open; user clicks
+  `data-testid="slide-over-panel-close"`
+- **Preconditions:** `data-testid="slide-over-panel"` is visible (B-SHELL-006
   completed)
-- **Observable output:** `data-testid="settings-modal"` disappears
-- **Backend / side-effects:** None (modal state only)
+- **Observable output:** `data-testid="slide-over-panel"` disappears; the gear
+  reopens it
+- **Backend / side-effects:** None (dock state only)
 - **Bad-state / error:** —
 - **Tier(s):** A
 - **Regression:** no
@@ -247,7 +267,7 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
 ### B-SHELL-008 — Theme toggle persists via /api/prefs
 
 - **Flow(s):** —
-- **Trigger:** Settings modal is open; user clicks the Light theme radio
+- **Trigger:** Settings panel is open; user clicks the Light theme radio
   (`data-testid="settings-appearance-theme-light"`)
 - **Preconditions:** Current theme is Dark (default)
 - **Observable output:** `data-theme="light"` attribute is applied to the
@@ -255,7 +275,8 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
   radio is selected
 - **Backend / side-effects:** `PUT /api/prefs` with body
   `{ui_prefs: {theme: "light", density: <current>, fontScale: <current>}}`
-  → 200; prefs file `ui-prefs.json` `common.theme` is updated to `"light"`;
+  → 200; prefs file `ui-prefs.json`
+  `apps.pdomain-ocr-simple-gui.ui_prefs.theme` is updated to `"light"`;
   on next page load, `GET /api/prefs` returns `ui_prefs.theme === "light"`
   and the shell re-applies the light theme
 - **Bad-state / error (PUT fails):** A non-ok response from PUT /api/prefs
@@ -273,14 +294,15 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
 ### B-SHELL-009 — Density toggle persists via /api/prefs
 
 - **Flow(s):** —
-- **Trigger:** Settings modal is open; user clicks the Compact density radio
+- **Trigger:** Settings panel is open; user clicks the Compact density radio
   (`data-testid="settings-appearance-density-compact"`)
 - **Preconditions:** Current density is Normal (default)
 - **Observable output:** `data-density="compact"` attribute is applied to the
-  document root; the Compact option is selected in the modal
+  `data-testid="app-shell"` element; the Compact option is selected in the panel
 - **Backend / side-effects:** `PUT /api/prefs` with body
   `{ui_prefs: {theme: <current>, density: "compact", fontScale: <current>}}`
-  → 200; `ui-prefs.json` `common.density` updated; on reload the compact
+  → 200; `ui-prefs.json` `apps.pdomain-ocr-simple-gui.ui_prefs.density`
+  updated; on reload the compact
   density is re-applied
 - **Bad-state / error:** Same error-surfacing as B-SHELL-008 — a failed PUT
   now shows a sonner toast; density reverts on reload
@@ -294,7 +316,7 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
 ### B-SHELL-010 — FontScale slider persists via /api/prefs
 
 - **Flow(s):** —
-- **Trigger:** Settings modal is open; user drags the font-scale slider
+- **Trigger:** Settings panel is open; user drags the font-scale slider
   (`data-testid="settings-appearance-font-scale-slider"`) to a new value
 - **Preconditions:** Current fontScale is 1.0 (default); new value is in
   range [0.8, 1.4]
@@ -303,20 +325,23 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
   smaller
 - **Backend / side-effects:** `PUT /api/prefs` with body
   `{ui_prefs: {theme: <current>, density: <current>, fontScale: <newValue>}}`
-  → 200; `ui-prefs.json` `common.fontScale` updated; on reload the new scale
-  is re-applied. The clamp [0.8, 1.4] is **frontend-only** (`uiPrefsConfig.load`
-  at `App.tsx:72`); the backend stores whatever value is PUT and does not
-  enforce the range.
-- **Bad-state / error (slider out of range):** Values outside [0.8, 1.4] are
-  clamped by `uiPrefsConfig.load` on load — a stored value of 2.0 is read back
-  as 1.4
+  → 200. **Known gap:** the backend's `CommonUIPrefs` field is snake_case
+  `font_scale` and ignores unknown keys, so the camelCase `fontScale` is
+  dropped and `apps.pdomain-ocr-simple-gui.ui_prefs.font_scale` stays 1.0.
+  `uiPrefsConfig.load` (`App.tsx:326`) reads `ui_prefs.fontScale`, which GET
+  never returns, so a slider change is not re-applied after reload. Writing
+  `font_scale` directly persists; the backend enforces [0.8, 1.4] on it
+  (422 outside the range).
+- **Bad-state / error (slider out of range):** `uiPrefsConfig.load` clamps a
+  `fontScale` value to [0.8, 1.4] — a value of 2.0 would be read back as 1.4
 - **Bad-state / error (PUT fails):** Same error-surfacing as B-SHELL-008 — sonner
   toast; scale reverts on reload
 - **Tier(s):** A
 - **Regression:** yes — same silent-catch regression as B-SHELL-008/009
 - **Test:** `tests/e2e/test_click_paths_app_shell.py::test_fontscale_persists_via_api`
-  (slider visibility confirmed in the modal; Playwright drag-sequence for slider
-  value change deferred — PUT/GET round-trip covered by this test + B-SHELL-011)
+  (slider visibility confirmed in the settings panel; Playwright drag-sequence
+  for slider value change deferred — the test round-trips `font_scale` through
+  PUT/GET, not the `fontScale` key the UI sends)
 
 ---
 
@@ -327,8 +352,9 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
 - **Preconditions:** A prefs PUT has succeeded (B-SHELL-008/-009/-010); app
   reloaded
 - **Observable output:** On reload, `GET /api/prefs` is called by
-  `uiPrefsConfig.load`; the AppShell applies the persisted `theme`, `density`,
-  and `fontScale` attributes before first render
+  `uiPrefsConfig.load`; the AppShell applies the persisted `theme`
+  (`data-theme` on the document root) and `density` (`data-density` on the
+  `app-shell` element). `fontScale` is not restored (see B-SHELL-010)
 - **Backend / side-effects:** `GET /api/prefs` → 200 with persisted values;
   no writes on load
 - **Bad-state / error:** `GET /api/prefs` returns non-2xx or body parsing
@@ -348,8 +374,8 @@ In e2e tests, prefs isolation is provided by the `reset_prefs` autouse fixture
 - **Trigger:** User navigates to `/jobs/:id/pages/:idx` (PageViewPage); then
   opens the shortcuts cheatsheet via the `?` button
 - **Preconditions:** PageViewPage mounts and calls `useShortcuts(bindings)` with
-  its bindings (←/→/j/k, Ctrl+S, Ctrl+R, Ctrl+Shift+R, Ctrl+Shift+T/J, Ctrl+D)
-- **Observable output:** `data-testid="shortcuts-cheatsheet"` shows those
+  its bindings (←/→/j/k, Ctrl+S, Ctrl+R, Ctrl+Shift+R, Ctrl+Shift+T, Ctrl+D)
+- **Observable output:** `data-testid="shortcuts-cheatsheet-body"` shows those
   bindings grouped under their label/group headings
 - **Backend / side-effects:** None (ShortcutsContext aggregation is client-only)
 - **Bad-state / error:** User navigates away from PageViewPage → bindings are
@@ -398,7 +424,7 @@ reload.
 `onPersistError: handlePersistError` to `uiPrefsConfig`, where
 `handlePersistError` calls `toast.error(...)` from sonner. `UIPrefsConfig`
 already accepts the optional `onPersistError` callback (verified in registry
-0.2.2 `shell.d.ts`).
+0.12.1 `shell/types.d.ts`).
 
 Covered by unit tests in
 `frontend/src/__tests__/AppPrefsError.test.tsx` and Tier-A e2e in

@@ -2,7 +2,7 @@
 Status: draft
 Owner: CT
 Created: 2026-05-29
-Last verified: 2026-07-19
+Last verified: 2026-11-07
 Kind: spec
 ---
 
@@ -13,6 +13,9 @@ Kind: spec
 - **Stage:** design
 - **Source:** 2026-07-14 docgraph migration; re-checked 2026-07-19 against code,
   architecture runtime-flows §4–5, and intent-map "Download truth separation".
+  Re-checked 2026-11-07: still unimplemented. `GET /api/jobs/{id}/download` in
+  `routes/downloads.py` takes only `include`, and only `pipeline.run_project`
+  writes the `spec.output_dir` mirror.
 - **Accepted findings:** The review compared the documented contract with current
   implementation and accepted the material deviations recorded in the architecture
   and authored context.
@@ -34,9 +37,10 @@ Kind: spec
 The download surface conflates two things the maintainer wants to separate:
 the OCR engine's **original** output and the user's **modified** text.
 
-Today every download — the per-page buttons on PageViewPage (`B-PAGEVIEW-016`)
-and the "Download results" button on ResultsPage (`B-RESULTS-006` /
-`B-RESULTS-007`) — hits the same job-level endpoint
+Today every download — the two download buttons on PageViewPage
+(`B-PAGEVIEW-016`) and the two on ResultsPage (`B-RESULTS-006` /
+`B-RESULTS-007`), "images + text" and "images + text + JSON" — hits the same
+job-level endpoint
 `GET /api/jobs/{id}/download?include=<tokens>` and streams the `spec.output_dir`
 mirror as a ZIP. That mirror is written **only** by `pipeline.run_project`; it
 is never refreshed by a save-text edit or a single-page rerun
@@ -75,10 +79,12 @@ Split download into two intents, at two scopes:
 
 ## Reconciliation with M4's managed-only include-filter (load-bearing)
 
-M4 just shipped (`B-RESULTS-006`, commit `aa6759a`) a managed-mode-only
+M4 shipped (`B-RESULTS-006`, commit `aa6759a`) a managed-mode-only
 **include-filter**: text/json checkboxes on the ResultsPage download button
-that drive the `?include=text,json` query param (images always included). That
-filter is a *member selector on the single combined ZIP* — it is the seam this
+that drove the `?include=text,json` query param (images always included).
+Commit `8d49ad3` (2026-06-04) replaced the checkboxes with two explicit
+buttons, `?include=text` and `?include=text,json`, on both ResultsPage and
+PageViewPage. The filter is a *member selector on the single combined ZIP* — it is the seam this
 download model has to grow out of, not replace blindly. When this spec is
 picked up it MUST reconcile with that filter:
 
@@ -86,8 +92,9 @@ picked up it MUST reconcile with that filter:
   toggle: "original" ≈ `include=text,json(+images)`, "modified" ≈
   `include=text` but sourced from the **live sidecar `edited_text`**, not the
   stale `output_dir` mirror.
-- The filter currently renders **only** in managed output mode
-  (`showDownload = state==='succeeded' && output_mode==='managed'`); the new
+- On ResultsPage the buttons render **only** in managed output mode
+  (`showDownload = state==='succeeded' && output_mode==='managed'`). The
+  PageViewPage buttons render in every output mode. The new
   model has to decide whether per-page / non-managed downloads get the same
   intent split or stay mirror-based.
 - The staleness fix is implicit in "modified": a modified download must read
@@ -101,7 +108,7 @@ picked up it MUST reconcile with that filter:
   mirror (or freshly-regenerated mirror) for "original".
 - A per-page download scope distinct from the whole-job scope.
 - UI: distinct affordances for original vs modified on both PageViewPage and
-  ResultsPage; fold the M4 text/json filter into the original intent.
+  ResultsPage; fold today's text and text+JSON buttons into the original intent.
 - Behavior records updated: `B-PAGEVIEW-010` (save backend effect),
   `B-PAGEVIEW-016` (per-page download), `B-RESULTS-006/007` (project download)
   re-pointed at the new model; the stale-mirror limitation note retired.

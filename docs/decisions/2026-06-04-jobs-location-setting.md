@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-06-04
-Last verified: 2026-07-14
+Last verified: 2026-11-07
 Kind: decision
 ---
 
@@ -67,3 +67,12 @@ location even when the env var is overriding the pref.
   order. Changing the preference does not move existing jobs.
 - Output/jobs-meta/uploads roots are unchanged — scope is the jobs/projects
   root only.
+
+## Verification note
+
+Rechecked against the code on 2026-11-07; the decision still holds. The
+precedence lives in `storage._projects_root()`, the save check in
+`routes/prefs.py`, and the panel in `frontend/src/components/JobsLocationSettings.tsx`.
+One detail differs from the wording above and has since the first commit,
+`594b28c`: the `400` message appends the OS reason, as
+`jobs location is not writable: <path> (<reason>)`.

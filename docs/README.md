@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-19
-Last verified: 2026-07-19
+Last verified: 2026-11-07
 Kind: process
 ---
 
@@ -22,10 +22,11 @@ How documentation is organized in this repo.
 | `research/` | Investigation in progress. Messy by design. | Exploring before committing to a design. |
 | `runbooks/` | Operational reference — something is broken or being operated. | An on-call or ops task needs a recipe. |
 | `specs/` | Aspirational, pre-implementation design. | Describing what to build, before code. |
-| `templates/` | Issue, spec, plan, ADR boilerplate. | Adding a starter template for a new doc type. |
+| `templates/` | Issue, spec, plan, ADR boilerplate. Empty today; the issue template is `issues/TEMPLATE.md`. | Adding a starter template for a new doc type. |
 | `usage/` | Downstream reference — how to consume this app/tool/library. | A user or integrator needs to know how to use it. |
 
-Empty folders are intentional and tracked via `.gitkeep`.
+Empty folders are intentional and tracked via `.gitkeep`. `roadmap.md` sits at
+the top of `docs/` and lists the remaining work.
 
 ## Current document index
 
@@ -33,14 +34,15 @@ Empty folders are intentional and tracked via `.gitkeep`.
 - Context: [current state](context/current-state.md), [intent map](context/intent-map.md), [decisions](context/decisions.md), [GitHub issue migration ledger](context/github-issue-migration-ledger.md), and [deletion journal](context/github-issue-deletion-journal.md).
 - Issues: [index](issues/README.md) and open [dep-refresh auto-land](issues/2026-08-08-dep-refresh-cannot-auto-land.md).
 - Roadmap: [remaining work](roadmap.md).
+- Plans: [suite launcher opener closeout](plans/2026-07-21-suite-launcher-opener-closeout.md), still open for one stale comment.
 - Decisions: [jobs location](decisions/2026-06-04-jobs-location-setting.md) and [preserved runtime boundaries](decisions/2026-07-13-preserved-runtime-boundaries.md).
 - Process: [lint deviations](process/lint-deviations.md), [local development](process/local-dev.md), and [writing style](process/writing-style.md).
 - Runbooks: [installation](runbooks/install.md), [CUDA setup](runbooks/cuda-setup.md), and [release](runbooks/release.md).
-- Active and deferred contracts: [download model](specs/2026-05-29-download-model.md) and the [behavior-spec index](specs/behavior/README.md), including [coverage](specs/behavior/coverage.md), [flows](specs/behavior/flows.md), [app shell](specs/behavior/screen-app-shell.md), [home](specs/behavior/screen-home.md), [page view](specs/behavior/screen-page-view.md), and [results](specs/behavior/screen-results.md).
+- Active and deferred contracts: [download model](specs/2026-05-29-download-model.md), [suite launcher opener closeout design](specs/2026-07-21-suite-launcher-opener-closeout-design.md), and the [behavior-spec index](specs/behavior/README.md), including [coverage](specs/behavior/coverage.md), [flows](specs/behavior/flows.md), [app shell](specs/behavior/screen-app-shell.md), [home](specs/behavior/screen-home.md), [page view](specs/behavior/screen-page-view.md), and [results](specs/behavior/screen-results.md).
 
 Former repository GitHub issues (#1–#34, #36–#38) were deleted; status and
 evidence live in the [migration ledger](context/github-issue-migration-ledger.md)
 and [governed issues](issues/README.md), not the GitHub tracker. Verbatim
 archive text: `git show ec3979f:docs/decisions/2026-07-17-closed-issues-archive.md`.
-This layout is workspace-standard; see
-`/workspaces/ocr-container/docs/README.md` for the master when that tree exists.
+This layout is workspace-standard; the master copy is `docs/README.md` in the
+private `ConcaveTrillion/ocr-container-meta` repo.

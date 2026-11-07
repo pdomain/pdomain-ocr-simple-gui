@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-26
-Last verified: 2026-07-14
+Last verified: 2026-11-07
 Kind: process
 ---
 
@@ -44,10 +44,10 @@ the justification. Update this file whenever a new suppression is added.
 
 ### `tests/*`
 
-Suppressed: `E741 N806 S101 S104 S105 S106 S301 S311 S603 T201 ANN D PLR2004 PT011 PT018 S108 PLR0133 PLW2901 PLW1510 PERF401 PERF402 TRY BLE001 TC`
+Suppressed: `E741 N806 S101 S104 S105 S106 S301 S311 S603 S607 T201 ANN D PLR2004 PT011 PT018 S108 PLR0133 PLW2901 PLW1510 PERF401 PERF402 TRY BLE001 TC`
 
 **Justification:** Test files use `assert` (S101), `print` for debugging (T201),
-magic numbers for expected HTTP status codes (PLR2004), subprocess calls (S603),
+magic numbers for expected HTTP status codes (PLR2004), subprocess calls (S603, S607),
 hardcoded bind addresses (S104), and do not require type annotations or docstrings.
 These suppressions are standard across all pd-* repos.
 
@@ -96,8 +96,8 @@ an approved pattern.
 
 **Suppression form:** `except Exception:  # noqa: BLE001`
 
-**Justification:** At startup and in background tasks, broad exception catching is
-intentional at these boundaries. The purge command treats malformed JSON and I/O
+**Justification:** Broad exception catching is intentional at these
+command-line boundaries. The purge command treats malformed JSON and I/O
 failures as unreadable input; installer probes treat unavailable system commands
 as absent capabilities.
 
@@ -118,8 +118,9 @@ would break Pydantic's runtime introspection.
 **Suppression form:** `global _prefs_adapter, _dispatcher  # noqa: PLW0603`
 
 **Justification:** Module-level singleton state for the FastAPI lifespan pattern.
-The globals are initialized once in `startup` and torn down in `shutdown`; this
-is the standard pattern for FastAPI app-level state before `app.state` was common.
+The globals are set once inside the `lifespan` async context manager at
+startup; this is the standard pattern for FastAPI app-level state before
+`app.state` was common.
 
 ### Other inline Ruff suppressions
 
@@ -131,14 +132,15 @@ is the standard pattern for FastAPI app-level state before `app.state` was commo
   `container` variable.
 - `S104`: `__main__.py`; wildcard bind addresses are normalized to loopback for
   browser launch.
-- `S603`, `S607`, and `T201`: `installer/install_engine.py`,
-  `installer/wizard.py`, and `scripts/purge_test_jobs.py`; these command-line
-  tools intentionally run fixed subprocess arguments and print operator output.
+- `S603`, `S607`, and `T201`: these command-line tools intentionally run
+  fixed subprocess arguments and print operator output.
+  `installer/install_engine.py` uses all three, `installer/wizard.py` uses
+  `S603` and `T201`, and `scripts/purge_test_jobs.py` uses `T201`.
 
 ### Type-checker boundary suppressions
 
 **Production and installer files:** `app.py`, `auth.py`, `models.py`,
-`storage.py`, `routes/downloads.py`, `runtime/ocr_engines.py`,
+`routes/downloads.py`, `runtime/ocr_engines.py`,
 `statecharts/job_lifecycle.py`, `scripts/purge_test_jobs.py`,
 `installer/install_engine.py`, and `installer/wizard.py`.
 
@@ -148,17 +150,23 @@ is the standard pattern for FastAPI app-level state before `app.state` was commo
 `tests/test_dynamic_port.py`, `tests/test_entrypoint.py`,
 `tests/test_fake_dispatcher.py`, `tests/test_jobs_location_pref.py`,
 `tests/test_models.py`, `tests/test_pipeline.py`, `tests/test_purge_test_jobs.py`,
-`tests/test_security_auth_token.py`, `tests/test_suite.py`,
-and `tests/test_update_github_actions.py`.
+`tests/test_security_auth_token.py`, and `tests/test_suite.py`.
 
 **Justification:**
 
 - Third-party boundaries cover dynamic FastAPI dependency defaults,
-  `python-statemachine`, untyped `pytesseract`, and resource traversables.
+  `python-statemachine`, untyped `pytesseract`, resource traversables, and the
+  `subprocess.run` default in the installer.
+- `app.py` assigns the `FakeStageDispatcher` test double to the dispatcher
+  global when `PDOMAIN_OCR_FAKE_DISPATCHER` is set.
+- The installer keeps `_query_cuda_version` private but imports it from
+  `installer/wizard.py`, and keeps an unused `mgr` parameter in its install
+  step signature.
 - Test-only boundaries cover dynamic fixtures, monkeypatches, fake callables,
   `subprocess.CompletedProcess` generics, socket tuples, and deliberately broad
   factory inputs.
-- `scripts/purge_test_jobs.py`, `storage.py`, `app.py`, and several tests still
+- `scripts/purge_test_jobs.py`, `app.py`, `installer/install_engine.py`, and
+  several tests still
   contain historical mypy-style comments. They are fully catalogued here but
   must be converted when the affected boundary is next changed.
 
@@ -170,21 +178,55 @@ and `tests/test_update_github_actions.py`.
 intentional import cycles that do not affect runtime initialization. All other
 recommended diagnostics remain enabled and warnings fail the type gate.
 
+`.basedpyright/baseline.json` exists but lists no files, so it suppresses
+nothing.
+
 ---
 
 ## Frontend ESLint suppressions
 
 ### `react-hooks/exhaustive-deps` — `PageViewPage.tsx`
 
-**Files:** `frontend/src/pages/PageViewPage.tsx` (two focused disables)
+**Files:** `frontend/src/pages/PageViewPage.tsx` (two disables on the same
+`useMemo`)
 
 **Suppression form:** `// eslint-disable-next-line react-hooks/exhaustive-deps`
 
-**Justification:** The page loader and navigation effects intentionally exclude
-derived callbacks whose identity changes without changing the requested job or
-page. The local comments identify the dependency boundary.
+**Justification:** The keyboard-shortcut `bindings` array is built once with
+empty dependencies. Its handlers read the latest values through
+`shortcutCtxRef`, so adding dependencies would rebuild the bindings on every
+render for no benefit. The local comment says not to add them.
+
+### Config-level ESLint override
+
+`frontend/eslint.config.js` turns `@typescript-eslint/no-explicit-any` off for
+`src/**/*.test.{ts,tsx}` and `src/test/**`. Test mocks and fixtures need loose
+types; the rule stays an error in app code.
+
+## Markdownlint configuration
+
+`.markdownlint-cli2.jsonc` disables `MD013` (line length) and `MD060` (table
+column style), because tables and wrapped prose in `docs/` trip them for no
+reader benefit. It also ignores `docs/issues/TEMPLATE.md`, which keeps
+fill-in placeholders copied from the shared-devtools bundle.
+
+## ShellCheck directives
+
+ShellCheck is not a pre-commit hook here, but two scripts carry directives:
+
+- `scripts/release-common.sh`: `# shellcheck disable=SC2086` before
+  `gh release create`, for deliberate word splitting over the asset list.
+- `install.sh`: `# shellcheck disable=SC2064` before the `trap`, so the temp
+  directory path is expanded when the trap is set.
 
 ## Audit method
+
+On 2026-11-07 the catalogue was rechecked with `rg` for `noqa`,
+`pyright: ignore`, `type: ignore`, `eslint-disable` and `shellcheck disable`
+across `src/`, `installer/`, `scripts/`, `tests/`, `frontend/src/` and the
+root scripts, and against `pyproject.toml`, `frontend/eslint.config.js` and
+`.markdownlint-cli2.jsonc`. It removed `storage.py`, which no longer has a
+suppression, and `tests/test_update_github_actions.py`, deleted in 1dd81a2.
 
 The 2026-07-14 migration compared this catalogue with source and configuration
 using `rg` over Python, TOML, YAML, and frontend files, then ran Ruff and

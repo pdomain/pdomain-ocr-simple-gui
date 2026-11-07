@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-30
-Last verified: 2026-07-14
+Last verified: 2026-11-07
 Kind: spec
 ---
 
@@ -44,7 +44,8 @@ surface (DOM / toasts / route).
 The HomePage backend writes to **four** distinct locations (env-overridable):
 
 - **Canonical project state** — `<PD_OCR_SIMPLE_GUI_PROJECTS_ROOT>/<project_id>/`
-  (default `~/.local/share/pdomain-suite/simple-gui/projects/`):
+  (env var wins, then the Settings → Jobs `jobs_location` pref, then the
+  default `~/.local/share/pdomain-suite/simple-gui/projects/`):
   - `project.json` — `{spec, status}` (ProjectSpec + ProjectStatus).
   - `pages/<page_name>.json` — per-page sidecar. **`<page_name>` is the source
     image filename WITH extension** (e.g. `scan.png.json`, `page-001.png.json`),
@@ -89,9 +90,11 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   (containerized → the "Upload" picker, non-containerized → the combined picker).
   A drop-capable `SourcePicker` (`allowDrop`) is rendered.
 - **Observable output:** Drop zone switches to the "chosen" view
-  (`data-testid="source-picker-chosen"`) showing `📁 <folder>` for a folder drop,
-  the single filename for one file, or `<n> files`; the `JobConfigInline` form
-  (`data-testid="job-config-inline"`) appears below. In `local+containerized`
+  (`data-testid="source-picker-chosen"`) titled with the folder name for a
+  folder drop, the filename for a single `.zip`, or `<n> file(s) selected`
+  with a removable file list; the `JobConfigInline` form
+  (`data-testid="job-config-inline"`) gains the committed-source affordances
+  (the "Use different files" cancel button, an enabled Run OCR). In `local+containerized`
   mode (where both an "Upload" picker and an "Existing folder or zip" path picker
   are rendered), choosing an upload source **hides the path picker** — only the
   chosen picker remains visible alongside the `JobConfigInline` form. Clearing
@@ -101,20 +104,23 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   `<UPLOAD_ROOT>/<upload_id>/`; zips extracted in place. No `project.json`
   written yet (the job is created later on submit).
 - **Bad-state / error:** Upload failure (non-2xx) renders an alert
-  (`data-testid="source-picker-upload-error"`, `role="alert"`) with the error;
-  the chosen description still shows but no `upload_id` is set so the config
-  form does not appear. (Empty file set is its own record — see `B-HOME-015`.)
+  (`data-testid="source-picker-upload-error"`, `role="alert"`) reading
+  `POST /api/uploads failed: <status>`; the chosen description still shows but
+  no `upload_id` is set, so no source is committed (no cancel button, Run OCR
+  disabled). (Empty file set is its own record — see `B-HOME-015`.)
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_upload_dragdrop.py::test_drag_drop_upload_flow_reaches_results_with_page_rows`,
+  `tests/e2e/test_click_paths_upload_dragdrop.py::test_upload_hides_path_input_in_containerized_mode`
 
 ### B-HOME-002 — Upload via the file picker (click drop zone or hidden input)
 
 - **Flow(s):** F-UPLOAD-OCR-DOWNLOAD-01
-- **Trigger:** User clicks the drop zone (which calls `openPicker()`), or a
+- **Trigger:** User clicks "Choose file..." (or "Browse folder...", which
+  opens a separate hidden `webkitdirectory` input), or a
   test sets files directly on the hidden file input
   (`data-testid="source-picker-file-pick"`, `APP_TEST_IDS.sourcePickerFilePick`;
-  `accept="image/*,.zip"`, `multiple`).
+  `accept="image/*,.pdf,.tif,.tiff,.jp2,.zip"`, `multiple`).
 - **Preconditions:** Same as B-HOME-001 — a drop-capable `SourcePicker`.
 - **Observable output:** Identical to B-HOME-001 — chosen view + `JobConfigInline`.
 - **Backend / side-effects:** Identical to B-HOME-001 (`POST /api/uploads`,
@@ -123,14 +129,15 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   Selecting then cancelling the OS dialog yields an empty file list → no request.
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_upload_filepicker.py::test_file_picker_upload_flow_reaches_results_with_page_rows`
 
 ### B-HOME-003 — Choose an existing local path (folder / image / zip)
 
 - **Flow(s):** —
 - **Trigger:** User types a path into the path input
   (`data-testid="source-picker-path-input"`, `APP_TEST_IDS.sourcePickerPathInput`)
-  and submits the inner form (presses Enter or clicks "Use this path").
+  and submits the inner form (presses Enter or clicks "Open"), or clicks one
+  of the "Recent:" source-path buttons built from `recent_projects`.
 - **Preconditions:** A `SourcePicker` with `allowPathInput` is rendered — i.e.
   mode is `local` (containerized → the second "Existing folder or zip" picker;
   non-containerized → the combined picker). Path input is NOT shown in `managed`
@@ -148,7 +155,8 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   `onPathChosen`). A bad path surfaces only at job submit (see B-HOME-009).
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_local_path.py::test_local_path_folder_next_to_source_output`,
+  `tests/e2e/test_click_paths_local_path.py::test_path_hides_upload_picker_in_containerized_mode`
 
 ### B-HOME-004 — Clear the chosen source (deletes the staging dir)
 
@@ -166,9 +174,10 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   hides the alternative picker (see `B-HOME-001` / `B-HOME-003`), clearing also
   **restores both pickers** — the full "Upload" and "Existing folder or zip"
   inputs reappear so the user can choose a different source.
-- **Backend / side-effects:** For an **upload** source, the SourcePicker calls
-  `DELETE /api/uploads/{upload_id}`, which removes `<UPLOAD_ROOT>/<upload_id>/`
-  from disk (idempotent: 204 when nothing matches, 400 for an unsafe id). For a
+- **Backend / side-effects:** For an **upload** source, HomePage's
+  `clearSource` calls `DELETE /api/uploads/{upload_id}`, which removes `<UPLOAD_ROOT>/<upload_id>/`
+  from disk (200 when removed, idempotent 204 when nothing matches, 400 for an
+  unsafe id). For a
   **path** source there is no staging dir, so no DELETE is issued.
 - **Bad-state / error:** A failed DELETE is best-effort — it must not block the
   UI reset. A DELETE with a traversal/unsafe `upload_id` → 400 and deletes
@@ -177,7 +186,9 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
 - **Regression:** yes — clearing previously orphaned the staged
   `<UPLOAD_ROOT>/<upload_id>/` dir on disk; staging dirs accumulated. Fixed in
   commit `f4f9969` (DELETE /api/uploads/{upload_id} + clear-handler wiring).
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_clear_source.py::test_clearing_upload_deletes_staging_dir`,
+  `tests/e2e/test_click_paths_upload_dragdrop.py::test_upload_hides_path_input_in_containerized_mode`,
+  `tests/e2e/test_click_paths_local_path.py::test_path_hides_upload_picker_in_containerized_mode`
 
 ### B-HOME-005 — Cancel the config form ("Use different files")
 
@@ -192,21 +203,25 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   options visible before source") the `JobConfigInline` section is **always
   rendered** — cancel clears the source (`onCancel` → `CLEAR_SOURCE`) rather
   than unmounting the form.
-- **Backend / side-effects:** None. (The cancel button on the config form does
-  not itself clear the SourcePicker's staged upload; clearing the picker —
-  `B-HOME-004` — is what deletes the staging dir.)
+- **Backend / side-effects:** `onCancel` is the same HomePage `clearSource`
+  handler as `B-HOME-004`: for an **upload** source it calls
+  `DELETE /api/uploads/{upload_id}` and resets the picker; for a **path**
+  source there is no backend call.
 - **Bad-state / error:** The cancel affordance is absent when no source is
   committed, so clicking it with no source chosen is not reachable.
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_clear_source.py::test_cancel_config_form_returns_to_picker`
 
 ### B-HOME-006 — Engine/language default from prefs; user can override
 
 - **Flow(s):** —
 - **Trigger:** Form mount loads defaults via `GET /api/prefs`; the user may then
   change the engine `<select>` (`data-testid="engine-select"`,
-  `APP_TEST_IDS.engineSelect`; options `doctr` / `tesseract`) and/or type into
+  `APP_TEST_IDS.engineSelect`; options are the available entries of
+  `GET /api/config` → `ocr_engines`: `doctr` always, `tesseract` only when its
+  executable and language data are found, otherwise a "Want to use
+  Tesseract?" link to `/help/tesseract` shows) and/or type into
   the language `Input` (`data-testid="language-input"`,
   `APP_TEST_IDS.languageInput`).
 - **Preconditions:** `JobConfigInline` visible.
@@ -215,7 +230,8 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   (model default: `"doctr"` / `"en"`). On a **fresh install** with no persisted
   prefs, the select shows `DocTR` with no user interaction needed — the
   settings-driven default is `doctr`. A user-saved `default_engine: "tesseract"`
-  makes the select start on `tesseract`. Select/field then reflect any user
+  makes the select start on `tesseract` when Tesseract is available
+  (`normalizeEngine` falls back to `doctr` otherwise). Select/field then reflect any user
   change. An empty or missing `default_engine` in the prefs response does not
   overwrite the `"doctr"` init default.
 - **Backend / side-effects:** `GET /api/prefs` on form mount. The chosen
@@ -224,7 +240,8 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   the simple GUI (commit `55749e2`): at submit, `normalizeEngineLanguage` maps
   English (`en`) to Tesseract's `eng` code, so a Tesseract job persists
   `spec.language == "eng"`. A non-English language with Tesseract is an
-  unsupported combination the backend rejects (`language '<x>' is unavailable`).
+  unsupported combination the backend rejects with 400
+  (`engine: Tesseract language '<x>' is unavailable. …`).
 - **Bad-state / error:** `GET /api/prefs` failure → defaults kept (`doctr`/`en`),
   no error shown (`.catch()` swallows — non-fatal, the user can still pick).
 - **Tier(s):** A
@@ -232,7 +249,7 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   `/api/prefs`, but `AppPrefs` only exposes `default_engine` /
   `default_language`, so saved defaults silently no-op'd and the form always
   started doctr/en. Fixed in commit `634c802` (read the correct keys).
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_config_form.py::test_config_form_seeds_engine_from_prefs_and_persists_choice`
 
 ### B-HOME-007 — Toggle text-normalization options
 
@@ -243,21 +260,21 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   (`APP_TEST_IDS.toggleIllustrationPlaceholders`, default OFF).
 - **Preconditions:** `JobConfigInline` visible.
 - **Observable output:** Toggle visual state flips. **Selector note:** the
-  `@pdomain/pdomain-ui` Toggle (Radix Switch) does NOT forward `data-testid` to
-  the DOM, so those testid constants are documentation-only. E2e must select via
-  `page.get_by_label(<label text>)`. Labels: "Convert curly quotes to straight",
+  `@pdomain/pdomain-ui` 0.12.1 Toggle forwards `data-testid` to the Radix Switch
+  root, but the e2e tests select via `page.get_by_label(<label text>)`. Labels: "Convert curly quotes to straight",
   "Convert em-dashes (—) to double hyphens (--)", "Emit [illustration]
   placeholders for figures".
 - **Backend / side-effects:** Values ride in `POST /api/jobs` as
   `straight_quotes`, `em_dash_to_double_hyphen`, `emit_illustration_placeholders`
   and persist into `spec`. They drive `apply_text_normalizations` +
-  `reorganize_page(emit_illustration_placeholders=…)` in the pipeline, changing
+  `layout_pass.reorganize_ocr_page(emit_illustration_placeholders=…)` (which
+  calls `Page.reorganize_page`) in the pipeline, changing
   the written `.txt` / sidecar text.
 - **Bad-state / error:** A toggle value that the backend doesn't recognise is
   impossible — they are plain booleans coerced by the request model.
 - **Tier(s):** A (a Tier-B would prove the toggles actually change real OCR text)
 - **Regression:** no
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_config_form.py::test_config_form_device_toggle_and_batch_persist_to_spec`
 
 ### B-HOME-008 — Select processing device (auto / cpu / gpu) + GPU help
 
@@ -283,13 +300,17 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   the config-error state (see B-HOME-014), not the device chooser.
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_config_form.py::test_config_form_device_toggle_and_batch_persist_to_spec`,
+  `tests/e2e/test_click_paths_config_form.py::test_gpu_help_toggle_and_panel`
 
 ### B-HOME-009 — Set output destination (next-to-source / specified / managed)
 
 - **Flow(s):** —
-- **Trigger:** User picks a segment in `OutputConfigPanel`
-  (`data-testid="output-config-panel"` / inner `output-mode-segmented`); when
+- **Trigger:** User picks a segment ("Next to source" / "Specified folder" /
+  "Managed (download)") in `OutputConfigPanel`
+  (`data-testid="output-config-panel"`; the inner `Segmented` is a
+  `role="radiogroup"` and does not forward its `output-mode-segmented` testid
+  prop to the DOM); when
   "Specified folder" is chosen, types into the path input
   (`data-testid="output-specified-path"`, `APP_TEST_IDS.outputSpecifiedPath`).
 - **Preconditions:** `JobConfigInline` visible. Available options are filtered:
@@ -312,7 +333,7 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   requires a path".
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_local_path.py::test_local_path_folder_next_to_source_output`
 
 ### B-HOME-010 — Set pages-per-batch and project name
 
@@ -322,17 +343,18 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   (`data-testid="batch-pages-input"`, `APP_TEST_IDS.batchPagesInput`).
 - **Preconditions:** `JobConfigInline` visible.
 - **Observable output:** Fields reflect typed values. Empty project name →
-  Run-OCR button is `disabled` (`disabled={submitting || !projectName.trim()}`).
+  Run-OCR button is `disabled`
+  (`disabled={submitting || source === null || !projectName.trim()}`).
 - **Backend / side-effects:** `batch_pages` rides in `POST /api/jobs` as
   `null` (blank → default 8) or `max(1, parseInt)`, persisting to
   `spec.batch_pages`; `name` persists to `spec.name` and seeds the recent-projects
   entry + the combined-output filename.
 - **Bad-state / error:** Submitting with a blank name (if the button were
-  somehow enabled) → client-side `setError("Project name is required.")` shown
+  somehow enabled) → client-side `setValidationError("Project name is required.")` shown
   in the alert block, no request fired.
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_config_form.py::test_config_form_device_toggle_and_batch_persist_to_spec`
 
 ### B-HOME-011 — Start the OCR job (submit the config form)
 
@@ -352,15 +374,22 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   `combined_txt` knob** — the server unconditionally writes per-page sidecars
   (`pages/<name>.json`), per-page `.txt`, `combined.txt`, and the output mirror
   (per-page `.txt` + `.json` + combined). Server writes `project.json` (queued),
-  enqueues `_pipeline_run_job` as a background task.
-- **Bad-state / error:** Non-2xx response → `setError("Server error: <body>")`
-  shown in the `role="alert"` block; the app stays on HomePage (no navigation).
+  adds the job to `recent_projects`, and enqueues
+  `_pipeline_run_job_with_semaphore` (wrapping `_pipeline_run_job`) as a
+  background task.
+- **Bad-state / error:** Non-2xx response → the raw response body (e.g.
+  `{"detail":"output: …"}`) becomes `submitError`, shown in the
+  `role="alert"` block; the app stays on HomePage (no navigation).
+  More than `PDOMAIN_MAX_CONCURRENT_JOBS` (default 3) jobs in flight → 429
+  "Too many concurrent jobs; try again later".
   Bad source / output combos → 400 (see B-HOME-009 / B-HOME-017 / B-HOME-018).
   Zero discovered images → job marked `failed` (see B-HOME-017).
 - **Tier(s):** A and B (B = the real OCR engine produces real `.txt`/sidecar
   output; covered by the existing `tests/e2e/test_real_ocr_pipeline.py`).
 - **Regression:** no
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_config_form.py::test_submit_always_writes_sidecar_and_combined`,
+  `tests/e2e/test_click_paths_upload_dragdrop.py::test_drag_drop_upload_flow_reaches_results_with_page_rows`,
+  `tests/e2e/test_real_ocr_pipeline.py` (Tier B)
 
 ### B-HOME-012 — Recent-projects list renders (and empty/loading states)
 
@@ -382,7 +411,8 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   error UI).
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_recent_projects.py::test_recent_projects_empty_state`,
+  `tests/e2e/test_click_paths_settings.py::test_prefs_persist_across_reload`
 
 ### B-HOME-013 — Open a recent project (click a row)
 
@@ -400,30 +430,34 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   behavior is **deferred to ResultsPage / M4** and is asserted there, not here.
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_recent_projects.py::test_recent_project_row_navigates_to_results`
 
 ### B-HOME-014 — Mode/container matrix drives which pickers render
 
 - **Flow(s):** —
-- **Trigger:** HomePage mounts and reads `GET /api/config` (via ConfigContext).
+- **Trigger:** HomePage mounts and reads `GET /api/config` (via the
+  `jobCreationMachine` `loadConfig` actor, which shares `fetchRuntimeConfig()`
+  with ConfigContext).
 - **Preconditions:** None.
 - **Observable output:**
   - `mode==="managed"` → one upload-only `SourcePicker` (drop, no path input).
   - `mode==="local" && containerized` → "Upload" picker (drop) + "Existing folder
     or zip" picker (path input, container-fs hint).
   - `mode==="local" && !containerized` → one combined picker (drop + path input).
-  - `cfg` not yet loaded → "Loading…".
+  - `cfg` not yet loaded → a bare "Loading..." placeholder.
 - **Backend / side-effects:** `GET /api/config` → `{mode, is_containerized,
-  detected_device, gpu_available}`.
+  detected_device, gpu_available, ocr_engines, upload_max_bytes,
+  upload_max_files}`.
 - **Bad-state / error:** `GET /api/config` failure (non-ok or network) →
   HomePage renders an error alert (`data-testid="home-config-error"`,
   `role="alert"`) with a Retry button (`data-testid="home-config-retry"`) that
-  re-runs the fetch — it does NOT hang on "Loading…".
+  re-runs the fetch — it does NOT hang on "Loading…". The shell's
+  `app-config-error-banner` (B-SHELL-001) appears as well.
 - **Tier(s):** A
 - **Regression:** yes — a failed `/api/config` left `cfg=null` forever, so
   HomePage hung on "Loading…" with no error and no recovery. Fixed in commit
   `ce96721` (ConfigContext error state + reload; HomePage error UI).
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_config_error.py::test_config_failure_shows_error_then_retry_recovers`
 
 ### B-HOME-015 — Empty upload (no files selected)
 
@@ -443,7 +477,7 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   good path is B-HOME-001 / B-HOME-002.
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_clear_source.py::test_empty_upload_makes_no_request_and_no_form`
 
 ### B-HOME-016 — Duplicate filenames in one upload / folder
 
@@ -464,7 +498,7 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   current behavior, asserted as a known invariant (no de-duplication / rename).
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_upload_filepicker.py::test_duplicate_basenames_collapse_to_one_on_disk`
 
 ### B-HOME-017 — Unsupported file types (no supported images found)
 
@@ -483,7 +517,7 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   ≥1 supported image (B-HOME-011 good path → succeeded).
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_job_failures.py::test_unsupported_file_types_mark_job_failed`
 
 ### B-HOME-018 — Oversize upload (size cap / file-count cap)
 
@@ -493,7 +527,8 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   (`PD_OCR_SIMPLE_GUI_UPLOAD_MAX_FILES`).
 - **Preconditions:** A drop-capable `SourcePicker`.
 - **Observable output:** The SourcePicker renders the upload-error alert
-  (`data-testid="source-picker-upload-error"`, `role="alert"`) — the chosen
+  (`data-testid="source-picker-upload-error"`, `role="alert"`, reading
+  "POST /api/uploads failed: 413") — the chosen
   view shows the description but no `upload_id` is set, so no source is
   committed. Since commit `3ef73f1` ("keep OCR options visible before source")
   the `JobConfigInline` section is always rendered, so the observable is the
@@ -502,14 +537,15 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
 - **Backend / side-effects:** `POST /api/uploads` returns **413** ("upload
   exceeds size cap" or "too many files"); the partially-written staging dir is
   cleaned up (`shutil.rmtree(staging, ignore_errors=True)`), so no orphan
-  remains. (A `.zip` whose extraction would exceed limits / traversal → handled
-  by the zip-traversal guard; an oversize zip source surfaces the same 413 /
-  cleanup path.)
+  remains. (A `.zip` that would expand past
+  `PD_OCR_SIMPLE_GUI_UPLOAD_MAX_EXTRACTED_BYTES` gets 413 "zip expands beyond
+  extraction cap"; one with a traversal entry gets 400 "zip traversal
+  blocked"; both take the same cleanup path.)
 - **Bad-state / error:** This record IS the bad path (a within-cap upload is
   B-HOME-001 / B-HOME-002).
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_job_failures.py::test_oversize_upload_shows_error_alert`
 
 ### B-HOME-019 — Missing / permission-denied output directory
 
@@ -525,14 +561,15 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   `role="alert"` block, staying on HomePage (no navigation).
 - **Backend / side-effects:** `resolve_output_dir` raises `OutputConfigError`
   (400) for the three rule violations before any project is written. A path that
-  passes the rules but fails at OS level (permission denied on `mkdir`) surfaces
-  as a non-2xx server error → same `role="alert"` "Server error" display; no
-  `project.json` is left in a usable state.
+  passes the rules but fails at OS level (permission denied on `mkdir`) is not
+  caught and surfaces as a 500 → the same `role="alert"` block shows the
+  response body; `resolve_output_dir` runs before `write_project`, so no
+  `project.json` is written.
 - **Bad-state / error:** This record IS the bad path; the good path is
   B-HOME-009 with a valid destination.
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_local_path.py::test_invalid_output_config_is_rejected_and_shown`
 
 ### B-HOME-020 — Concurrent jobs from the same screen
 
@@ -541,19 +578,21 @@ The HomePage backend writes to **four** distinct locations (env-overridable):
   source, and submit a second job while the first may still be running.
 - **Preconditions:** HomePage reachable after a prior submit (navigate back).
 - **Observable output:** Each submit produces its own results page at a distinct
-  `/jobs/<project_id>`; the AppHeader's active-jobs pill may show more than one
-  running job (polls `GET /api/jobs?state in {running,queued}`).
+  `/jobs/<project_id>`; the header's JobsPill may show more than one
+  running job (polls `GET /api/jobs` and filters to `running`/`queued`
+  client-side).
 - **Backend / side-effects:** Each `POST /api/jobs` mints a fresh
   `uuid4` `project_id` and its own `project.json` + background task; the two
   jobs write to disjoint `<PROJECTS_ROOT>/<project_id>/` dirs and disjoint
-  output mirrors. `GET /api/jobs` lists both. No shared mutable state couples
-  them — one job's failure does not affect the other.
+  output mirrors. `GET /api/jobs` lists both. One job's failure does not
+  affect the other. The only shared state is the concurrent-jobs semaphore:
+  a submit beyond `PDOMAIN_MAX_CONCURRENT_JOBS` (default 3) gets 429.
 - **Bad-state / error:** Two jobs that resolve to the **same** `specified`
   output dir would interleave files in that dir (last-writer-wins per filename);
   managed mode avoids this by keying the output dir on `job_id`.
 - **Tier(s):** A
 - **Regression:** no
-- **Test:** —
+- **Test:** `tests/e2e/test_click_paths_job_failures.py::test_concurrent_jobs_are_independent`
 
 ## Known regressions
 
