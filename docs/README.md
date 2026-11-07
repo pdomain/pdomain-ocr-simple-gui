@@ -34,11 +34,11 @@ the top of `docs/` and lists the remaining work.
 - Context: [current state](context/current-state.md), [intent map](context/intent-map.md), [decisions](context/decisions.md), [GitHub issue migration ledger](context/github-issue-migration-ledger.md), and [deletion journal](context/github-issue-deletion-journal.md).
 - Issues: [index](issues/README.md) and open [dep-refresh auto-land](issues/2026-08-08-dep-refresh-cannot-auto-land.md).
 - Roadmap: [remaining work](roadmap.md).
-- Plans: [suite launcher opener closeout](plans/2026-07-21-suite-launcher-opener-closeout.md), still open for one stale comment.
+- Plans: none active.
 - Decisions: [jobs location](decisions/2026-06-04-jobs-location-setting.md) and [preserved runtime boundaries](decisions/2026-07-13-preserved-runtime-boundaries.md).
 - Process: [lint deviations](process/lint-deviations.md), [local development](process/local-dev.md), and [writing style](process/writing-style.md).
 - Runbooks: [installation](runbooks/install.md), [CUDA setup](runbooks/cuda-setup.md), and [release](runbooks/release.md).
-- Active and deferred contracts: [download model](specs/2026-05-29-download-model.md), [suite launcher opener closeout design](specs/2026-07-21-suite-launcher-opener-closeout-design.md), and the [behavior-spec index](specs/behavior/README.md), including [coverage](specs/behavior/coverage.md), [flows](specs/behavior/flows.md), [app shell](specs/behavior/screen-app-shell.md), [home](specs/behavior/screen-home.md), [page view](specs/behavior/screen-page-view.md), and [results](specs/behavior/screen-results.md).
+- Active and deferred contracts: [download model](specs/2026-05-29-download-model.md) and the [behavior-spec index](specs/behavior/README.md), including [coverage](specs/behavior/coverage.md), [flows](specs/behavior/flows.md), [app shell](specs/behavior/screen-app-shell.md), [home](specs/behavior/screen-home.md), [page view](specs/behavior/screen-page-view.md), and [results](specs/behavior/screen-results.md).
 
 Former repository GitHub issues (#1–#34, #36–#38) were deleted; status and
 evidence live in the [migration ledger](context/github-issue-migration-ledger.md)
