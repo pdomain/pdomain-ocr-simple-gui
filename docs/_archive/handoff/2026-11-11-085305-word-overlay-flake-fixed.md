@@ -1,7 +1,6 @@
 ---
-kind: handoff
-status: "active"
-created: "2026-11-11"
+kind: archive
+status: retired
 created_at: "2026-11-11T08:53:05Z"
 owner: "CT"
 branch: "fix/word-overlay-flake"
@@ -11,9 +10,13 @@ base_commit: "60020aa"
 supersedes: "2026-11-11-032238-doc-recheck-bug-fixes-ready-for-review.md"
 handoff_reason: "stopping"
 host: "claude-code"
+created: "2026-11-11"
+last_verified: "2026-11-11"
 ---
 
 # Word overlay flake fixed
+
+> **Retired — superseded by `docs/handoff/2026-11-11-092702-two-e2e-flakes-fixed.md`.**
 
 ## Goal
 
