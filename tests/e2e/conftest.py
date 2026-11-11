@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import json
 import os
-import socket
+import re
 import subprocess
 import sys
 import tempfile
@@ -125,11 +125,31 @@ def _guard_seeded_roots(
     _assert_under_tmp(jobs_meta_root, tmp_root)
 
 
-def _free_port() -> int:
-    """Return an ephemeral free TCP port on localhost."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]  # type: ignore[return-value]
+_UVICORN_RUNNING_RE = re.compile(rb"Uvicorn running on http://127\.0\.0\.1:(\d+)")
+
+
+def _wait_for_bound_port(log_path: Path, proc: subprocess.Popen[bytes], timeout: float = 30.0) -> int:
+    """Return the port uvicorn bound, read from its "running on" log line.
+
+    The server is started with ``--port 0`` so the kernel picks a port and
+    binds it in one step. Choosing a port in the test process and passing it
+    in leaves a gap in which another xdist worker's server can take the same
+    port; the readiness poll then talks to the wrong server. Raises
+    RuntimeError if the server exits first, TimeoutError if it never reports.
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        match = _UVICORN_RUNNING_RE.search(log_path.read_bytes()) if log_path.exists() else None
+        if match is not None:
+            return int(match.group(1))
+        returncode = proc.poll()
+        if returncode is not None:
+            log_tail = (
+                log_path.read_text(encoding="utf-8", errors="replace")[-2000:] if log_path.exists() else ""
+            )
+            raise RuntimeError(f"server exited with code {returncode} before reporting its port:\n{log_tail}")
+        time.sleep(0.05)
+    raise TimeoutError(f"server did not report its port within {timeout}s (log: {log_path})")
 
 
 def _wait_ready(base_url: str, timeout: float = 30.0) -> None:
@@ -174,12 +194,11 @@ def _boot_server(env_overrides: dict[str, str], *, ready_timeout: float = 30.0) 
 
     Shared boot logic for every live-server fixture. ``env_overrides`` is layered
     on top of the current ``os.environ`` so callers select the dispatcher / GPU
-    backend / data roots they need. The server is polled on ``/api/config`` for
-    readiness and terminated on teardown.
+    backend / data roots they need. uvicorn binds a kernel-chosen port, which
+    is read back from its log; the server is then polled on ``/api/config``
+    for readiness and terminated on teardown.
     """
     _assert_frontend_built()
-    port = _free_port()
-    base_url = f"http://127.0.0.1:{port}"
 
     env = {**os.environ, **env_overrides}
     _assert_suite_data_dir_is_tmp(env.get("PD_SUITE_DATA_DIR", ""))
@@ -190,7 +209,7 @@ def _boot_server(env_overrides: dict[str, str], *, ready_timeout: float = 30.0) 
     # stdout BLOCKS forever, wedging the event loop. That deadlock surfaced as
     # the whole suite hanging after ~38 requests (every later reset_prefs PUT
     # ReadTimeout-cascaded). A file sink never blocks the writer.
-    log_path = Path(env["PD_SUITE_DATA_DIR"]) / f"server-{port}.log"
+    log_path = Path(env["PD_SUITE_DATA_DIR"]) / f"server-{uuid.uuid4().hex[:12]}.log"
     log_file = log_path.open("wb")
     proc = subprocess.Popen(
         [
@@ -201,7 +220,7 @@ def _boot_server(env_overrides: dict[str, str], *, ready_timeout: float = 30.0) 
             "--host",
             "127.0.0.1",
             "--port",
-            str(port),
+            "0",
         ],
         env=env,
         stdout=log_file,
@@ -209,6 +228,8 @@ def _boot_server(env_overrides: dict[str, str], *, ready_timeout: float = 30.0) 
     )
 
     try:
+        port = _wait_for_bound_port(log_path, proc, timeout=ready_timeout)
+        base_url = f"http://127.0.0.1:{port}"
         _wait_ready(base_url, timeout=ready_timeout)
         yield base_url
     finally:
