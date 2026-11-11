@@ -306,7 +306,7 @@ export const uiPrefsConfig: UIPrefsConfig = {
           fontScale: 1.0,
         };
       const data = (await res.json()) as {
-        ui_prefs?: { theme?: string; density?: string; fontScale?: number };
+        ui_prefs?: { theme?: string; density?: string; font_scale?: number };
       };
       const ui = data.ui_prefs ?? {};
       return {
@@ -317,8 +317,8 @@ export const uiPrefsConfig: UIPrefsConfig = {
           ? ui.density
           : "normal") as "compact" | "normal" | "comfortable",
         fontScale:
-          typeof ui.fontScale === "number"
-            ? Math.min(1.4, Math.max(0.8, ui.fontScale))
+          typeof ui.font_scale === "number"
+            ? Math.min(1.4, Math.max(0.8, ui.font_scale))
             : 1.0,
       };
     } catch {
@@ -332,13 +332,15 @@ export const uiPrefsConfig: UIPrefsConfig = {
   onPersistError: handlePersistError,
   persistCommon: async (prefs) => {
     // `ui_prefs` is a REAL field on the backend AppPrefs model (the common
-    // theme/density/fontScale slice), so this object shape is correct — do
+    // theme/density/font_scale slice), so this object shape is correct — do
     // NOT unwrap it. The backend read-modify-merges this partial body, so
     // sending only ui_prefs no longer resets sibling app prefs to defaults.
+    // The backend field is snake_case and it ignores unknown keys.
+    const { fontScale, ...rest } = prefs;
     const res = await apiFetch("/api/prefs", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ui_prefs: prefs }),
+      body: JSON.stringify({ ui_prefs: { ...rest, font_scale: fontScale } }),
     });
     if (!res.ok) {
       throw new Error(`PUT /api/prefs failed: ${res.status}`);

@@ -485,7 +485,7 @@ def test_theme_persists_via_api(page: Page, live_server_url: str, e2e_data_root:
     # Seed via PUT /api/prefs with ui_prefs.
     put_resp = httpx.put(
         f"{live_server_url}/api/prefs",
-        json={"ui_prefs": {"theme": "light", "density": "normal", "fontScale": 1.0}},
+        json={"ui_prefs": {"theme": "light", "density": "normal", "font_scale": 1.0}},
         timeout=5.0,
     )
     put_resp.raise_for_status()
@@ -585,7 +585,7 @@ def test_density_persists_via_api(page: Page, live_server_url: str, e2e_data_roo
     """
     put_resp = httpx.put(
         f"{live_server_url}/api/prefs",
-        json={"ui_prefs": {"theme": "dark", "density": "compact", "fontScale": 1.0}},
+        json={"ui_prefs": {"theme": "dark", "density": "compact", "font_scale": 1.0}},
         timeout=5.0,
     )
     put_resp.raise_for_status()
@@ -621,48 +621,39 @@ def test_density_persists_via_api(page: Page, live_server_url: str, e2e_data_roo
 
 
 def test_fontscale_persists_via_api(page: Page, live_server_url: str, e2e_data_root: Path) -> None:
-    """Covers: B-SHELL-010 — fontScale PUT /api/prefs persists and survives reload.
+    """Covers: B-SHELL-010 — moving the slider saves font_scale and it is applied after reload.
 
-    Regression: yes — same silent-catch as B-SHELL-008/009.
-    Slider drag via UI requires a specific Playwright drag sequence; this test
-    covers PUT/GET + reload via API and verifies the slider is visible in the modal.
+    Regression: yes — the frontend sent fontScale, which the backend dropped.
     """
-    # Open modal and verify slider is accessible in the DOM.
     page.goto(live_server_url)
     expect(page.get_by_test_id("home-page")).to_be_visible(timeout=15_000)
     page.get_by_test_id("settings-slot-trigger").click()
     expect(page.get_by_test_id("slide-over-panel")).to_be_visible(timeout=5_000)
-    expect(page.get_by_test_id("settings-appearance-font-scale-slider")).to_be_visible(timeout=3_000)
-    page.get_by_test_id("slide-over-panel-close").click()
+    slider = page.get_by_test_id("settings-appearance-font-scale-slider")
+    expect(slider).to_be_visible(timeout=3_000)
 
-    # Backend uses snake_case: font_scale (not fontScale) per CommonUIPrefs schema.
-    put_resp = httpx.put(
-        f"{live_server_url}/api/prefs",
-        json={"ui_prefs": {"theme": "dark", "density": "normal", "font_scale": 1.2}},
-        timeout=5.0,
-    )
-    put_resp.raise_for_status()
+    with page.expect_response(
+        lambda r: r.url.endswith("/api/prefs") and r.request.method == "PUT",
+        timeout=5_000,
+    ) as put_info:
+        slider.fill("1.2")
+    assert put_info.value.ok, f"PUT /api/prefs failed: {put_info.value.status}"
 
     prefs = httpx.get(f"{live_server_url}/api/prefs", timeout=5.0).json()
     assert prefs.get("ui_prefs", {}).get("font_scale") == 1.2, (
         f"Expected font_scale=1.2 in GET /api/prefs; got: {prefs!r}"
     )
 
-    # On-disk: persisted in apps.pdomain-ocr-simple-gui.ui_prefs.
     disk_prefs = _read_prefs(e2e_data_root)
     app_disk = disk_prefs.get("apps", {}).get("pdomain-ocr-simple-gui", {})
     ui_disk = app_disk.get("ui_prefs", {})
     assert ui_disk.get("font_scale") == 1.2, f"Expected font_scale=1.2 on disk; got: {disk_prefs!r}"
 
-    # UI: reload — fontScale applied (zoom on documentElement.style via UIPrefsApplicator).
-    # Verify via GET /api/prefs that the value survived (DOM zoom is opaque to httpx).
     page.goto(live_server_url)
     expect(page.get_by_test_id("home-page")).to_be_visible(timeout=15_000)
-    prefs_after = httpx.get(f"{live_server_url}/api/prefs", timeout=5.0).json()
-    assert prefs_after.get("ui_prefs", {}).get("font_scale") == 1.2
-
-    # Bad-state: fontScale out of range is clamped by uiPrefsConfig.load [0.8, 1.4].
-    # (Tested at unit level; not repeated here.)
+    page.wait_for_function("() => document.documentElement.style.zoom === '1.2'", timeout=5_000)
+    page.get_by_test_id("settings-slot-trigger").click()
+    expect(page.get_by_test_id("settings-appearance-font-scale-slider")).to_have_value("1.2", timeout=3_000)
 
 
 def test_prefs_persist_error_shows_toast(page: Page, live_server_url: str) -> None:
@@ -712,7 +703,7 @@ def test_prefs_survive_reload(page: Page, live_server_url: str, e2e_data_root: P
     # Seed all three common-prefs fields.
     put_resp = httpx.put(
         f"{live_server_url}/api/prefs",
-        json={"ui_prefs": {"theme": "light", "density": "comfortable", "fontScale": 1.1}},
+        json={"ui_prefs": {"theme": "light", "density": "comfortable", "font_scale": 1.1}},
         timeout=5.0,
     )
     put_resp.raise_for_status()
@@ -753,7 +744,7 @@ def test_prefs_survive_reload(page: Page, live_server_url: str, e2e_data_root: P
     # Bad-state: reset theme back to the default by sending it EXPLICITLY.
     httpx.put(
         f"{live_server_url}/api/prefs",
-        json={"ui_prefs": {"theme": "dark", "density": "normal", "fontScale": 1.0}},
+        json={"ui_prefs": {"theme": "dark", "density": "normal", "font_scale": 1.0}},
         timeout=5.0,
     ).raise_for_status()
     page.goto(live_server_url)
