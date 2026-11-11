@@ -43,18 +43,15 @@ must stay aligned. Treat caller-controlled paths and IDs as untrusted. Run
 
 ## Remaining work
 
-- Fix the bugs found in the 2026-11-07 doc recheck. Most urgent first:
-  - The font-size setting never saves: [docs/issues/2026-11-07-font-scale-never-persists.md](issues/2026-11-07-font-scale-never-persists.md)
-  - Re-run shortcuts check the wrong engine: [docs/issues/2026-11-07-rerun-shortcuts-check-wrong-engine.md](issues/2026-11-07-rerun-shortcuts-check-wrong-engine.md)
-  - Viewer PNG caches become extra OCR pages: [docs/issues/2026-11-07-viewer-png-cache-becomes-ocr-page.md](issues/2026-11-07-viewer-png-cache-becomes-ocr-page.md)
-  - CUDA setup link is not served: [docs/issues/2026-11-07-cuda-setup-link-not-served.md](issues/2026-11-07-cuda-setup-link-not-served.md)
-  - Setup defaults point at the old devcontainer and owner: [docs/issues/2026-11-07-devcontainer-and-old-org-defaults.md](issues/2026-11-07-devcontainer-and-old-org-defaults.md)
 - Separate original and modified downloads so edited pages reach the export.
   [docs/specs/2026-05-29-download-model.md](specs/2026-05-29-download-model.md)
 - Lock the shared predictor cache upstream so a timed-out batch cannot race
   the next one. [ocr-container-meta#397](https://github.com/ConcaveTrillion/ocr-container-meta/issues/397)
 - Remove the residual `# ---` divider banners under `tests/e2e/` (former #13).
   [docs/context/github-issue-migration-ledger.md](context/github-issue-migration-ledger.md)
+- Decide whether to delete the `.viewer.png` and `.viewer.webp` files that
+  older versions left in users' source folders. Needs an owner decision.
+  [docs/context/intent-map.md](context/intent-map.md)
 - Close or keep the `dep-refresh` auto-land issue now that the workflow is
   deleted. Needs an owner decision.
   [docs/issues/2026-08-08-dep-refresh-cannot-auto-land.md](issues/2026-08-08-dep-refresh-cannot-auto-land.md)

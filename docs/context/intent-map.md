@@ -23,21 +23,15 @@ None.
 
 ## Open issues (governed)
 
-- [The font-size setting never saves](../issues/2026-11-07-font-scale-never-persists.md)
-  — the frontend sends `fontScale`, the backend reads `font_scale`.
-- [Re-run shortcuts check the wrong engine](../issues/2026-11-07-rerun-shortcuts-check-wrong-engine.md)
-  — Ctrl+R needs Tesseract, Ctrl+Shift+R does not.
-- [Viewer PNG caches become extra OCR pages](../issues/2026-11-07-viewer-png-cache-becomes-ocr-page.md)
-  — `.viewer.png` files in the source folder count as pages.
-- [CUDA setup link is not served](../issues/2026-11-07-cuda-setup-link-not-served.md)
-  — the Compute panel help link lands on the app home screen.
-- [Setup defaults point at the old devcontainer and owner](../issues/2026-11-07-devcontainer-and-old-org-defaults.md)
-  — Playwright path in the `Makefile`, clone owner in `local-setup.sh`.
 - [`dep-refresh` cannot auto-land](../issues/2026-08-08-dep-refresh-cannot-auto-land.md)
   — needs an owner decision; see below.
 
 ## Deferred work
 
+- **Old viewer caches in source folders — needs an owner decision.** New
+  caches go in the project directory, and page collection skips the old
+  `.viewer.png` copies. The old files stay in users' source folders. Deleting
+  them means removing files from folders the user owns, so nothing does yet.
 - **Download truth separation — deferred.** Per-page edits and reruns update
   canonical page artifacts but do not rebuild the job output mirror. Preserve
   separate original and modified downloads, explicit provenance, and a test that

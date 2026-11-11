@@ -14,6 +14,17 @@ All notable changes to `pdomain-ocr-simple-gui` are documented here.
 
 ## [Unreleased]
 
+### Bug fixes
+
+- The font-size setting now saves and is restored after a reload.
+- Ctrl+R re-runs DocTR without Tesseract installed, and Ctrl+Shift+R no longer
+  sends a Tesseract re-run the server would reject.
+- Page viewer caches now go in the project directory. Page collection skips
+  the `.viewer.png` copies older versions left in source folders.
+- The CUDA setup link in the Compute panel opens the guide on GitHub.
+- `make` no longer defaults Playwright to the old devcontainer path, and
+  `make local-setup` clones siblings from the `pdomain` organization.
+
 ### Tests
 
 - The release smoke test now finds its OCR page fixture outside the old

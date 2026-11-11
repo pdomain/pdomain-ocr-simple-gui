@@ -175,3 +175,24 @@ Kind: context
   above. The locked `@pdomain/pdomain-ui` 0.12.1 bundle calls
   `window.open(url, "_blank", "noopener,noreferrer")`.
 - Remaining work: none
+
+### 2026-11-10 Retired: Five bugs from the 2026-11-07 doc recheck
+
+- Old path: docs/issues/2026-11-07-font-scale-never-persists.md (fixed in
+  cc2a8ca), docs/issues/2026-11-07-rerun-shortcuts-check-wrong-engine.md (fixed
+  in fad237a), docs/issues/2026-11-07-viewer-png-cache-becomes-ocr-page.md (fixed
+  in 37f3ab9), docs/issues/2026-11-07-cuda-setup-link-not-served.md (fixed in
+  e8bcd17), docs/issues/2026-11-07-devcontainer-and-old-org-defaults.md (fixed
+  in 4c37fea)
+- Outcome: implemented
+- Superseded by: docs/specs/behavior/screen-app-shell.md B-SHELL-010 and
+  B-SHELL-011; docs/specs/behavior/screen-page-view.md B-PAGEVIEW-013 and
+  B-PAGEVIEW-014; docs/architecture/runtime-flows.md artifact table
+- Removal commit: (fill after commit)
+- Rationale kept: the font-size key is mapped in `frontend/src/App.tsx`, not
+  with a backend alias, because `CommonUIPrefs` lives in `pdomain-ops` and other
+  suite apps share it. The viewer-cache filter matches only the
+  `<image name>.viewer.png` names the app wrote, so a real scan with `.viewer.`
+  in its name stays a page.
+- Remaining work: decide whether to delete the viewer caches older versions
+  left in source folders; tracked in docs/context/intent-map.md
