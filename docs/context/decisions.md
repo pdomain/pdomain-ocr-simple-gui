@@ -188,7 +188,7 @@ Kind: context
 - Superseded by: docs/specs/behavior/screen-app-shell.md B-SHELL-010 and
   B-SHELL-011; docs/specs/behavior/screen-page-view.md B-PAGEVIEW-013 and
   B-PAGEVIEW-014; docs/architecture/runtime-flows.md artifact table
-- Removal commit: (fill after commit)
+- Removal commit: 495bbac14280f2c98d89a59a8f5e38c16dc0fea8
 - Rationale kept: the font-size key is mapped in `frontend/src/App.tsx`, not
   with a backend alias, because `CommonUIPrefs` lives in `pdomain-ops` and other
   suite apps share it. The viewer-cache filter matches only the
