@@ -26,6 +26,7 @@ canonical artifacts are ``projects/<id>/pages/page-001.json`` + ``.txt``.
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from pathlib import Path
 
@@ -101,9 +102,9 @@ def test_word_overlays_render_from_sidecar(page: Page, live_server_url: str, see
     page.goto(f"{live_server_url}/jobs/{seeded_job_id}/pages/0")
     canvas = page.get_by_test_id("page-image-canvas")
     expect(canvas).to_be_visible(timeout=15_000)
-    word_count = canvas.get_attribute("data-word-count")
-    assert word_count is not None
-    assert int(word_count) >= 1, f"expected >= 1 word overlay, got {word_count!r}"
+    # The canvas renders with data-word-count="0" before the /words fetch
+    # resolves, so a one-shot read races it. Retry until the count is >= 1.
+    expect(canvas).to_have_attribute("data-word-count", re.compile(r"^[1-9]\d*$"), timeout=10_000)
 
     # Backend effect: the words endpoint returns the normalized word list.
     resp = httpx.get(f"{live_server_url}/api/pages/{seeded_job_id}/0/words", timeout=10.0)

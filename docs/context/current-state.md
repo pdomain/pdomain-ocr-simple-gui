@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-14
-Last verified: 2026-11-10
+Last verified: 2026-11-11
 Kind: context
 ---
 
@@ -46,9 +46,11 @@ and blocked bets are in the [intent map](intent-map.md).
 
 `make ci AI=1` passed on 2026-11-10 on `fix/doc-recheck-bugs`, with the GPU
 hidden and no `PLAYWRIGHT_BROWSERS_PATH` set; re-run after substantive code
-changes. `test_word_overlays_render_from_sidecar` failed once under `-n auto`
-on unchanged code and passed when run alone, because it reads the word count
-once as soon as the canvas appears. The download output mirror can remain stale after
+changes. `test_word_overlays_render_from_sidecar` now waits until the canvas
+reports at least one word instead of reading the count once, and passed in 20
+parallel e2e runs on 2026-11-11. Two other e2e tests still flake under `-n auto`:
+`test_upload_ocr_download_flow` reads the job state while it is still `running`,
+and the zoom tests once lost their live server (`Connection refused`). The download output mirror can remain stale after
 per-page edits or reruns; the deferred redesign is tracked in
 [the intent map](intent-map.md).
 
