@@ -148,10 +148,15 @@ def test_word_overlays_empty_when_words_404(page: Page, live_server_url: str) ->
             body=json.dumps({"project_id": project_id, "name": "n", "state": "succeeded", "page_count": 1}),
         ),
     )
-    page.goto(f"{live_server_url}/jobs/{project_id}/pages/0")
     canvas = page.get_by_test_id("page-image-canvas")
-    expect(canvas).to_be_visible(timeout=15_000)
-    assert canvas.get_attribute("data-word-count") == "0"
+    # The canvas starts at data-word-count="0" before /words resolves, so a
+    # read straight after it appears would pass even if the 404 never came.
+    # Wait for the routed 404 first, then check the count stays at 0.
+    with page.expect_response(lambda r: r.url.endswith(f"/api/pages/{project_id}/0/words")) as words_info:
+        _ = page.goto(f"{live_server_url}/jobs/{project_id}/pages/0")
+        expect(canvas).to_be_visible(timeout=15_000)
+    assert words_info.value.status == 404
+    expect(canvas).to_have_attribute("data-word-count", "0")
     page.unroute(words_route)
 
 
