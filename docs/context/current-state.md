@@ -48,9 +48,13 @@ and blocked bets are in the [intent map](intent-map.md).
 hidden and no `PLAYWRIGHT_BROWSERS_PATH` set; re-run after substantive code
 changes. `test_word_overlays_render_from_sidecar` now waits until the canvas
 reports at least one word instead of reading the count once, and passed in 20
-parallel e2e runs on 2026-11-11. Two other e2e tests still flake under `-n auto`:
-`test_upload_ocr_download_flow` reads the job state while it is still `running`,
-and the zoom tests once lost their live server (`Connection refused`). The download output mirror can remain stale after
+parallel e2e runs on 2026-11-11. Two more e2e flakes were fixed on
+`fix/e2e-flakes` the same day. `test_upload_ocr_download_flow` now polls the job
+API until the job is terminal instead of reading `running` once. The e2e
+conftest now starts uvicorn with `--port 0` and reads the bound port from its
+log, so two xdist workers can no longer share one port. That collision caused
+the zoom tests' "Page not found" and `Connection refused`. The full e2e suite
+then passed in 20 of 20 runs under `-n auto`. The download output mirror can remain stale after
 per-page edits or reruns; the deferred redesign is tracked in
 [the intent map](intent-map.md).
 
