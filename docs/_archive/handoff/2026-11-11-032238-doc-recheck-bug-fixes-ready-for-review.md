@@ -1,19 +1,21 @@
 ---
-kind: handoff
-status: "active"
-created: "2026-11-11"
+kind: archive
+status: retired
 created_at: "2026-11-11T03:22:38Z"
 owner: "CT"
 branch: "fix/doc-recheck-bugs"
 scope: "doc-recheck-bugs"
 worktree: "/mnt/work/projects/pdomain/pdomain-ocr-simple-gui/.worktrees/fix-doc-recheck-bugs"
 base_commit: "16289ed245902db14764a918c23289a59d117502"
-supersedes: ""
 handoff_reason: "user_requested"
 host: "claude-code"
+created: "2026-11-11"
+last_verified: "2026-11-11"
 ---
 
 # Doc recheck bug fixes ready for review
+
+> **Retired — superseded by `docs/handoff/2026-11-11-085305-word-overlay-flake-fixed.md`.**
 
 ## Goal
 
