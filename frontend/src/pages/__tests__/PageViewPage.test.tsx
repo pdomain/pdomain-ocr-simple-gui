@@ -61,8 +61,18 @@ vi.mock("@pdomain/pdomain-ui/canvas", () => ({
 }));
 
 // Mock hooks — prevents dual-React issue from pdomain-ui's own node_modules.
+const shortcutBindings = vi.hoisted(() => ({
+  current: [] as {
+    keys: string;
+    handler: () => void;
+    when?: () => boolean;
+  }[],
+}));
+
 vi.mock("@pdomain/pdomain-ui/hooks", () => ({
-  useShortcuts: () => undefined,
+  useShortcuts: (bindings: typeof shortcutBindings.current) => {
+    shortcutBindings.current = bindings;
+  },
   formatShortcut: (keys: string) => [keys],
 }));
 
@@ -583,6 +593,84 @@ describe("PageViewPage", () => {
     expect(
       screen.queryByRole("button", { name: /re-run with tesseract/i }),
     ).toBeNull();
+  });
+
+  describe("re-run shortcuts", () => {
+    function shortcut(keys: string) {
+      const binding = shortcutBindings.current.find((b) => b.keys === keys);
+      if (binding === undefined) throw new Error(`no binding for ${keys}`);
+      return binding;
+    }
+
+    // Same order as pdomain-ui's useShortcuts: a false `when` skips the handler.
+    async function press(keys: string) {
+      const binding = shortcut(keys);
+      await act(async () => {
+        if (binding.when === undefined || binding.when()) binding.handler();
+        await Promise.resolve();
+      });
+    }
+
+    function rerunEngines(mockFetch: ReturnType<typeof vi.fn>): string[] {
+      return mockFetch.mock.calls
+        .filter(
+          ([url, opts]: [string, RequestInit | undefined]) =>
+            url.includes("/api/pages/") &&
+            url.endsWith("/rerun") &&
+            opts?.method === "POST",
+        )
+        .map(
+          ([, opts]: [string, RequestInit]) =>
+            (JSON.parse(opts.body as string) as { engine: string }).engine,
+        );
+    }
+
+    async function waitForPageReady(mockFetch: ReturnType<typeof vi.fn>) {
+      await waitFor(() => {
+        expect(shortcut("mod+s").when?.()).toBe(true);
+        expect(
+          mockFetch.mock.calls.some(([url]: [string]) =>
+            url.includes("/api/config"),
+          ),
+        ).toBe(true);
+      });
+    }
+
+    it("Ctrl+R re-runs DocTR when Tesseract is unavailable", async () => {
+      const { mockFetch } = renderPageView("proj-abc", 0, {
+        tesseractAvailable: false,
+      });
+      await waitForPageReady(mockFetch);
+
+      await press("mod+r");
+
+      await waitFor(() => {
+        expect(rerunEngines(mockFetch)).toEqual(["doctr"]);
+      });
+    });
+
+    it("Ctrl+Shift+R does nothing when Tesseract is unavailable", async () => {
+      const { mockFetch } = renderPageView("proj-abc", 0, {
+        tesseractAvailable: false,
+      });
+      await waitForPageReady(mockFetch);
+
+      await press("mod+shift+r");
+
+      expect(rerunEngines(mockFetch)).toEqual([]);
+    });
+
+    it("Ctrl+Shift+R re-runs Tesseract when Tesseract is available", async () => {
+      const { mockFetch } = renderPageView("proj-abc", 0);
+      await waitForPageReady(mockFetch);
+      await screen.findByRole("button", { name: /re-run with tesseract/i });
+
+      await press("mod+shift+r");
+
+      await waitFor(() => {
+        expect(rerunEngines(mockFetch)).toEqual(["tesseract"]);
+      });
+    });
   });
 
   it("textarea updates after rerun completes", async () => {

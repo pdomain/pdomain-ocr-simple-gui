@@ -371,8 +371,7 @@ export default function PageViewPage() {
         },
         when: () =>
           !shortcutCtxRef.current.loading &&
-          shortcutCtxRef.current.rerunStatus === "idle" &&
-          shortcutCtxRef.current.tesseractAvailable,
+          shortcutCtxRef.current.rerunStatus === "idle",
       },
       {
         keys: "mod+shift+r",
@@ -383,7 +382,8 @@ export default function PageViewPage() {
         },
         when: () =>
           !shortcutCtxRef.current.loading &&
-          shortcutCtxRef.current.rerunStatus === "idle",
+          shortcutCtxRef.current.rerunStatus === "idle" &&
+          shortcutCtxRef.current.tesseractAvailable,
       },
       // Export — Task 9: two explicit downloads (text; text+JSON).
       // JSON-only shortcut removed (no corresponding button in the UI).
