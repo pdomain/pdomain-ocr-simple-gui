@@ -6,10 +6,11 @@ from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from PIL import Image
 
 from pdomain_ocr_simple_gui.app import app
 from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
-from pdomain_ocr_simple_gui.storage import write_project
+from pdomain_ocr_simple_gui.storage import get_project_dir, read_project, write_project
 
 
 class TestGetPage:
@@ -179,6 +180,29 @@ class TestGetPageImage:
         )
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "image/png"
+
+    @pytest.mark.parametrize(("accept", "suffix"), [("image/png", ".png"), ("image/webp", ".webp")])
+    async def test_viewer_cache_goes_in_the_project_dir_not_the_source_folder(
+        self,
+        async_client: AsyncClient,
+        project_with_image: tuple[str, Path],
+        accept: str,
+        suffix: str,
+    ) -> None:
+        project_id, png_path = project_with_image
+        scan = png_path.with_name("scan.jpg")
+        with Image.open(png_path) as img:
+            img.convert("RGB").save(scan, format="JPEG")
+        png_path.unlink()
+        spec, status = read_project(project_id)
+        status.pages[0].page_name = scan.name
+        write_project(spec, status)
+
+        resp = await async_client.get(f"/api/pages/{project_id}/0/image", headers={"Accept": accept})
+
+        assert resp.status_code == 200
+        assert list(scan.parent.iterdir()) == [scan]
+        assert (get_project_dir(project_id) / f"scan.jpg.viewer{suffix}").is_file()
 
     async def test_404_when_image_file_missing(
         self,

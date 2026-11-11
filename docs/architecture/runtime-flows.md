@@ -378,7 +378,10 @@ download endpoint returns 404 for the deleted job, because neither
 | `<output_dir>/<stem>.json` | `write_output_page_files()` — per-page mirror |
 | `<output_dir>/<name>.txt` | `write_output_combined_txt()` — combined mirror |
 | `<jobs_meta_root>/{id}/output_mode.json` | `_write_job_meta()` — job creation |
-| `<source_path>/<name>.viewer.webp` | `_transcode_for_browser()` — image GET cache |
+| `<projects_root>/{id}/<name>.viewer.webp` or `.viewer.png` | `_transcode_for_browser()` — image GET cache |
+
+Older versions wrote viewer caches next to the source scans. `collect_images()`
+skips those `<name>.viewer.png` copies so they do not become pages.
 
 `<projects_root>` defaults to `~/.local/share/pdomain-suite/simple-gui/projects/`.
 Override with `PD_OCR_SIMPLE_GUI_PROJECTS_ROOT` or the `jobs_location` pref.

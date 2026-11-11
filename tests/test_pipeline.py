@@ -327,6 +327,21 @@ class TestCollectImages:
         result = await collect_images(str(tmp_path / "nonexistent"))
         assert result == []
 
+    async def test_skips_viewer_png_caches(self, tmp_path: Path) -> None:
+        src = tmp_path / "imgs"
+        src.mkdir()
+        for name in ("a.jpg", "a.jpg.viewer.png", "b.jp2", "b.jp2.viewer.png"):
+            (src / name).touch()
+        result = await collect_images(str(src))
+        assert [p.name for p in result] == ["a.jpg", "b.jp2"]
+
+    async def test_keeps_a_scan_that_only_looks_like_a_viewer_cache(self, tmp_path: Path) -> None:
+        src = tmp_path / "imgs"
+        src.mkdir()
+        (src / "notes.viewer.png").touch()
+        result = await collect_images(str(src))
+        assert [p.name for p in result] == ["notes.viewer.png"]
+
     async def test_accepts_jpeg2000_family(self, tmp_path: Path) -> None:
         """JPEG 2000 extensions (.jp2, .j2k, .jpf, .jpx, .jpm) must be picked up."""
         from pdomain_ocr_simple_gui.pipeline import _IMAGE_SUFFIXES

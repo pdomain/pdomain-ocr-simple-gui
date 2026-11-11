@@ -28,6 +28,7 @@ from pdomain_ocr_simple_gui.runtime.ocr_engines import (
     resolve_engine_language,
 )
 from pdomain_ocr_simple_gui.storage import (
+    get_project_dir,
     read_page_sidecar,
     read_project,
     update_page_result,
@@ -122,8 +123,8 @@ async def get_page(project_id: str, page_idx: int) -> PageResponse:
     )
 
 
-def _transcode_for_browser(source: Path, fmt: str) -> Path:
-    """Transcode *source* to ``fmt`` (``"WEBP"`` or ``"PNG"``) next to it.
+def _transcode_for_browser(source: Path, fmt: str, cache_dir: Path) -> Path:
+    """Transcode *source* to ``fmt`` (``"WEBP"`` or ``"PNG"``) into *cache_dir*.
 
     Cached by (basename, format); regenerated only when the source file is
     newer than the cached output.  WebP uses lossy q=80 which is fine for
@@ -133,7 +134,7 @@ def _transcode_for_browser(source: Path, fmt: str) -> Path:
     from PIL import Image
 
     suffix = ".webp" if fmt == "WEBP" else ".png"
-    cached = source.with_name(f"{source.name}.viewer{suffix}")
+    cached = cache_dir / f"{source.name}.viewer{suffix}"
     if cached.exists() and cached.stat().st_mtime >= source.stat().st_mtime:
         return cached
     with Image.open(source) as img:
@@ -204,7 +205,7 @@ async def get_page_image(project_id: str, page_idx: int, request: Request) -> Fi
         return FileResponse(str(image_path), media_type=media_type)
 
     try:
-        served = _transcode_for_browser(image_path, fmt)
+        served = _transcode_for_browser(image_path, fmt, get_project_dir(project_id))
     except Exception as exc:  # malformed image / Pillow failure — surface as 500-ish 404
         logger.exception(
             "Failed to transcode page image for browser",
