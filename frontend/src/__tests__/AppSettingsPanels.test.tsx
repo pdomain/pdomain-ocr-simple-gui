@@ -162,7 +162,7 @@ describe("settingsPanels", () => {
     expect(updates?.label).toBeTruthy();
   });
 
-  it("renders the shared compute target panel with the repo CUDA docs URL", async () => {
+  it("renders the shared compute target panel with the published CUDA guide URL", async () => {
     const { settingsPanels } = await import("../App");
     const compute = settingsPanels.find((p) => p.id === "compute");
 
@@ -170,7 +170,7 @@ describe("settingsPanels", () => {
 
     expect(screen.getByTestId("compute-target-panel-mock")).toHaveAttribute(
       "data-cuda-docs-url",
-      "/docs/runbooks/cuda-setup.md",
+      "https://github.com/pdomain/pdomain-ocr-simple-gui/blob/master/docs/runbooks/cuda-setup.md",
     );
   });
 

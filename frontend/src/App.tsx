@@ -124,7 +124,7 @@ function ComputePanelContent() {
         info={device.info}
         onSelect={(deviceId) => void device.setDevice("app", deviceId)}
         onClear={(scope) => void device.clearDevice(scope)}
-        cudaDocsUrl="/docs/runbooks/cuda-setup.md"
+        cudaDocsUrl="https://github.com/pdomain/pdomain-ocr-simple-gui/blob/master/docs/runbooks/cuda-setup.md"
       />
     );
   }
