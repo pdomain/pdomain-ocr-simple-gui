@@ -76,6 +76,17 @@ These five are ordered most urgent first. All five were found in the 2026-11-07 
   `local-setup.sh`.
   [Issue](issues/2026-11-07-devcontainer-and-old-org-defaults.md).
 
+## Browser test races
+
+- Master runs browser tests that race. The fixes are on `fix/e2e-flakes`,
+  commits `60020aa` through `ccec147`. The word-overlay test waits until
+  the count is at least one. The upload flow waits until the job is
+  finished. The live server lets uvicorn pick the port. The empty overlay
+  test checks the 404 before it reads the count. `fix/word-overlay-flake`,
+  commits `60020aa` through `af4afdd`, is that word-overlay portion.
+  `tests/smoke/test_e2e.py` still reserves a port and binds it after the
+  socket closes. `make smoke` runs a single server.
+
 ## Cleanup that stays here
 
 - Remove the leftover `# ---` divider banners under `tests/e2e/`. This is
@@ -98,6 +109,11 @@ That design is a historical proposal in `pdomain-ui`. Its owner still has to dec
 
 Do not treat it as the design for this repo.
 [Issue](issues/2026-08-08-dep-refresh-cannot-auto-land.md).
+
+Old `.viewer.png` and `.viewer.webp` files can remain in source folders. On
+`fix/doc-recheck-bugs`, `37f3ab9` stores new caches in the project directory
+and skips old `.viewer.png` copies during collection. `495bbac` leaves
+deletion of those leftover files as an owner decision.
 
 ## Work that belongs in another repo
 
