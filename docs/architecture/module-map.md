@@ -101,7 +101,7 @@ key public surface (types, functions, hooks). Derived from current source.
 |------|---------------|
 | `components/SourcePicker.tsx` | Tabbed source selection: local path / file upload / drag-drop |
 | `components/JobConfigInline.tsx` | Inline job config form: engine, language, output dir |
-| `components/CudaSetupGuidance.tsx` | CUDA installation guidance, always shown under Settings > Compute. The help link targets `/docs/runbooks/cuda-setup.md`, which this app does not serve, so the click falls through to the home screen |
+| `components/CudaSetupGuidance.tsx` | CUDA installation guidance, always shown under Settings > Compute. The help link targets the published guide, `https://github.com/pdomain/pdomain-ocr-simple-gui/blob/master/docs/runbooks/cuda-setup.md` |
 | `components/JobsLocationSettings.tsx` | Jobs output location preference panel |
 | `components/ModelCacheSettings.tsx` | DocTR model pre-cache status + trigger |
 | `components/OutputConfigPanel.tsx` | Output destination selector: next to source, specified path, or managed |

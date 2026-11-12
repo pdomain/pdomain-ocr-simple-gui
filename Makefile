@@ -54,7 +54,7 @@ setup: ## Sync deps + install pre-commit hooks + install Playwright chromium
 	@echo "📦 Installing dependencies..."
 	uv sync --group dev --group e2e
 	@echo "🌐 Installing Playwright chromium..."
-	PLAYWRIGHT_BROWSERS_PATH=$${PLAYWRIGHT_BROWSERS_PATH:-/cache/shared-ai/ms-playwright} uv run --group e2e playwright install chromium || true
+	uv run --group e2e playwright install chromium || true
 	@echo "🪝 Setting up pre-commit hooks..."
 	@$(MAKE) --no-print-directory install-hooks
 	@echo "✅ Setup complete!"
@@ -137,18 +137,15 @@ packaging-test: frontend-build ## Build-path regression tests (slow; verifies wh
 
 e2e-fast: frontend-build ## Run full behavior e2e suite (fake dispatcher, no model weights; part of make ci)
 	@echo "🌐 Running full behavior e2e suite (fake dispatcher)..."
-	PLAYWRIGHT_BROWSERS_PATH=$${PLAYWRIGHT_BROWSERS_PATH:-/cache/shared-ai/ms-playwright} \
 	PDOMAIN_OCR_FAKE_DISPATCHER=1 \
 	uv run --group e2e pytest tests/e2e/ -v -m "(slow or e2e) and not real_ocr" --no-cov -n auto
 
 e2e-browser: frontend-build ## Run all Playwright browser e2e tests (requires chromium; includes e2e-fast tests)
 	@echo "🌐 Running Playwright e2e tests..."
-	PLAYWRIGHT_BROWSERS_PATH=$${PLAYWRIGHT_BROWSERS_PATH:-/cache/shared-ai/ms-playwright} \
 	uv run --group e2e pytest tests/e2e/ -v -m "slow or e2e" --no-cov
 
 e2e-real-ocr: frontend-build ## Run Tier-B real-OCR e2e on the GPU (opt-in; NOT in make ci; requires model weights + chromium)
 	@echo "🧠 Running Tier-B real-OCR e2e (real engine, GPU)..."
-	PLAYWRIGHT_BROWSERS_PATH=$${PLAYWRIGHT_BROWSERS_PATH:-/cache/shared-ai/ms-playwright} \
 	uv run --group e2e pytest tests/e2e/test_real_ocr_*.py -v -m "real_ocr" --no-cov
 
 frontend-install: ## Install frontend dependencies

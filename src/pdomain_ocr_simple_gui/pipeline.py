@@ -264,13 +264,19 @@ def build_sidecar_payload(page_dict: JsonObject, text: str) -> JsonObject:
     return payload
 
 
+def _is_viewer_cache(path: Path) -> bool:
+    """Return whether *path* is a PNG viewer copy left in a source folder by an older version."""
+    original = path.name.removesuffix(".viewer.png")
+    return original != path.name and Path(original).suffix.lower() in _IMAGE_SUFFIXES
+
+
 async def collect_images(source_path: str) -> list[Path]:
     """Return a sorted list of image paths from *source_path*.
 
     If *source_path* is a file and has an image extension, returns
     ``[Path(source_path)]``.  If it is a directory, returns all immediate
     children whose suffix (case-insensitive) is in ``_IMAGE_SUFFIXES``,
-    sorted by name.  Returns ``[]`` for missing paths.
+    except viewer caches, sorted by name.  Returns ``[]`` for missing paths.
     """
     p = Path(source_path)
     if not p.exists():
@@ -280,7 +286,11 @@ async def collect_images(source_path: str) -> list[Path]:
             return [p]
         return []
     # Directory
-    return sorted(child for child in p.iterdir() if child.suffix.lower() in _IMAGE_SUFFIXES)
+    return sorted(
+        child
+        for child in p.iterdir()
+        if child.suffix.lower() in _IMAGE_SUFFIXES and not _is_viewer_cache(child)
+    )
 
 
 def extract_text(page_dict: JsonObject) -> str:

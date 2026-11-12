@@ -21,7 +21,7 @@ for sibling in "${SIBLINGS[@]}"; do
     say "✓ $sibling already cloned at $WORKSPACE_ROOT/$sibling"
   else
     say "→ cloning $sibling…"
-    gh repo clone "ConcaveTrillion/$sibling" "$WORKSPACE_ROOT/$sibling"
+    gh repo clone "pdomain/$sibling" "$WORKSPACE_ROOT/$sibling"
     say "✓ $sibling cloned"
   fi
 done

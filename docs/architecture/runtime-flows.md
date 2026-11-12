@@ -378,8 +378,8 @@ download endpoint returns 404 for the deleted job, because neither
 | `<output_dir>/<stem>.json` | `write_output_page_files()` — per-page mirror |
 | `<output_dir>/<name>.txt` | `write_output_combined_txt()` — combined mirror |
 | `<jobs_meta_root>/{id}/output_mode.json` | `_write_job_meta()` — job creation |
-| `<source_path>/<name>.viewer.webp` | `_transcode_for_browser()` when the request accepts `image/webp` |
-| `<source_path>/<name>.viewer.png` | `_transcode_for_browser()` when the request does not accept WebP |
+| `<projects_root>/{id}/<name>.viewer.webp` | `_transcode_for_browser()` when the request accepts `image/webp` |
+| `<projects_root>/{id}/<name>.viewer.png` | `_transcode_for_browser()` when the request does not accept WebP |
 
 `<projects_root>` defaults to `~/.local/share/pdomain-suite/simple-gui/projects/`.
 Override with `PD_OCR_SIMPLE_GUI_PROJECTS_ROOT` or the `jobs_location` pref.
@@ -391,11 +391,13 @@ Override with `PD_OCR_SIMPLE_GUI_JOBS_META_ROOT`.
 
 `collect_images` keeps `.png`, `.jpg`, `.jpeg`, `.tif`, `.tiff`, and the
 JPEG 2000 suffixes `.jp2`, `.j2k`, `.jpf`, `.jpx`, and `.jpm`. It skips
-`.webp`. A `<name>.viewer.png` file written next to a non-PNG scan is
-therefore collected as another page on a later job. A PNG source is served
-unchanged and gets no cache file. WebP quality is lossy q=80. The original
-scan is left in place and is what the output ZIP copies. The filter fix is
-on the [roadmap](../roadmap.md).
+`.webp`. It also skips a `<name>.viewer.png` whose name before
+`.viewer.png` has an image suffix, so an old copy next to a scan is not a
+page. A real scan such as `notes.viewer.png` stays a page. A PNG source is
+served unchanged and gets no cache file. WebP quality is lossy q=80. The
+original scan is left in place and is what the output ZIP copies. Older
+`.viewer.png` and `.viewer.webp` copies can still sit in the source folder.
+Deleting them is an owner decision on the [roadmap](../roadmap.md).
 
 ---
 

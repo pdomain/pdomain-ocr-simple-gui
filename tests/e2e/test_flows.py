@@ -31,6 +31,7 @@ included in ``make e2e-browser`` / ``make e2e-fast``.
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 import httpx
@@ -59,6 +60,26 @@ def _toast_with(page: Page, fragment: str, timeout_ms: int = 8_000) -> None:
         arg=fragment,
         timeout=timeout_ms,
     )
+
+
+_TERMINAL_JOB_STATES = frozenset({"succeeded", "failed", "cancelled"})
+
+
+def _wait_for_terminal_job_state(base_url: str, project_id: str, timeout: float = 20.0) -> dict[str, object]:
+    """Poll GET /api/jobs/{id} until the job reaches a terminal state; return the body.
+
+    Results-page rows appear while the job is still "running", so a single
+    read races the pipeline's final write. Raises TimeoutError with the last
+    state seen if the job never finishes.
+    """
+    deadline = time.monotonic() + timeout
+    body: dict[str, object] = {}
+    while time.monotonic() < deadline:
+        body = httpx.get(f"{base_url}/api/jobs/{project_id}", timeout=10.0).json()
+        if body.get("state") in _TERMINAL_JOB_STATES:
+            return body
+        time.sleep(0.1)
+    raise TimeoutError(f"job {project_id} not terminal after {timeout}s; last state {body.get('state')!r}")
 
 
 def _read_prefs_file(e2e_data_root: Path) -> dict:
@@ -130,8 +151,12 @@ def test_upload_ocr_download_flow(
     proj_dir = e2e_data_root / "projects" / project_id
     assert (proj_dir / "project.json").exists(), f"project.json missing at {proj_dir}"
 
-    # API: job retrievable with succeeded state.
-    status = httpx.get(f"{live_server_url}/api/jobs/{project_id}", timeout=10.0).json()
+    # API: job retrievable with succeeded state. Page rows appear while the
+    # job is still "running": the pipeline writes each page result first and
+    # persists the terminal state only after the combined outputs are
+    # written. Wait until the job API reports a terminal state, then assert
+    # it is "succeeded".
+    status = _wait_for_terminal_job_state(live_server_url, project_id)
     assert status["state"] == "succeeded", f"expected succeeded, got: {status.get('state')!r}"
     assert status["project_id"] == project_id
 

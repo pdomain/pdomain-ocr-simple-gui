@@ -64,6 +64,10 @@ from the [issues index](../issues/README.md). This map does not copy them.
 
 ## Needs owner decision
 
+- **Old viewer caches in source folders.** New caches are written in the
+  project directory. Collection skips old `.viewer.png` copies. The old
+  `.viewer.png` and `.viewer.webp` files stay in folders the user owns.
+  Deleting them is still an owner decision. The roadmap lists it.
 - **`dep-refresh` auto-land issue: close or keep.** The issue asks for a reusable branch and auto-merge re-arm in `.github/workflows/dep-refresh.yml`.
 
   Commit `0bb3a4a`, on 2026-09-13 at the owner's request, deleted every GitHub workflow, including `dep-refresh.yml`. The pile-up cannot recur today.

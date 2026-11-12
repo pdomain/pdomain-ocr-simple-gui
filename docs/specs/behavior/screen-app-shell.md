@@ -274,7 +274,7 @@ before each test.
   document root element (visible CSS change — light background); the light
   radio is selected
 - **Backend / side-effects:** `PUT /api/prefs` with body
-  `{ui_prefs: {theme: "light", density: <current>, fontScale: <current>}}`
+  `{ui_prefs: {theme: "light", density: <current>, font_scale: <current>}}`
   → 200; prefs file `ui-prefs.json`
   `apps.pdomain-ocr-simple-gui.ui_prefs.theme` is updated to `"light"`;
   on next page load, `GET /api/prefs` returns `ui_prefs.theme === "light"`
@@ -300,7 +300,7 @@ before each test.
 - **Observable output:** `data-density="compact"` attribute is applied to the
   `data-testid="app-shell"` element; the Compact option is selected in the panel
 - **Backend / side-effects:** `PUT /api/prefs` with body
-  `{ui_prefs: {theme: <current>, density: "compact", fontScale: <current>}}`
+  `{ui_prefs: {theme: <current>, density: "compact", font_scale: <current>}}`
   → 200; `ui-prefs.json` `apps.pdomain-ocr-simple-gui.ui_prefs.density`
   updated; on reload the compact
   density is re-applied
@@ -324,24 +324,20 @@ before each test.
   position reflects the new scale; text/UI elements appear visually larger or
   smaller
 - **Backend / side-effects:** `PUT /api/prefs` with body
-  `{ui_prefs: {theme: <current>, density: <current>, fontScale: <newValue>}}`
-  → 200. **Known gap:** the backend's `CommonUIPrefs` field is snake_case
-  `font_scale` and ignores unknown keys, so the camelCase `fontScale` is
-  dropped and `apps.pdomain-ocr-simple-gui.ui_prefs.font_scale` stays 1.0.
-  `uiPrefsConfig.load` (`App.tsx:326`) reads `ui_prefs.fontScale`, which GET
-  never returns, so a slider change is not re-applied after reload. Writing
-  `font_scale` directly persists; the backend enforces [0.8, 1.4] on it
-  (422 outside the range).
+  `{ui_prefs: {theme: <current>, density: <current>, font_scale: <newValue>}}`
+  → 200, stored at `apps.pdomain-ocr-simple-gui.ui_prefs.font_scale`.
+  `persistCommon` maps pdomain-ui's camelCase `fontScale` to the backend's
+  snake_case `font_scale`, and `uiPrefsConfig.load` maps it back. The backend
+  enforces [0.8, 1.4] on it (422 outside the range).
 - **Bad-state / error (slider out of range):** `uiPrefsConfig.load` clamps a
-  `fontScale` value to [0.8, 1.4] — a value of 2.0 would be read back as 1.4
+  `font_scale` value to [0.8, 1.4] — a value of 2.0 would be read back as 1.4
 - **Bad-state / error (PUT fails):** Same error-surfacing as B-SHELL-008 — sonner
   toast; scale reverts on reload
 - **Tier(s):** A
 - **Regression:** yes — same silent-catch regression as B-SHELL-008/009
 - **Test:** `tests/e2e/test_click_paths_app_shell.py::test_fontscale_persists_via_api`
-  (slider visibility confirmed in the settings panel; Playwright drag-sequence
-  for slider value change deferred — the test round-trips `font_scale` through
-  PUT/GET, not the `fontScale` key the UI sends)
+  (moves the slider, checks the PUT, the stored `font_scale`, and the zoom and
+  slider value after a reload)
 
 ---
 
@@ -353,8 +349,9 @@ before each test.
   reloaded
 - **Observable output:** On reload, `GET /api/prefs` is called by
   `uiPrefsConfig.load`; the AppShell applies the persisted `theme`
-  (`data-theme` on the document root) and `density` (`data-density` on the
-  `app-shell` element). `fontScale` is not restored (see B-SHELL-010)
+  (`data-theme` on the document root), `density` (`data-density` on the
+  `app-shell` element), and `font_scale` (CSS zoom on the document root, see
+  B-SHELL-010)
 - **Backend / side-effects:** `GET /api/prefs` → 200 with persisted values;
   no writes on load
 - **Bad-state / error:** `GET /api/prefs` returns non-2xx or body parsing

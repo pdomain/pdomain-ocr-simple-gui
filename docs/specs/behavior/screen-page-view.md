@@ -346,10 +346,8 @@ against `storage.py`:
 - **Trigger:** Click `data-testid="page-rerun-doctr"` ("Re-run DocTR") (or
   `mod+r`).
 - **Preconditions:** Page loaded; `rerunStatus === "idle"`; the page's source
-  image file exists on disk. **Known gap:** the `mod+r` binding's `when` guard
-  also requires `tesseractAvailable`, so when Tesseract is not installed the
-  binding is skipped without `preventDefault` and the browser's own Ctrl+R
-  reload runs; the button itself has no such guard.
+  image file exists on disk. Neither the button nor the `mod+r` binding needs
+  Tesseract.
 - **Observable output:** Button label flips to `"Re-running…"` while in flight;
   on success the textarea is refetched/updated with the new OCR text and a toast
   `"Re-run complete"` appears; on failure a toast `"Re-run failed"`.
@@ -388,9 +386,9 @@ against `storage.py`:
 - **Trigger:** Click `data-testid="page-rerun-tesseract"` ("Re-run Tesseract")
   (or `mod+shift+r`).
 - **Preconditions:** Same as B-PAGEVIEW-013, and `GET /api/config` reports
-  Tesseract available — otherwise the button is not rendered. **Known gap:**
-  the `mod+shift+r` binding does not check availability, so it still POSTs
-  and the backend answers 400 (toast "Re-run failed").
+  Tesseract available — otherwise the button is not rendered and the
+  `mod+shift+r` binding is skipped, so no re-run is sent. A skipped binding does
+  not call `preventDefault`, so the browser's own Ctrl+Shift+R reload runs.
 - **Observable output:** Same observable contract as B-PAGEVIEW-013 — toast +
   refreshed textarea.
 - **Backend / side-effects:** `POST .../rerun` body `{engine:"tesseract"}` —

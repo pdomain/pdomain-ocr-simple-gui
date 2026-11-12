@@ -48,44 +48,28 @@ This roadmap does not restate that design.
 - Run `make ci AI=1` before committing.
 - Work that belongs in another repo is listed below, and it is not a task for this app.
 
-## Fix these bugs first
+## Resolved on master
 
-These five are ordered most urgent first. All five were found in the 2026-11-07 doc recheck.
+These landed in the merge of `fix/e2e-flakes`.
 
-- The font-size setting never saves. The Settings control comes from
-  `@pdomain/pdomain-ui` and sends `fontScale`. This app stores `font_scale`
-  and drops the other name.
-  [Issue](issues/2026-11-07-font-scale-never-persists.md).
-  `pdomain-prep-for-pgdp` already maps the two names in its `App.tsx`.
-  Fix the mapping in this app.
-- Re-run shortcuts check the wrong engine. Ctrl+R requires Tesseract.
-  Ctrl+Shift+R does not.
-  [Issue](issues/2026-11-07-rerun-shortcuts-check-wrong-engine.md).
-- Viewer PNG caches become extra OCR pages. When the browser does not send
-  `image/webp`, the page image route writes `<name>.viewer.png` next to the
-  scan. `collect_images` accepts `.png` and skips `.webp`, so the next job
-  on that folder OCRs the copy. A PNG source is served as itself and gets
-  no cache file.
-  [Issue](issues/2026-11-07-viewer-png-cache-becomes-ocr-page.md).
-- The CUDA setup link is not served. The Compute panel links to
-  `/docs/runbooks/cuda-setup.md`. The app does not serve `docs/`, so the
-  catch-all route shows the home screen.
-  [Issue](issues/2026-11-07-cuda-setup-link-not-served.md).
-- Setup defaults still point at the old devcontainer and the old owner.
-  The Playwright path is in the `Makefile`. The clone owner is in
-  `local-setup.sh`.
-  [Issue](issues/2026-11-07-devcontainer-and-old-org-defaults.md).
+- Font size saves as `font_scale` (`cc2a8ca`). Ctrl+Shift+R is the
+  Tesseract re-run shortcut (`fad237a`). New viewer caches go in the
+  project directory, and collection skips old `.viewer.png` copies
+  (`37f3ab9`). The Compute panel links to the published CUDA guide
+  (`e8bcd17`). Setup no longer uses the devcontainer Playwright path
+  or the old clone owner (`4c37fea`). The issue files are retired.
+  The tombstone is in [decisions](context/decisions.md).
+- The browser tests wait for word overlays (`60020aa`), let uvicorn
+  pick the port (`630e2e0`), wait for a finished upload job
+  (`0451c26`), and check the 404 words response before reading the
+  count (`73cacdd`). `fix/word-overlay-flake`, `60020aa` through
+  `af4afdd`, is the word-overlay part of that same merge.
 
-## Browser test races
+## Still open in this repo
 
-- Master runs browser tests that race. The fixes are on `fix/e2e-flakes`,
-  commits `60020aa` through `ccec147`. The word-overlay test waits until
-  the count is at least one. The upload flow waits until the job is
-  finished. The live server lets uvicorn pick the port. The empty overlay
-  test checks the 404 before it reads the count. `fix/word-overlay-flake`,
-  commits `60020aa` through `af4afdd`, is that word-overlay portion.
-  `tests/smoke/test_e2e.py` still reserves a port and binds it after the
-  socket closes. `make smoke` runs a single server.
+- `tests/smoke/test_e2e.py` still reserves a port and binds it after
+  the socket closes. `make smoke` runs a single server. The e2e suite
+  already uses `--port 0`.
 
 ## Cleanup that stays here
 
@@ -110,10 +94,10 @@ That design is a historical proposal in `pdomain-ui`. Its owner still has to dec
 Do not treat it as the design for this repo.
 [Issue](issues/2026-08-08-dep-refresh-cannot-auto-land.md).
 
-Old `.viewer.png` and `.viewer.webp` files can remain in source folders. On
-`fix/doc-recheck-bugs`, `37f3ab9` stores new caches in the project directory
-and skips old `.viewer.png` copies during collection. `495bbac` leaves
-deletion of those leftover files as an owner decision.
+Old `.viewer.png` and `.viewer.webp` files can remain in source folders.
+`37f3ab9` stores new caches in the project directory and skips old
+`.viewer.png` copies during collection. Deleting the leftover files is
+still an owner decision.
 
 ## Work that belongs in another repo
 

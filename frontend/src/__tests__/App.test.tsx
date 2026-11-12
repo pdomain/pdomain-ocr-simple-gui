@@ -579,7 +579,44 @@ describe("uiPrefsConfig persist wiring", () => {
 
     expect(puts).toHaveLength(1);
     expect(puts[0]).toEqual({
-      ui_prefs: { theme: "dark", density: "normal", fontScale: 1.0 },
+      ui_prefs: { theme: "dark", density: "normal", font_scale: 1.0 },
+    });
+  });
+
+  it("persistCommon sends the font scale under the backend's font_scale key", async () => {
+    const { puts, fetchMock } = makeMergingFetch();
+    (globalThis as any).fetch = fetchMock;
+
+    await uiPrefsConfig.persistCommon?.({
+      theme: "dark",
+      density: "normal",
+      fontScale: 1.2,
+    } as never);
+
+    const uiPrefs = puts[0].ui_prefs as Record<string, unknown>;
+    expect(uiPrefs.font_scale).toBe(1.2);
+    expect(uiPrefs).not.toHaveProperty("fontScale");
+  });
+
+  it("load reads the font scale from the backend's font_scale key", async () => {
+    const { store, fetchMock } = makeMergingFetch();
+    store.ui_prefs = { theme: "light", density: "compact", font_scale: 1.2 };
+    (globalThis as any).fetch = fetchMock;
+
+    await expect(uiPrefsConfig.load()).resolves.toEqual({
+      theme: "light",
+      density: "compact",
+      fontScale: 1.2,
+    });
+  });
+
+  it("load clamps an out-of-range font_scale to [0.8, 1.4]", async () => {
+    const { store, fetchMock } = makeMergingFetch();
+    store.ui_prefs = { theme: "dark", density: "normal", font_scale: 2.0 };
+    (globalThis as any).fetch = fetchMock;
+
+    await expect(uiPrefsConfig.load()).resolves.toMatchObject({
+      fontScale: 1.4,
     });
   });
 
@@ -601,7 +638,7 @@ describe("uiPrefsConfig persist wiring", () => {
     expect(store.ui_prefs).toEqual({
       theme: "dark",
       density: "normal",
-      fontScale: 1.0,
+      font_scale: 1.0,
     });
   });
 });

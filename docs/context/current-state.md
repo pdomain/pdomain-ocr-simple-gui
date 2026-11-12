@@ -32,8 +32,9 @@ follow-ups and former GitHub #26 are shipped and retired; tombstones are in
 
 ## In-flight work
 
-None. The suite launcher opener closeout is finished and its plan and spec
-are retired; the tombstone is in [decisions](decisions.md).
+None. The five 2026-11-07 bugs and the browser-test races are on master
+in the merge of `fix/e2e-flakes`. What remains is on the
+[roadmap](../roadmap.md).
 
 ## Open product residue
 
@@ -43,8 +44,13 @@ reason they stay deferred, are in the [intent map](intent-map.md).
 
 ## Verification and risks
 
-`make ci AI=1` passed on 2026-07-14 after the review-fix merges; re-run after
-substantive code changes. The download output mirror can remain stale after
+`make ci AI=1` passed on 2026-11-11 on `fix/e2e-flakes` before this merge,
+with the GPU hidden. The word-overlay test waits until the count is at
+least one. The upload flow polls until the job is terminal. The e2e
+server starts uvicorn with `--port 0` and reads the bound port from its
+log. That suite passed 20 of 20 runs under `-n auto`.
+`tests/smoke/test_e2e.py` still reserves a port and binds it afterwards.
+The download output mirror can remain stale after
 per-page edits or reruns; the deferred redesign is tracked in
 [the intent map](intent-map.md).
 

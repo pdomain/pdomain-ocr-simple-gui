@@ -73,8 +73,10 @@ Evidence:
 - Tests: `tests/`, `frontend/src/**/__tests__/`, `tests/e2e/`
 - Artifacts: the Vite build is packaged under `src/pdomain_ocr_simple_gui/frontend/`
 - Verified: 2026-11-07 with source inspection
-- Verified: 2026-11-12. `_transcode_for_browser` writes `<name>.viewer.webp` or
-  `<name>.viewer.png`. `_IMAGE_SUFFIXES` includes `.png` and omits `.webp`.
+- Verified: 2026-11-12. `_transcode_for_browser` writes
+  `<project_dir>/<name>.viewer.webp` or `<project_dir>/<name>.viewer.png`.
+  `collect_images` skips an old `<name>.viewer.png` left beside a scan.
+  `_IMAGE_SUFFIXES` includes `.png` and omits `.webp`.
   `tests/` has 47 top-level `test_*.py` files. `tests/e2e/` has 23, of
   which 21 are Tier A and 2 are Tier B.
   `docs/archive/` is gone (`a803e9c`).
@@ -156,7 +158,7 @@ Single-page page rerun does not take this semaphore.
 
 `pipeline.py`:
 
-1. `collect_images(source_path)` accepts a file or a directory. It filters PNG, JPEG, TIFF, and JPEG 2000 suffixes. The result is sorted.
+1. `collect_images(source_path)` accepts a file or a directory. It filters PNG, JPEG, TIFF, and JPEG 2000 suffixes, and it skips an old `<name>.viewer.png` copy. The result is sorted.
 2. `run_project(spec, dispatcher, status_callback)` is async. It splits pages into chunks of `spec.batch_pages`. The default is 8. It calls `dispatcher.run_ocr_batch(req)` per chunk. It runs the PP-DocLayout-Plus-L layout pass and `Page.reorganize_page` on each page, in `layout_pass.py`. It writes the sidecar and the `.txt` through storage helpers. It calls `status_callback` for progress. Batch waits are bounded by `PDOMAIN_OCR_BATCH_TIMEOUT_S`, using `asyncio.wait_for`. Cancelling the await does not stop the executor thread. The predictor-cache lock is upstream in pdomain-ops. Details are in [`runtime-flows.md`](runtime-flows.md#2-ocr-pipeline-execution).
 
 The FastAPI lifespan wires `LocalStageDispatcher` from `pdomain-ops` at app startup, with `device_resolver=_resolve_device`. That resolver calls `resolve_effective_device(prefs, APP_ID)` on each dispatch. Settings device changes then apply on the next OCR stage, without a restart.
@@ -177,9 +179,9 @@ When `PDOMAIN_OCR_FAKE_DISPATCHER` is set, lifespan swaps in `FakeStageDispatche
   combined.txt            All pages joined
 ```
 
-The output mirror, the jobs-meta sidecar, and the viewer caches are documented in [runtime flows](runtime-flows.md#storage-paths-summary). The viewer caches are `<name>.viewer.webp` and `<name>.viewer.png`.
+The output mirror, the jobs-meta sidecar, and the viewer caches are documented in [runtime flows](runtime-flows.md#storage-paths-summary). The viewer caches are `<project_dir>/<name>.viewer.webp` and `<project_dir>/<name>.viewer.png`.
 
-The PNG cache is a real page to `collect_images`. That bug is on the roadmap.
+`collect_images` skips an old `<name>.viewer.png` left beside a scan. Deleting those leftover files is an owner decision on the [roadmap](../roadmap.md).
 
 ---
 
