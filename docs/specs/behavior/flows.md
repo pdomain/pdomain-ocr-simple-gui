@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-30
-Last verified: 2026-11-07
+Last verified: 2026-11-12
 Kind: spec
 ---
 
@@ -21,9 +21,9 @@ Flows are named multi-step scenarios that cross units. Each flow chains
 already-locked per-unit behavior records (by ID) into one end-to-end
 path. Flows are where the most valuable regression coverage lives.
 
-A *unit* here is a screen: home → results → page-view. See
-`/workspaces/ocr-container/docs/process/behavior-e2e-capture.md` for the
-full process when that workspace tree exists (it is not in this repo).
+A unit here is a screen: home, then results, then page view. The ID rules
+in the [behavior-spec index](README.md) are the method. The old
+`/workspaces/ocr-container` capture guide is not in this repo.
 
 ## Flows
 

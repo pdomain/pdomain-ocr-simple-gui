@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-14
-Last verified: 2026-11-07
+Last verified: 2026-11-12
 Kind: context
 ---
 
@@ -37,8 +37,9 @@ are retired; the tombstone is in [decisions](decisions.md).
 
 ## Open product residue
 
-The full list of remaining work is on the [roadmap](../roadmap.md). Deferred
-and blocked bets are in the [intent map](intent-map.md).
+The only remaining-work list is the [roadmap](../roadmap.md). It also names
+work that belongs in another repo. Deferred and blocked bets, with the
+reason they stay deferred, are in the [intent map](intent-map.md).
 
 ## Verification and risks
 

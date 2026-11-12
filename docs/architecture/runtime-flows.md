@@ -2,13 +2,13 @@
 Status: active
 Owner: CT
 Created: 2026-06-14
-Last verified: 2026-11-07
+Last verified: 2026-11-12
 Kind: architecture
 ---
 
 # pdomain-ocr-simple-gui — Runtime Flows
 
-**Last updated:** 2026-11-07
+**Last updated:** 2026-11-12
 
 Step-by-step reference for the major request flows. Each flow shows the
 actors involved, the state transitions from `job_lifecycle.py`, and the
@@ -378,7 +378,8 @@ download endpoint returns 404 for the deleted job, because neither
 | `<output_dir>/<stem>.json` | `write_output_page_files()` — per-page mirror |
 | `<output_dir>/<name>.txt` | `write_output_combined_txt()` — combined mirror |
 | `<jobs_meta_root>/{id}/output_mode.json` | `_write_job_meta()` — job creation |
-| `<source_path>/<name>.viewer.webp` | `_transcode_for_browser()` — image GET cache |
+| `<source_path>/<name>.viewer.webp` | `_transcode_for_browser()` when the request accepts `image/webp` |
+| `<source_path>/<name>.viewer.png` | `_transcode_for_browser()` when the request does not accept WebP |
 
 `<projects_root>` defaults to `~/.local/share/pdomain-suite/simple-gui/projects/`.
 Override with `PD_OCR_SIMPLE_GUI_PROJECTS_ROOT` or the `jobs_location` pref.
@@ -387,6 +388,14 @@ Override with `PD_OCR_SIMPLE_GUI_PROJECTS_ROOT` or the `jobs_location` pref.
 
 `<jobs_meta_root>` defaults to `~/.local/share/pdomain-ocr-simple-gui/jobs/`.
 Override with `PD_OCR_SIMPLE_GUI_JOBS_META_ROOT`.
+
+`collect_images` keeps `.png`, `.jpg`, `.jpeg`, `.tif`, `.tiff`, and the
+JPEG 2000 suffixes `.jp2`, `.j2k`, `.jpf`, `.jpx`, and `.jpm`. It skips
+`.webp`. A `<name>.viewer.png` file written next to a non-PNG scan is
+therefore collected as another page on a later job. A PNG source is served
+unchanged and gets no cache file. WebP quality is lossy q=80. The original
+scan is left in place and is what the output ZIP copies. The filter fix is
+on the [roadmap](../roadmap.md).
 
 ---
 

@@ -73,6 +73,9 @@ Lead with the **smallest decisive evidence**, separate **observation** from
 
 ## Open issues
 
+Priority order is the [roadmap](../roadmap.md). This list is the index of
+the files.
+
 - [The font-size setting never saves](2026-11-07-font-scale-never-persists.md)
   — the frontend sends `fontScale`, the backend reads `font_scale`.
 - [Re-run shortcuts check the wrong engine](2026-11-07-rerun-shortcuts-check-wrong-engine.md)

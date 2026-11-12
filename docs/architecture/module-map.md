@@ -2,13 +2,13 @@
 Status: active
 Owner: CT
 Created: 2026-06-14
-Last verified: 2026-11-07
+Last verified: 2026-11-12
 Kind: architecture
 ---
 
 # pdomain-ocr-simple-gui — Module Map
 
-**Last updated:** 2026-11-07
+**Last updated:** 2026-11-12
 
 Per-module reference. Each entry gives a one-line responsibility and its
 key public surface (types, functions, hooks). Derived from current source.
@@ -101,7 +101,7 @@ key public surface (types, functions, hooks). Derived from current source.
 |------|---------------|
 | `components/SourcePicker.tsx` | Tabbed source selection: local path / file upload / drag-drop |
 | `components/JobConfigInline.tsx` | Inline job config form: engine, language, output dir |
-| `components/CudaSetupGuidance.tsx` | CUDA installation guidance; always shown under the Settings > Compute panel |
+| `components/CudaSetupGuidance.tsx` | CUDA installation guidance, always shown under Settings > Compute. The help link targets `/docs/runbooks/cuda-setup.md`, which this app does not serve, so the click falls through to the home screen |
 | `components/JobsLocationSettings.tsx` | Jobs output location preference panel |
 | `components/ModelCacheSettings.tsx` | DocTR model pre-cache status + trigger |
 | `components/OutputConfigPanel.tsx` | Output destination selector: next to source, specified path, or managed |

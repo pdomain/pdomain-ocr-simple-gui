@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-30
-Last verified: 2026-11-07
+Last verified: 2026-11-12
 Kind: spec
 ---
 
@@ -43,8 +43,9 @@ does. The Playwright e2e tests assert against them.
 - `flows.md` — cross-screen end-to-end flows
 - `coverage.md` — generated traceability report
 
-See `/workspaces/ocr-container/docs/process/behavior-e2e-capture.md` for
-the methodology when that workspace tree exists (it is not in this repo).
+The ID rules above are the method. How the suites run is also summarized in
+the architecture overview's test strategy. The old
+`/workspaces/ocr-container` capture guide is not in this repo.
 
 ## Running the tests
 

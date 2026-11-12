@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-14
-Last verified: 2026-11-07
+Last verified: 2026-11-12
 Kind: context
 ---
 
@@ -175,3 +175,22 @@ Kind: context
   above. The locked `@pdomain/pdomain-ui` 0.12.1 bundle calls
   `window.open(url, "_blank", "noopener,noreferrer")`.
 - Remaining work: none
+
+### 2026-11-12 — The roadmap is the only open-work list
+
+- **Context:** Open work was copied across the roadmap, the intent map,
+  current state, and the issues index. The roadmap also restated the stack.
+  Commit `a803e9c` removed the empty `docs/archive/` folders. Retired files
+  stay in git history.
+- **Decision:** The roadmap lists open work once, in priority order, and
+  names work that belongs in another repo. Architecture docs describe what
+  ships today. The intent map keeps the rationale for deferred, blocked, and
+  rejected bets and does not repeat the bug list. The issues index still
+  links each open issue file. There is no `docs/archive/` folder.
+- **Rationale:** Three copies of the backlog can drift, and future work was
+  mixed into the pages that describe the running app.
+- **Evidence:** `docs/roadmap.md`, `docs/architecture/00-overview.md`,
+  `docs/architecture/runtime-flows.md`, `docs/context/intent-map.md`,
+  `docs/README.md`.
+- **Remaining work:** The owner still decides whether to close the
+  `dep-refresh` issue.

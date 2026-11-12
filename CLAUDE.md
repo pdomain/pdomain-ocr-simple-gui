@@ -110,8 +110,9 @@ In `/mnt/work/projects/pdomain/`:
 
 This repo follows the workspace docs/ template — see [`docs/README.md`](docs/README.md). Active
 folders: `architecture/`, `context/`, `decisions/`, `issues/`, `plans/`,
-`process/`, `research/`, `runbooks/`, `specs/`, `templates/`, `usage/`, plus
-`archive/` subfolders for the nine folders other than `context/` and `issues/`.
+`process/`, `research/`, `runbooks/`, `specs/`, `templates/`, and `usage/`.
+There is no `docs/archive/`. Retired docs are tombstoned in
+`docs/context/decisions.md`, and the old files stay in git history.
 
 **Superpowers redirect.** When a superpowers skill (e.g. `brainstorming`,
 `writing-plans`) instructs you to save to `docs/superpowers/specs/<file>.md`
