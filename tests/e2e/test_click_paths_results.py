@@ -25,9 +25,7 @@ from playwright.sync_api import Page, expect
 pytestmark = [pytest.mark.slow, pytest.mark.e2e]
 
 
-# ---------------------------------------------------------------------------
 # B-RESULTS-001 — Job page loads and shows name + status pip
-# ---------------------------------------------------------------------------
 
 
 def test_results_page_loads_name_and_pip(
@@ -62,9 +60,7 @@ def test_results_page_bad_id_is_not_a_crash(page: Page, live_server_url: str) ->
     expect(page.get_by_role("heading", level=1)).to_have_count(0)
 
 
-# ---------------------------------------------------------------------------
 # B-RESULTS-002 — Running job shows a progress bar; polls until terminal
-# ---------------------------------------------------------------------------
 
 
 def test_running_job_shows_progress_bar(page: Page, live_server_url: str, e2e_data_root: Path) -> None:
@@ -121,9 +117,7 @@ def test_running_job_no_actions_yet(page: Page, live_server_url: str, e2e_data_r
     page.unroute(poll_route)
 
 
-# ---------------------------------------------------------------------------
 # B-RESULTS-003 — Succeeded job renders results (Tier A render; Tier B real text)
-# ---------------------------------------------------------------------------
 
 
 def test_succeeded_job_renders_results_and_stops_polling(
@@ -186,9 +180,7 @@ def test_succeeded_empty_pages_renders_header_only(
     expect(page.get_by_test_id("page-row")).to_have_count(0)
 
 
-# ---------------------------------------------------------------------------
 # B-RESULTS-005 — Per-page status table populates with preview text
-# ---------------------------------------------------------------------------
 
 
 def test_results_page_table_rows_and_preview(
@@ -250,9 +242,7 @@ def test_results_page_empty_preview_shows_dash(page: Page, live_server_url: str,
     expect(row).to_contain_text("—")
 
 
-# ---------------------------------------------------------------------------
 # B-RESULTS-004 — Failed job surfaces error text + a rerun affordance
-# ---------------------------------------------------------------------------
 
 
 def test_failed_job_surfaces_error_and_rerun(
@@ -293,9 +283,7 @@ def test_succeeded_job_has_no_failed_error_block(
     expect(page.get_by_role("heading", level=1)).to_contain_text("e2e-seeded")
 
 
-# ---------------------------------------------------------------------------
 # B-RESULTS-010 — Open a page (navigate to PageView)
-# ---------------------------------------------------------------------------
 
 
 def test_open_page_navigates_to_page_view(page: Page, live_server_url: str, seeded_job_id: str) -> None:
@@ -321,9 +309,7 @@ def test_open_page_bad_index_returns_404(page: Page, live_server_url: str, seede
     _ = page  # selector-free API assertion; page fixture kept for parity
 
 
-# ---------------------------------------------------------------------------
 # B-RESULTS-011 — Open a non-existent / deleted job (404 → distinct not-found)
-# ---------------------------------------------------------------------------
 
 
 def test_unknown_job_shows_not_found_with_back_home(page: Page, live_server_url: str) -> None:
@@ -352,9 +338,7 @@ def test_back_home_link_returns_to_home(page: Page, live_server_url: str) -> Non
     expect(page.get_by_test_id("home-page")).to_be_visible(timeout=15_000)
 
 
-# ---------------------------------------------------------------------------
 # B-RESULTS-012 — Transient status-fetch error (5xx) keeps polling, then recovers
-# ---------------------------------------------------------------------------
 
 
 def test_transient_error_keeps_polling_then_recovers(
@@ -383,9 +367,7 @@ def test_transient_error_keeps_polling_then_recovers(
     expect(page.get_by_test_id("results-error")).to_have_count(0)
 
 
-# ---------------------------------------------------------------------------
 # B-RESULTS-013 — Progress message line
-# ---------------------------------------------------------------------------
 
 
 def test_progress_message_renders_when_present(page: Page, live_server_url: str, e2e_data_root: Path) -> None:
@@ -453,9 +435,7 @@ def _running_body(project_id: str, msg: str) -> dict[str, object]:
     }
 
 
-# ---------------------------------------------------------------------------
 # B-RESULTS-014 — Delete a job (backend endpoint; no ResultsPage UI control)
-# ---------------------------------------------------------------------------
 
 
 def test_delete_removes_all_artifacts_and_blocks_download(

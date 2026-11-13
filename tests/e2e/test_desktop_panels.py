@@ -37,9 +37,7 @@ from playwright.sync_api import Page, expect
 
 pytestmark = [pytest.mark.slow, pytest.mark.e2e]
 
-# ---------------------------------------------------------------------------
 # Synthetic payloads
-# ---------------------------------------------------------------------------
 
 _DEVICE_LOCAL_CPU_ONLY: dict[str, object] = {
     "mode": "local",
@@ -66,9 +64,7 @@ _UPDATE_AVAILABLE: dict[str, object] = {
 }
 
 
-# ---------------------------------------------------------------------------
 # H1 / H2 — app loads without broken-resource console errors
-# ---------------------------------------------------------------------------
 
 
 def test_app_loads_no_console_errors(page: Page, live_server_url: str) -> None:
@@ -105,9 +101,7 @@ def test_app_loads_no_console_errors(page: Page, live_server_url: str) -> None:
     )
 
 
-# ---------------------------------------------------------------------------
 # H2 — Compute settings tab renders panel + CPU device option
-# ---------------------------------------------------------------------------
 
 
 def test_compute_panel_visible_and_lists_cpu(page: Page, live_server_url: str) -> None:
@@ -157,9 +151,7 @@ def test_compute_panel_visible_and_lists_cpu(page: Page, live_server_url: str) -
     expect(page.get_by_test_id("slide-over-panel")).not_to_be_visible(timeout=5_000)
 
 
-# ---------------------------------------------------------------------------
 # H2c — Header update-badge is visible when an update is available
-# ---------------------------------------------------------------------------
 
 
 def test_update_badge_visible_when_update_available(page: Page, live_server_url: str) -> None:
@@ -189,9 +181,7 @@ def test_update_badge_visible_when_update_available(page: Page, live_server_url:
     expect(page.get_by_test_id("update-badge")).to_be_visible(timeout=5_000)
 
 
-# ---------------------------------------------------------------------------
 # H2 — Updates settings tab renders the update panel
-# ---------------------------------------------------------------------------
 
 
 def test_updates_panel_visible(page: Page, live_server_url: str) -> None:
@@ -231,9 +221,7 @@ def test_updates_panel_visible(page: Page, live_server_url: str) -> None:
     expect(page.get_by_test_id("update-panel")).to_be_visible(timeout=5_000)
 
 
-# ---------------------------------------------------------------------------
 # H2 — React Router sub-path renders a page component, not a JSON 404
-# ---------------------------------------------------------------------------
 
 
 def test_router_subpath_renders_page_not_json(page: Page, live_server_url: str, seeded_job_id: str) -> None:

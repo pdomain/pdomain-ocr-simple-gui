@@ -64,17 +64,11 @@ These landed in the merge of `fix/e2e-flakes`.
   (`0451c26`), and check the 404 words response before reading the
   count (`73cacdd`). `fix/word-overlay-flake`, `60020aa` through
   `af4afdd`, is the word-overlay part of that same merge.
-
-## Still open in this repo
-
-- `tests/smoke/test_e2e.py` still reserves a port and binds it after
-  the socket closes. `make smoke` runs a single server. The e2e suite
-  already uses `--port 0`.
-
-## Cleanup that stays here
-
-- Remove the leftover `# ---` divider banners under `tests/e2e/`. This is
-  former GitHub issue #13. The banners are still in those test files. The
+- The smoke server starts with `--port 0` and reads the bound port
+  from uvicorn's log. `start_smoke_server` in `tests/smoke/test_e2e.py`
+  is that path. A held port is not the URL the test uses.
+- The `# ---` divider banners are gone from `tests/e2e/`. This was
+  former GitHub issue #13. The
   [migration ledger](context/github-issue-migration-ledger.md) has the row.
 
 ## Owner decision still open
@@ -187,6 +181,6 @@ The constraints are in the [intent map](context/intent-map.md).
 
 ## Where shipped work is recorded
 
-Former GitHub issues #1 through #34 and #36 through #38 are implemented, except #13, the divider banners above. The [migration ledger](context/github-issue-migration-ledger.md) has one row per issue. Do not reopen them.
+Former GitHub issues #1 through #34 and #36 through #38 are implemented, including #13, the divider banners. The [migration ledger](context/github-issue-migration-ledger.md) has one row per issue. Do not reopen them.
 
 Retired plans and issues are tombstoned in [decisions](context/decisions.md). There is no `docs/archive/` folder. Retired files stay in git history.

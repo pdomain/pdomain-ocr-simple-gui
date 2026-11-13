@@ -33,9 +33,7 @@ def _zip_members(live_server_url: str, job_id: str, include: str) -> list[str]:
         return sorted(zf.namelist())
 
 
-# ---------------------------------------------------------------------------
 # B-RESULTS-006 — Download results zip (managed mode) + include-filter membership
-# ---------------------------------------------------------------------------
 
 
 def test_download_zip_from_results_page(page: Page, live_server_url: str, seeded_managed_job_id: str) -> None:
@@ -112,9 +110,7 @@ def test_download_bad_include_token_rejected(
     assert resp.status_code == 400
 
 
-# ---------------------------------------------------------------------------
 # B-RESULTS-007 — Download button hidden for non-managed jobs
-# ---------------------------------------------------------------------------
 
 
 def test_download_button_hidden_for_non_managed(page: Page, live_server_url: str, seeded_job_id: str) -> None:
@@ -130,9 +126,7 @@ def test_download_button_hidden_for_non_managed(page: Page, live_server_url: str
     assert resp.json().get("output_mode") == "next_to_source"
 
 
-# ---------------------------------------------------------------------------
 # B-RESULTS-008 — Copy output path to clipboard
-# ---------------------------------------------------------------------------
 
 
 def test_copy_path_button_on_results_page(page: Page, live_server_url: str, seeded_job_id: str) -> None:
@@ -164,9 +158,7 @@ def test_copy_path_absent_when_not_succeeded(page: Page, live_server_url: str) -
     expect(page.get_by_test_id("copy-path-button")).to_have_count(0)
 
 
-# ---------------------------------------------------------------------------
 # B-RESULTS-009 — Re-run the whole job (+ rerun error surfacing)
-# ---------------------------------------------------------------------------
 
 
 def test_rerun_all_button_on_results_page(page: Page, live_server_url: str, seeded_rerun_job_id: str) -> None:

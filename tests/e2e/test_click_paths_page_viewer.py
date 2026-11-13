@@ -49,9 +49,7 @@ def _toast_with(page: Page, fragment: str, timeout_ms: int = 8_000) -> None:
     )
 
 
-# ---------------------------------------------------------------------------
 # B-PAGEVIEW-001 — Page view loads (image canvas + editor + nav toolbar)
-# ---------------------------------------------------------------------------
 
 
 def test_page_view_loads_canvas_editor_and_indicator(
@@ -92,9 +90,7 @@ def test_page_view_malformed_id_does_not_crash(page: Page, live_server_url: str)
     _ = page  # API-level assertion; page fixture kept for parity
 
 
-# ---------------------------------------------------------------------------
 # B-PAGEVIEW-002 — Word overlays render from the sidecar
-# ---------------------------------------------------------------------------
 
 
 def test_word_overlays_render_from_sidecar(page: Page, live_server_url: str, seeded_job_id: str) -> None:
@@ -160,9 +156,7 @@ def test_word_overlays_empty_when_words_404(page: Page, live_server_url: str) ->
     page.unroute(words_route)
 
 
-# ---------------------------------------------------------------------------
 # B-PAGEVIEW-003 / 004 / 005 / 006 / 007 — Zoom controls
-# ---------------------------------------------------------------------------
 
 
 def test_zoom_in_increases_zoom_and_disables_auto_fit(
@@ -356,9 +350,7 @@ def test_zoom_resets_to_auto_fit_on_navigation(
     assert page.get_by_test_id("page-zoom-viewport").get_attribute("data-auto-fit") == "true"
 
 
-# ---------------------------------------------------------------------------
 # B-PAGEVIEW-008 / 009 — Page navigation
-# ---------------------------------------------------------------------------
 
 
 def test_next_page_navigates_and_refetches(
@@ -412,9 +404,7 @@ def test_prev_disabled_on_first_page(page: Page, live_server_url: str, seeded_2p
     expect(page.get_by_test_id("page-prev-button")).to_be_disabled()
 
 
-# ---------------------------------------------------------------------------
 # B-PAGEVIEW-010 / 011 — Save edited text (button + mod+s)
-# ---------------------------------------------------------------------------
 
 
 def test_save_button_persists_edit_to_sidecar_and_txt(
@@ -510,9 +500,7 @@ def test_save_failure_toasts_save_failed(page: Page, live_server_url: str, seede
     page.unroute(save_route)
 
 
-# ---------------------------------------------------------------------------
 # B-PAGEVIEW-012 — Save bad-state (out-of-range index → clean 404)  [Regression]
-# ---------------------------------------------------------------------------
 
 
 def test_out_of_range_save_is_clean_404(
@@ -549,9 +537,7 @@ def test_save_missing_project_returns_404(page: Page, live_server_url: str) -> N
     _ = page
 
 
-# ---------------------------------------------------------------------------
 # B-PAGEVIEW-013 — Re-run single page (DocTR)  [Regression: preserves edit]
-# ---------------------------------------------------------------------------
 
 
 def test_rerun_doctr_toasts_and_preserves_saved_edit(
@@ -607,9 +593,7 @@ def test_rerun_doctr_missing_project_404(page: Page, live_server_url: str) -> No
     _ = page
 
 
-# ---------------------------------------------------------------------------
 # B-PAGEVIEW-014 — Re-run single page (Tesseract)
-# ---------------------------------------------------------------------------
 
 
 def test_rerun_tesseract_toasts(page: Page, live_server_url: str, seeded_rerun_job_id: str) -> None:
@@ -634,9 +618,7 @@ def test_rerun_tesseract_out_of_range_404(page: Page, live_server_url: str, seed
     _ = page
 
 
-# ---------------------------------------------------------------------------
 # B-PAGEVIEW-015 — Page-fetch failure surfaces a not-found / error block [Regression]
-# ---------------------------------------------------------------------------
 
 
 def test_page_fetch_404_shows_not_found_block(page: Page, live_server_url: str, seeded_job_id: str) -> None:
@@ -683,9 +665,7 @@ def test_page_fetch_error_shows_error_block(page: Page, live_server_url: str) ->
     page.unroute(page_route)
 
 
-# ---------------------------------------------------------------------------
 # B-PAGEVIEW-016 — Download from the page (txt / json / zip)
-# ---------------------------------------------------------------------------
 
 
 def test_page_download_triggers_job_zip(page: Page, live_server_url: str, seeded_managed_job_id: str) -> None:
@@ -724,9 +704,7 @@ def test_page_download_unknown_token_400(
     _ = page
 
 
-# ---------------------------------------------------------------------------
 # B-PAGEVIEW-017 — Job-progress message while a job is still running
-# ---------------------------------------------------------------------------
 
 
 def test_progress_message_renders_for_running_job(page: Page, live_server_url: str) -> None:

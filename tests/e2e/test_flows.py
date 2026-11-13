@@ -90,9 +90,7 @@ def _read_prefs_file(e2e_data_root: Path) -> dict:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
-# ---------------------------------------------------------------------------
 # F-UPLOAD-OCR-DOWNLOAD-01 — Upload, run OCR, review results, edit, download
-# ---------------------------------------------------------------------------
 
 
 def test_upload_ocr_download_flow(
@@ -218,9 +216,7 @@ def test_upload_ocr_download_flow(
     assert members_resp.status_code == 200
 
 
-# ---------------------------------------------------------------------------
 # F-RERUN-01 — Single-page rerun preserves prior edit
-# ---------------------------------------------------------------------------
 
 
 def test_rerun_preserves_edit_flow(
@@ -303,9 +299,7 @@ def test_rerun_preserves_edit_flow(
     assert bad_resp.status_code == 404
 
 
-# ---------------------------------------------------------------------------
 # F-PREFS-ROUNDTRIP-01 — Prefs round-trip across reload
-# ---------------------------------------------------------------------------
 
 
 def test_prefs_roundtrip_flow(
@@ -402,9 +396,7 @@ def test_prefs_roundtrip_flow(
     expect(page.locator("[data-sonner-toast]")).to_have_count(0)
 
 
-# ---------------------------------------------------------------------------
 # F-NOTFOUND-01 — Stale recent-project row leads to not-found block
-# ---------------------------------------------------------------------------
 
 
 def test_notfound_recovery_flow(

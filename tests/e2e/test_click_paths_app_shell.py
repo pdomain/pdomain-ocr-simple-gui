@@ -70,9 +70,7 @@ def _read_prefs(e2e_data_root: Path) -> dict:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
-# ---------------------------------------------------------------------------
 # B-SHELL-001 — App loads and renders shell with config
-# ---------------------------------------------------------------------------
 
 
 def test_app_shell_loads(page: Page, live_server_url: str) -> None:
@@ -99,9 +97,7 @@ def test_app_shell_loads(page: Page, live_server_url: str) -> None:
     assert prefs_resp.status_code == 200
 
 
-# ---------------------------------------------------------------------------
 # B-SHELL-002 — Active-jobs count updates when a job is running
-# ---------------------------------------------------------------------------
 
 
 def test_active_jobs_count_badge_appears_with_running_job(page: Page, live_server_url: str) -> None:
@@ -163,9 +159,7 @@ def test_active_jobs_count_badge_appears_with_running_job(page: Page, live_serve
     expect(page.get_by_test_id("jobs-pill-count")).not_to_be_visible(timeout=10_000)
 
 
-# ---------------------------------------------------------------------------
 # B-SHELL-003 — Jobs button opens right-side jobs panel
-# ---------------------------------------------------------------------------
 
 
 def test_jobs_button_opens_right_jobs_panel(page: Page, live_server_url: str) -> None:
@@ -268,9 +262,7 @@ def test_jobs_button_opens_right_jobs_panel(page: Page, live_server_url: str) ->
     expect(page.get_by_test_id("jobs-pill-count")).not_to_be_visible(timeout=10_000)
 
 
-# ---------------------------------------------------------------------------
 # B-SHELL-004 — Shortcuts cheatsheet opens via button click
-# ---------------------------------------------------------------------------
 
 
 def test_shortcuts_cheatsheet_opens_on_button_click(
@@ -298,9 +290,7 @@ def test_shortcuts_cheatsheet_opens_on_button_click(
     assert prefs_resp.status_code == 200  # unchanged; no PUT was fired
 
 
-# ---------------------------------------------------------------------------
 # B-SHELL-004 (second open path) — Shortcuts cheatsheet opens via ? key
-# ---------------------------------------------------------------------------
 
 
 def test_shortcuts_cheatsheet_opens_on_question_mark_key(
@@ -323,9 +313,7 @@ def test_shortcuts_cheatsheet_opens_on_question_mark_key(
     assert resp.status_code == 200
 
 
-# ---------------------------------------------------------------------------
 # B-SHELL-005 — Shortcuts cheatsheet closes on Escape
-# ---------------------------------------------------------------------------
 
 
 def test_shortcuts_cheatsheet_closes_on_escape(page: Page, live_server_url: str, seeded_job_id: str) -> None:
@@ -347,9 +335,7 @@ def test_shortcuts_cheatsheet_closes_on_escape(page: Page, live_server_url: str,
     expect(page.get_by_test_id("shortcuts-cheatsheet-body")).to_be_visible(timeout=5_000)
 
 
-# ---------------------------------------------------------------------------
 # B-SHELL-006 — Settings modal opens on gear click
-# ---------------------------------------------------------------------------
 
 
 def test_settings_modal_opens_on_gear_click(page: Page, live_server_url: str) -> None:
@@ -389,9 +375,7 @@ def test_settings_modal_opens_on_gear_click(page: Page, live_server_url: str) ->
     assert prefs_resp.status_code == 200
 
 
-# ---------------------------------------------------------------------------
 # B-SHELL-007 — Settings modal closes on close button
-# ---------------------------------------------------------------------------
 
 
 def test_settings_modal_closes_on_close_button(page: Page, live_server_url: str) -> None:
@@ -418,9 +402,7 @@ def test_settings_modal_closes_on_close_button(page: Page, live_server_url: str)
     assert prefs_resp.status_code == 200
 
 
-# ---------------------------------------------------------------------------
 # B-SHELL-008 — Theme toggle persists via /api/prefs
-# ---------------------------------------------------------------------------
 
 
 def test_theme_persists_via_ui(page: Page, live_server_url: str, e2e_data_root: Path) -> None:
@@ -517,9 +499,7 @@ def test_theme_persists_via_api(page: Page, live_server_url: str, e2e_data_root:
     # AppPrefsError.test.tsx; not repeated here to keep e2e scope tight).
 
 
-# ---------------------------------------------------------------------------
 # B-SHELL-009 — Density toggle persists via /api/prefs
-# ---------------------------------------------------------------------------
 
 
 def test_density_persists_via_ui(page: Page, live_server_url: str, e2e_data_root: Path) -> None:
@@ -614,10 +594,8 @@ def test_density_persists_via_api(page: Page, live_server_url: str, e2e_data_roo
     )
 
 
-# ---------------------------------------------------------------------------
 # B-SHELL-010 — FontScale slider persists via /api/prefs
 # NOTE: slider drag via UI is deferred; API round-trip + error-path are covered here.
-# ---------------------------------------------------------------------------
 
 
 def test_fontscale_persists_via_api(page: Page, live_server_url: str, e2e_data_root: Path) -> None:
@@ -693,9 +671,7 @@ def test_prefs_persist_error_shows_toast(page: Page, live_server_url: str) -> No
     )
 
 
-# ---------------------------------------------------------------------------
 # B-SHELL-011 — Prefs survive page reload (round-trip)
-# ---------------------------------------------------------------------------
 
 
 def test_prefs_survive_reload(page: Page, live_server_url: str, e2e_data_root: Path) -> None:
@@ -756,9 +732,7 @@ def test_prefs_survive_reload(page: Page, live_server_url: str, e2e_data_root: P
     )
 
 
-# ---------------------------------------------------------------------------
 # B-SHELL-012 — PageViewPage shortcuts appear in cheatsheet
-# ---------------------------------------------------------------------------
 
 
 def test_page_view_shortcuts_appear_in_cheatsheet(
@@ -810,9 +784,7 @@ def test_page_view_shortcuts_appear_in_cheatsheet(
     assert "page-view" not in home_cheatsheet_text.lower()
 
 
-# ---------------------------------------------------------------------------
 # B-SHELL-013 — HomePage keyboard shortcut focuses source path input
-# ---------------------------------------------------------------------------
 
 
 def test_home_page_shortcut_focuses_path_input(page: Page, live_server_url: str) -> None:

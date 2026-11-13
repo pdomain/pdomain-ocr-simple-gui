@@ -10,14 +10,17 @@ from __future__ import annotations
 
 import os
 import shutil
-import socket
 import subprocess
 import sys
 import time
+import uuid
+from collections.abc import Generator
 from pathlib import Path
 
 import httpx
 import pytest
+
+from tests.e2e.conftest import _wait_for_bound_port
 
 # The dev-container checkout is not mounted on every machine. Prefer that
 # path, then the sibling pdomain-book-tools tree, then the in-repo page.
@@ -44,11 +47,42 @@ def _resolve_fixture_image() -> Path | None:
     return None
 
 
-def _free_port() -> int:
-    """Return an ephemeral free TCP port on localhost."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]  # type: ignore[return-value]
+def start_smoke_server(server_env: dict[str, str], log_dir: Path) -> Generator[str, None, None]:
+    """Start the smoke server and yield its base URL. Tear it down when closed.
+
+    uvicorn is started with ``--port 0`` so the kernel assigns the port and
+    the process binds it in one step. The bound port is read from uvicorn's
+    own "running on" log line.
+    """
+    log_path = log_dir / f"smoke-server-{uuid.uuid4().hex[:12]}.log"
+    server_log = log_path.open("wb")
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "pdomain_ocr_simple_gui.app:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "0",
+        ],
+        env=server_env,
+        stdout=server_log,
+        stderr=subprocess.STDOUT,
+    )
+    try:
+        port = _wait_for_bound_port(log_path, proc, timeout=30.0)
+        base_url = f"http://127.0.0.1:{port}"
+        _wait_ready(base_url, timeout=30.0)
+        yield base_url
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        server_log.close()
 
 
 def _wait_ready(base_url: str, timeout: float = 20.0) -> None:
@@ -82,9 +116,6 @@ def test_e2e_job_completes(tmp_path: Path) -> None:
     output_dir = tmp_path / "output"
     output_dir.mkdir()
 
-    port = _free_port()
-    base_url = f"http://127.0.0.1:{port}"
-
     # Isolated data roots — never write to the real home-dir storage.
     isolated_projects = tmp_path / "projects"
     isolated_output = tmp_path / "output_root"
@@ -103,32 +134,13 @@ def test_e2e_job_completes(tmp_path: Path) -> None:
         "PD_SUITE_DATA_DIR": str(isolated_suite),
     }
 
-    # Start the server as a subprocess. Drain stdout/stderr to a FILE, never an
-    # undrained subprocess.PIPE: uvicorn's per-request access logs fill the
-    # ~64KB pipe buffer (readiness polling + the job poll loop easily exceed
-    # that), after which the server's next log write blocks forever and the
-    # event loop wedges — which is what the bumped _POLL_READ_TIMEOUT papered
-    # over. A file sink never blocks the writer.
-    server_log = (tmp_path / f"smoke-server-{port}.log").open("wb")
-    proc = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "pdomain_ocr_simple_gui.app:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(port),
-        ],
-        env=server_env,
-        stdout=server_log,
-        stderr=subprocess.STDOUT,
-    )
-
+    # Drain stdout/stderr to a FILE, never an undrained subprocess.PIPE:
+    # uvicorn's per-request access logs fill the ~64KB pipe buffer, after
+    # which the server's next log write blocks forever.
     project_id: str | None = None
+    server = start_smoke_server(server_env, tmp_path)
     try:
-        _wait_ready(base_url, timeout=30.0)
+        base_url = next(server)
 
         # POST a job
         resp = httpx.post(
@@ -179,9 +191,4 @@ def test_e2e_job_completes(tmp_path: Path) -> None:
             )
 
     finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-        server_log.close()
+        server.close()

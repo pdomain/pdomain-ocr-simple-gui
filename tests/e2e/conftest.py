@@ -42,9 +42,7 @@ _PNG_1X1 = (
     b"\x00\x00\x00\x00IEND\xaeB`\x82"
 )
 
-# ---------------------------------------------------------------------------
 # Browser path — prefer the shared cache used by this workspace
-# ---------------------------------------------------------------------------
 _SHARED_BROWSERS = "/cache/shared-ai/ms-playwright"
 if os.path.isdir(_SHARED_BROWSERS) and "PLAYWRIGHT_BROWSERS_PATH" not in os.environ:
     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = _SHARED_BROWSERS
@@ -71,9 +69,7 @@ def pytest_configure(config: pytest.Config) -> None:
         os.environ.pop("DISPLAY", None)
 
 
-# ---------------------------------------------------------------------------
 # Safety guards
-# ---------------------------------------------------------------------------
 
 
 def _assert_suite_data_dir_is_tmp(suite_data_dir: str) -> None:
@@ -91,9 +87,7 @@ def _assert_suite_data_dir_is_tmp(suite_data_dir: str) -> None:
     )
 
 
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
 
 
 def _assert_under_tmp(path: Path, tmp_root: Path) -> None:
@@ -241,9 +235,7 @@ def _boot_server(env_overrides: dict[str, str], *, ready_timeout: float = 30.0) 
         log_file.close()
 
 
-# ---------------------------------------------------------------------------
 # Session-scoped data roots — shared between subprocess server and fixtures
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture(scope="session")
@@ -257,9 +249,7 @@ def e2e_data_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return root
 
 
-# ---------------------------------------------------------------------------
 # Session-scoped server fixture
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture(scope="session")
@@ -286,9 +276,7 @@ def live_server_url(e2e_data_root: Path) -> Generator[str, None, None]:
     yield from _boot_server(env)
 
 
-# ---------------------------------------------------------------------------
 # Function-scoped prefs reset — autouse for every e2e test
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture(autouse=True)
@@ -320,9 +308,7 @@ def reset_prefs(live_server_url: str) -> None:
     )
 
 
-# ---------------------------------------------------------------------------
 # Seeded-job fixtures (Option B — write artifacts directly to disk)
-# ---------------------------------------------------------------------------
 
 _SEEDED_PAGE_SIDECAR = {
     "blocks": [

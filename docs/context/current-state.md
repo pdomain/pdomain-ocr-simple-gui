@@ -49,7 +49,7 @@ with the GPU hidden. The word-overlay test waits until the count is at
 least one. The upload flow polls until the job is terminal. The e2e
 server starts uvicorn with `--port 0` and reads the bound port from its
 log. That suite passed 20 of 20 runs under `-n auto`.
-`tests/smoke/test_e2e.py` still reserves a port and binds it afterwards.
+The smoke server starts with `--port 0` and reads the bound port from uvicorn's log.
 The download output mirror can remain stale after
 per-page edits or reruns; the deferred redesign is tracked in
 [the intent map](intent-map.md).

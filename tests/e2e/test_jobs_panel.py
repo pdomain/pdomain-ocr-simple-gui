@@ -27,9 +27,7 @@ from playwright.sync_api import Page, expect
 
 pytestmark = [pytest.mark.slow, pytest.mark.e2e]
 
-# ---------------------------------------------------------------------------
 # Module-level helpers
-# ---------------------------------------------------------------------------
 
 _FAKE_RUNNING_JOB: dict[str, object] = {
     "project_id": "fake-running-job-task14",
@@ -82,9 +80,7 @@ def _open_jobs_dock(
     expect(page.get_by_test_id("jobs-panel-body")).to_be_visible(timeout=5_000)
 
 
-# ---------------------------------------------------------------------------
 # TASK 14 — Done-job is STATIC in the dock (no shimmer / no in-progress bar)
-# ---------------------------------------------------------------------------
 
 
 def test_done_job_is_static_in_dock(page: Page, live_server_url: str, seeded_job_id: str) -> None:
@@ -125,9 +121,7 @@ def test_done_job_is_static_in_dock(page: Page, live_server_url: str, seeded_job
     assert progress_count == 0, f"Expected no progressbar on the done job row, found {progress_count}"
 
 
-# ---------------------------------------------------------------------------
 # TASK 14 — Trash button deletes the row AND the backend record
-# ---------------------------------------------------------------------------
 
 
 def test_trash_button_deletes_row_and_backend(page: Page, live_server_url: str, e2e_data_root: Path) -> None:
@@ -202,10 +196,8 @@ def test_trash_button_deletes_row_and_backend(page: Page, live_server_url: str, 
     assert project_id not in all_ids, f"Deleted {project_id!r} still in GET /api/jobs: {all_ids}"
 
 
-# ---------------------------------------------------------------------------
 # No runtime filtering — every job in the active (isolated) root is listed.
 # Test/real separation is by data-root location, not by inspecting ids/paths.
-# ---------------------------------------------------------------------------
 
 
 def test_seeded_job_appears_in_get_jobs(page: Page, live_server_url: str, seeded_job_id: str) -> None:

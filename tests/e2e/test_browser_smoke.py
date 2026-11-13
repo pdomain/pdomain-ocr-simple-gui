@@ -24,9 +24,7 @@ from playwright.sync_api import Page, expect
 pytestmark = [pytest.mark.slow, pytest.mark.e2e]
 
 
-# ---------------------------------------------------------------------------
 # B-SHELL-001 — App loads without console errors
-# ---------------------------------------------------------------------------
 
 
 def test_app_loads_without_console_errors(page: Page, live_server_url: str) -> None:
@@ -54,9 +52,7 @@ def test_app_loads_without_console_errors(page: Page, live_server_url: str) -> N
     )
 
 
-# ---------------------------------------------------------------------------
 # B-RESULTS-001 — React Router sub-path renders non-home content
-# ---------------------------------------------------------------------------
 
 
 def test_router_subpath_renders(page: Page, live_server_url: str, seeded_job_id: str) -> None:

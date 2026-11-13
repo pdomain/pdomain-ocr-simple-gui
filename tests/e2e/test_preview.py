@@ -25,9 +25,7 @@ from playwright.sync_api import Page, expect
 pytestmark = [pytest.mark.slow, pytest.mark.e2e]
 
 
-# ---------------------------------------------------------------------------
 # TASK 16 — No checkbox role; both download buttons visible
-# ---------------------------------------------------------------------------
 
 
 def test_page_view_has_no_checkboxes(page: Page, live_server_url: str, seeded_job_id: str) -> None:
@@ -61,9 +59,7 @@ def test_page_view_shows_both_download_buttons(
     expect(page.get_by_test_id("download-images-text-json")).to_be_visible(timeout=10_000)
 
 
-# ---------------------------------------------------------------------------
 # TASK 16 — Download button network requests use correct ?include= parameter
-# ---------------------------------------------------------------------------
 
 
 def test_download_images_text_request_url(
@@ -138,9 +134,7 @@ def test_download_images_text_json_request_url(
     assert resp.content[:2] == b"PK", "Expected ZIP magic bytes PK"
 
 
-# ---------------------------------------------------------------------------
 # TASK 16 — OCR text box height approximates image panel height (Task 10)
-# ---------------------------------------------------------------------------
 
 
 def test_ocr_text_fills_panel_height(page: Page, live_server_url: str, seeded_job_id: str) -> None:
@@ -179,9 +173,7 @@ def test_ocr_text_fills_panel_height(page: Page, live_server_url: str, seeded_jo
     )
 
 
-# ---------------------------------------------------------------------------
 # TASK 16 — Pinning the jobs dock narrows the toolbar (Task 11 reflow)
-# ---------------------------------------------------------------------------
 
 
 def test_pinned_dock_narrows_toolbar_width(page: Page, live_server_url: str, seeded_job_id: str) -> None:
