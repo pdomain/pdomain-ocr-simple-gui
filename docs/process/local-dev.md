@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-27
-Last verified: 2026-11-07
+Last verified: 2026-11-13
 Kind: process
 ---
 
@@ -62,9 +62,9 @@ and releases use the registry path unchanged.**
 
 ## Why `local-run` does not call `just run`
 
-`just run` depends on `frontend-build` → `frontend-install`, both of
-which are the registry path. If `local-run` delegated there, it would
-overwrite the `pnpm link` overlay every time. `local-run.sh`
+`just run` invokes `frontend-build` → `frontend-install` when the SPA bundle
+is missing or stale. Both are registry-resolved. Delegating `local-run` there
+could overwrite the `pnpm link` overlay whenever a rebuild is needed. `local-run.sh`
 reproduces the launch step inline
 (`uv run --no-sync --project "$CANONICAL_REPO_ROOT" pdomain-ocr-simple-gui`)
 to keep the local overlay intact.

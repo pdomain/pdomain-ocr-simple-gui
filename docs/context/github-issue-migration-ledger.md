@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-19
-Last verified: 2026-11-07
+Last verified: 2026-11-13
 Kind: context
 ---
 
@@ -134,3 +134,18 @@ roadmap that the issues were closed without implementation.
 - [Issues index](../issues/README.md)
 - Architecture: [overview](../architecture/00-overview.md),
   [runtime flows](../architecture/runtime-flows.md)
+
+## 2026-11-13 reconciliation
+
+The table preserves the implementation and dependency evidence recorded by
+earlier checks. Its Makefile destinations are historical: `996bc7e` removes
+the shim, while `justfile` retains frontend tests and pre-commit in CI. Commit
+`c0284a9` updates the current UI range to `^0.13.0`, Vite to `^8.3.8`, and
+pdomain-ops to `>=0.12.2`. These changes do not reopen the completed issues or
+rewrite their original evidence.
+
+The earlier roadmap claim that every divider banner is gone was too broad.
+Indented `# ---` step labels remain in `tests/e2e/test_flows.py` and
+`tests/e2e/test_click_paths_local_path.py`. The roadmap now records that narrow
+style residue. It does not recreate a deleted GitHub issue. The unindented
+separator cleanup and the remaining indented labels are distinct observations.

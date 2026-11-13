@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-06-14
-Last verified: 2026-11-12
+Last verified: 2026-11-13
 Kind: architecture
 ---
 
@@ -316,7 +316,7 @@ see intent-map and `docs/specs/2026-05-29-download-model.md`.
 ## 5. Job download
 
 **Actors:** `GET /api/jobs/{id}/download`, `routes/downloads.py`, Results and
-Page view managed-mode buttons.
+Page view download buttons.
 
 1. Parse the `include` query param (default `text,json`). Valid tokens:
    `text`, `json`. Unknown tokens → 400.
@@ -336,7 +336,8 @@ Page view managed-mode buttons.
 4. Stream the zip as `application/zip` with
    `Content-Disposition: attachment; filename="<job_id>.zip"`.
 
-**UI contract:** After success in managed mode, Results and Page view expose
+**UI contract:** Results exposes the actions after success in managed mode.
+Page view exposes them when loaded, without an output-mode gate. Both offer
 two fixed download actions — images+text (`?include=text`) and
 images+text+JSON (`?include=text,json`) — not include-filter checkboxes.
 Both still call this job-level endpoint (whole-job ZIP).
@@ -407,3 +408,36 @@ Deleting them is an owner decision on the [roadmap](../roadmap.md).
 - Architecture overview: `docs/architecture/00-overview.md`
 - Backend statechart: `src/pdomain_ocr_simple_gui/statecharts/job_lifecycle.py`
 - Frontend statechart: `frontend/src/statecharts/jobCreationMachine.ts`
+
+## Storage publication boundaries
+
+Project metadata, page sidecar JSON, and output-mirror JSON publish through
+`storage.write_text_atomic`. The writer creates a UUID-named staging file beside
+the destination with `O_CREAT | O_EXCL | O_WRONLY` and mode `0666`. The kernel
+applies the process umask. A same-directory replacement publishes complete
+content without crossing filesystems, and failed publication removes the
+staging file. Exclusive creation prevents opening an existing file or following
+a staging-path symlink; a name collision retries.
+
+This guarantee does not cover all text output. Per-page TXT and combined TXT
+writers still use direct `Path.write_text` calls. Atomic replacement does not
+provide a project-wide transaction or serialize every concurrent update.
+
+The [jobs-location decision](../decisions/2026-06-04-jobs-location-setting.md)
+records root precedence and switching roots without migrating existing jobs.
+The [quality-gate reference](quality-gates.md) records the separate source,
+browser, and distribution checks.
+
+### Evidence
+
+- Code: `src/pdomain_ocr_simple_gui/storage.py` (`_open_staged`,
+  `write_text_atomic`, `write_project`, `write_page_sidecar`,
+  `write_output_page_files`, `write_txt`, `write_combined_txt`).
+- Tests: `tests/test_storage.py` (`test_write_text_atomic_replaces_complete_content_onto_final_path`,
+  `test_write_text_atomic_cleans_tmp_when_replace_fails`,
+  `test_write_project_publishes_via_replace`,
+  `test_write_page_sidecar_publishes_via_replace`,
+  `test_write_output_page_files_json_publishes_via_replace`).
+- Artifacts: project, page, and output-mirror JSON files.
+- Verified: 2026-11-13 by source/test inspection; implementation commit
+  `79e0892` is an ancestor of migration base `996bc7e`.

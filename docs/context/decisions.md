@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-14
-Last verified: 2026-11-12
+Last verified: 2026-11-13
 Kind: context
 ---
 
@@ -215,3 +215,48 @@ Kind: context
   `docs/README.md`.
 - **Remaining work:** The owner still decides whether to close the
   `dep-refresh` issue.
+
+### 2026-11-13 Retired: Two e2e flakes fixed
+
+- Old path: `docs/handoff/2026-11-11-092702-two-e2e-flakes-fixed.md`
+- Outcome: Closed handoff; fix/e2e-flakes merged in a260538 and the remaining smoke race was fixed in e4c3c14.
+- Superseded by: [quality gates and distribution](../architecture/quality-gates.md),
+  [runtime flows](../architecture/runtime-flows.md), and
+  [module map](../architecture/module-map.md).
+- Removal commit: the commit adding this entry; its hash is recorded in the
+  migration status and is discoverable with `git log --diff-filter=D -- docs/handoff/2026-11-11-092702-two-e2e-flakes-fixed.md`.
+- Rationale kept: current test-server ownership and asynchronous completion
+  constraints are in architecture. Execution transcripts remain in git history.
+- Remaining work: deleting old source-folder viewer caches and closing or keeping
+  the dep-refresh issue remain owner decisions in the intent map. Neither
+  retirement deletes caches, changes PRs, or changes a product decision.
+
+### 2026-11-13 Retired: Doc recheck bug fixes ready for review
+
+- Old path: `docs/_archive/handoff/2026-11-11-032238-doc-recheck-bug-fixes-ready-for-review.md`
+- Outcome: Already-retired handoff; five fixes merged in a260538 and their issue tombstones remain in this log.
+- Superseded by: [quality gates and distribution](../architecture/quality-gates.md),
+  [runtime flows](../architecture/runtime-flows.md), and
+  [module map](../architecture/module-map.md).
+- Removal commit: the commit adding this entry; its hash is recorded in the
+  migration status and is discoverable with `git log --diff-filter=D -- docs/_archive/handoff/2026-11-11-032238-doc-recheck-bug-fixes-ready-for-review.md`.
+- Rationale kept: current test-server ownership and asynchronous completion
+  constraints are in architecture. Execution transcripts remain in git history.
+- Remaining work: deleting old source-folder viewer caches and closing or keeping
+  the dep-refresh issue remain owner decisions in the intent map. Neither
+  retirement deletes caches, changes PRs, or changes a product decision.
+
+### 2026-11-13 Retired: Word overlay flake fixed
+
+- Old path: `docs/_archive/handoff/2026-11-11-085305-word-overlay-flake-fixed.md`
+- Outcome: Already-retired handoff; 60020aa and the later merged test-race fixes supersede the execution notes.
+- Superseded by: [quality gates and distribution](../architecture/quality-gates.md),
+  [runtime flows](../architecture/runtime-flows.md), and
+  [module map](../architecture/module-map.md).
+- Removal commit: the commit adding this entry; its hash is recorded in the
+  migration status and is discoverable with `git log --diff-filter=D -- docs/_archive/handoff/2026-11-11-085305-word-overlay-flake-fixed.md`.
+- Rationale kept: current test-server ownership and asynchronous completion
+  constraints are in architecture. Execution transcripts remain in git history.
+- Remaining work: deleting old source-folder viewer caches and closing or keeping
+  the dep-refresh issue remain owner decisions in the intent map. Neither
+  retirement deletes caches, changes PRs, or changes a product decision.

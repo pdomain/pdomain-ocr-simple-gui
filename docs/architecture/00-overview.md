@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-17
-Last verified: 2026-11-12
+Last verified: 2026-11-13
 Kind: architecture
 ---
 
@@ -55,7 +55,7 @@ The commit list for the test and security work is in [decisions](../context/deci
 
 ### Suite launcher tab isolation
 
-The suite launcher belongs to `@pdomain/pdomain-ui`, not to this app. The locked package is 0.12.1.
+The suite launcher belongs to `@pdomain/pdomain-ui`, not to this app. The locked package is 0.13.0.
 
 It opens sibling apps with `window.open(url, "_blank", "noopener,noreferrer")`. A launched tab gets no `window.opener` handle back to this app. Upstream commit `562938d` added the isolation. `LauncherTile.test.tsx` asserts all three arguments.
 
@@ -63,9 +63,9 @@ This app's own anchors do not use `target="_blank"`. The exception is the extern
 
 Evidence:
 
-- Code: `frontend/package.json` has `@pdomain/pdomain-ui` at `^0.12.1`. `frontend/pnpm-lock.yaml` resolves 0.12.1. The installed bundle `node_modules/@pdomain/pdomain-ui/dist/shell-BfHbj-R0.js` contains `window.open(n.url, "_blank", "noopener,noreferrer")`. Upstream `pdomain-ui` `src/shell/LauncherTile.tsx` is at commit `562938d`.
+- Code: `frontend/package.json` has `@pdomain/pdomain-ui` at `^0.13.0`. `frontend/pnpm-lock.yaml` resolves 0.13.0. The installed bundle `frontend/node_modules/@pdomain/pdomain-ui/dist/shell-D-00fPNt.js` contains `window.open(n.url, "_blank", "noopener,noreferrer")`. Upstream `pdomain-ui` `src/shell/LauncherTile.tsx` is at commit `562938d`.
 - Tests: upstream `pdomain-ui` `src/shell/LauncherTile.test.tsx` asserts `toHaveBeenCalledWith(url, '_blank', 'noopener,noreferrer')`. This app adds no duplicate test because it does not own `LauncherTile`.
-- Verified: 2026-11-07, by source inspection of the lockfile, the installed bundle, and the upstream commit.
+- Verified: 2026-11-13, by inspecting the frozen lockfile and installed 0.13.0 bundle after the locked frontend install. The upstream commit records the original implementation.
 
 ## Evidence
 
@@ -210,11 +210,11 @@ On startup, the app migrates a stranded `apps["unknown"].compute_device` into th
 | Page view | `/jobs/:id/pages/:idx` | `PageViewPage` | `PageViewerWithZoom` + editable textarea + save/rerun |
 | Help | `/help/tesseract` | `TesseractHelpPage` | Tesseract engine setup guide |
 
-All screens live inside `<AppShell deployMode="local" launcherSlot="header">` from `@pdomain/pdomain-ui`. `ComputeStateWarmup`, in `App.tsx`, prefetches device info on mount.
+All screens live inside `<AppShell deployMode="local" launcherSlot="header">` from `@pdomain/pdomain-ui`. `ComputeStateWarmup`, in `appSettingsPanels.tsx`, prefetches device info on mount.
 
 Job config is inline on the home page, in `JobConfigInline`, not a modal dialog.
 
-Managed-mode downloads after success expose two fixed actions: images+text, and images+text+JSON. They are not include-filter checkboxes. Both hit the job-level download API and zip the **output mirror**.
+The Results page exposes managed-mode downloads after success. The loaded Page view exposes the same two fixed actions without an output-mode gate: images+text, and images+text+JSON. They are not include-filter checkboxes. Both hit the job-level download API and zip the **output mirror**.
 
 Edited-page truth separation is still deferred.
 
@@ -222,7 +222,7 @@ Edited-page truth separation is still deferred.
 
 ## 9. Test strategy
 
-- **Unit + integration:** Route tests use pytest with `httpx.AsyncClient`. Storage tests use `tmp_path`. These tests make no real filesystem side effects outside fixtures. Shared fixtures are in `tests/conftest.py`. Test data is in `tests/factories.py`. `tests/` has 47 top-level test files: routes, models, storage, pipeline, layout pass, sources, output, security, statechart, packaging, CLI, and smoke checks.
+- **Unit + integration:** Route tests use pytest with `httpx.AsyncClient`. Storage tests use `tmp_path`. Test fixtures redirect storage roots into temporary directories. Shared fixtures are in `tests/conftest.py`. Test data is in `tests/factories.py`. `tests/` covers routes, models, storage, pipeline, layout pass, sources, output, security, statechart, packaging, CLI, and smoke checks.
 - **Frontend:** Component and hook tests use vitest and `@testing-library/react`.
 - **Smoke:** `tests/smoke/test_e2e.py` is an httpx end-to-end test. It starts the server through a subprocess. It submits a real job. It asserts `state=succeeded` and a `.txt` output. It xfails when the job fails, for example on missing weights. It uses the first page image that exists: the dev-container `pdomain-book-tools` page, the sibling `../pdomain-book-tools` page, then the in-repo `tests/e2e/fixtures/known_good_page.png`. It skips only when none exists.
 - **Browser e2e, Tier A:** 21 files under `tests/e2e/`, excluding `test_real_ocr_pipeline.py` and `test_real_ocr_rerun.py`. They run in Playwright on Chromium with the fake-dispatcher `live_server` fixture. Behavior-asserting tests cite stable IDs from `docs/specs/behavior/screen-*.md` and `flows.md`. They boot with `PD_SUITE_DATA_DIR` under a pytest tmp tree. They assert the path is tmp-like before launch, so prefs-reset fixtures cannot wipe real suite data.
@@ -232,11 +232,20 @@ Edited-page truth separation is still deferred.
 
 ---
 
+For server readiness, asynchronous browser assertions, and the complete gate, see
+[quality gates and distribution](quality-gates.md).
+
 ## 10. Build + release
 
 ```sh
 just build   # frontend-build, then uv build --sdist and uv build --wheel
 ```
+
+The SPA is built before separate sdist and wheel builds from the source tree.
+The global Hatch `artifacts` rule includes the ignored SPA in both archives;
+`tests/test_packaging.py` also checks a wheel rebuilt from an unpacked sdist.
+These distribution checks stay separate from source tests. See
+[quality gates and distribution](quality-gates.md).
 
 `just release-patch`, `just release-minor`, or `just release-major` attaches the wheel and sdist to a GitHub Release. `pdomain-index-pip`'s `scripts/publish-index.sh` then publishes them to its GitHub Pages PEP 503 index. The steps are in [`docs/runbooks/release.md`](../runbooks/release.md).
 

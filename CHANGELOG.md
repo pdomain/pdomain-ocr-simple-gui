@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-06-03
-Last verified: 2026-11-07
+Last verified: 2026-11-13
 Kind: reference
 ---
 
@@ -22,8 +22,18 @@ All notable changes to `pdomain-ocr-simple-gui` are documented here.
 - Page viewer caches now go in the project directory. Page collection skips
   the `.viewer.png` copies older versions left in source folders.
 - The CUDA setup link in the Compute panel opens the guide on GitHub.
-- `make` no longer defaults Playwright to the old devcontainer path, and
-  `make local-setup` clones siblings from the `pdomain` organization.
+- Setup no longer defaults Playwright to the old devcontainer path, and
+  `just local-setup` clones siblings from the `pdomain` organization.
+
+### Tooling and dependencies
+
+- Just replaces the Make task runner. Read-only lint/format checks, frontend
+  typecheck and knip, locked setup, and strict docgraph are part of the gate.
+- Dependency refresh pins book-tools to 0.31.0, raises contracts to at least
+  0.3.1 and ops to at least 0.12.2, and locks the frontend UI at 0.13.0.
+- Architecture now records current module ownership, storage publication,
+  asynchronous test readiness, and SPA distribution. Completed handoffs are
+  retired after promotion; deferred download redesign stays unbuilt.
 
 ### Tests
 
@@ -31,6 +41,10 @@ All notable changes to `pdomain-ocr-simple-gui` are documented here.
   devcontainer: it tries `/workspaces/ocr-container`, then the sibling
   `pdomain-book-tools` checkout, then the in-repo page, and skips only when
   none exist.
+
+- Browser tests wait for terminal jobs, positive word counts, and the actual
+  404 response before asserting results. Browser and smoke servers read the
+  kernel-assigned uvicorn port instead of reserving and releasing a port.
 
 ---
 

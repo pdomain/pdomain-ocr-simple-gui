@@ -89,5 +89,6 @@ contradiction up front if there is one.>
 ## Resolution
 
 _Open._ When fixed: set frontmatter + Agent Index `Status: retired`, add the
-resolving commit/spec link here, move the README pointer to "Resolved", and route
-the retirement through `doc-retirer`.
+resolving commit/spec link here, promote durable behavior into architecture,
+remove the open README pointer, and route deletion plus a decisions tombstone
+through `doc-retirer`. Do not create a resolved-file index.

@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-19
-Last verified: 2026-11-12
+Last verified: 2026-11-13
 Kind: process
 ---
 
@@ -32,7 +32,7 @@ of remaining work.
 
 ## Current document index
 
-- Architecture: [overview](architecture/00-overview.md), [module map](architecture/module-map.md), and [runtime flows](architecture/runtime-flows.md).
+- Architecture: [overview](architecture/00-overview.md), [module map](architecture/module-map.md), and [runtime flows](architecture/runtime-flows.md), and [quality gates and distribution](architecture/quality-gates.md).
 - Context: [current state](context/current-state.md), [intent map](context/intent-map.md), [decisions](context/decisions.md), [GitHub issue migration ledger](context/github-issue-migration-ledger.md), and [deletion journal](context/github-issue-deletion-journal.md).
 - Issues: [index](issues/README.md) and open [dep-refresh auto-land](issues/2026-08-08-dep-refresh-cannot-auto-land.md).
 - Roadmap: [remaining work, including work for other repos](roadmap.md).

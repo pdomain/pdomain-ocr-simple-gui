@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-17
-Last verified: 2026-11-12
+Last verified: 2026-11-13
 Kind: plan
 ---
 
@@ -48,28 +48,13 @@ This roadmap does not restate that design.
 - Run `AI=1 just ci` before committing.
 - Work that belongs in another repo is listed below, and it is not a task for this app.
 
-## Resolved on master
+## Remaining style maintenance
 
-These landed in the merge of `fix/e2e-flakes`.
-
-- Font size saves as `font_scale` (`cc2a8ca`). Ctrl+Shift+R is the
-  Tesseract re-run shortcut (`fad237a`). New viewer caches go in the
-  project directory, and collection skips old `.viewer.png` copies
-  (`37f3ab9`). The Compute panel links to the published CUDA guide
-  (`e8bcd17`). Setup no longer uses the devcontainer Playwright path
-  or the old clone owner (`4c37fea`). The issue files are retired.
-  The tombstone is in [decisions](context/decisions.md).
-- The browser tests wait for word overlays (`60020aa`), let uvicorn
-  pick the port (`630e2e0`), wait for a finished upload job
-  (`0451c26`), and check the 404 words response before reading the
-  count (`73cacdd`). `fix/word-overlay-flake`, `60020aa` through
-  `af4afdd`, is the word-overlay part of that same merge.
-- The smoke server starts with `--port 0` and reads the bound port
-  from uvicorn's log. `start_smoke_server` in `tests/smoke/test_e2e.py`
-  is that path. A held port is not the URL the test uses.
-- The `# ---` divider banners are gone from `tests/e2e/`. This was
-  former GitHub issue #13. The
-  [migration ledger](context/github-issue-migration-ledger.md) has the row.
+Indented `# ---` step labels remain in `tests/e2e/test_flows.py` and
+`tests/e2e/test_click_paths_local_path.py`. Remove that narrow comment-style
+residue without changing assertions or test behavior. The earlier statement
+that all banners were gone was too broad; the historical #13 ledger row remains
+evidence rather than a newly opened issue.
 
 ## Owner decision still open
 
@@ -181,6 +166,10 @@ The constraints are in the [intent map](context/intent-map.md).
 
 ## Where shipped work is recorded
 
-Former GitHub issues #1 through #34 and #36 through #38 are implemented, including #13, the divider banners. The [migration ledger](context/github-issue-migration-ledger.md) has one row per issue. Do not reopen them.
+Most former GitHub issues #1 through #34 and #36 through #38 are implemented.
+The narrow #13 style residue is listed above. The
+[migration ledger](context/github-issue-migration-ledger.md) preserves one row
+per issue. Do not reopen completed reports. Shipped test and distribution
+constraints are in [architecture](architecture/quality-gates.md).
 
 Retired plans and issues are tombstoned in [decisions](context/decisions.md). There is no `docs/archive/` folder. Retired files stay in git history.

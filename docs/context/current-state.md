@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-14
-Last verified: 2026-11-12
+Last verified: 2026-11-13
 Kind: context
 ---
 
@@ -32,8 +32,9 @@ follow-ups and former GitHub #26 are shipped and retired; tombstones are in
 
 ## In-flight work
 
-None. The five 2026-11-07 bugs and the browser-test races are on master
-in the merge of `fix/e2e-flakes`. What remains is on the
+The architecture and retirement pass is preparing the next patch release.
+Publication remains staged separately; no tag or remote publication is implied
+by the local documentation commit. Product work remains on the
 [roadmap](../roadmap.md).
 
 ## Open product residue
@@ -60,3 +61,20 @@ executor thread, which can still race the shared predictor cache in pdomain-ops
 The repository has no GitHub workflows since `0bb3a4a` (2026-09-13, owner
 request); `AI=1 just ci` run locally is the gate, and releases run from
 `scripts/release-common.sh`.
+
+## Current gate and architecture verification
+
+Commits `6889d3f` and `996bc7e` installed the Just task runner and removed its
+Make shim. The current gate, locked frontend install, test isolation, and SPA
+artifact boundaries are described in
+[quality gates and distribution](../architecture/quality-gates.md). Both final
+normal and AI CI runs passed on the removal bytes before `996bc7e`: 647 Python
+tests, one smoke test, four packaging tests, 234 frontend tests, and 124 fast
+browser tests. This is prior verification, not a claim that a release ran.
+
+The current architecture reflects the 0.13.0 UI lock and the extracted settings,
+preferences, and configuration-hook modules. The closed November handoffs have
+been replaced by those durable references and their retirement receipts. The
+[issue ledger](github-issue-migration-ledger.md) retains dated evidence; its
+new reconciliation distinguishes remaining indented test banners from the
+otherwise closed issue set.

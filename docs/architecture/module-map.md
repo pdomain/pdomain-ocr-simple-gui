@@ -2,13 +2,13 @@
 Status: active
 Owner: CT
 Created: 2026-06-14
-Last verified: 2026-11-12
+Last verified: 2026-11-13
 Kind: architecture
 ---
 
 # pdomain-ocr-simple-gui — Module Map
 
-**Last updated:** 2026-11-12
+**Last updated:** 2026-11-13
 
 Per-module reference. Each entry gives a one-line responsibility and its
 key public surface (types, functions, hooks). Derived from current source.
@@ -24,7 +24,7 @@ key public surface (types, functions, hooks). Derived from current source.
 | `app.py` | FastAPI app factory (route registration, suite route mount, auth middleware, static mount) and lifespan (prefs, dispatcher) | `create_app()` |
 | `auth.py` | Token auth for mutating endpoints; suite middleware | `require_token` (Depends), `suite_token_middleware` |
 | `models.py` | Pydantic data models | `ProjectSpec`, `ProjectStatus`, `PageResult`, `AppPrefs` |
-| `storage.py` | Sidecar read/write; project directory management; atomic text writes | `get_projects_root()`, `read_project()`, `write_project()`, `read_page_sidecar()`, `write_page_sidecar()`, `write_txt()`, `write_combined_txt()`, `write_output_page_files()`, `list_projects()`, `validate_project_id()` |
+| `storage.py` | Sidecar read/write; project directory management; atomic JSON publication and direct TXT writes | `get_projects_root()`, `read_project()`, `write_project()`, `read_page_sidecar()`, `write_page_sidecar()`, `write_txt()`, `write_combined_txt()`, `write_output_page_files()`, `list_projects()`, `validate_project_id()` |
 | `pipeline.py` | Image collection + async OCR orchestration; DocTR sidecar building | `collect_images()`, `run_project()`, `build_sidecar_payload()`, `extract_words()`, `OCRDispatcher` (Protocol) |
 | `layout_pass.py` | PP-DocLayout-Plus-L detection on the upright page, passed to `Page.reorganize_page` (word dropping off) | `reorganize_ocr_page()`, `LayoutSession`, `load_layout_detector()`, `detect_page_layout()` |
 | `__main__.py` | CLI entry point — `pdomain-ocr-simple-gui [--port N] [--host H]`; registers with the suite through `bootstrap_spa()` before `uvicorn.run()` | `main()` |
@@ -101,6 +101,7 @@ key public surface (types, functions, hooks). Derived from current source.
 |------|---------------|
 | `components/SourcePicker.tsx` | Tabbed source selection: local path / file upload / drag-drop |
 | `components/JobConfigInline.tsx` | Inline job config form: engine, language, output dir |
+| `components/projectName.ts` | Derives the initial project name from a local path or upload identifier |
 | `components/CudaSetupGuidance.tsx` | CUDA installation guidance, always shown under Settings > Compute. The help link targets the published guide, `https://github.com/pdomain/pdomain-ocr-simple-gui/blob/master/docs/runbooks/cuda-setup.md` |
 | `components/JobsLocationSettings.tsx` | Jobs output location preference panel |
 | `components/ModelCacheSettings.tsx` | DocTR model pre-cache status + trigger |
@@ -129,14 +130,19 @@ key public surface (types, functions, hooks). Derived from current source.
 
 | File | Responsibility | Key exports |
 |------|---------------|-------------|
-| `runtime/ConfigContext.tsx` | Provides `RuntimeConfig` (mode, engine caps) via React context; wraps the app | `ConfigProvider`, `useConfig()`, `useConfigStatus()` |
+| `runtime/ConfigContext.tsx` | Provides runtime config and fetch status to the app | `ConfigProvider` |
+| `runtime/configHooks.ts` | Reads the shared config and status contexts | `useConfig()`, `useConfigStatus()` |
+| `runtime/configState.ts` | Owns the shared context identities and status type | `ConfigCtx`, `StatusCtx`, `ConfigStatus` |
 | `runtime/ocrEngines.ts` | Engine availability checks against `/api/config`, DocTR fallback, and Tesseract language normalization | `EngineId`, `engineIsAvailable()`, `availableEngineOptions()`, `normalizeEngine()`, `normalizeEngineLanguage()` |
 
 ### App root
 
 | File | Responsibility |
 |------|---------------|
-| `App.tsx` | `BrowserRouter` + `AppShell` + route tree; `ComputeStateWarmup` prefetches device info on mount |
+| `App.tsx` | `BrowserRouter` + `AppShell` + route tree |
+| `appSettings.tsx` | Static settings panel descriptors |
+| `appSettingsPanels.tsx` | Compute/update panels, shared device/update configs, device warmup, and update badge |
+| `appUiPrefsConfig.ts` | Loads and persists app UI preferences; maps `fontScale` to `ui_prefs.font_scale` and reports persistence failures |
 
 ### Utilities — `lib/`
 

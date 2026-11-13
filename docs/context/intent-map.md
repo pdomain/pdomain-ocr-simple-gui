@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-13
-Last verified: 2026-11-12
+Last verified: 2026-11-13
 Kind: context
 ---
 
@@ -91,3 +91,11 @@ No owner-only lifecycle decision remains for those 37 issues.
 The 2026-07-14 migration verified retained architecture, process, runbook, and behavior documents against current code, tests, and history.
 
 The 2026-07-19 GitHub-issue repair reclassified the deleted tracker against code.
+
+## 2026-11-13 migration scope
+
+The seven behavior records remain active because the coverage gate reads their
+stable IDs directly. The download-model design remains deferred and unbuilt.
+Retiring the three completed handoffs changes neither product intent nor the
+two owner choices above. Shipped gate and distribution constraints now live in
+[architecture](../architecture/quality-gates.md), rather than session notes.

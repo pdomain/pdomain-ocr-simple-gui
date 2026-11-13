@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-26
-Last verified: 2026-11-07
+Last verified: 2026-11-13
 Kind: process
 ---
 
@@ -185,17 +185,10 @@ nothing.
 
 ## Frontend ESLint suppressions
 
-### `react-hooks/exhaustive-deps` — `PageViewPage.tsx`
-
-**Files:** `frontend/src/pages/PageViewPage.tsx` (two disables on the same
-`useMemo`)
-
-**Suppression form:** `// eslint-disable-next-line react-hooks/exhaustive-deps`
-
-**Justification:** The keyboard-shortcut `bindings` array is built once with
-empty dependencies. Its handlers read the latest values through
-`shortcutCtxRef`, so adding dependencies would rebuild the bindings on every
-render for no benefit. The local comment says not to add them.
+No line-level ESLint suppression remains in `frontend/src/`. Commit
+`6889d3f` removed two unused exhaustive-deps directives from `PageViewPage.tsx`.
+The shortcut handlers still read current values through `shortcutCtxRef`; that
+behavior does not require an ESLint exemption.
 
 ### Config-level ESLint override
 
