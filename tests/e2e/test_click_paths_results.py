@@ -1,8 +1,8 @@
 """Tier-A behavior tests for the ResultsPage status table, rerun, delete, 404,
 and transient-retry paths.
 
-Marked ``slow`` and ``e2e`` — excluded from ``make test``, included in
-``make e2e-fast`` / ``make e2e-browser``.
+Marked ``slow`` and ``e2e`` — excluded from ``just test``, included in
+``just e2e-fast`` / ``just e2e-browser``.
 
 Every test cites its behavior record (``Covers: B-RESULTS-NNN``), asserts the
 observable output via a real ``data-testid`` (never role-only), and asserts the

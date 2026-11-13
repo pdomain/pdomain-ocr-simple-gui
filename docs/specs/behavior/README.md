@@ -29,7 +29,7 @@ does. The Playwright e2e tests assert against them.
   bad path.
 - Tests cite the IDs they cover via a `Covers: B-...` docstring line or a
   `@behavior("B-...")` marker.
-- `coverage.md` is **generated** — run `make behavior-coverage` to
+- `coverage.md` is **generated** — run `just behavior-coverage` to
   regenerate it. Do not edit it by hand. The gate fails on unlinked
   citations (a cited ID with no record) or uncovered regression-tagged
   records.
@@ -51,12 +51,12 @@ the architecture overview's test strategy. The old
 
 ### Tier A — deterministic, fake dispatcher (CI)
 
-`make e2e-fast` runs the whole `tests/e2e/` directory with `-n auto`. The
+`just e2e-fast` runs the whole `tests/e2e/` directory with `-n auto`. The
 `-n auto` flag is **mandatory** — running serially causes cross-file fixture
 pollution and ~29 spurious failures.
 
 In a local-dev worktree where the registry `pdomain-ui` is broken, build
-the frontend with `make local-frontend-build` first. The pytest step itself
+the frontend with `just local-frontend-build` first. The pytest step itself
 can then run directly:
 
 ```bash
@@ -66,12 +66,12 @@ UV_NO_SYNC=1 uv run --group e2e pytest tests/e2e/ \
 
 ### Tier B — real OCR engine, GPU, opt-in (`real_ocr` marker)
 
-Run `make local-setup-py` first to restore the editable `pdomain-book-tools`
+Run `just local-setup-py` first to restore the editable `pdomain-book-tools`
 sibling (plain `uv run` auto-syncs and reverts it to the registry pin,
 causing 180 s job timeouts). Then:
 
 ```bash
-UV_NO_SYNC=1 make e2e-real-ocr
+UV_NO_SYNC=1 just e2e-real-ocr
 ```
 
 `UV_NO_SYNC=1` is required to keep the editable sibling in place. Runs on

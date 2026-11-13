@@ -1,7 +1,7 @@
 """5.11 — full click-path: home page recent-project row → results page.
 
-Marked ``slow`` and ``e2e`` — excluded from ``make test``, included in
-``make e2e-browser``.
+Marked ``slow`` and ``e2e`` — excluded from ``just test``, included in
+``just e2e-browser``.
 
 Covers: B-HOME-012 (recent-projects list renders from prefs; empty state)
 Covers: B-HOME-013 (clicking a recent-project row navigates to its results)

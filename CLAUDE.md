@@ -31,46 +31,46 @@ Architecture doc: `docs/architecture/00-overview.md`.
 
 ## Commands
 
-| Target | Does |
+| Recipe | Does |
 |--------|------|
-| `make setup AI=1` | `uv sync` + pre-commit hooks + Playwright chromium |
-| `make test AI=1` | pytest — unit + integration, excludes `slow`/`e2e` |
-| `make smoke AI=1` | httpx end-to-end smoke (xfails without model weights) |
-| `make e2e-browser AI=1` | Playwright browser e2e (requires chromium) |
-| `make frontend-test AI=1` | vitest frontend component tests |
-| `make frontend-build AI=1` | Vite build → `src/pdomain_ocr_simple_gui/frontend/` |
-| `make lint AI=1` / `make format AI=1` | ruff check / format |
-| `make typecheck AI=1` | basedpyright |
-| `make pre-commit-check AI=1` | all pre-commit hooks on every tracked file |
-| `make update-hooks` | bump pre-commit hooks to their latest releases, frozen to commit SHAs (`pre-commit autoupdate --freeze`) |
-| `make ci AI=1` | full gate: setup + pre-commit + lint + typecheck + frontend-build + test + behavior-coverage + smoke + packaging-test + frontend format/lint/test/knip + e2e-fast |
-| `make ci-full AI=1` | `make ci` + `e2e-browser` (Playwright) |
-| `make run` | launch on :8004 |
-| `make local-setup` | clone any missing sibling pd-* repos |
-| `make local-dev` | switch to local-dev mode (Python + npm siblings editable + marker) |
-| `make local-check` | print local-dev mode + per-sibling resolution |
-| `make local-upgrade-deps` | upgrade deps then restore editables (local-mode only) |
-| `make local-setup-py` | re-apply editable Python siblings (idempotent; defensive against `uv sync`) |
-| `make local-frontend-install` | `pnpm install` + restore `pnpm link` overlays for npm siblings |
-| `make local-frontend-build` | Vite build using locally-linked npm siblings |
-| `make local-frontend-test` | vitest using locally-linked npm siblings |
-| `make local-frontend-dev` | Vite dev server using locally-linked npm siblings |
-| `make local-run` | run the SPA against local-dev workspace (local-mode only; uses `local-frontend-build` — local-link sticky) |
-| `make update-pdomain-deps` | bump pd-* sibling deps to registry latest; leaves diff for review |
+| `AI=1 just setup` | `uv sync --locked` + pre-commit hooks + Playwright chromium |
+| `AI=1 just test` | pytest — unit + integration, excludes `slow`/`e2e` |
+| `AI=1 just smoke` | httpx end-to-end smoke (xfails without model weights) |
+| `AI=1 just e2e-browser` | Playwright browser e2e (requires chromium) |
+| `AI=1 just frontend-test` | vitest frontend component tests |
+| `AI=1 just frontend-build` | Vite build → `src/pdomain_ocr_simple_gui/frontend/` |
+| `AI=1 just lint` / `AI=1 just format` | ruff fixes / format |
+| `AI=1 just typecheck` | basedpyright |
+| `AI=1 just pre-commit-check` | all pre-commit hooks on every tracked file |
+| `just update-hooks` | bump pre-commit hooks to their latest releases, frozen to commit SHAs (`pre-commit autoupdate --freeze`) |
+| `AI=1 just ci` | full gate: setup + frozen frontend install + pre-commit + lint-check + typecheck + frontend typecheck/build + test + behavior-coverage + smoke + packaging-test + frontend format/lint checks + frontend test/knip + e2e-fast + sdist/wheel + docgraph strict |
+| `AI=1 just ci-full` | `just ci` + `e2e-browser` (Playwright) |
+| `just run` | launch on :8004 |
+| `just local-setup` | clone any missing sibling pd-* repos |
+| `just local-dev` | switch to local-dev mode (Python + npm siblings editable + marker) |
+| `just local-check` | print local-dev mode + per-sibling resolution |
+| `just local-upgrade-deps` | upgrade deps then restore editables (local-mode only) |
+| `just local-setup-py` | re-apply editable Python siblings (idempotent; defensive against `uv sync`) |
+| `just local-frontend-install` | `pnpm install` + restore `pnpm link` overlays for npm siblings |
+| `just local-frontend-build` | Vite build using locally-linked npm siblings |
+| `just local-frontend-test` | vitest using locally-linked npm siblings |
+| `just local-frontend-dev` | Vite dev server using locally-linked npm siblings |
+| `just local-run` | run the SPA against local-dev workspace (local-mode only; uses `local-frontend-build` — local-link sticky) |
+| `just update-pdomain-deps` | bump pd-* sibling deps to registry latest; leaves diff for review |
 
 `frontend-*` and `run` are registry-resolved (canonical CI path).
 `local-frontend-*` and `local-run` are local-link-resolved (developer
 workflow); see [`docs/process/local-dev.md`](docs/process/local-dev.md)
 for why the two families are kept separate.
 
-`AI=1` captures verbose output to `.ci-ai.log`; stdout shows ✅ on pass
-or filtered failure sections on error.
+`AI=1` captures verbose output to `.ci-ai.log`; stdout shows one `PASS: <recipe>` line on success
+or the failure tail on error.
 
 ## Rules
 
-- Always run `make ci AI=1` before committing.
-- Make targets first; fall back to `uv run …` only when no target exists.
-- Never `python -m pytest`. Always `uv run pytest` or `make test`.
+- Always run `AI=1 just ci` before committing.
+- Just recipes first; fall back to `uv run …` only when no recipe exists.
+- Never `python -m pytest`. Always `uv run pytest` or `just test`.
 - **TDD-first** for all feature work: test first, then implementation.
 - Stub-shaped work (route stubs, protocol definitions) is exempt.
 
@@ -169,7 +169,7 @@ change any step below.
    worktree path + branch, use the `finishing-a-development-branch` skill to
    decide how to integrate.
 8. **TDD.** Write the failing test first where the plan calls for it.
-9. **Verify before committing.** Focused verification plus `make ci`.
+9. **Verify before committing.** Focused verification plus `just ci`.
 10. **Commit locally; do not push** without explicit say-so.
 
 <!-- workspace-process:end -->

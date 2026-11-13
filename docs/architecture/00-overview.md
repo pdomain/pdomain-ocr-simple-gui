@@ -98,7 +98,7 @@ Evidence:
 
 - The Python package is `src/pdomain_ocr_simple_gui/`.
 - The React source is `frontend/src/`.
-- `make frontend-build` writes the packaged SPA to `src/pdomain_ocr_simple_gui/frontend/`.
+- `just frontend-build` writes the packaged SPA to `src/pdomain_ocr_simple_gui/frontend/`.
 - Tests live under `tests/`.
 
 Per-module surfaces are in the [module map](module-map.md).
@@ -226,8 +226,8 @@ Edited-page truth separation is still deferred.
 - **Frontend:** Component and hook tests use vitest and `@testing-library/react`.
 - **Smoke:** `tests/smoke/test_e2e.py` is an httpx end-to-end test. It starts the server through a subprocess. It submits a real job. It asserts `state=succeeded` and a `.txt` output. It xfails when the job fails, for example on missing weights. It uses the first page image that exists: the dev-container `pdomain-book-tools` page, the sibling `../pdomain-book-tools` page, then the in-repo `tests/e2e/fixtures/known_good_page.png`. It skips only when none exists.
 - **Browser e2e, Tier A:** 21 files under `tests/e2e/`, excluding `test_real_ocr_pipeline.py` and `test_real_ocr_rerun.py`. They run in Playwright on Chromium with the fake-dispatcher `live_server` fixture. Behavior-asserting tests cite stable IDs from `docs/specs/behavior/screen-*.md` and `flows.md`. They boot with `PD_SUITE_DATA_DIR` under a pytest tmp tree. They assert the path is tmp-like before launch, so prefs-reset fixtures cannot wipe real suite data.
-- **Behavior coverage gate:** `make behavior-coverage` runs `scripts/behavior_coverage.py`. It matches the IDs declared in `docs/specs/behavior/*.md` against citations in `tests/`. It rewrites `docs/specs/behavior/coverage.md`. It fails on a citation with no declared ID or an uncovered regression record. `tests/test_behavior_coverage.py` unit-tests the scanner.
-- **Browser e2e, Tier B:** `tests/e2e/test_real_ocr_pipeline.py` and `tests/e2e/test_real_ocr_rerun.py` use a real OCR engine. They are GPU-backed. They are opt-in through `make e2e-real-ocr`, which does not set the fake dispatcher.
+- **Behavior coverage gate:** `just behavior-coverage` runs `scripts/behavior_coverage.py`. It matches the IDs declared in `docs/specs/behavior/*.md` against citations in `tests/`. It rewrites `docs/specs/behavior/coverage.md`. It fails on a citation with no declared ID or an uncovered regression record. `tests/test_behavior_coverage.py` unit-tests the scanner.
+- **Browser e2e, Tier B:** `tests/e2e/test_real_ocr_pipeline.py` and `tests/e2e/test_real_ocr_rerun.py` use a real OCR engine. They are GPU-backed. They are opt-in through `just e2e-real-ocr`, which does not set the fake dispatcher.
 - **SPA serving contract:** `tests/test_routes_root.py` uses a monkeypatch and a `tmp_path` fake `index.html`. It always runs, even without a built frontend.
 
 ---
@@ -235,10 +235,10 @@ Edited-page truth separation is still deferred.
 ## 10. Build + release
 
 ```sh
-make build   # frontend-build, then uv build --sdist and uv build --wheel
+just build   # frontend-build, then uv build --sdist and uv build --wheel
 ```
 
-`make release-patch`, `make release-minor`, or `make release-major` attaches the wheel and sdist to a GitHub Release. `pdomain-index-pip`'s `scripts/publish-index.sh` then publishes them to its GitHub Pages PEP 503 index. The steps are in [`docs/runbooks/release.md`](../runbooks/release.md).
+`just release-patch`, `just release-minor`, or `just release-major` attaches the wheel and sdist to a GitHub Release. `pdomain-index-pip`'s `scripts/publish-index.sh` then publishes them to its GitHub Pages PEP 503 index. The steps are in [`docs/runbooks/release.md`](../runbooks/release.md).
 
 ---
 

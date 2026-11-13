@@ -1,7 +1,7 @@
 """5.9 — full click-path: config form → choose engine/language/device → submit.
 
-Marked ``slow`` and ``e2e`` — excluded from ``make test``, included in
-``make e2e-browser``.
+Marked ``slow`` and ``e2e`` — excluded from ``just test``, included in
+``just e2e-browser``.
 
 Covers: B-HOME-006 (engine/language seeded from prefs default_engine/_language)
 Covers: B-HOME-007 (text-normalization toggle rides into the spec)

@@ -2,8 +2,8 @@
 
 Marked ``slow`` and ``e2e``:
 
-* Excluded from ``make test`` (``-m "not slow"`` via addopts).
-* Included in ``make smoke`` / ``make ci`` (``-m "slow or e2e"``).
+* Excluded from ``just test`` (``-m "not slow"`` via addopts).
+* Included in ``just smoke`` / ``just ci`` (``-m "slow or e2e"``).
 """
 
 from __future__ import annotations

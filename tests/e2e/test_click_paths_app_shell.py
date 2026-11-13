@@ -2,8 +2,8 @@
 
 Covers B-SHELL-001 through B-SHELL-013 (AppShell, prefs persist, shortcuts cheatsheet).
 
-Marked ``slow`` and ``e2e`` — excluded from ``make test``, included in
-``make e2e-browser`` / ``make e2e-fast``.
+Marked ``slow`` and ``e2e`` — excluded from ``just test``, included in
+``just e2e-browser`` / ``just e2e-fast``.
 
 Every test cites its behavior record (``Covers: B-SHELL-NNN``), asserts the
 observable DOM output, re-queries the backend API where there is a backend effect,

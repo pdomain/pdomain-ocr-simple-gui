@@ -1,8 +1,8 @@
 # Tool versions for contributors who use mise.
 #
-# The Makefile's _pnpm macro runs `mise exec -- pnpm` whenever the mise binary
+# The justfile's _pnpm helper runs `mise exec -- pnpm` whenever the mise binary
 # is present, so mise must provide pnpm (and node). Pin them here; run
-# `make mise-setup` (or `mise install`) to provision.
+# `mise install` to provision.
 
 [tools]
 node = "24"     # Active LTS — matches workspace sibling repos

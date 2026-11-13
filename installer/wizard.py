@@ -12,7 +12,7 @@ CLI path (``--cli`` flag or no DISPLAY):
   Delegates directly to ``install_engine.run()`` with optional ``--yes``.
 
 The tkinter import is deferred inside ``_run_gui()`` so this module can be
-imported (e.g. for testing) without a display.  ``make ci`` never calls the
+imported (e.g. for testing) without a display.  ``just ci`` never calls the
 GUI path, so the import guard is CI-safe.
 """
 

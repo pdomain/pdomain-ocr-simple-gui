@@ -27,12 +27,12 @@ gate, before creating a tag.
 
 ## Steps
 
-Run exactly one local target:
+Run exactly one local recipe:
 
 ```bash
-make release-patch
-make release-minor
-make release-major
+just release-patch
+just release-minor
+just release-major
 ```
 
 The helper creates an annotated semantic-version tag, pushes `master` and the

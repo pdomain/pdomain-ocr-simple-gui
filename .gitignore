@@ -70,7 +70,7 @@ tools/appimagetool
 tools/runtime-x86_64
 .appdir-build/
 
-# AI=1 make output capture log
+# AI=1 just output capture log
 .ci-ai.log
 .worktree/
 .worktree/**/.venv
@@ -81,5 +81,5 @@ frontend/node_modules
 .worktrees/**/.venv
 .worktrees/**/frontend/node_modules
 
-# Transient snapshot from `make frontend-install` regression guard
+# Transient snapshot from `just frontend-install` regression guard
 frontend/pnpm-workspace.yaml.preinstall

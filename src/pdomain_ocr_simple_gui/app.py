@@ -374,7 +374,7 @@ def create_app() -> FastAPI:
         if not index.exists():
             raise HTTPException(
                 status_code=503,
-                detail="Frontend not built — run make frontend-build",
+                detail="Frontend not built — run just frontend-build",
             )
         return FileResponse(index)
 

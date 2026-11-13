@@ -10,7 +10,7 @@ displayed "current location" here — this test asserts the SAVE path
 precedence is covered by the backend unit tests in
 ``tests/test_jobs_location_pref.py``.
 
-Marked ``slow`` and ``e2e`` — excluded from ``make test``.
+Marked ``slow`` and ``e2e`` — excluded from ``just test``.
 """
 
 from __future__ import annotations

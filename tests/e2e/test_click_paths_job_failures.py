@@ -1,7 +1,7 @@
 """Click-path: job failure / edge-case paths from the home screen.
 
-Marked ``slow`` and ``e2e`` — excluded from ``make test``, included in
-``make e2e-browser``.
+Marked ``slow`` and ``e2e`` — excluded from ``just test``, included in
+``just e2e-browser``.
 
 Covers: B-HOME-017 (unsupported file types → job failed with a clear error)
 Covers: B-HOME-018 (oversize upload → 413 → SourcePicker error alert)

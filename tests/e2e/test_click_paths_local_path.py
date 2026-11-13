@@ -1,7 +1,7 @@
 """5.8 — full click-path: local path input → output destination → submit.
 
-Marked ``slow`` and ``e2e`` — excluded from ``make test``, included in
-``make e2e-browser``.
+Marked ``slow`` and ``e2e`` — excluded from ``just test``, included in
+``just e2e-browser``.
 
 Covers: B-HOME-003 (local path input reveals the config form for a folder)
 Covers: B-HOME-009 (output destination → output_mode.json + spec.output_dir)

@@ -11,7 +11,7 @@ LocalStageDispatcher (``live_server_url_real_ocr``) and exercise both the
 job-level "Re-run all" and the single-page PageViewPage rerun buttons against
 the hand-verified known-good fixture, asserting the regenerated text overlaps
 the ground truth (tolerant ≥60% word overlap). Marked ``real_ocr`` so they are
-excluded from default CI and only run via ``make e2e-real-ocr``.
+excluded from default CI and only run via ``just e2e-real-ocr``.
 """
 
 from __future__ import annotations

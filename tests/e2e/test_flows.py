@@ -24,8 +24,8 @@ Flagship Tier-A download leg:
   faithfully from a Fake dispatcher upload.  The Tier-B test covers the
   full chain end-to-end with the real engine.
 
-Marked ``slow`` and ``e2e`` so they are excluded from ``make test`` and
-included in ``make e2e-browser`` / ``make e2e-fast``.
+Marked ``slow`` and ``e2e`` so they are excluded from ``just test`` and
+included in ``just e2e-browser`` / ``just e2e-fast``.
 """
 
 from __future__ import annotations

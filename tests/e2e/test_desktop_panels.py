@@ -5,8 +5,8 @@ Covers:
   H2: app loads without broken-resource console errors; compute/updates panels
       open via settings dock; React Router sub-path renders a page component
 
-Marked ``slow`` and ``e2e`` — excluded from ``make test``, included in
-``make e2e-fast`` / ``make e2e-browser``.
+Marked ``slow`` and ``e2e`` — excluded from ``just test``, included in
+``just e2e-fast`` / ``just e2e-browser``.
 
 ## Interaction contract (confirmed from pdomain-ui 0.7.0 source + testids)
 

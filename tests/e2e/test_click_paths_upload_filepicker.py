@@ -1,7 +1,7 @@
 """5.7 — full click-path: file-picker upload → submit → results populated.
 
-Marked ``slow`` and ``e2e`` — excluded from ``make test``, included in
-``make e2e-browser``.
+Marked ``slow`` and ``e2e`` — excluded from ``just test``, included in
+``just e2e-browser``.
 
 Covers: B-HOME-002 (file-picker upload reveals chosen view + config form)
 Covers: B-HOME-016 (duplicate basenames collapse to last-writer-wins on disk)

@@ -5,8 +5,8 @@ Tasks covered:
   TASK 14 — done-job static state + trash delete (browser)
   TASK 15 — e2etestjob-* filter: test jobs never appear in jobs dock or recent list
 
-Marked ``slow`` and ``e2e`` — excluded from ``make test``, included in
-``make e2e-browser``.
+Marked ``slow`` and ``e2e`` — excluded from ``just test``, included in
+``just e2e-browser``.
 
 Opening the dock requires a running/queued job (so the jobs-pill-count badge
 appears and the Jobs button is visible).  Tests that need the dock inject a

@@ -20,7 +20,7 @@ OCR is non-deterministic at the character level; it is still high enough to
 prove the real engine actually transcribed the page (not the fake dispatcher).
 
 Marked ``real_ocr`` so it is excluded from default CI (``-m "not real_ocr"``)
-and only runs via ``make e2e-real-ocr``.
+and only runs via ``just e2e-real-ocr``.
 """
 
 from __future__ import annotations

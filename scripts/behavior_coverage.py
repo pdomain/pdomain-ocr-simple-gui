@@ -184,7 +184,7 @@ def render_markdown(report: Report, verified: date = _DEFAULT_VERIFIED) -> str:
         "- **Implementation deviations:** Fixed job-level downloads and the shared jobs dock replaced older projected surfaces.",
         "- **Residual risks:** Exported text can remain stale after per-page edits or reruns.",
         "",
-        "Run `make behavior-coverage` to regenerate.",
+        "Run `just behavior-coverage` to regenerate.",
         "",
         "| ID | Regression | Documented | Modeled | Tested |",
         "|----|------------|------------|---------|--------|",

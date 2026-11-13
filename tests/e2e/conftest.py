@@ -5,13 +5,13 @@ session and tears it down afterwards.  Tests access the URL via the
 ``live_server_url`` fixture.
 
 All tests in ``tests/e2e/`` are marked ``e2e`` and ``slow`` so they are
-excluded from ``make test`` (which passes ``-m "not slow"``) and included
-in ``make e2e-browser``.
+excluded from ``just test`` (which passes ``-m "not slow"``) and included
+in ``just e2e-browser``.
 
 Usage::
 
-    make e2e-browser          # runs only tests/e2e/ with playwright
-    PLAYWRIGHT_BROWSERS_PATH=/cache/shared-ai/ms-playwright make e2e-browser
+    just e2e-browser          # runs only tests/e2e/ with playwright
+    PLAYWRIGHT_BROWSERS_PATH=/cache/shared-ai/ms-playwright just e2e-browser
 """
 
 from __future__ import annotations
@@ -168,7 +168,7 @@ def _assert_frontend_built() -> None:
     does not exist, which causes every Playwright navigation to hang until the
     15-second timeout fires.  Failing early here gives a useful error instead.
 
-    Run ``make frontend-build`` (or ``make e2e-browser`` which includes it) to
+    Run ``just frontend-build`` (or ``just e2e-browser`` which includes it) to
     produce the bundle.
     """
     import pdomain_ocr_simple_gui as _pkg
@@ -178,7 +178,7 @@ def _assert_frontend_built() -> None:
         raise RuntimeError(
             "Browser e2e tests require a built frontend SPA.  "
             f"Expected: {frontend_index}\n"
-            "Run `make frontend-build` first, or use `make e2e-browser` "
+            "Run `just frontend-build` first, or use `just e2e-browser` "
             "which builds the frontend automatically."
         )
 

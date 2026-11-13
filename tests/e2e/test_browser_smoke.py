@@ -12,8 +12,8 @@ individual behaviors.  The smoke tests verify the baseline browser contract:
   2. React Router sub-paths are served by the FastAPI catch-all and rendered
      by the router — not a blank page or a raw 404 HTML response.
 
-Marked ``slow`` and ``e2e`` — excluded from ``make test``, included in
-``make e2e-fast`` / ``make e2e-browser``.
+Marked ``slow`` and ``e2e`` — excluded from ``just test``, included in
+``just e2e-fast`` / ``just e2e-browser``.
 """
 
 from __future__ import annotations

@@ -45,7 +45,7 @@ This roadmap does not restate that design.
 - Keep reusable OCR and dispatch logic upstream.
 - Backend and frontend contracts must stay aligned.
 - Treat caller-controlled paths and IDs as untrusted.
-- Run `make ci AI=1` before committing.
+- Run `AI=1 just ci` before committing.
 - Work that belongs in another repo is listed below, and it is not a task for this app.
 
 ## Resolved on master

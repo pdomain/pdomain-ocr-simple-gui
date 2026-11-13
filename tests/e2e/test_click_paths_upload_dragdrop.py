@@ -1,7 +1,7 @@
 """5.6 — full click-path: drag-drop files onto the drop zone → submit → results.
 
-Marked ``slow`` and ``e2e`` — excluded from ``make test``, included in
-``make e2e-browser``.
+Marked ``slow`` and ``e2e`` — excluded from ``just test``, included in
+``just e2e-browser``.
 
 Covers: B-HOME-001 (drag-drop upload reveals the chosen view + config form)
 Covers: B-HOME-011 (submit → job runs, sidecars + combined.txt on disk)

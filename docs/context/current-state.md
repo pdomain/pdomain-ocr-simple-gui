@@ -58,5 +58,5 @@ The dispatcher timeout bounds a hung OCR await but does not stop the underlying
 executor thread, which can still race the shared predictor cache in pdomain-ops
 ([ocr-container-meta#397](https://github.com/ConcaveTrillion/ocr-container-meta/issues/397)).
 The repository has no GitHub workflows since `0bb3a4a` (2026-09-13, owner
-request); `make ci AI=1` run locally is the gate, and releases run from
+request); `AI=1 just ci` run locally is the gate, and releases run from
 `scripts/release-common.sh`.
