@@ -82,8 +82,21 @@ artifacts = ["src/pdomain_ocr_simple_gui/frontend/**/*"]
 # Virtual environments must never reach the sdist: they contain absolute
 # symlinks to the uv-managed interpreter, which uv refuses to unpack.
 exclude = [
-    ".venv/**",
-    ".venv-container/**",
+    ".docgraph/**",
+    ".worktrees/**",
+    ".venv*/**",
+    "node_modules/**",
+    "frontend/node_modules/**",
+    ".ci-ai.log",
+    ".coverage*",
+    ".cache/**",
+    ".pytest_cache/**",
+    ".ruff_cache/**",
+    ".mypy_cache/**",
+    ".basedpyright/**",
+    "**/__pycache__/**",
+    "**/*.pyc",
+    "**/*.pyo",
 ]
 
 [tool.hatch.build.targets.wheel]
