@@ -25,7 +25,7 @@ import {
   PageViewerWithZoom,
   type ZoomHandle,
 } from "../components/PageViewerWithZoom";
-import { useConfig } from "../runtime/ConfigContext";
+import { useConfig } from "../runtime/configHooks";
 import { engineIsAvailable } from "../runtime/ocrEngines";
 
 interface PageData {
@@ -313,7 +313,6 @@ export default function PageViewPage() {
     };
   });
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const bindings = useMemo<ShortcutBinding[]>(
     () => [
       // Navigation
@@ -407,7 +406,6 @@ export default function PageViewPage() {
       },
       // Empty deps: the array is created once; handlers use shortcutCtxRef for
       // latest values. This is intentional — DO NOT add deps here.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     ],
     [],
   );

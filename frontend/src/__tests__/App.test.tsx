@@ -11,7 +11,8 @@ import {
 } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { makeTestQueryClient } from "../test/test-utils";
-import App, { uiPrefsConfig } from "../App";
+import App from "../App";
+import { uiPrefsConfig } from "../appUiPrefsConfig";
 
 // Spy for useUtilityDock().toggle — lets tests assert the jobs dock surface
 // is opened when the jobs button is clicked.

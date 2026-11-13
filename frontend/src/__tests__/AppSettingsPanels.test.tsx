@@ -133,37 +133,37 @@ describe("settingsPanels", () => {
   });
 
   it("includes a compute panel descriptor", async () => {
-    const { settingsPanels } = await import("../App");
+    const { settingsPanels } = await import("../appSettings");
     const ids = settingsPanels.map((p) => p.id);
     expect(ids).toContain("compute");
   });
 
   it("includes an updates panel descriptor", async () => {
-    const { settingsPanels } = await import("../App");
+    const { settingsPanels } = await import("../appSettings");
     const ids = settingsPanels.map((p) => p.id);
     expect(ids).toContain("updates");
   });
 
   it("includes a models panel descriptor", async () => {
-    const { settingsPanels } = await import("../App");
+    const { settingsPanels } = await import("../appSettings");
     const models = settingsPanels.find((p) => p.id === "models");
     expect(models?.label).toBe("Models");
   });
 
   it("compute panel has a label", async () => {
-    const { settingsPanels } = await import("../App");
+    const { settingsPanels } = await import("../appSettings");
     const compute = settingsPanels.find((p) => p.id === "compute");
     expect(compute?.label).toBeTruthy();
   });
 
   it("updates panel has a label", async () => {
-    const { settingsPanels } = await import("../App");
+    const { settingsPanels } = await import("../appSettings");
     const updates = settingsPanels.find((p) => p.id === "updates");
     expect(updates?.label).toBeTruthy();
   });
 
   it("renders the shared compute target panel with the published CUDA guide URL", async () => {
-    const { settingsPanels } = await import("../App");
+    const { settingsPanels } = await import("../appSettings");
     const compute = settingsPanels.find((p) => p.id === "compute");
 
     render(<>{compute?.content}</>);
@@ -175,7 +175,7 @@ describe("settingsPanels", () => {
   });
 
   it("starts a background compute-state fetch at app startup", async () => {
-    const { ComputeStateWarmup } = await import("../App");
+    const { ComputeStateWarmup } = await import("../appSettingsPanels");
 
     render(<ComputeStateWarmup />);
 
@@ -183,7 +183,7 @@ describe("settingsPanels", () => {
   });
 
   it("renders CUDA setup guidance inside the Compute settings panel", async () => {
-    const { settingsPanels } = await import("../App");
+    const { settingsPanels } = await import("../appSettings");
     const compute = settingsPanels.find((p) => p.id === "compute");
 
     render(<>{compute?.content}</>);
@@ -197,7 +197,7 @@ describe("settingsPanels", () => {
       info: null,
       loading: true,
     };
-    const { settingsPanels } = await import("../App");
+    const { settingsPanels } = await import("../appSettings");
     const compute = settingsPanels.find((p) => p.id === "compute");
 
     render(<>{compute?.content}</>);
@@ -257,7 +257,7 @@ describe("settingsPanels", () => {
       });
       (globalThis as any).fetch = fetchMock;
 
-      const { settingsPanels } = await import("../App");
+      const { settingsPanels } = await import("../appSettings");
       const updates = settingsPanels.find((p) => p.id === "updates");
       render(<>{updates?.content}</>);
 
@@ -281,7 +281,7 @@ describe("settingsPanels", () => {
       );
       (globalThis as any).fetch = fetchMock;
 
-      const { settingsPanels } = await import("../App");
+      const { settingsPanels } = await import("../appSettings");
       const updates = settingsPanels.find((p) => p.id === "updates");
       render(<>{updates?.content}</>);
 

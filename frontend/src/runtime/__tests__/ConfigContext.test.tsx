@@ -1,7 +1,8 @@
 // Tests for ConfigContext — A6.1 + B-HOME-014 error surfacing.
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ConfigProvider, useConfig, useConfigStatus } from "../ConfigContext";
+import { ConfigProvider } from "../ConfigContext";
+import { useConfig, useConfigStatus } from "../configHooks";
 
 function Probe() {
   const cfg = useConfig();

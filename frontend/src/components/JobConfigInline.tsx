@@ -1,3 +1,4 @@
+import { defaultProjectName } from "./projectName";
 // JobConfigInline — replaces JobConfigDialog modal with an inline form on HomePage.
 // Renders progressively after a source is chosen. Submits the same POST /api/jobs
 // payload shape that JobConfigDialog produced. OutputConfigPanel is the sole
@@ -61,20 +62,6 @@ function defaultOutputMode(
     return { mode: "next_to_source" };
   }
   return { mode: "managed" };
-}
-
-/** Derive a sensible project-name default from the source. */
-export function defaultProjectName(source: ChosenSource): string {
-  if (source.kind === "path") {
-    // basename of path, stripping trailing slashes
-    const trimmed = source.path.replace(/[/\\]+$/, "");
-    const idx = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
-    const base = idx >= 0 ? trimmed.slice(idx + 1) : trimmed;
-    return base || "ocr-job";
-  }
-  // upload: short uploadId
-  const short = source.uploadId.slice(0, 8);
-  return `ocr-job-${short}`;
 }
 
 export function JobConfigInline({

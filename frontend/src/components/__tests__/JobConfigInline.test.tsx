@@ -3,11 +3,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import {
-  JobConfigInline,
-  defaultProjectName,
-  type ChosenSource,
-} from "../JobConfigInline";
+import { JobConfigInline, type ChosenSource } from "../JobConfigInline";
+import { defaultProjectName } from "../projectName";
 import type {
   JobForm,
   RuntimeConfig,

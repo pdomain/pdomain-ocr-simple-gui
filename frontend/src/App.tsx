@@ -33,7 +33,7 @@
 // ocr-container-meta#395), so onJobCancel and onJobPauseResume are omitted
 // (both fully optional).
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import {
@@ -43,326 +43,30 @@ import {
   ShortcutsHelpButton,
   SettingsSlot,
   useUtilityDock,
-  UpdatePanel,
-  UpdateBadge,
-  ComputeTargetPanel,
-  createApiDeviceConfig,
-  createApiUpdateConfig,
 } from "@pdomain/pdomain-ui/shell";
 import { ShortcutsProvider } from "@pdomain/pdomain-ui/hooks";
-import { useDeviceInfo, useUpdateCheck } from "@pdomain/pdomain-ui/stores";
 import type {
-  UIPrefsConfig,
   InstalledApp,
   LaunchResult,
   ActiveJob,
   AppShellJobsProps,
   Job,
   JobStatus,
-  SettingsPanelDescriptor,
-  UpdatePolicy,
 } from "@pdomain/pdomain-ui/shell";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { ConfigProvider, useConfigStatus } from "./runtime/ConfigContext";
+import { ConfigProvider } from "./runtime/ConfigContext";
+import { useConfigStatus } from "./runtime/configHooks";
 import { HomePage } from "./pages/HomePage";
 import ResultsPage from "./pages/ResultsPage";
 import PageViewPage from "./pages/PageViewPage";
 import TesseractHelpPage from "./pages/TesseractHelpPage";
-import { JobsLocationSettings } from "./components/JobsLocationSettings";
-import { CudaSetupGuidance } from "./components/CudaSetupGuidance";
-import { ModelCacheSettings } from "./components/ModelCacheSettings";
-import { ApiTokenSettings } from "./components/ApiTokenSettings";
 import { apiFetch } from "./api/apiFetch";
-
-/**
- * API-backed update config for UpdatePanel.
- * createApiUpdateConfig reads/writes /api/suite/update.
- */
-const _updateConfig = createApiUpdateConfig();
-const _deviceConfig = createApiDeviceConfig();
-let _computeStateWarmupStarted = false;
-
-export function ComputeStateWarmup() {
-  useEffect(() => {
-    if (_computeStateWarmupStarted) return;
-    _computeStateWarmupStarted = true;
-    // Fire-and-forget warmup: tolerate a fetchDevice() that returns a
-    // non-promise (e.g. test mocks) so it can never crash the app shell.
-    void Promise.resolve(_deviceConfig.fetchDevice()).catch(() => undefined);
-  }, []);
-  return null;
-}
-
-/** Inner component for the Compute panel — calls hooks inside the component tree. */
-function ComputePanelContent() {
-  const device = useDeviceInfo(_deviceConfig);
-
-  let body: ReactNode;
-  if (device.loading && !device.info) {
-    body = (
-      <p key="compute-loading" style={{ margin: 0 }}>
-        Checking compute devices
-      </p>
-    );
-  } else if (device.error && !device.info) {
-    body = (
-      <p
-        key="compute-error"
-        role="alert"
-        style={{ margin: 0, color: "var(--color-danger)" }}
-      >
-        {device.error instanceof Error
-          ? device.error.message
-          : String(device.error)}
-      </p>
-    );
-  } else {
-    body = (
-      <ComputeTargetPanel
-        key="compute-target"
-        info={device.info}
-        onSelect={(deviceId) => void device.setDevice("app", deviceId)}
-        onClear={(scope) => void device.clearDevice(scope)}
-        cudaDocsUrl="https://github.com/pdomain/pdomain-ocr-simple-gui/blob/master/docs/runbooks/cuda-setup.md"
-      />
-    );
-  }
-
-  return (
-    <div>
-      {body}
-      <CudaSetupGuidance key="cuda-guidance" />
-    </div>
-  );
-}
-
-/** Shape of the `common` slice of GET/PUT /api/suite/prefs (partial — we
- * only read/write the fields we know about; unknown fields must survive a
- * read-modify-write round trip, so this stays a loose record). */
-type SuiteCommonPrefs = Record<string, unknown> & {
-  update_policy?: UpdatePolicy | null;
-};
-
-/**
- * Inner component for the Updates panel — calls hooks inside the component
- * tree.
- *
- * The update-policy selector is backed by suite prefs, not local state:
- * `GET /api/suite/prefs` supplies `common.update_policy` on mount, and each
- * selector change re-reads `common` fresh and PUTs the WHOLE object back to
- * `/api/suite/prefs/common` — that route replaces `common` wholesale, so a
- * partial body would blank sibling fields (theme, density, ...).
- */
-function UpdatePanelContent() {
-  const update = useUpdateCheck(_updateConfig);
-  const [policy, setPolicy] = useState<UpdatePolicy>("notify");
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await apiFetch("/api/suite/prefs");
-        if (!res.ok) {
-          if (!cancelled) {
-            setLoadError(`GET /api/suite/prefs failed: ${res.status}`);
-          }
-          return;
-        }
-        const data = (await res.json()) as { common?: SuiteCommonPrefs };
-        if (!cancelled) {
-          setPolicy(data.common?.update_policy ?? "notify");
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : String(err));
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const handlePolicyChange = useCallback((next: UpdatePolicy): void => {
-    void (async () => {
-      try {
-        const getRes = await apiFetch("/api/suite/prefs");
-        if (!getRes.ok) {
-          throw new Error(`GET /api/suite/prefs failed: ${getRes.status}`);
-        }
-        const data = (await getRes.json()) as { common?: SuiteCommonPrefs };
-        const common: SuiteCommonPrefs = {
-          ...(data.common ?? {}),
-          update_policy: next,
-        };
-        const putRes = await apiFetch("/api/suite/prefs/common", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(common),
-        });
-        if (!putRes.ok) {
-          throw new Error(
-            `PUT /api/suite/prefs/common failed: ${putRes.status}`,
-          );
-        }
-        setPolicy(next);
-      } catch (err) {
-        const detail = err instanceof Error ? err.message : String(err);
-        toast.error("Update policy not saved — server error", {
-          description: detail,
-        });
-      }
-    })();
-  }, []);
-
-  if (loadError) {
-    return (
-      <p role="alert" style={{ margin: 0, color: "var(--color-danger)" }}>
-        {loadError}
-      </p>
-    );
-  }
-
-  return (
-    <UpdatePanel
-      info={update.info}
-      policy={policy}
-      onPolicyChange={handlePolicyChange}
-      onApply={() => void update.applyAndRestart()}
-    />
-  );
-}
-
-/**
- * App-injected settings panels, appended after pdomain-ui's built-in
- * Appearance tab. The "jobs" panel lets the user choose where new OCR jobs
- * are stored (env > pref > default resolution lives in the backend).
- * "compute" provides app-specific device controls backed by /api/suite/device.
- * "updates" comes from pdomain-ui.
- * "models" exposes local OCR checkpoint cache status and precache.
- * "api-token" (#398) lets the user view/set/clear the `pdomain.apiToken`
- * localStorage key that apiFetch.ts reads — no backend endpoint involved.
- */
-export const settingsPanels: SettingsPanelDescriptor[] = [
-  {
-    id: "jobs",
-    label: "Jobs",
-    content: <JobsLocationSettings />,
-  },
-  {
-    id: "compute",
-    label: "Compute",
-    content: <ComputePanelContent />,
-  },
-  {
-    id: "models",
-    label: "Models",
-    content: <ModelCacheSettings />,
-  },
-  {
-    id: "updates",
-    label: "Updates",
-    content: <UpdatePanelContent />,
-  },
-  {
-    id: "api-token",
-    label: "API Token",
-    content: <ApiTokenSettings />,
-  },
-];
-
-/**
- * onPersistError — surfaces a sonner toast when PUT /api/prefs fails.
- *
- * B-SHELL-008/009/010 regression fix: persistCommon and persistApp
- * previously swallowed all errors with a silent `catch {}` and never
- * checked `res.ok`. A failed PUT caused the pref to revert on reload
- * with no user feedback. This callback is wired into UIPrefsConfig so
- * pdomain-ui's createUIPrefsStore can call it when the promise rejects.
- */
-function handlePersistError(err: unknown): void {
-  const detail = err instanceof Error ? err.message : String(err);
-  toast.error("Preferences not saved — server error", {
-    description: detail,
-  });
-}
-
-/**
- * Minimal UIPrefs config — reads/writes from /api/prefs app prefs.
- *
- * Exported so App.test.tsx can drive persistApp/persistCommon directly and
- * assert the PUT body shape (the AppShell mock never invokes these).
- */
-export const uiPrefsConfig: UIPrefsConfig = {
-  load: async () => {
-    try {
-      const res = await apiFetch("/api/prefs");
-      if (!res.ok)
-        return {
-          theme: "dark" as const,
-          density: "normal" as const,
-          fontScale: 1.0,
-        };
-      const data = (await res.json()) as {
-        ui_prefs?: { theme?: string; density?: string; font_scale?: number };
-      };
-      const ui = data.ui_prefs ?? {};
-      return {
-        theme: (ui.theme === "light" ? "light" : "dark") as "dark" | "light",
-        density: (["compact", "normal", "comfortable"].includes(
-          ui.density ?? "",
-        )
-          ? ui.density
-          : "normal") as "compact" | "normal" | "comfortable",
-        fontScale:
-          typeof ui.font_scale === "number"
-            ? Math.min(1.4, Math.max(0.8, ui.font_scale))
-            : 1.0,
-      };
-    } catch {
-      return {
-        theme: "dark" as const,
-        density: "normal" as const,
-        fontScale: 1.0,
-      };
-    }
-  },
-  onPersistError: handlePersistError,
-  persistCommon: async (prefs) => {
-    // `ui_prefs` is a REAL field on the backend AppPrefs model (the common
-    // theme/density/font_scale slice), so this object shape is correct — do
-    // NOT unwrap it. The backend read-modify-merges this partial body, so
-    // sending only ui_prefs no longer resets sibling app prefs to defaults.
-    // The backend field is snake_case and it ignores unknown keys.
-    const { fontScale, ...rest } = prefs;
-    const res = await apiFetch("/api/prefs", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ui_prefs: { ...rest, font_scale: fontScale } }),
-    });
-    if (!res.ok) {
-      throw new Error(`PUT /api/prefs failed: ${res.status}`);
-    }
-  },
-  persistApp: async (appPrefs) => {
-    // Send the app-pref slice as FLAT fields — the backend PUT /api/prefs
-    // expects a flat AppPrefs body, NOT an `{app_prefs: ...}` wrapper. The
-    // wrapper key was silently ignored by Pydantic (extra=ignore), so the
-    // backend saw an all-defaults body and clobbered every saved pref. The
-    // backend now read-modify-merges partial bodies, so sending only the
-    // changed app fields is safe and preserves siblings.
-    const res = await apiFetch("/api/prefs", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(appPrefs),
-    });
-    if (!res.ok) {
-      throw new Error(`PUT /api/prefs failed: ${res.status}`);
-    }
-  },
-};
+import { settingsPanels } from "./appSettings";
+import { uiPrefsConfig } from "./appUiPrefsConfig";
+import {
+  ComputeStateWarmup,
+  UpdateBadgeHeaderWrapper,
+} from "./appSettingsPanels";
 
 /** Minimal suite siblings fetcher — discovers installed pd-* apps. */
 const fetchInstalled = async (): Promise<InstalledApp[]> => {
@@ -506,16 +210,6 @@ function AppRoutes() {
       <Route path="/help/tesseract" element={<TesseractHelpPage />} />
     </Routes>
   );
-}
-
-/**
- * UpdateBadgeHeaderWrapper — renders the UpdateBadge when an update is available.
- * Calls useUpdateCheck inside the component tree (hooks must be inside React components).
- */
-function UpdateBadgeHeaderWrapper() {
-  const update = useUpdateCheck(_updateConfig);
-  const available = Boolean(update.info?.update_available);
-  return <UpdateBadge available={available} />;
 }
 
 /**

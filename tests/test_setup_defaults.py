@@ -15,17 +15,29 @@ def _clean_env() -> dict[str, str]:
     return {k: v for k, v in os.environ.items() if k not in dropped and not k.startswith("GIT_")}
 
 
-def test_make_recipes_leave_the_playwright_browser_path_unset() -> None:
-    result = subprocess.run(
-        ["make", "-n", "setup", "e2e-fast", "e2e-browser", "e2e-real-ocr"],
-        cwd=REPO_ROOT,
-        env=_clean_env(),
-        capture_output=True,
-        text=True,
-        check=True,
+def test_just_recipes_leave_the_playwright_browser_path_unset() -> None:
+    recipes = (
+        "setup",
+        "e2e-fast",
+        "_task-e2e-fast",
+        "e2e-browser",
+        "_task-e2e-browser",
+        "e2e-real-ocr",
+        "_task-e2e-real-ocr",
     )
-    assert "playwright install chromium" in result.stdout
-    assert "PLAYWRIGHT_BROWSERS_PATH" not in result.stdout
+    output = "".join(
+        subprocess.run(
+            ["just", "--show", recipe],
+            cwd=REPO_ROOT,
+            env=_clean_env(),
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        for recipe in recipes
+    )
+    assert "playwright install chromium" in output
+    assert "PLAYWRIGHT_BROWSERS_PATH" not in output
 
 
 def test_local_setup_clones_siblings_from_the_pdomain_org(tmp_path: Path) -> None:
