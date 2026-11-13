@@ -13,9 +13,9 @@ readme = "README.md"
 license = { text = "Unlicense" }
 requires-python = ">=3.11"
 dependencies = [
-    "pdomain-book-tools==0.30.1",
-    "pdomain-book-contracts>=0.2.0",
-    "pdomain-ops>=0.11.2",
+    "pdomain-book-tools==0.31.0",
+    "pdomain-book-contracts>=0.3.1",
+    "pdomain-ops>=0.12.2",
     "fastapi>=0.141",
     "uvicorn[standard]>=0.52",
     "pydantic>=2.13",
@@ -190,6 +190,9 @@ addopts = [
 testpaths = ["tests"]
 pythonpath = ["src", "."]
 asyncio_mode = "auto"
+# pytest-asyncio 1.5 warns when this is unset, and filterwarnings=error
+# turns that into a collection failure. fixture-scope is the previous default.
+asyncio_default_fixture_loop_scope = "fixture-scope"
 filterwarnings = [
     "error",
     # starlette 1.6.0 reads `anyio.abc.BlockingPortal` at import time, an
@@ -198,6 +201,9 @@ filterwarnings = [
     # message so every other DeprecationWarning still fails. Drop this once
     # starlette stops reading the deprecated alias.
     "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
+    # pytest-playwright 0.10 defines its session base_url fixture as an
+    # instance method. pytest 9.2 warns about that, and we do not own the fixture.
+    "ignore:Session-scoped fixtures defined as instance methods are deprecated:pytest.PytestRemovedIn10Warning",
     "ignore::pytest.PytestUnraisableExceptionWarning",
     "ignore::ResourceWarning:coverage.*",
     'ignore:hf_xet\.download_files\(\) is deprecated:DeprecationWarning',
