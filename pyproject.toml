@@ -94,6 +94,7 @@ exclude = [
     ".ruff_cache/**",
     ".mypy_cache/**",
     ".basedpyright/**",
+    "!.basedpyright/baseline.json",
     "**/__pycache__/**",
     "**/*.pyc",
     "**/*.pyo",
