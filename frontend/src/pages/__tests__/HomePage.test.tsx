@@ -57,6 +57,7 @@ function installFetch(cfg: {
   is_containerized: boolean;
   recentProjects?: Array<Record<string, unknown>>;
   uploadPromise?: Promise<unknown>;
+  ocr_engines?: Array<Record<string, unknown>>;
 }) {
   globalThis.fetch = vi
     .fn()
@@ -380,9 +381,11 @@ it("clearing an uploaded source deletes the staged upload", async () => {
 it("explains a slow first start while /api/config is still loading", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   try {
-    globalThis.fetch = vi.fn().mockImplementation(
-      () => new Promise<Response>(() => {}),
-    ) as unknown as typeof fetch;
+    globalThis.fetch = vi
+      .fn()
+      .mockImplementation(
+        () => new Promise<Response>(() => {}),
+      ) as unknown as typeof fetch;
     render(renderTree());
     expect(await screen.findByText("Loading...")).toBeInTheDocument();
     expect(screen.queryByText(/first start/i)).toBeNull();
@@ -391,4 +394,35 @@ it("explains a slow first start while /api/config is still loading", async () =>
   } finally {
     vi.useRealTimers();
   }
+});
+
+// Windows without the VC++ runtime: torch cannot load, so DocTR cannot run.
+// The home page must say so before the user picks files.
+it("shows why DocTR cannot run when the server reports it unavailable", async () => {
+  const reason =
+    "PyTorch could not load its libraries. Install the Microsoft Visual C++ Redistributable (x64), then restart this app.";
+  installFetch({
+    mode: "local",
+    is_containerized: false,
+    ocr_engines: [
+      { id: "doctr", label: "DocTR", available: false, reason },
+      {
+        id: "tesseract",
+        label: "Tesseract",
+        available: false,
+        reason: "not installed",
+      },
+    ],
+  });
+  render(renderTree());
+  const alert = await screen.findByTestId("home-engine-error");
+  expect(alert).toHaveTextContent("Visual C++ Redistributable");
+  expect(alert).toHaveTextContent("DocTR");
+});
+
+it("shows no engine alert when DocTR is available", async () => {
+  installFetch({ mode: "local", is_containerized: false });
+  render(renderTree());
+  await screen.findByTestId("source-picker-drop");
+  expect(screen.queryByTestId("home-engine-error")).toBeNull();
 });

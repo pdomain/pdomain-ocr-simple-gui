@@ -165,8 +165,16 @@ export function HomePage() {
     profile.kind === "local-container"
       ? "Paths refer to the container filesystem (bind-mount your scans dir if needed)."
       : "Folder, image, or zip path on this machine.";
+  const doctr = config.ocr_engines?.find((engine) => engine.id === "doctr");
+  const doctrProblem =
+    doctr !== undefined && !doctr.available ? (doctr.reason ?? null) : null;
   return (
     <div data-testid={APP_TEST_IDS.homePage} className="home-page">
+      {doctrProblem !== null && (
+        <div role="alert" data-testid="home-engine-error">
+          <p>DocTR cannot run on this computer: {doctrProblem}</p>
+        </div>
+      )}
       {profile.kind === "managed-server" && (
         <SourcePicker
           allowDrop
