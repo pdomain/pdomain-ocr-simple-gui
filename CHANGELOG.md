@@ -14,6 +14,16 @@ All notable changes to `pdomain-ocr-simple-gui` are documented here.
 
 ## [Unreleased]
 
+### Dependencies
+
+- `pdomain-book-tools` is now `>=0.31.3,<0.32` instead of `==0.31.3`.
+  A book-tools patch release reaches an installed GUI through
+  `uv tool upgrade` without a new GUI release. A 0.32 minor still needs
+  a GUI release that raises the cap.
+- `just update-pdomain-deps` keeps the `<` cap when it raises a floor,
+  refuses a release past the cap, and edits the checkout it runs from
+  instead of the main checkout.
+
 ---
 
 ## [0.5.6] — 2026-11-14
