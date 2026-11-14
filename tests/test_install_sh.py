@@ -174,32 +174,25 @@ def test_install_sh_cuda_diskspace_warning_present() -> None:
     assert "2-3 GB" in content, "install.sh disk-space warning must give a rough download size (2-3 GB)"
 
 
-def test_install_sh_cuda_diskspace_warning_gated_on_extra_index() -> None:
-    """The disk-space warning must be gated on EXTRA_INDEX (GPU build only).
+def test_install_sh_cuda_diskspace_warning_gated_on_torch_backend() -> None:
+    """The disk-space warning must be gated on TORCH_BACKEND (GPU build only).
 
     A CPU-only install must NOT show the GPU download warning. Grep confirms
-    the warning block is inside an ``if [ -n "$EXTRA_INDEX" ]`` guard.
+    the warning block is inside an ``if [ -n "$TORCH_BACKEND" ]`` guard.
     """
     content = INSTALL_SH.read_text(encoding="utf-8")
-    # The warning text must appear inside an EXTRA_INDEX block.
-    # We verify this by checking that the guard appears before the warning
-    # text in the file and that the pattern is the standard non-empty guard.
-    guard_str = 'if [ -n "$EXTRA_INDEX" ]'
-    extra_index_guard_pos = content.find(guard_str)
+    guard_str = 'if [ -n "$TORCH_BACKEND" ]'
     diskspace_pos = content.find("Heads up - disk space")
-    # There will be multiple EXTRA_INDEX guards (GPU detection + install args).
-    # At least one guard must appear before the warning text.
-    assert extra_index_guard_pos != -1, 'install.sh must have an `if [ -n "$EXTRA_INDEX" ]` guard'
     assert diskspace_pos != -1, "install.sh must contain the disk-space warning text"
-    # The specific guard wrapping the diskspace warning: find the last
-    # EXTRA_INDEX guard before the diskspace text.
     guard_before_warning = content.rfind(guard_str, 0, diskspace_pos)
     assert guard_before_warning != -1, (
-        'Disk-space warning must be inside an `if [ -n "$EXTRA_INDEX" ]` block. '
+        'Disk-space warning must be inside an `if [ -n "$TORCH_BACKEND" ]` block. '
         "CPU-only users must not see the CUDA download warning."
     )
+    # No `fi` may close the guard between it and the warning text.
+    assert "\nfi\n" not in content[guard_before_warning:diskspace_pos]
     # Confirm no CUDA Toolkit mention -- we only pull PyTorch wheels, not the Toolkit.
-    assert "CUDA Toolkit" not in content or content.count("CUDA Toolkit") == 0, (
+    assert "CUDA Toolkit" not in content, (
         "install.sh must not mention 'CUDA Toolkit' -- only CUDA-flavored PyTorch "
         "wheels are downloaded, not the full CUDA Toolkit (~10 GB)."
     )
@@ -856,3 +849,138 @@ def test_install_sh_reads_old_and_umd_cuda_banners(tmp_path: Path) -> None:
             env={**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"},
         )
         assert result.stdout == expected
+
+
+# ---------------------------------------------------------------------------
+# GPU path: `--torch-backend auto`, never the PyTorch index as an extra index.
+#
+# The PyTorch CUDA index also hosts old copies of common packages (packaging
+# 24.1 at most). With it as an extra index, uv resolves `packaging` only from
+# there, and pdomain-ops needs packaging>=26, so every GPU install failed.
+# `--torch-backend auto` sends only PyTorch packages to the PyTorch index.
+# ---------------------------------------------------------------------------
+
+_FAKE_CURL = """#!/bin/sh
+out=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then shift; out="$1"; fi
+  shift || true
+done
+if [ -n "$out" ]; then
+  printf 'fake wheel' > "$out"
+else
+  cat <<'JSON'
+{"tag_name":"v1.2.3","assets":[{"browser_download_url":"https://example.invalid/pdomain_ocr_simple_gui-1.2.3-py3-none-any.whl"}]}
+JSON
+fi
+exit 0
+"""
+
+_UMD_BANNER = "| NVIDIA-SMI 615.78.08    KMD Version: 615.78.08     CUDA UMD Version: 13.4     |"
+_OLD_BANNER_12_1 = "| NVIDIA-SMI 530.30.02    Driver Version: 530.30.02    CUDA Version: 12.1     |"
+
+
+def _write_exe(path: Path, body: str) -> None:
+    _ = path.write_text(body, encoding="utf-8")
+    path.chmod(0o755)
+
+
+def _run_install_sh(
+    tmp_path: Path,
+    *,
+    nvidia_banner: str | None,
+    uv_install_body: str = "exit 0\n",
+) -> tuple[subprocess.CompletedProcess[str], list[str]]:
+    """Run install.sh with fake uv/curl/gh/nvidia-smi; return result and uv tool argv."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    uv_log = tmp_path / "uv.log"
+    _write_exe(
+        bin_dir / "uv",
+        "#!/bin/sh\n"
+        'if [ "$1" = "--version" ]; then echo "uv 0.11.26 (abc123)"; exit 0; fi\n'
+        f"printf '%s\\n' \"$@\" > {uv_log}\n" + uv_install_body,
+    )
+    _write_exe(bin_dir / "curl", _FAKE_CURL)
+    _write_exe(bin_dir / "gh", "#!/bin/sh\nexit 1\n")
+    if nvidia_banner is None:
+        _write_exe(bin_dir / "nvidia-smi", "#!/bin/sh\nexit 1\n")
+    else:
+        _write_exe(bin_dir / "nvidia-smi", f"#!/bin/sh\nprintf '%s\\n' '{nvidia_banner}'\n")
+
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
+    env["PD_SIMPLE_GUI_INSTALL_PYTHON"] = "3.12"
+    env["ASSUME_YES"] = "1"
+    env["NO_APPIMAGE"] = "1"
+    result = subprocess.run(
+        ["sh", str(INSTALL_SH)],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    argv = uv_log.read_text(encoding="utf-8").splitlines() if uv_log.exists() else []
+    return result, argv
+
+
+def test_install_sh_gpu_path_uses_torch_backend_auto(tmp_path: Path) -> None:
+    """CUDA 13.4 detected: `--torch-backend auto`, no PyTorch index, [gpu] extra on."""
+    result, argv = _run_install_sh(tmp_path, nvidia_banner=_UMD_BANNER)
+    assert result.returncode == 0, result.stderr + result.stdout
+    assert argv[:2] == ["tool", "install"]
+    idx = argv.index("--torch-backend")
+    assert argv[idx + 1] == "auto"
+    assert not any("download.pytorch.org" in token for token in argv)
+    assert argv.count("--extra-index-url") == 1
+    assert "--index-strategy" not in argv
+    assert "pdomain-book-tools[gpu]" in argv
+    assert "Heads up - disk space" in result.stdout
+
+
+def test_install_sh_gpu_path_below_12_4_keeps_cpu_book_tools(tmp_path: Path) -> None:
+    """CUDA 12.1: CUDA PyTorch via `--torch-backend auto`, but no [gpu] extra."""
+    result, argv = _run_install_sh(tmp_path, nvidia_banner=_OLD_BANNER_12_1)
+    assert result.returncode == 0, result.stderr + result.stdout
+    idx = argv.index("--torch-backend")
+    assert argv[idx + 1] == "auto"
+    assert "pdomain-book-tools[gpu]" not in argv
+    assert not any("download.pytorch.org" in token for token in argv)
+
+
+def test_install_sh_cpu_path_has_no_torch_backend(tmp_path: Path) -> None:
+    """No GPU: no `--torch-backend`, no [gpu] extra, no disk-space warning."""
+    result, argv = _run_install_sh(tmp_path, nvidia_banner=None)
+    assert result.returncode == 0, result.stderr + result.stdout
+    assert argv[:2] == ["tool", "install"]
+    assert "--torch-backend" not in argv
+    assert "pdomain-book-tools[gpu]" not in argv
+    assert not any("download.pytorch.org" in token for token in argv)
+    assert "Heads up - disk space" not in result.stdout
+
+
+def test_install_sh_hints_uv_self_update_when_torch_backend_unknown(tmp_path: Path) -> None:
+    """An old uv that rejects `--torch-backend` gets a `uv self update` hint."""
+    result, _argv = _run_install_sh(
+        tmp_path,
+        nvidia_banner=_UMD_BANNER,
+        uv_install_body=("echo \"error: unexpected argument '--torch-backend' found\" >&2\nexit 2\n"),
+    )
+    assert result.returncode == 2, "install.sh must exit with uv's status"
+    combined = result.stdout + result.stderr
+    assert "uv self update" in combined
+    assert "unexpected argument '--torch-backend'" in combined
+
+
+def test_install_sh_failure_without_torch_backend_message_has_no_hint(tmp_path: Path) -> None:
+    """A uv failure unrelated to `--torch-backend` must not print the upgrade hint."""
+    result, _argv = _run_install_sh(
+        tmp_path,
+        nvidia_banner=_UMD_BANNER,
+        uv_install_body='echo "error: No solution found" >&2\nexit 1\n',
+    )
+    assert result.returncode == 1, "install.sh must exit with uv's status"
+    combined = result.stdout + result.stderr
+    assert "No solution found" in combined
+    assert "uv self update" not in combined

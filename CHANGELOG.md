@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-06-03
-Last verified: 2026-11-13
+Last verified: 2026-11-14
 Kind: reference
 ---
 
@@ -20,6 +20,17 @@ All notable changes to `pdomain-ocr-simple-gui` are documented here.
   `CUDA UMD Version: 13.4` where older drivers print `CUDA Version: 13.4`.
   `install.sh` and the installer engine matched only the old text, so a GPU
   machine got a CPU-only install.
+- GPU installs work again. `install.sh` and the installer engine added the
+  PyTorch CUDA index (`download.pytorch.org/whl/cuXXX`) as an extra index.
+  That index also holds old copies of common packages, `packaging` 24.1 at
+  most. uv took `packaging` from it, `pdomain-ops` needs `packaging` 26 or
+  newer, and every GPU install failed with "No solution found". Both now pass
+  `--torch-backend auto` to `uv tool install`, so uv sends only PyTorch
+  packages to the PyTorch index. A CPU install passes no `--torch-backend`.
+- If uv fails and mentions `--torch-backend`, `install.sh` tells you to run
+  `uv self update` and try again. The packaged installer prints the same
+  hint when a GPU install fails. uv honours `--torch-backend` in `uv tool`
+  commands from 0.9.19. The installer already asks for uv 0.11.16 or newer.
 
 ---
 

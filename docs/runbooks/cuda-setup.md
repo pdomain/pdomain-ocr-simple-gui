@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-06-05
-Last verified: 2026-11-07
+Last verified: 2026-11-14
 Kind: runbook
 ---
 
@@ -47,10 +47,14 @@ uv run python -c \
 This source-checkout command uses the same Python environment that runs or
 launches `pdomain-ocr-simple-gui` during development. If CUDA is unavailable,
 reinstall through the supported installer, `install.sh` (see
-[installation](install.md)). It reads the CUDA version from `nvidia-smi`,
-installs PyTorch from the matching `download.pytorch.org/whl/cu<NNN>` index,
-and adds the `pdomain-book-tools[gpu]` extra only for CUDA 12.4 or newer. Do not
-mix an unrelated system Python with the `uv tool` environment.
+[installation](install.md)). It reads the CUDA version from `nvidia-smi`.
+When it finds CUDA, it passes `--torch-backend auto` to `uv tool install`, and
+uv picks the matching CUDA build of PyTorch. It adds the
+`pdomain-book-tools[gpu]` extra only for CUDA 12.4 or newer. Do not add the
+PyTorch index with `--extra-index-url` or `--index`. That index also holds old
+copies of common packages, such as `packaging` 24.1, and the install then fails
+because `pdomain-ops` needs `packaging` 26 or newer. Do not mix an unrelated
+system Python with the `uv tool` environment.
 
 ## Verification
 

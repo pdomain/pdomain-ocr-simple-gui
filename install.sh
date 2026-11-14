@@ -173,7 +173,14 @@ if [ -n "$_UV_VER" ] && [ "$_UV_VER" != "$_UV_VER_RAW" ]; then
     fi
 fi
 
-EXTRA_INDEX=""
+# Set to "auto" when CUDA is detected. `uv tool install --torch-backend auto`
+# sends only PyTorch packages to the matching PyTorch CUDA index and keeps
+# every other package on the normal indexes. Do not add the PyTorch index as
+# an extra index: it also hosts old copies of common packages (packaging 24.1
+# at most), uv would take those from it, and pdomain-ops needs packaging>=26.
+# uv respects --torch-backend in `uv tool` commands since 0.9.19, below
+# MIN_UV_VERSION.
+TORCH_BACKEND=""
 PD_BOOK_TOOLS_EXTRAS=""
 PD_INDEX_URL="https://pdomain.github.io/pdomain-index-pip/simple/"
 
@@ -181,9 +188,8 @@ PD_INDEX_URL="https://pdomain.github.io/pdomain-index-pip/simple/"
 if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
     CUDA_VER=$(nvidia-smi 2>/dev/null | sed -n 's/.*CUDA \(UMD \)\{0,1\}Version: \([0-9]*\.[0-9]*\).*/\2/p' | head -1)
     if [ -n "$CUDA_VER" ]; then
-        CUDA_TAG="cu$(echo "$CUDA_VER" | tr -d '.')"
-        EXTRA_INDEX="https://download.pytorch.org/whl/${CUDA_TAG}"
-        echo "Detected CUDA ${CUDA_VER} -- will install PyTorch with ${CUDA_TAG} support."
+        TORCH_BACKEND="auto"
+        echo "Detected CUDA ${CUDA_VER} -- uv will pick the matching CUDA build of PyTorch."
 
         # CuPy (cupy-cuda12x) requires CUDA >= 12.4. Only opt into the
         # pdomain-book-tools[gpu] extra when that minimum is satisfied;
@@ -370,7 +376,7 @@ fi
 # ---------------------------------------------------------------------------
 # Build the GPU label for the summary block.
 # ---------------------------------------------------------------------------
-if [ -n "$EXTRA_INDEX" ]; then
+if [ -n "$TORCH_BACKEND" ]; then
     if [ -n "$PD_BOOK_TOOLS_EXTRAS" ]; then
         _GPU_LABEL="CUDA ${CUDA_VER} (GPU build)"
     else
@@ -394,7 +400,7 @@ echo "  Target:   uv tool  (~/.local/bin)"
 echo "  Index:    ${PD_INDEX_URL}"
 echo ""
 
-if [ -n "$EXTRA_INDEX" ]; then
+if [ -n "$TORCH_BACKEND" ]; then
     echo "Heads up - disk space: the CUDA-flavored PyTorch wheels are a large"
     echo "  download, roughly 2-3 GB (more with the [gpu] CuPy + opencv-cuda"
     echo "  extras). The CPU-only build is far smaller. This can take a while"
@@ -422,10 +428,29 @@ set -- --reinstall "$WHEEL_FILE" --extra-index-url "$PD_INDEX_URL"
 if [ -n "$PD_BOOK_TOOLS_EXTRAS" ]; then
     set -- "$@" --with "pdomain-book-tools${PD_BOOK_TOOLS_EXTRAS}"
 fi
-if [ -n "$EXTRA_INDEX" ]; then
-    set -- "$@" --extra-index-url "$EXTRA_INDEX"
+if [ -n "$TORCH_BACKEND" ]; then
+    set -- "$@" --torch-backend "$TORCH_BACKEND"
 fi
-uv tool install --python "$PYTHON_VERSION" "$@"
+# Copy uv's output to a log so a failure can be checked for an old uv that
+# does not know --torch-backend. The exit status travels through a file
+# because a pipeline reports only tee's status. `|| _rc=$?` keeps `set -e`
+# from ending the group before the status is written.
+_UV_LOG="$TMPDIR/uv-install.log"
+_UV_STATUS="$TMPDIR/uv-install.status"
+{
+    _rc=0
+    uv tool install --python "$PYTHON_VERSION" "$@" 2>&1 || _rc=$?
+    echo "$_rc" >"$_UV_STATUS"
+} | tee "$_UV_LOG"
+_UV_RC=$(cat "$_UV_STATUS")
+if [ "$_UV_RC" != "0" ]; then
+    if [ -n "$TORCH_BACKEND" ] && grep -q -- "torch-backend" "$_UV_LOG"; then
+        echo "" >&2
+        echo "Your uv does not support --torch-backend. Update it, then re-run this installer:" >&2
+        echo "  uv self update" >&2
+    fi
+    exit "$_UV_RC"
+fi
 
 echo ""
 echo "Done! Launch pdomain-ocr-simple-gui:"

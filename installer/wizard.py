@@ -28,7 +28,6 @@ from installer.install_engine import (
     Step,
     _query_cuda_version,  # pyright: ignore[reportPrivateUsage]
     cuda_supports_book_tools_gpu,
-    cuda_tag_for,
     detect_nvidia,
     detect_pkg_manager,
     display_command,
@@ -47,17 +46,16 @@ def _build_steps() -> list[Step]:
     mgr = detect_pkg_manager()
 
     gpu = detect_nvidia()
-    # Detect the CUDA version to select the correct PyTorch wheel index.
+    # A detected CUDA version turns on `--torch-backend auto`.
     # cuda_version is None when CUDA is not detectable (CPU fallback).
     cuda_version = _query_cuda_version() if gpu == "nvidia" else None
-    cuda_tag = cuda_tag_for(cuda_version)
     # pdomain-book-tools[gpu] (CuPy + opencv-cuda) requires CUDA >= 12.4.
     book_tools_gpu = cuda_supports_book_tools_gpu(cuda_version)
     return plan_steps(
         has_uv=has_uv,
         gpu=gpu,
         mgr=mgr,
-        cuda_tag=cuda_tag,
+        cuda_version=cuda_version,
         book_tools_gpu=book_tools_gpu,
     )
 

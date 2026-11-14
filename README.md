@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-17
-Last verified: 2026-11-07
+Last verified: 2026-11-14
 Kind: usage
 ---
 
@@ -89,6 +89,10 @@ then restart the app.
 
 The named `--index` keeps the pdomain packages from resolving from any other
 index, including one set in the `UV_INDEX` environment variable.
+
+On a computer with an NVIDIA GPU, add `--torch-backend auto`. uv then installs
+the CUDA build of PyTorch that matches the driver. Do not add the PyTorch index
+itself. It also holds old copies of common packages, and the install fails.
 
 ## Launch
 

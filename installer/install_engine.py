@@ -113,32 +113,11 @@ def _query_cuda_version() -> str | None:  # pyright: ignore[reportUnusedFunction
         return None
 
 
-def cuda_tag_for(cuda_version: str | None) -> str | None:
-    """Return the PyTorch CUDA wheel tag for the given CUDA version string.
-
-    Mirrors the tag construction in install.sh::
-
-        CUDA_TAG="cu$(echo X.Y | tr -d '.')"
-
-    Examples:
-        "13.0" → "cu130"
-        "12.1" → "cu121"
-        "12.4" → "cu124"
-        None   → None (no CUDA detected)
-        garbage → None (unparseable)
-
-    Args:
-        cuda_version: CUDA version string like "13.0" / "12.1", or None.
-
-    Returns:
-        Tag string like "cu130" / "cu121", or None.
-    """
-    if not cuda_version:
-        return None
-    # Validate the X.Y format (digits only, no letters)
-    if not re.fullmatch(r"\d+\.\d+", cuda_version):
-        return None
-    return "cu" + cuda_version.replace(".", "")
+def _is_cuda_version(cuda_version: str | None) -> bool:
+    """Return True when ``cuda_version`` is an ``X.Y`` version string."""
+    if cuda_version is None:
+        return False
+    return re.fullmatch(r"\d+\.\d+", cuda_version) is not None
 
 
 def cuda_supports_book_tools_gpu(cuda_version: str | None) -> bool:
@@ -163,9 +142,7 @@ def cuda_supports_book_tools_gpu(cuda_version: str | None) -> bool:
     Returns:
         True when version parses and is >= 12.4; False otherwise.
     """
-    if not cuda_version:
-        return False
-    if not re.fullmatch(r"\d+\.\d+", cuda_version):
+    if cuda_version is None or not _is_cuda_version(cuda_version):
         return False
     try:
         major_str, minor_str = cuda_version.split(".")
@@ -305,7 +282,7 @@ def plan_steps(
     has_uv: bool,
     gpu: str | None,
     mgr: str | None = None,  # pyright: ignore[reportUnusedParameter]
-    cuda_tag: str | None = None,
+    cuda_version: str | None = None,
     book_tools_gpu: bool = False,
 ) -> list[Step]:
     """Return the ordered list of gated installer steps.
@@ -324,12 +301,14 @@ def plan_steps(
     - ``PD_INDEX_URL`` is **always** added via ``--extra-index-url`` because
       pdomain-ocr-simple-gui, pdomain-ops, and pdomain-book-tools are only
       published on the self-hosted index, not PyPI.
-    - When ``gpu == 'nvidia'`` and ``cuda_tag`` is not None, the PyTorch
-      CUDA wheel index is added as a second ``--extra-index-url``.  uv gives
-      ``--extra-index-url`` priority over PyPI, and the pd-index has no torch
-      wheels, so torch resolves to the CUDA build from pytorch.org.
-    - When ``gpu == 'nvidia'`` and ``cuda_tag`` is None the CUDA version could
-      not be detected — CPU fallback: no pytorch.org index is added.
+    - When ``gpu == 'nvidia'`` and a CUDA version was detected,
+      ``--torch-backend auto`` is added.  uv then sends only PyTorch packages
+      to the matching PyTorch CUDA index and keeps every other package on the
+      normal indexes.  The PyTorch index is never added as an extra index: it
+      also hosts old copies of common packages (packaging 24.1 at most), and
+      uv would take those from it, while pdomain-ops needs packaging>=26.
+    - When ``gpu == 'nvidia'`` and no CUDA version was detected — CPU
+      fallback: no ``--torch-backend`` flag.
     - ``--with pdomain-book-tools[gpu]`` (CuPy + opencv-cuda) is added only
       when ``book_tools_gpu=True`` (requires CUDA >= 12.4).
 
@@ -338,10 +317,10 @@ def plan_steps(
         gpu:           ``'nvidia'`` to inject CUDA flags; None/other for CPU.
         mgr:           Package manager id (unused; kept for signature compat).
                        Auto-detected if None.
-        cuda_tag:      CUDA wheel tag such as ``'cu130'`` / ``'cu121'``, or
-                       None.  Computed by the wizard via
-                       ``cuda_tag_for(_query_cuda_version())``.  When None and
-                       ``gpu == 'nvidia'`` → CPU fallback (no pytorch.org index).
+        cuda_version:  CUDA version such as ``'13.4'`` / ``'12.1'``, or None.
+                       Read by the wizard via ``_query_cuda_version()``.  When
+                       None or unparseable and ``gpu == 'nvidia'`` → CPU
+                       fallback (no ``--torch-backend``).
         book_tools_gpu: When True, adds ``--with pdomain-book-tools[gpu]`` to
                        the tool install command (CuPy + opencv-cuda extras).
                        Requires CUDA >= 12.4.  Computed by the wizard via
@@ -382,10 +361,11 @@ def plan_steps(
         "--extra-index-url",
         PD_INDEX_URL,
     ]
-    if gpu == "nvidia" and cuda_tag is not None:
-        # Inject the CUDA torch wheel index.  uv gives --extra-index-url
-        # priority, so torch resolves to the CUDA build.
-        tool_cmd += ["--extra-index-url", f"https://download.pytorch.org/whl/{cuda_tag}"]
+    if gpu == "nvidia" and _is_cuda_version(cuda_version):
+        # uv picks the PyTorch CUDA index for torch packages only.  `auto`
+        # instead of an explicit cuXXX tag: uv's explicit values lag new
+        # CUDA releases.
+        tool_cmd += ["--torch-backend", "auto"]
     if book_tools_gpu:
         tool_cmd += ["--with", "pdomain-book-tools[gpu]"]
 
@@ -413,6 +393,12 @@ def plan_steps(
 # ---------------------------------------------------------------------------
 # Interactive runner
 # ---------------------------------------------------------------------------
+
+
+_TORCH_BACKEND_HINT = (
+    "\nIf uv reported an unknown --torch-backend option, your uv is too old.\n"
+    "Update it with `uv self update`, then run this installer again."
+)
 
 
 def run(
@@ -459,7 +445,12 @@ def run(
                 continue
 
         cmd = _build_exec_args(step)
-        _ = run_cmd(cmd, check=True)
+        try:
+            _ = run_cmd(cmd, check=True)
+        except subprocess.CalledProcessError:
+            if "--torch-backend" in cmd:
+                print(_TORCH_BACKEND_HINT)  # noqa: T201
+            raise
         print("  Done.")  # noqa: T201
 
 
