@@ -129,5 +129,6 @@ install, run `uv tool uninstall pdomain-ocr-simple-gui`.
   [the proof](../research/2026-11-13-windows-gui-proof.md). The script itself
   then passed all 12 checks on Windows 11 as a standard user with Edge and
   real DocTR on the CPU, in 32.7 s, with the pdomain-ops fix branch
-  installed. With pdomain-ops 0.12.4 the `suite-prefs-route` check fails,
+  installed. That fix shipped in pdomain-ops 0.12.5, which the app now
+  requires. With pdomain-ops 0.12.4 the `suite-prefs-route` check fails,
   because the settings routes do not mount on Windows.

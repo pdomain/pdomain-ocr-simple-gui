@@ -15,7 +15,7 @@ requires-python = ">=3.11"
 dependencies = [
     "pdomain-book-tools==0.31.0",
     "pdomain-book-contracts>=0.3.1",
-    "pdomain-ops>=0.12.2",
+    "pdomain-ops>=0.12.5",
     "fastapi>=0.141",
     "uvicorn[standard]>=0.52",
     "pydantic>=2.13",

@@ -46,10 +46,9 @@ the [changelog](../../CHANGELOG.md). They came from running 0.5.4 on Windows
 [Windows proof](../research/2026-11-13-windows-gui-proof.md). 0.5.4 cannot open
 any job on Windows, so these fixes matter for Windows users.
 
-The suite settings routes need a pdomain-ops fix to mount on Windows. That fix
-is on pdomain-ops branch `fix/windows-suite-bootstrap`, not merged or
-released. With pdomain-ops 0.12.4, OCR, editing and downloads work on Windows
-and the settings panel cannot load preferences.
+The suite settings routes need pdomain-ops 0.12.5 to mount on Windows, and the
+app now requires that version. With pdomain-ops 0.12.4, OCR, editing and
+downloads worked on Windows but the settings panel could not load preferences.
 
 Product work remains on the [roadmap](../roadmap.md).
 

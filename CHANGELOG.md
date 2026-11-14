@@ -14,6 +14,10 @@ All notable changes to `pdomain-ocr-simple-gui` are documented here.
 
 ## [Unreleased]
 
+---
+
+## [0.5.5] — 2026-11-14
+
 ### Windows fixes
 
 Found by running the app on Windows 11 as a standard user, driven by
@@ -31,8 +35,9 @@ Playwright and Edge.
   and the download link. The home page shows it and DocTR jobs are refused.
 - The home page explains a slow first start. On a cold Windows CPU start,
   loading the OCR runtime took 52 s.
-- The suite settings routes still fail to mount on Windows until pdomain-ops
-  accepts Windows paths for installed apps; OCR, editing and downloads work.
+- The app now requires pdomain-ops 0.12.5 or later. That release accepts
+  Windows paths for installed apps, so the suite settings routes mount on
+  Windows.
 
 ### Layout fixes
 

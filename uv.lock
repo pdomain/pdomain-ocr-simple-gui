@@ -2192,7 +2192,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.141" },
     { name = "pdomain-book-contracts", specifier = ">=0.3.1", index = "https://pdomain.github.io/pdomain-index-pip/simple/" },
     { name = "pdomain-book-tools", specifier = "==0.31.0", index = "https://pdomain.github.io/pdomain-index-pip/simple/" },
-    { name = "pdomain-ops", specifier = ">=0.12.2", index = "https://pdomain.github.io/pdomain-index-pip/simple/" },
+    { name = "pdomain-ops", specifier = ">=0.12.5", index = "https://pdomain.github.io/pdomain-index-pip/simple/" },
     { name = "pydantic", specifier = ">=2.13" },
     { name = "pydantic-settings", specifier = ">=2.15" },
     { name = "python-multipart", specifier = ">=0.0.29" },
@@ -2219,7 +2219,7 @@ e2e = [{ name = "pytest-playwright", specifier = ">=0.9" }]
 
 [[package]]
 name = "pdomain-ops"
-version = "0.12.2"
+version = "0.12.5"
 source = { registry = "https://pdomain.github.io/pdomain-index-pip/simple/" }
 dependencies = [
     { name = "eventsourcing" },
@@ -2237,9 +2237,9 @@ dependencies = [
     { name = "tomli-w" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://github.com/pdomain/pdomain-ops/releases/download/v0.12.2/pdomain_ops-0.12.2.tar.gz", hash = "sha256:68c7173077d63b3f739a1ab425ba1f0d0de6eb0c9574b584ce17f4bd09b07065" }
+sdist = { url = "https://github.com/pdomain/pdomain-ops/releases/download/v0.12.5/pdomain_ops-0.12.5.tar.gz", hash = "sha256:c7725a7a108aa10e6a31d5547f0e8ae7f817f2c3967f6bac5d389c3297d63738" }
 wheels = [
-    { url = "https://github.com/pdomain/pdomain-ops/releases/download/v0.12.2/pdomain_ops-0.12.2-py3-none-any.whl", hash = "sha256:00a5cdf4d25df91093e2aac3a335efca032906ad751b7aa90ef5eb970fa646b2" },
+    { url = "https://github.com/pdomain/pdomain-ops/releases/download/v0.12.5/pdomain_ops-0.12.5-py3-none-any.whl", hash = "sha256:35269944578aa569364fe4866fed942fe6c2ba6f6c1397b2c72f3dc67889cc57" },
 ]
 
 [[package]]
