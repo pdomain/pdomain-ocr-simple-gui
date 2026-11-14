@@ -14,6 +14,25 @@ All notable changes to `pdomain-ocr-simple-gui` are documented here.
 
 ## [Unreleased]
 
+### Download fixes
+
+- ZIP downloads now carry saved page edits and single-page reruns. Save and
+  rerun refresh the output folder and both combined texts. Each page JSON
+  keeps the engine text and word boxes, with the saved edit in `edited_text`.
+
+### Release gate
+
+- The release preflight, `just ci-slow`, now runs a real-OCR browser
+  acceptance test on the CPU: upload, OCR, edit, Tesseract rerun, and ZIP
+  export. A missing browser, model weight, or `tesseract` binary fails the
+  release instead of skipping. `scripts/do-release.sh` pins the preflight.
+
+---
+
+## [0.5.3] — 2026-11-13
+
+This entry also covers 0.5.1 and 0.5.2, which had no separate entries.
+
 ### Bug fixes
 
 - The font-size setting now saves and is restored after a reload.
