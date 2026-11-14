@@ -13,6 +13,7 @@ from typing import Literal, TypeAlias, cast
 from uuid import uuid4
 
 from pdomain_ocr_simple_gui.models import PageResult, ProjectSpec, ProjectStatus
+from pdomain_ocr_simple_gui.pathsafety import is_strictly_within
 from pdomain_ocr_simple_gui.statecharts.job_lifecycle import aggregate_pages_state, narrow_job_state
 
 logger = logging.getLogger(__name__)
@@ -159,7 +160,7 @@ def validate_project_id(project_id: str) -> None:
     resolved_root = _root.resolve()
     candidate = (_root / project_id).resolve()
     # Must be strictly under the root, not equal to it
-    if candidate == resolved_root or not str(candidate).startswith(str(resolved_root) + "/"):
+    if not is_strictly_within(candidate, resolved_root):
         raise ValueError(f"project_id {project_id!r} resolves outside the project store")
 
 

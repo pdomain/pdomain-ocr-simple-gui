@@ -197,8 +197,22 @@ def _open_browser_when_ready(url: str, *, timeout: float = 10.0) -> None:
     # Timeout elapsed — give up silently.
 
 
+def _tolerate_unencodable_output() -> None:
+    """Replace characters stdout/stderr cannot encode instead of raising.
+
+    Windows Python writes cp1252 to a redirected stdout. pdomain-ops prints an
+    emoji at startup, which raised UnicodeEncodeError and stopped the app
+    before it served (seen on Windows 11, 2026-11-13).
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            _ = reconfigure(errors="backslashreplace")
+
+
 def main(argv: list[str] | None = None) -> None:
     """Start the pdomain-ocr-simple-gui server."""
+    _tolerate_unencodable_output()
     args = _parse_args(argv)
 
     if args.update:

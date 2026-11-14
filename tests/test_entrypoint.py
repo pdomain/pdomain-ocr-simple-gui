@@ -207,3 +207,20 @@ class TestOpenBrowserWhenReady:
         assert started_threads == []
         # Restore
         threading.Thread.start = original_start  # type: ignore[method-assign]
+
+
+def test_main_output_tolerates_a_non_utf8_stdout(monkeypatch) -> None:
+    """Windows Python writes cp1252 to a redirected stdout. pdomain-ops'
+    startup line holds an emoji, which raised UnicodeEncodeError and stopped
+    the app with exit code 1 before it served (seen on Windows 11)."""
+    import io
+
+    from pdomain_ocr_simple_gui.__main__ import _tolerate_unencodable_output
+
+    raw = io.BytesIO()
+    stream = io.TextIOWrapper(raw, encoding="cp1252")
+    monkeypatch.setattr(sys, "stdout", stream)
+    _tolerate_unencodable_output()
+    print("\U0001f680 app at http://127.0.0.1:8004/")
+    stream.flush()
+    assert raw.getvalue().decode("cp1252").endswith("app at http://127.0.0.1:8004/\n")

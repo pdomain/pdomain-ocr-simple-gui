@@ -360,7 +360,11 @@ def create_app() -> FastAPI:
         before this handler runs, so a resolve() + is_relative_to() check
         is sufficient to block all traversal variants.
         """
-        if full_path and not full_path.startswith("api/"):
+        if full_path == "api" or full_path.startswith("api/"):
+            # An unknown or unmounted API route must fail visibly. Serving
+            # index.html with 200 here left the frontend waiting on HTML.
+            raise HTTPException(status_code=404, detail="Not Found")
+        if full_path:
             candidate = _FRONTEND_DIR / full_path
             resolved = candidate.resolve()
             frontend_resolved = _FRONTEND_DIR.resolve()

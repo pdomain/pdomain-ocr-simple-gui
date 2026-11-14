@@ -52,3 +52,13 @@ def test_root_503_when_frontend_not_built(tmp_path, monkeypatch):
     client = TestClient(app, raise_server_exceptions=False)
     resp = client.get("/")
     assert resp.status_code == 503
+
+
+def test_unknown_api_path_is_404_json_not_the_spa(app_with_frontend):
+    """An unmounted API route must fail visibly. On Windows the suite routes
+    failed to mount, and the SPA's index.html answered /api/suite/* with 200,
+    so the frontend waited on HTML it could not parse."""
+    for path in ["/api/does-not-exist", "/api/suite/prefs-missing", "/api"]:
+        resp = app_with_frontend.get(path)
+        assert resp.status_code == 404, path
+        assert "application/json" in resp.headers["content-type"], path

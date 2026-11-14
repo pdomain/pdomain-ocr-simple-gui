@@ -17,6 +17,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from pdomain_ocr_simple_gui.auth import require_token
+from pdomain_ocr_simple_gui.pathsafety import is_strictly_within
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +153,7 @@ async def delete_upload(upload_id: str) -> Response:
     for candidate in (root / upload_id, root / f"upload-{upload_id}"):
         # Containment guard: the resolved path must stay under the root.
         resolved = candidate.resolve()
-        if not str(resolved).startswith(str(root.resolve()) + "/"):
+        if not is_strictly_within(resolved, root.resolve()):
             raise HTTPException(status_code=400, detail="invalid upload_id")
         if resolved.is_dir():
             shutil.rmtree(resolved)
@@ -178,7 +179,7 @@ def _extract_in_place(zip_path: Path) -> None:
             raise HTTPException(status_code=413, detail="zip expands beyond extraction cap")
         for info in zf.infolist():
             target = (extract_to / info.filename).resolve()
-            if not str(target).startswith(str(extract_to.resolve()) + "/"):
+            if not is_strictly_within(target, extract_to.resolve()):
                 raise HTTPException(status_code=400, detail="zip traversal blocked")
         zf.extractall(extract_to)
     zip_path.unlink()

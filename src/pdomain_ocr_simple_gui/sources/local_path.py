@@ -9,6 +9,7 @@ from pathlib import Path
 
 from typing_extensions import override
 
+from pdomain_ocr_simple_gui.pathsafety import is_strictly_within
 from pdomain_ocr_simple_gui.sources import (
     Source,
     SourceInvalid,
@@ -122,7 +123,7 @@ class LocalPathSource(Source):
                 for info in zf.infolist():
                     # traversal guard
                     target = (workdir / info.filename).resolve()
-                    if not str(target).startswith(str(workdir.resolve()) + "/"):
+                    if not is_strictly_within(target, workdir.resolve()):
                         raise SourceInvalid(f"zip entry escapes extract root: {info.filename}")
                     total += info.file_size
                     if total > _MAX_UNCOMPRESSED_BYTES:
