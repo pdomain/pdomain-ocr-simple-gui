@@ -28,7 +28,7 @@ from the [issues index](../issues/README.md). This map does not copy them.
 
 ## Deferred work
 
-- **Download truth separation. Deferred. Stays in this repo.** Per-page edits and reruns update canonical page artifacts, but they do not rebuild the job output mirror. Preserve separate original and modified downloads, explicit provenance, and a test that proves an edited page appears in the selected export. The current two fixed job-level download buttons replaced the earlier checkbox proposal.
+- **Download truth separation. Deferred. Stays in this repo.** Per-page edits and reruns now refresh the job output mirror, so the single ZIP carries current text; tests prove an edit and a rerun reach the export. Still deferred: separate original and modified downloads, with explicit provenance. The current two fixed job-level download buttons replaced the earlier checkbox proposal.
 - **Multilingual OCR profiles. Deferred. Belongs in `pdomain-book-tools` and `pdomain-ops`, not here.** The shipped narrow rule maps `en` to Tesseract `eng`.
 
   A future `OcrProfile` should separate language, script, engine, model, and capability data. Runtime ownership belongs in a capability statechart with unresolved, checking, available, unavailable, and error states.

@@ -260,3 +260,24 @@ Kind: context
 - Remaining work: deleting old source-folder viewer caches and closing or keeping
   the dep-refresh issue remain owner decisions in the intent map. Neither
   retirement deletes caches, changes PRs, or changes a product decision.
+
+### 2026-11-13 — Save and rerun refresh the download mirror
+
+- **Context:** The ZIP download streams `spec.output_dir`. Only
+  `pipeline.run_project` wrote that mirror, so a saved edit or a single-page
+  rerun left the ZIP with the first OCR pass.
+- **Decision:** `put_page_text` and a successful `rerun_page` call
+  `storage.refresh_page_outputs`. It copies the page's canonical `.txt` and
+  sidecar into the mirror and rewrites `combined.txt` and the mirrored combined
+  text. The download route still reads the mirror.
+- **Rationale:** The mirror is also the user's output folder. In
+  next-to-source mode it is the source folder, and the ZIP includes the page
+  images from it. Building the ZIP from the canonical tree instead would change
+  ZIP names and contents and leave the output folder stale. The mirrored JSON
+  keeps the engine `text` and word boxes beside `edited_text`, so it does not
+  claim the edit matches the boxes.
+- **Evidence:** `src/pdomain_ocr_simple_gui/storage.py`,
+  `src/pdomain_ocr_simple_gui/routes/pages.py`,
+  `tests/test_download_freshness.py`, `tests/e2e/test_real_ocr_acceptance.py`.
+- **Remaining work:** Separate original and edited downloads stay deferred in
+  the [download model stub](../specs/2026-05-29-download-model.md).

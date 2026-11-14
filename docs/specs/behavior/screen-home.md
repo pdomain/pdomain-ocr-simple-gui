@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-30
-Last verified: 2026-11-07
+Last verified: 2026-11-13
 Kind: spec
 ---
 
@@ -15,7 +15,7 @@ Kind: spec
 - **Accepted findings:** The review compared the documented contract with current implementation and accepted the material deviations recorded in the architecture and authored context.
 - **Effect on result:** Shipped behavior remains active; obsolete UI or workflow assumptions are not treated as current truth.
 - **Implementation deviations:** The shared jobs dock and fixed job-level download buttons replaced parts of the earlier projected surfaces. Recent projects are written at job creation. Upload/edit/download coverage does not prove edited text is present in the exported ZIP.
-- **Residual risks:** Per-page edits and reruns can leave the job output mirror stale; the download redesign remains deferred.
+- **Residual risks:** Save and rerun now refresh the job output mirror; separate original and edited downloads remain deferred.
 
 - **Unit type:** screen
 - **Address:** `/` and `/new-job` (the `/new-job` route renders `<HomePage />`

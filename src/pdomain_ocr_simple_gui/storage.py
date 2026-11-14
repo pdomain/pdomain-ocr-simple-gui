@@ -287,7 +287,7 @@ def write_output_page_files(
         return
     out.mkdir(parents=True, exist_ok=True)
     stem = Path(page_name).stem or page_name
-    _ = (out / f"{stem}.txt").write_text(text, encoding="utf-8")
+    write_text_atomic(out / f"{stem}.txt", text)
     if sidecar_payload is not None:
         write_text_atomic(out / f"{stem}.json", json.dumps(sidecar_payload, indent=2))
 
@@ -311,7 +311,24 @@ def write_output_combined_txt(spec: ProjectSpec, status: ProjectStatus) -> None:
             parts.append(txt_path.read_text())
     combined = "\n\n".join(parts)
     stem = _safe_filename_stem(spec.name, "combined")
-    _ = (out / f"{stem}.txt").write_text(combined, encoding="utf-8")
+    write_text_atomic(out / f"{stem}.txt", combined)
+
+
+def refresh_page_outputs(spec: ProjectSpec, idx: int) -> None:
+    """Rebuild one page's mirror files and both combined texts from the canonical pages tree.
+
+    Called after a saved edit or a single-page rerun so the ZIP download, which
+    streams ``spec.output_dir``, matches what the page view shows.
+    """
+    _, status = read_project(spec.project_id)
+    page_name = _page_name_for_idx(spec, status, idx)
+    pages_dir = _pages_dir(spec)
+    text = (pages_dir / f"{page_name}.txt").read_text()
+    sidecar_path = pages_dir / f"{page_name}.json"
+    sidecar = _read_json_object(sidecar_path) if sidecar_path.exists() else None
+    write_output_page_files(spec, idx, page_name, text, sidecar)
+    write_combined_txt(spec, status)
+    write_output_combined_txt(spec, status)
 
 
 def list_projects() -> list[tuple[ProjectSpec, ProjectStatus]]:

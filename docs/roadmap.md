@@ -156,10 +156,11 @@ The constraints are in the [intent map](context/intent-map.md).
 
 - Separate original engine output from the user's edited text. This stays
   in this repo, and it is not a current task. The design stub says it is
-  not scheduled. Saving text or rerunning one page updates the project
-  tree and does not refresh the output mirror. The ZIP is built from that
-  mirror. [Design stub](specs/2026-05-29-download-model.md). The steps
-  that ship today are in [runtime flows](architecture/runtime-flows.md).
+  not scheduled. Today the ZIP is built from the output mirror, and saving
+  text or rerunning one page refreshes that mirror. Each exported page JSON
+  carries the engine text, the word boxes, and any saved edit side by side.
+  [Design stub](specs/2026-05-29-download-model.md). The steps that ship
+  today are in [runtime flows](architecture/runtime-flows.md).
 - Multilingual OCR profiles, the richer catalogue, hosted deployment, and
   Windows or macOS packaging. Where each one belongs, if it is ever built,
   is in the section above.

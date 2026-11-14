@@ -284,7 +284,12 @@ would reprocess the whole job and historically corrupted page indices). Full-job
 13. On exception: `done_page.state = "failed"`.
 14. `update_page_result(spec, done_page)`. **On-disk:** `project.json`
     updated. Project-level state is recalculated from the full page set.
-15. Return `PageResult`.
+15. On success, `refresh_page_outputs(spec, idx)` copies the page's
+    canonical `.txt` and sidecar into the output mirror and rewrites both
+    combined texts. **On-disk:** `<output_dir>/<stem>.txt`,
+    `<output_dir>/<stem>.json`, `<output_dir>/<name>.txt`, and
+    `<project_dir>/combined.txt` updated.
+16. Return `PageResult`.
 
 ---
 
@@ -302,14 +307,19 @@ would reprocess the whole job and historically corrupted page indices). Full-job
    **On-disk:** `<project_dir>/pages/<page_name>.json` updated.
 6. `write_txt(spec, idx, body.text)`.
    **On-disk:** `<project_dir>/pages/<page_name>.txt` updated.
-7. Return `{"status": "saved"}`.
+7. `refresh_page_outputs(spec, idx)` copies the page's canonical `.txt`
+   and sidecar into the output mirror and rewrites both combined texts.
+   **On-disk:** `<output_dir>/<stem>.txt`, `<output_dir>/<stem>.json`,
+   `<output_dir>/<name>.txt`, and `<project_dir>/combined.txt` updated.
+8. Return `{"status": "saved"}`.
 
-Note: saving text does NOT write to `spec.output_dir`. The output mirror
-is only updated during full-project OCR runs (`run_project`), not on save
-or single-page rerun. The `GET /api/pages/{id}/{idx}` route surfaces
-`edited_text` over `text` when both are present. Download truth
-separation (live edited tree vs original engine output) remains deferred —
-see intent-map and `docs/specs/2026-05-29-download-model.md`.
+Save and single-page rerun keep the output mirror in step with the
+canonical pages tree, so the ZIP carries the current text. The mirrored
+page JSON holds the engine `text` and word boxes, plus `edited_text` once a
+user saves an edit. The `GET /api/pages/{id}/{idx}` route surfaces
+`edited_text` over `text` when both are present. Separate original and
+edited downloads remain deferred. See the intent map and
+`docs/specs/2026-05-29-download-model.md`.
 
 ---
 
@@ -327,8 +337,8 @@ Page view download buttons.
    - Fall back to `<output_root>/{job_id}` for jobs created before
      `output_dir` was always set.
    - Return None if nothing found → 404.
-3. Build a zip in memory from the **output mirror** (not the live canonical
-   pages tree with `edited_text`):
+3. Build a zip in memory from the **output mirror**. Save and rerun
+   refresh the mirror, so it matches the canonical pages tree:
    - Walk the output dir recursively (`rglob("*")`).
    - Filter: `.txt` included when `"text" in tokens`; `.json` included
      when `"json" in tokens`; all other files (images etc.) always included.

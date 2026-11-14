@@ -31,6 +31,7 @@ from pdomain_ocr_simple_gui.storage import (
     get_project_dir,
     read_page_sidecar,
     read_project,
+    refresh_page_outputs,
     update_page_result,
     validate_project_id,
     write_page_sidecar,
@@ -240,6 +241,7 @@ async def put_page_text(project_id: str, page_idx: int, body: SaveTextRequest) -
     sidecar["edited_text"] = body.text
     write_page_sidecar(spec, page_idx, sidecar)
     write_txt(spec, page_idx, body.text)
+    refresh_page_outputs(spec, page_idx)
     return {"status": "saved"}
 
 
@@ -418,4 +420,6 @@ async def rerun_page(
         )
 
     update_page_result(spec, done_page)
+    if done_page.state == "succeeded":
+        refresh_page_outputs(spec, page_idx)
     return done_page

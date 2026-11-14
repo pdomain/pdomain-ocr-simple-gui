@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-30
-Last verified: 2026-11-12
+Last verified: 2026-11-13
 Kind: spec
 ---
 
@@ -15,7 +15,7 @@ Kind: spec
 - **Accepted findings:** The review compared the documented contract with current implementation and accepted the material deviations recorded in the architecture and authored context.
 - **Effect on result:** Shipped behavior remains active; obsolete UI or workflow assumptions are not treated as current truth.
 - **Implementation deviations:** The shared jobs dock and fixed job-level download buttons replaced parts of the earlier projected surfaces. Recent projects are written at job creation. Upload/edit/download coverage does not prove edited text is present in the exported ZIP.
-- **Residual risks:** Per-page edits and reruns can leave the job output mirror stale; the download redesign remains deferred.
+- **Residual risks:** Save and rerun now refresh the job output mirror; separate original and edited downloads remain deferred.
 
 Flows are named multi-step scenarios that cross units. Each flow chains
 already-locked per-unit behavior records (by ID) into one end-to-end
@@ -43,9 +43,9 @@ in the [behavior-spec index](README.md) are the method. The old
 - **Expected end state (UI + backend):** ResultsPage has
   `data-testid="results-page"` visible with succeeded status. The managed
   download (GET /api/jobs/{id}/download?include=text,json) returns 200 with a
-  non-empty ZIP; the test does not inspect its members, and the ZIP would not
-  carry the edit, because save does not refresh the output mirror
-  (B-PAGEVIEW-010 limitation). The per-page sidecar
+  non-empty ZIP; this fake-engine test does not inspect its members. Save
+  refreshes the output mirror, and the real-engine release acceptance test
+  (`tests/e2e/test_real_ocr_acceptance.py`) checks that the edit is in the ZIP. The per-page sidecar
   `projects/<id>/pages/<name>.json` has `edited_text` set and
   GET /api/pages/{id}/0 returns the edit, so the textarea on PageViewPage
   shows it when reopened.

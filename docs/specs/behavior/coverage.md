@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-30
-Last verified: 2026-11-07
+Last verified: 2026-11-13
 Kind: spec
 ---
 
@@ -15,7 +15,7 @@ Kind: spec
 - **Accepted findings:** This remains generated traceability output for the live behavior system.
 - **Effect on result:** Governance metadata is emitted by this generator rather than hand-maintained.
 - **Implementation deviations:** Fixed job-level downloads and the shared jobs dock replaced older projected surfaces.
-- **Residual risks:** Exported text can remain stale after per-page edits or reruns.
+- **Residual risks:** Separate original and edited downloads remain deferred.
 
 Run `just behavior-coverage` to regenerate.
 

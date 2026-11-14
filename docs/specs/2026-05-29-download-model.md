@@ -2,7 +2,7 @@
 Status: draft
 Owner: CT
 Created: 2026-05-29
-Last verified: 2026-11-07
+Last verified: 2026-11-13
 Kind: spec
 ---
 
@@ -23,14 +23,19 @@ Kind: spec
   assumptions are not treated as current truth.
 - **Implementation deviations:** The shared jobs dock and fixed job-level download
   buttons replaced parts of the earlier projected surfaces. Recent projects are
-  written at job creation. Upload/edit/download coverage does not prove edited text
-  is present in the exported ZIP.
-- **Residual risks:** Per-page edits and reruns can leave the job output mirror
-  stale; the download redesign remains deferred.
+  written at job creation. Since 2026-11-13 save and single-page rerun refresh the
+  mirror (`storage.refresh_page_outputs`), and tests prove edits and reruns reach
+  the exported ZIP.
+- **Residual risks:** The original-vs-modified download redesign remains deferred.
 
 - **Date:** 2026-05-29
 - **Repo:** pdomain-ocr-simple-gui
 - **Status:** stub / future — not scheduled, no implementation
+- **2026-11-13 update:** The stale-ZIP problem described under Motivation
+  is fixed without this redesign. Save and single-page rerun now refresh the
+  output mirror, and each mirrored page JSON keeps the engine text and word
+  boxes beside any saved `edited_text`. The original-vs-modified split below
+  is still unbuilt.
 
 ## Motivation
 
