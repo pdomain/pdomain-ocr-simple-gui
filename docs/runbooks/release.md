@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-17
-Last verified: 2026-11-07
+Last verified: 2026-11-13
 Kind: runbook
 ---
 
@@ -22,8 +22,11 @@ Use this runbook only when an owner has authorized a release.
 ## Preconditions
 
 Start from a clean, up-to-date `master` checkout with release credentials.
-The local release helper runs its configured preflight, including the slow CI
-gate, before creating a tag.
+The local release helper runs `just ci-slow` before creating a tag. That
+preflight includes the real-OCR acceptance test, so the release machine needs
+Playwright chromium, the DocTR and layout model weights, and the `tesseract`
+binary. It runs on the CPU. If any of them is missing, the preflight fails and
+no tag is created.
 
 ## Steps
 

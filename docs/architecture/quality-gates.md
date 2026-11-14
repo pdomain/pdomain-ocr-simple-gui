@@ -27,14 +27,24 @@ The `ci` dependency graph runs that frozen frontend install once. It includes
 pre-commit, read-only Python lint/format checks, configured basedpyright,
 frontend typecheck/build, ordinary pytest, behavior coverage, smoke, packaging
 tests, frontend format/lint checks, Vitest, knip, and fast browser e2e. It then
-builds release artifacts and runs strict docgraph. `ci-slow` currently delegates
-to the same gate.
+builds release artifacts and runs strict docgraph.
+
+`ci-slow` is the release preflight. It runs `ci`, then the real-OCR acceptance
+test (`just real-ocr-acceptance`, `tests/e2e/test_real_ocr_acceptance.py`).
+That test uploads a page in headless chromium, runs real DocTR on the CPU with
+CUDA hidden, saves an edit, reruns the page with Tesseract, and checks the
+downloaded ZIP after each step. It has no skip path. A missing chromium, model
+weight, or `tesseract` binary fails the recipe. The recipe also fails when
+pytest reports no test run or any skip. `scripts/do-release.sh` pins
+`RELEASE_PREFLIGHT` to `just ci-slow`, so an environment override cannot drop
+it. Plain `ci` does not run this test and prints a note saying so.
 
 Ordinary pytest keeps `tests/ -v -n auto` and the `not slow` selection and
 branch-coverage options in `pyproject.toml`. Smoke selects `slow or e2e`.
 Packaging selects slow tests from `tests/test_packaging.py`. Fast browser e2e
 uses the fake dispatcher, selects `(slow or e2e) and not real_ocr`, and disables
-coverage for that browser run. Real-OCR browser tests remain opt-in.
+coverage for that browser run. The other real-OCR browser tests
+(`just e2e-real-ocr`, on the GPU) remain opt-in.
 OpenAPI export is not part of this app's CI graph.
 
 Frontend typecheck is `tsc --noEmit`; build is `tsc && vite build`. CI checks
@@ -84,10 +94,12 @@ consumer or live service is upgraded by these recipes. Follow the
 
 - Code: `justfile`, `pyproject.toml`, `mise.toml`,
   `frontend/package.json`, `tests/conftest.py`, `tests/e2e/conftest.py`,
-  `tests/smoke/test_e2e.py`, and `scripts/release-common.sh`.
+  `tests/smoke/test_e2e.py`, `scripts/do-release.sh`, and
+  `scripts/release-common.sh`.
 - Tests: `tests/test_e2e_boot_server.py`, `tests/test_smoke_boot_server.py`,
   `tests/test_setup_defaults.py`, `tests/test_packaging.py`,
-  `tests/e2e/test_click_paths_page_viewer.py`, and `tests/e2e/test_flows.py`.
+  `tests/e2e/test_click_paths_page_viewer.py`, `tests/e2e/test_flows.py`,
+  `tests/e2e/test_real_ocr_acceptance.py`, and `tests/test_download_freshness.py`.
 - Artifacts: the SPA, wheel, and source distribution in `dist/`.
 - Verified: 2026-11-13 by source inspection against commits `996bc7e`,
   `6889d3f`, `e4c3c14`, `630e2e0`, `0451c26`, `73cacdd`, and `60020aa`.

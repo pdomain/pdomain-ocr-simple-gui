@@ -227,6 +227,43 @@ _task-e2e-real-ocr: _task-frontend-build
     set -euo pipefail
     uv run --group e2e pytest tests/e2e/test_real_ocr_*.py -v -n auto -m "real_ocr" --no-cov
 
+# Release acceptance: real OCR on the CPU in headless chromium (upload, OCR, edit, rerun, ZIP export).
+real-ocr-acceptance:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ -n "${AI:-}" ]]; then exec just --quiet _ai real-ocr-acceptance; fi
+    just --quiet _task-real-ocr-acceptance
+
+[private]
+_task-real-ocr-acceptance: _task-frontend-build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v tesseract >/dev/null; then
+        echo "ERROR: real-OCR acceptance needs the tesseract binary; install it. Release is blocked." >&2
+        exit 1
+    fi
+    report_dir=$(mktemp -d)
+    trap 'rm -rf "$report_dir"' EXIT
+    rc=0
+    PDOMAIN_OCR_FAKE_DISPATCHER= PDOMAIN_GPU_BACKEND=cpu CUDA_VISIBLE_DEVICES= \
+        uv run --group e2e pytest tests/e2e/test_real_ocr_acceptance.py -v -m real_ocr --no-cov \
+        -p no:cacheprovider --junitxml="$report_dir/report.xml" || rc=$?
+    if [[ "$rc" -ne 0 ]]; then
+        echo "ERROR: real-OCR acceptance failed (pytest exit $rc). Release is blocked." >&2
+        exit "$rc"
+    fi
+    uv run python - "$report_dir/report.xml" <<'PY'
+    import sys
+    import xml.etree.ElementTree as ET
+
+    suite = ET.parse(sys.argv[1]).getroot()
+    suite = suite if suite.tag == "testsuite" else suite[0]
+    tests, skipped = int(suite.get("tests", "0")), int(suite.get("skipped", "0"))
+    if tests < 1 or skipped:
+        sys.exit(f"ERROR: real-OCR acceptance ran {tests} test(s), skipped {skipped}. Release is blocked.")
+    print(f"real-OCR acceptance: {tests} passed, 0 skipped")
+    PY
+
 frontend-install:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -403,12 +440,15 @@ _task-ci: setup frontend-install pre-commit-check lint-check typecheck _task-fro
     #!/usr/bin/env bash
     set -euo pipefail
     docgraph check --strict
+    echo "NOTE: just ci does not run the real-OCR browser acceptance test; just ci-slow (the release preflight) does."
 
+# Release preflight: the full gate plus the real-OCR acceptance test.
 ci-slow:
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ -n "${AI:-}" ]]; then exec just --quiet _ai ci-slow; fi
     just --quiet ci
+    just --quiet _task-real-ocr-acceptance
 
 ci-full:
     #!/usr/bin/env bash

@@ -554,6 +554,26 @@ def live_server_url_real_ocr(e2e_data_root: Path) -> Generator[str, None, None]:
 
 
 @pytest.fixture(scope="session")
+def live_server_url_real_ocr_cpu(e2e_data_root: Path) -> Generator[str, None, None]:
+    """Live server running the REAL OCR engines on the CPU, with CUDA hidden.
+
+    Used by the release acceptance test. The GPU on the release machine is
+    shared with other work, so this server never touches it.
+    """
+    env = {
+        "PD_OCR_SIMPLE_GUI_PROJECTS_ROOT": str(e2e_data_root / "cp"),
+        "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(e2e_data_root / "co"),
+        "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(e2e_data_root / "cj"),
+        "PD_OCR_SIMPLE_GUI_UPLOAD_ROOT": str(e2e_data_root / "cu"),
+        "PD_SUITE_DATA_DIR": str(e2e_data_root / "suite_data_real"),
+        "PDOMAIN_GPU_BACKEND": "cpu",
+        "CUDA_VISIBLE_DEVICES": "",
+        "PDOMAIN_OCR_FAKE_DISPATCHER": "",
+    }
+    yield from _boot_server(env, ready_timeout=60.0)
+
+
+@pytest.fixture(scope="session")
 def seeded_rerun_job_id(e2e_data_root: Path) -> str:
     """Yield a project_id for a succeeded job that has a real source image.
 

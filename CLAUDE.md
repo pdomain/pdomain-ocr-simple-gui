@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-17
-Last verified: 2026-11-07
+Last verified: 2026-11-13
 Kind: process
 ---
 
@@ -44,6 +44,8 @@ Architecture doc: `docs/architecture/00-overview.md`.
 | `AI=1 just pre-commit-check` | all pre-commit hooks on every tracked file |
 | `just update-hooks` | bump pre-commit hooks to their latest releases, frozen to commit SHAs (`pre-commit autoupdate --freeze`) |
 | `AI=1 just ci` | full gate: setup + frozen frontend install + pre-commit + lint-check + typecheck + frontend typecheck/build + test + behavior-coverage + smoke + packaging-test + frontend format/lint checks + frontend test/knip + e2e-fast + sdist/wheel + docgraph strict |
+| `AI=1 just ci-slow` | release preflight: `just ci` + `real-ocr-acceptance` |
+| `AI=1 just real-ocr-acceptance` | real DocTR + Tesseract on the CPU in headless chromium: upload, OCR, edit, rerun, ZIP export; fails, never skips, without its prerequisites |
 | `AI=1 just ci-full` | `just ci` + `e2e-browser` (Playwright) |
 | `just run` | launch on :8004 |
 | `just local-setup` | clone any missing sibling pd-* repos |
