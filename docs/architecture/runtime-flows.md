@@ -346,6 +346,12 @@ Page view download buttons.
 4. Stream the zip as `application/zip` with
    `Content-Disposition: attachment; filename="<job_id>.zip"`.
 
+**Known limits:** a full-job rerun rewrites each page without its saved
+edit, unlike a single-page rerun. A page that fails during a full-job rerun
+keeps its previous `.txt` and `.json` in the mirror and in both combined
+texts. Jobs with no `output_dir` download from `<output_root>/{job_id}`,
+which save and rerun do not refresh.
+
 **UI contract:** Results exposes the actions after success in managed mode.
 Page view exposes them when loaded, without an output-mode gate. Both offer
 two fixed download actions — images+text (`?include=text`) and

@@ -60,7 +60,7 @@ reason they stay deferred, are in the [intent map](intent-map.md).
 
 ## Verification and risks
 
-`make ci AI=1` passed on 2026-11-11 on `fix/e2e-flakes` before this merge,
+`make ci AI=1`, the since-removed shim for `just ci`, passed on 2026-11-11 on `fix/e2e-flakes` before this merge,
 with the GPU hidden. The word-overlay test waits until the count is at
 least one. The upload flow polls until the job is terminal. The e2e
 server starts uvicorn with `--port 0` and reads the bound port from its
@@ -69,6 +69,10 @@ The smoke server starts with `--port 0` and reads the bound port from uvicorn's 
 Up to and including 0.5.3, the ZIP download can carry stale text after a
 per-page edit or rerun. The branch above fixes that. Separate original and
 edited downloads stay deferred in [the intent map](intent-map.md).
+Two full-job rerun limits remain, both older than this fix. A full-job rerun
+drops saved edits, while a single-page rerun keeps them. When a page fails
+during a full-job rerun, its previous text stays in the download and the
+combined text. Changing either is an owner decision.
 
 The release preflight needs Playwright chromium, the DocTR and layout model
 weights, and the `tesseract` binary on the release machine. If any is missing,
