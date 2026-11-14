@@ -20,13 +20,16 @@ def test_tesseract_english_alias_en_resolves_to_eng_when_installed(monkeypatch) 
     assert ocr_engines.is_engine_request_available("tesseract", "en") == (True, None)
 
 
-def _doctr_with_import(monkeypatch, outcome: BaseException | None, platform: str = "win32"):
+def _doctr_with_import(
+    monkeypatch, outcome: BaseException | None, platform: str = "win32", installed: bool = True
+):
     def fake_import() -> None:
         if outcome is not None:
             raise outcome
 
     ocr_engines.detect_doctr.cache_clear()
     monkeypatch.setattr(ocr_engines, "_import_torch", fake_import)
+    monkeypatch.setattr(ocr_engines, "_torch_is_installed", lambda: installed)
     monkeypatch.setattr(ocr_engines.sys, "platform", platform)
     try:
         return ocr_engines.detect_doctr()
@@ -62,7 +65,7 @@ def test_doctr_unavailable_reports_load_error_elsewhere(monkeypatch) -> None:
 
 
 def test_doctr_unavailable_when_torch_missing(monkeypatch) -> None:
-    status = _doctr_with_import(monkeypatch, ImportError("No module named 'torch'"))
+    status = _doctr_with_import(monkeypatch, ImportError("No module named 'torch'"), installed=False)
     assert status.available is False
     assert status.reason is not None
     assert "PyTorch is not installed" in status.reason
@@ -72,6 +75,7 @@ def test_doctr_job_request_rejected_with_reason_when_torch_cannot_load(monkeypat
     exc = OSError(126, "Error loading c10.dll")
     ocr_engines.detect_doctr.cache_clear()
     monkeypatch.setattr(ocr_engines, "_import_torch", lambda: (_ for _ in ()).throw(exc))
+    monkeypatch.setattr(ocr_engines, "_torch_is_installed", lambda: True)
     monkeypatch.setattr(ocr_engines.sys, "platform", "win32")
     try:
         ok, reason = ocr_engines.is_engine_request_available("doctr", "en")
@@ -82,3 +86,17 @@ def test_doctr_job_request_rejected_with_reason_when_torch_cannot_load(monkeypat
     assert reason is not None
     assert "Visual C++ Redistributable" in reason
     assert engines["doctr"]["available"] is False
+
+
+def test_doctr_second_import_after_dll_failure_still_gets_vc_advice(monkeypatch) -> None:
+    """Real Windows sequence: /api/config's device probe imports torch first
+    and hits WinError 126; every later import raises this ImportError. It must
+    not be reported as "not installed"."""
+    exc = ImportError(
+        "`torch` can only be initialized once per process, so this module cannot be imported again"
+    )
+    status = _doctr_with_import(monkeypatch, exc, installed=True)
+    assert status.available is False
+    assert status.reason is not None
+    assert "not installed" not in status.reason
+    assert "Visual C++ Redistributable" in status.reason

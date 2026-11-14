@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import functools
 import importlib
+import importlib.util
 import sys
 from dataclasses import dataclass
 from typing import Literal
@@ -91,30 +92,36 @@ def _import_torch() -> None:
     _ = importlib.import_module("torch")
 
 
+def _torch_is_installed() -> bool:
+    return importlib.util.find_spec("torch") is not None
+
+
 @functools.cache
 def detect_doctr() -> OcrEngineStatus:
     """Report whether DocTR can run, by importing PyTorch once.
 
     On Windows without the Visual C++ runtime, importing torch raises
     OSError (WinError 126 loading c10.dll). The app used to report DocTR as
-    available and then fail every page with an unrelated message. The result
-    is cached: a failed torch import cannot be retried in the same process.
+    available and then fail every page with an unrelated message.
+
+    "Not installed" is decided by whether torch can be found, not by the
+    exception type: after one failed import, torch raises ImportError ("can
+    only be initialized once") for every later import in the process.
     """
     try:
         _import_torch()
-    except ImportError as exc:
-        reason = f"PyTorch is not installed: {exc}"
-    except OSError as exc:
-        if sys.platform == "win32":
+    except (ImportError, OSError) as exc:
+        if not _torch_is_installed():
+            reason = f"PyTorch is not installed: {exc}"
+        elif sys.platform == "win32":
             reason = (
-                f"PyTorch could not load its libraries ({exc}). Install the Microsoft "
+                f"PyTorch is installed but could not load ({exc}). Install the Microsoft "
                 f"Visual C++ Redistributable (x64) from {VC_REDIST_URL}, then restart this app."
             )
         else:
-            reason = f"PyTorch could not load its libraries: {exc}"
-    else:
-        return OcrEngineStatus(id="doctr", label="DocTR", available=True)
-    return OcrEngineStatus(id="doctr", label="DocTR", available=False, reason=reason)
+            reason = f"PyTorch is installed but could not load: {exc}"
+        return OcrEngineStatus(id="doctr", label="DocTR", available=False, reason=reason)
+    return OcrEngineStatus(id="doctr", label="DocTR", available=True)
 
 
 def detect_ocr_engines() -> list[dict[str, object]]:
