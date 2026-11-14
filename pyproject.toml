@@ -170,7 +170,7 @@ convention = "google"
 "src/pdomain_ocr_simple_gui/__main__.py" = ["ANN", "D", "T201"]
 
 [tool.basedpyright]
-include = ["src", "tests", "installer"]
+include = ["src", "tests", "installer", "scripts/windows_acceptance.py"]
 exclude = ["**/__pycache__", "**/.venv", "**/node_modules"]
 typeCheckingMode = "recommended"
 failOnWarnings = true
