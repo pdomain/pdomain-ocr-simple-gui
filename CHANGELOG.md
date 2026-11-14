@@ -14,6 +14,10 @@ All notable changes to `pdomain-ocr-simple-gui` are documented here.
 
 ## [Unreleased]
 
+---
+
+## [0.5.7] — 2026-11-14
+
 ### Dependencies
 
 - `pdomain-book-tools` is now `>=0.31.3,<0.32` instead of `==0.31.3`.
