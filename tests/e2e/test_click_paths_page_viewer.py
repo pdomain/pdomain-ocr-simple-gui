@@ -762,3 +762,67 @@ def test_progress_message_absent_for_succeeded_job(
     expect(page.get_by_test_id("page-view-page")).to_be_visible(timeout=15_000)
     expect(page.get_by_label("OCR text")).to_be_enabled(timeout=10_000)
     expect(page.get_by_test_id("page-progress-message")).to_have_count(0)
+
+
+# B-PAGEVIEW-019 — The editor panel never scrolls sideways at laptop widths
+
+_LAPTOP_VIEWPORTS = [(1280, 720), (1366, 768), (1920, 1080)]
+
+_EDITOR_OVERFLOW_JS = """() => {
+    const panel = document.querySelector('.page-split-view__editor-panel');
+    const slot = panel.firstElementChild;
+    const toolbar = document.querySelector('[data-testid="page-editor-toolbar"]');
+    const box = panel.getBoundingClientRect();
+    const inside = (sel) => {
+        const r = document.querySelector(sel).getBoundingClientRect();
+        return r.left >= box.left - 0.5 && r.right <= box.right + 0.5;
+    };
+    return {
+        slotOverflow: slot.scrollWidth - slot.clientWidth,
+        slotScrollLeft: slot.scrollLeft,
+        toolbarOverflow: toolbar.scrollWidth - toolbar.clientWidth,
+        docOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        saveInside: inside('[data-testid="page-save-button"]'),
+        rerunInside: inside('[data-testid="page-rerun-doctr"]'),
+        textareaInside: inside('[data-testid="ocr-text"]'),
+    };
+}"""
+
+
+@pytest.mark.parametrize(("width", "height"), _LAPTOP_VIEWPORTS)
+def test_editor_toolbar_fits_panel_at_laptop_widths(
+    page: Page, live_server_url: str, seeded_job_id: str, width: int, height: int
+) -> None:
+    """Covers: B-PAGEVIEW-019 — the action row wraps inside the editor panel."""
+    page.set_viewport_size({"width": width, "height": height})
+    page.goto(f"{live_server_url}/jobs/{seeded_job_id}/pages/0")
+    expect(page.get_by_label("OCR text")).to_be_enabled(timeout=15_000)
+
+    m = page.evaluate(_EDITOR_OVERFLOW_JS)
+    assert m["toolbarOverflow"] <= 0, m
+    assert m["slotOverflow"] <= 0, m
+    assert m["docOverflow"] <= 0, m
+    assert m["saveInside"] and m["rerunInside"] and m["textareaInside"], m
+
+
+@pytest.mark.parametrize(("width", "height"), _LAPTOP_VIEWPORTS)
+def test_download_click_does_not_scroll_editor_sideways(
+    page: Page, live_server_url: str, seeded_managed_job_id: str, width: int, height: int
+) -> None:
+    """Covers: B-PAGEVIEW-019 (bad path) — clicking the rightmost button keeps the editor in view.
+
+    Playwright scrolls a button into view before clicking it. When the row was
+    wider than the panel, that scrolled the panel sideways and hid the textarea.
+    """
+    page.set_viewport_size({"width": width, "height": height})
+    page.goto(f"{live_server_url}/jobs/{seeded_managed_job_id}/pages/0")
+    expect(page.get_by_label("OCR text")).to_be_enabled(timeout=15_000)
+
+    for test_id in ("download-images-text", "download-images-text-json"):
+        with page.expect_download(timeout=10_000):
+            page.get_by_test_id(test_id).click()
+
+    m = page.evaluate(_EDITOR_OVERFLOW_JS)
+    assert m["slotScrollLeft"] == 0, m
+    assert m["saveInside"] and m["rerunInside"] and m["textareaInside"], m
+    expect(page.get_by_label("OCR text")).to_be_in_viewport()

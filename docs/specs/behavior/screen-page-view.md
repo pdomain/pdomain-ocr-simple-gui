@@ -38,8 +38,8 @@ surface (DOM / toasts / route).
 > **STATUS: LOCKED.** Records finalized after the maintainer interview and
 > the M5 implementation pass. Tier-A tests live in
 > `tests/e2e/test_click_paths_page_viewer.py`; the Tier-B real-engine rerun
-> slices live in `tests/e2e/test_real_ocr_rerun.py`. Three records are tagged
-> `Regression: yes` with their fix commit (B-PAGEVIEW-012, -013, -015). The
+> slices live in `tests/e2e/test_real_ocr_rerun.py`. Four records are tagged
+> `Regression: yes` (B-PAGEVIEW-012, -013, -015, -019). The
 > cheatsheet record (formerly B-PAGEVIEW-018) was dropped to M6 — the `?`
 > cheatsheet is owned by the AppShell ShortcutsProvider; this screen's own
 > shortcut keys are captured inside its behavior records (nav j/k/←/→, save
@@ -495,10 +495,36 @@ against `storage.py`:
 > (B-PAGEVIEW-008/-009/-011/-013/-014/-016). The B-PAGEVIEW-018 slot is
 > intentionally retired and not reused.
 
+### B-PAGEVIEW-019 — The editor panel never scrolls sideways at laptop widths
+
+- **Flow(s):** —
+- **Trigger:** Open a page at a common laptop or desktop size (1280x720,
+  1366x768, 1920x1080), then click the download buttons.
+- **Preconditions:** Page loaded. The editor panel is half the main area, so
+  at 1280x720 it is about 608px wide.
+- **Observable output:** The `page-editor-toolbar` button row wraps onto more
+  lines inside the editor panel. Neither the toolbar nor the editor slot is
+  wider than the panel. After a download click the editor is not scrolled
+  sideways, and the Save, Re-run DocTR and OCR text controls stay inside the
+  panel.
+- **Backend / side-effects:** None. Layout only.
+- **Bad-state / error:** Before the fix the row needed 1131px and did not
+  wrap. The editor slot (`overflow: auto`) showed a horizontal scrollbar.
+  Playwright scrolls a button into view before it clicks, so clicking
+  "images + text + JSON" scrolled the slot 459–523px sideways. That cut off
+  Re-run DocTR and pushed the OCR text out of view. Reported from Edge on
+  Windows 11 at 1280x720.
+- **Tier(s):** A
+- **Regression:** yes
+  > Fixed by wrapping the row with the `page-view-page__editor-toolbar` rule
+  > in `frontend/src/app.css`.
+- **Test:** `tests/e2e/test_click_paths_page_viewer.py::test_editor_toolbar_fits_panel_at_laptop_widths`,
+  `…::test_download_click_does_not_scroll_editor_sideways` (bad path)
+
 ## Known regressions
 
-Three records on this screen are tagged `Regression: yes`, each with its fix
-commit and a green covering test:
+Four records on this screen are tagged `Regression: yes`, each with its fix
+and a green covering test:
 
 - **B-PAGEVIEW-012** — out-of-range save returned **500** (uncaught
   `FileNotFoundError`); now a clean **404** with no disk write. Fix `0adf03e`.
@@ -507,6 +533,9 @@ commit and a green covering test:
 - **B-PAGEVIEW-015** — a failed page fetch left the screen stuck on a blank
   loading shell; now surfaces a `page-not-found` (404) / `page-error` block.
   Fix `f9b8621`.
+- **B-PAGEVIEW-019** — the editor button row was wider than the editor panel,
+  so a download click scrolled the panel sideways and hid the OCR text. The
+  row now wraps.
 
 **Documented limitation (NOT regression-tagged):** save + single-page rerun
 update only the per-page sidecar `.json` + `.txt`; they do NOT regenerate

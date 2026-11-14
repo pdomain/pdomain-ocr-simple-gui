@@ -458,6 +458,7 @@ export default function PageViewPage() {
     <StageToolbar
       aria-label="Page actions"
       data-testid="page-editor-toolbar"
+      className="page-view-page__editor-toolbar"
       leftSlot={
         <>
           <KeyButton

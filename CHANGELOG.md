@@ -20,6 +20,12 @@ All notable changes to `pdomain-ocr-simple-gui` are documented here.
   rerun refresh the output folder and both combined texts. Each page JSON
   keeps the engine text and word boxes, with the saved edit in `edited_text`.
 
+### Layout fixes
+
+- The page view's button row now wraps inside the text panel. Before, it was
+  wider than the panel on laptop screens such as 1280x720. A download click
+  then scrolled the panel sideways and hid the OCR text.
+
 ### Release gate
 
 - The release preflight, `just ci-slow`, now runs a real-OCR browser

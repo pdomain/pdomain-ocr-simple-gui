@@ -58,6 +58,7 @@ Run `just behavior-coverage` to regenerate.
 | B-PAGEVIEW-015 | yes | yes | no | yes |
 | B-PAGEVIEW-016 | no | yes | no | yes |
 | B-PAGEVIEW-017 | no | yes | no | yes |
+| B-PAGEVIEW-019 | yes | yes | no | yes |
 | B-RESULTS-001 | no | yes | no | yes |
 | B-RESULTS-002 | no | yes | no | yes |
 | B-RESULTS-003 | no | yes | no | yes |

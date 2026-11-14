@@ -609,6 +609,18 @@ form > [class*="Field"] {
   gap: 12px;
 }
 
+/* The editor panel is half the screen, so the action row is wider than the
+   panel on laptop screens. Wrap it; otherwise the panel scrolls sideways and
+   hides the textarea when a button is scrolled into view. */
+.page-view-page__editor-toolbar,
+.page-view-page__editor-toolbar .stage-toolbar__left {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.page-view-page__editor-toolbar {
+  flex: none;
+}
+
 /* Page indicator in PageSplitView toolbar */
 .page-view-page__page-indicator {
   font-family: var(--mono-font);
