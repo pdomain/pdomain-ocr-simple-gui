@@ -82,6 +82,26 @@ Windows (PowerShell, no administrator rights needed):
 uv tool install pdomain-ocr-simple-gui --python 3.13 --index-strategy first-index --index pdomain=https://pdomain.github.io/pdomain-index-pip/simple/
 ```
 
+To upgrade an existing install, run the same command with `--reinstall`.
+Releases before 0.5.6 installed two copies of OpenCV, and `--reinstall`
+replaces the whole tool environment, so no stale files are left behind.
+
+On a Linux server or in a container, OCR and startup fail with
+`libxcb.so.1: cannot open shared object file` until OpenCV's X11 and OpenGL
+libraries are installed. Desktop Linux already has them. Install them once,
+as root:
+
+| Distribution | Command |
+|---|---|
+| Ubuntu 24.04+, Debian 13+ | `apt install libgl1 libsm6 libice6 libx11-6 libxext6 libxcb1 libglib2.0-0t64` |
+| Older Ubuntu and Debian | `apt install libgl1 libsm6 libice6 libx11-6 libxext6 libxcb1 libglib2.0-0` |
+| Fedora, AlmaLinux, RHEL | `dnf install mesa-libGL libSM libICE libX11 libXext libxcb glib2` |
+| Arch | `pacman -S libglvnd mesa libsm libice libx11 libxext libxcb glib2` |
+| openSUSE | `zypper in Mesa-libGL1 libSM6 libICE6 libX11-6 libXext6 libxcb1 libglib-2_0-0 libgthread-2_0-0` |
+
+These lists were tested on 2026-11-14 in Ubuntu 24.04 and 22.04, Debian 13,
+Fedora 45, AlmaLinux 9.8, Arch and openSUSE Tumbleweed containers.
+
 On Windows, OCR also needs the Microsoft Visual C++ Redistributable (x64).
 If it is missing, the home page says "DocTR cannot run on this computer".
 An administrator installs it from <https://aka.ms/vc14/vc_redist.x64.exe>;

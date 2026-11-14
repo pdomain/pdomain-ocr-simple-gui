@@ -14,6 +14,10 @@ All notable changes to `pdomain-ocr-simple-gui` are documented here.
 
 ## [Unreleased]
 
+---
+
+## [0.5.6] — 2026-11-14
+
 ### GPU detection
 
 - GPU detection reads newer NVIDIA drivers. Driver 615 prints
@@ -31,6 +35,22 @@ All notable changes to `pdomain-ocr-simple-gui` are documented here.
   `uv self update` and try again. The packaged installer prints the same
   hint when a GPU install fails. uv honours `--torch-backend` in `uv tool`
   commands from 0.9.19. The installer already asks for uv 0.11.16 or newer.
+
+### OpenCV
+
+- OCR no longer breaks at random after an install. pdomain-book-tools
+  required `opencv-contrib-python`, and python-doctr requires
+  `opencv-python`. Both write the same `cv2/` folder, and uv installs them in
+  parallel, so some installs ended with mixed files and OCR failed with
+  `module 'cv2' has no attribute 'typing'`. pdomain-book-tools 0.31.3
+  depends on `opencv-python` only, and this release pins it.
+- To upgrade a manual install, add `--reinstall` to the `uv tool install`
+  command. The installers already pass it.
+- The README lists the X11 and OpenGL packages a Linux server or container
+  needs. Without them, OCR and startup fail with `libxcb.so.1: cannot open
+  shared object file`.
+- Installer messages no longer say the `[gpu]` extra installs `opencv-cuda`.
+  pdomain-book-tools dropped it from that extra in 0.31.0.
 
 ---
 

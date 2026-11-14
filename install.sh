@@ -21,7 +21,7 @@ set -e
 #
 # GPU auto-enable:
 #   The CUDA >= 12.4 branch below passes `--with pdomain-book-tools[gpu]`
-#   to pull in the optional CuPy + opencv-cuda extras. That extra exists
+#   to pull in the optional CuPy extra. That extra exists
 #   only in pdomain-book-tools >= v0.11.0. pdomain-book-tools is published
 #   on the self-hosted pdomain-index-pip PEP 503 index, so the wheel's
 #   Requires-Dist entry resolves automatically when we pass
@@ -200,7 +200,7 @@ if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
         CUDA_MINOR=${CUDA_VER#*.}
         if [ "$CUDA_MAJOR" -gt 12 ] || { [ "$CUDA_MAJOR" -eq 12 ] && [ "$CUDA_MINOR" -ge 4 ]; }; then
             PD_BOOK_TOOLS_EXTRAS="[gpu]"
-            echo "CUDA ${CUDA_VER} >= 12.4 -- enabling pdomain-book-tools[gpu] (CuPy + opencv-cuda)."
+            echo "CUDA ${CUDA_VER} >= 12.4 -- enabling pdomain-book-tools[gpu] (CuPy)."
         else
             echo "CUDA ${CUDA_VER} < 12.4 -- installing CPU-only book-tools (cupy-cuda12x needs >= 12.4)."
         fi
@@ -402,8 +402,8 @@ echo ""
 
 if [ -n "$TORCH_BACKEND" ]; then
     echo "Heads up - disk space: the CUDA-flavored PyTorch wheels are a large"
-    echo "  download, roughly 2-3 GB (more with the [gpu] CuPy + opencv-cuda"
-    echo "  extras). The CPU-only build is far smaller. This can take a while"
+    echo "  download, roughly 2-3 GB (more with the [gpu] CuPy"
+    echo "  extra). The CPU-only build is far smaller. This can take a while"
     echo "  on a slow connection."
     echo ""
 fi

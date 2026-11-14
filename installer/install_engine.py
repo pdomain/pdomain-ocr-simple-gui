@@ -309,7 +309,7 @@ def plan_steps(
       uv would take those from it, while pdomain-ops needs packaging>=26.
     - When ``gpu == 'nvidia'`` and no CUDA version was detected — CPU
       fallback: no ``--torch-backend`` flag.
-    - ``--with pdomain-book-tools[gpu]`` (CuPy + opencv-cuda) is added only
+    - ``--with pdomain-book-tools[gpu]`` (CuPy) is added only
       when ``book_tools_gpu=True`` (requires CUDA >= 12.4).
 
     Args:
@@ -322,7 +322,7 @@ def plan_steps(
                        None or unparseable and ``gpu == 'nvidia'`` → CPU
                        fallback (no ``--torch-backend``).
         book_tools_gpu: When True, adds ``--with pdomain-book-tools[gpu]`` to
-                       the tool install command (CuPy + opencv-cuda extras).
+                       the tool install command (CuPy extra).
                        Requires CUDA >= 12.4.  Computed by the wizard via
                        ``cuda_supports_book_tools_gpu()``.
     """

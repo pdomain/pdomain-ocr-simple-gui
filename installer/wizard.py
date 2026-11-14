@@ -49,7 +49,7 @@ def _build_steps() -> list[Step]:
     # A detected CUDA version turns on `--torch-backend auto`.
     # cuda_version is None when CUDA is not detectable (CPU fallback).
     cuda_version = _query_cuda_version() if gpu == "nvidia" else None
-    # pdomain-book-tools[gpu] (CuPy + opencv-cuda) requires CUDA >= 12.4.
+    # pdomain-book-tools[gpu] (CuPy) requires CUDA >= 12.4.
     book_tools_gpu = cuda_supports_book_tools_gpu(cuda_version)
     return plan_steps(
         has_uv=has_uv,
