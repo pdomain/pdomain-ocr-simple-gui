@@ -179,7 +179,7 @@ PD_INDEX_URL="https://pdomain.github.io/pdomain-index-pip/simple/"
 
 # Auto-detect NVIDIA CUDA
 if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
-    CUDA_VER=$(nvidia-smi 2>/dev/null | sed -n 's/.*CUDA Version: \([0-9]*\.[0-9]*\).*/\1/p' | head -1)
+    CUDA_VER=$(nvidia-smi 2>/dev/null | sed -n 's/.*CUDA \(UMD \)\{0,1\}Version: \([0-9]*\.[0-9]*\).*/\2/p' | head -1)
     if [ -n "$CUDA_VER" ]; then
         CUDA_TAG="cu$(echo "$CUDA_VER" | tr -d '.')"
         EXTRA_INDEX="https://download.pytorch.org/whl/${CUDA_TAG}"

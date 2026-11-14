@@ -107,7 +107,7 @@ def _query_cuda_version() -> str | None:  # pyright: ignore[reportUnusedFunction
             text=True,
             check=False,
         )
-        match = re.search(r"CUDA Version: (\d+\.\d+)", result.stdout)
+        match = re.search(r"CUDA (?:UMD )?Version: (\d+\.\d+)", result.stdout)
         return match.group(1) if match else None
     except Exception:  # noqa: BLE001
         return None

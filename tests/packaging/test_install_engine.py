@@ -460,6 +460,19 @@ def test_query_cuda_version_parses_smi_output(monkeypatch: pytest.MonkeyPatch) -
     assert result == "13.0"
 
 
+def test_query_cuda_version_parses_umd_banner(monkeypatch: pytest.MonkeyPatch) -> None:
+    """NVIDIA driver 615 renamed the banner field to 'CUDA UMD Version'."""
+    import subprocess as _subprocess
+
+    sample = "| NVIDIA-SMI 615.78.08              KMD Version: 615.78.08     CUDA UMD Version: 13.4     |\n"
+
+    def fake_run(*args: object, **kwargs: object) -> _subprocess.CompletedProcess[str]:  # type: ignore[type-arg]
+        return _subprocess.CompletedProcess(args=[], returncode=0, stdout=sample)
+
+    monkeypatch.setattr("installer.install_engine._subprocess_run", fake_run)
+    assert _query_cuda_version() == "13.4"
+
+
 def test_query_cuda_version_returns_none_on_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """subprocess.run raises → _query_cuda_version returns None."""
 

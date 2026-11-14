@@ -14,6 +14,13 @@ All notable changes to `pdomain-ocr-simple-gui` are documented here.
 
 ## [Unreleased]
 
+### GPU detection
+
+- GPU detection reads newer NVIDIA drivers. Driver 615 prints
+  `CUDA UMD Version: 13.4` where older drivers print `CUDA Version: 13.4`.
+  `install.sh` and the installer engine matched only the old text, so a GPU
+  machine got a CPU-only install.
+
 ---
 
 ## [0.5.5] — 2026-11-14

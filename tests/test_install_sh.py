@@ -831,3 +831,28 @@ exit 0
     assert uv_log.exists(), "uv must have been called via fallback uv-tool path"
     args = uv_log.read_text(encoding="utf-8")
     assert "tool" in args and "install" in args, f"uv tool install must be the fallback; uv args: {args}"
+
+
+def test_install_sh_reads_old_and_umd_cuda_banners(tmp_path: Path) -> None:
+    """NVIDIA driver 615 prints "CUDA UMD Version: 13.4" in the banner. The
+    old pattern missed it, so a GPU machine got a CPU-only install."""
+    script = INSTALL_SH.read_text(encoding="utf-8")
+    line = next(text.strip() for text in script.splitlines() if text.strip().startswith("CUDA_VER=$("))
+    banners = {
+        "| NVIDIA-SMI 570.144.01   Driver Version: 570.144.01   CUDA Version: 12.8     |": "12.8",
+        "| NVIDIA-SMI 615.78.08    KMD Version: 615.78.08     CUDA UMD Version: 13.4     |": "13.4",
+    }
+    for banner, expected in banners.items():
+        bin_dir = tmp_path / expected
+        bin_dir.mkdir()
+        smi = bin_dir / "nvidia-smi"
+        _ = smi.write_text(f"#!/bin/sh\nprintf '%s\\n' '{banner}'\n", encoding="utf-8")
+        smi.chmod(0o755)
+        result = subprocess.run(
+            ["sh", "-c", f'{line}\nprintf "%s" "$CUDA_VER"'],
+            capture_output=True,
+            text=True,
+            check=True,
+            env={**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"},
+        )
+        assert result.stdout == expected
