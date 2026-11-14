@@ -14,6 +14,29 @@ import type { JobForm } from "../statecharts/jobCreationTypes";
 import { useShortcuts } from "@pdomain/pdomain-ui/hooks";
 import type { ShortcutBinding } from "@pdomain/pdomain-ui/hooks";
 
+// /api/config waits for the OCR runtime's first import, which took 52 s on a
+// cold Windows CPU start. Explain the wait once it is noticeable.
+const SLOW_CONFIG_MS = 5_000;
+
+function LoadingConfig() {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSlow(true), SLOW_CONFIG_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+  return (
+    <div role="status" data-testid="home-loading">
+      <div>Loading...</div>
+      {slow ? (
+        <p>
+          Starting the OCR engines. The first start on a computer can take a
+          minute or two.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 interface RecentProjectPrefs {
   source_path?: unknown;
 }
@@ -134,7 +157,7 @@ export function HomePage() {
     );
   }
 
-  if (profile === null || config === null) return <div>Loading...</div>;
+  if (profile === null || config === null) return <LoadingConfig />;
 
   const mode = config.mode;
   const uploading = snapshot.matches("uploading");

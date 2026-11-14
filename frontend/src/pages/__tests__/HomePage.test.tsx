@@ -374,3 +374,21 @@ it("clearing an uploaded source deletes the staged upload", async () => {
     );
   });
 });
+
+// A cold Windows start took 52 s for /api/config (first torch import on the
+// CPU). The page must say why it is waiting instead of a bare "Loading...".
+it("explains a slow first start while /api/config is still loading", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  try {
+    globalThis.fetch = vi.fn().mockImplementation(
+      () => new Promise<Response>(() => {}),
+    ) as unknown as typeof fetch;
+    render(renderTree());
+    expect(await screen.findByText("Loading...")).toBeInTheDocument();
+    expect(screen.queryByText(/first start/i)).toBeNull();
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(await screen.findByText(/first start/i)).toBeInTheDocument();
+  } finally {
+    vi.useRealTimers();
+  }
+});
