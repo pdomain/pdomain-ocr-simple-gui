@@ -220,7 +220,22 @@ def test_main_output_tolerates_a_non_utf8_stdout(monkeypatch) -> None:
     raw = io.BytesIO()
     stream = io.TextIOWrapper(raw, encoding="cp1252")
     monkeypatch.setattr(sys, "stdout", stream)
+    # Keep pytest's own capture stream out of the reconfigure.
+    monkeypatch.setattr(sys, "stderr", io.TextIOWrapper(io.BytesIO(), encoding="cp1252"))
     _tolerate_unencodable_output()
     print("\U0001f680 app at http://127.0.0.1:8004/")
     stream.flush()
     assert raw.getvalue().decode("cp1252").endswith("app at http://127.0.0.1:8004/\n")
+
+
+def test_output_setup_ignores_streams_that_cannot_reconfigure(monkeypatch) -> None:
+    """pythonw sets sys.stdout to None; a closed stream raises ValueError."""
+    import io
+
+    from pdomain_ocr_simple_gui.__main__ import _tolerate_unencodable_output
+
+    closed = io.TextIOWrapper(io.BytesIO(), encoding="utf-8")
+    closed.close()
+    monkeypatch.setattr(sys, "stdout", None)
+    monkeypatch.setattr(sys, "stderr", closed)
+    _tolerate_unencodable_output()

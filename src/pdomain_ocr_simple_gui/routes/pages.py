@@ -290,7 +290,9 @@ async def rerun_page(
         raise HTTPException(status_code=404, detail="Image file not found")
 
     engine = body.engine if (body and body.engine) else spec.engine
-    engine_available, engine_reason = is_engine_request_available(
+    # The first DocTR check imports torch; keep it off the event loop.
+    engine_available, engine_reason = await asyncio.to_thread(
+        is_engine_request_available,
         engine,
         spec.language,
     )

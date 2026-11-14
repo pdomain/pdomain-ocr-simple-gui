@@ -27,14 +27,14 @@ def _doctr_with_import(
         if outcome is not None:
             raise outcome
 
-    ocr_engines.detect_doctr.cache_clear()
+    ocr_engines._load_torch_status.cache_clear()
     monkeypatch.setattr(ocr_engines, "_import_torch", fake_import)
     monkeypatch.setattr(ocr_engines, "_torch_is_installed", lambda: installed)
     monkeypatch.setattr(ocr_engines.sys, "platform", platform)
     try:
         return ocr_engines.detect_doctr()
     finally:
-        ocr_engines.detect_doctr.cache_clear()
+        ocr_engines._load_torch_status.cache_clear()
 
 
 def test_doctr_available_when_torch_imports(monkeypatch) -> None:
@@ -73,7 +73,7 @@ def test_doctr_unavailable_when_torch_missing(monkeypatch) -> None:
 
 def test_doctr_job_request_rejected_with_reason_when_torch_cannot_load(monkeypatch) -> None:
     exc = OSError(126, "Error loading c10.dll")
-    ocr_engines.detect_doctr.cache_clear()
+    ocr_engines._load_torch_status.cache_clear()
     monkeypatch.setattr(ocr_engines, "_import_torch", lambda: (_ for _ in ()).throw(exc))
     monkeypatch.setattr(ocr_engines, "_torch_is_installed", lambda: True)
     monkeypatch.setattr(ocr_engines.sys, "platform", "win32")
@@ -81,7 +81,7 @@ def test_doctr_job_request_rejected_with_reason_when_torch_cannot_load(monkeypat
         ok, reason = ocr_engines.is_engine_request_available("doctr", "en")
         engines = {e["id"]: e for e in ocr_engines.detect_ocr_engines()}
     finally:
-        ocr_engines.detect_doctr.cache_clear()
+        ocr_engines._load_torch_status.cache_clear()
     assert ok is False
     assert reason is not None
     assert "Visual C++ Redistributable" in reason
@@ -100,3 +100,31 @@ def test_doctr_second_import_after_dll_failure_still_gets_vc_advice(monkeypatch)
     assert status.reason is not None
     assert "not installed" not in status.reason
     assert "Visual C++ Redistributable" in status.reason
+
+
+def test_doctr_unavailable_on_unexpected_torch_import_error(monkeypatch) -> None:
+    """A broken install can raise RuntimeError; /api/config must not 500."""
+    status = _doctr_with_import(monkeypatch, RuntimeError("numpy ABI mismatch"), platform="linux")
+    assert status.available is False
+    assert status.reason is not None
+    assert "numpy ABI mismatch" in status.reason
+
+
+def test_doctr_windows_non_dll_failure_gets_no_vc_advice(monkeypatch) -> None:
+    status = _doctr_with_import(monkeypatch, ImportError("No module named 'typing_extensions'"))
+    assert status.available is False
+    assert status.reason is not None
+    assert "Visual C++" not in status.reason
+
+
+def test_doctr_not_installed_is_not_cached(monkeypatch) -> None:
+    installed = {"value": False}
+    ocr_engines._load_torch_status.cache_clear()
+    monkeypatch.setattr(ocr_engines, "_torch_is_installed", lambda: installed["value"])
+    monkeypatch.setattr(ocr_engines, "_import_torch", lambda: None)
+    try:
+        assert ocr_engines.detect_doctr().available is False
+        installed["value"] = True
+        assert ocr_engines.detect_doctr().available is True
+    finally:
+        ocr_engines._load_torch_status.cache_clear()

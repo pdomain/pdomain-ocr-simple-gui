@@ -293,7 +293,10 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
         mode = read_mode()
         project_id = str(uuid.uuid4())
         now = datetime.now(UTC)
-        engine_available, engine_reason = is_engine_request_available(
+        # The first DocTR check imports torch, which took 52 s on a cold
+        # Windows start; keep it off the event loop.
+        engine_available, engine_reason = await asyncio.to_thread(
+            is_engine_request_available,
             body.engine,
             body.language,
         )

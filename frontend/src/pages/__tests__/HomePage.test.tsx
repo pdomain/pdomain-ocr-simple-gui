@@ -387,7 +387,8 @@ it("explains a slow first start while /api/config is still loading", async () =>
         () => new Promise<Response>(() => {}),
       ) as unknown as typeof fetch;
     render(renderTree());
-    expect(await screen.findByText("Loading...")).toBeInTheDocument();
+    // Check synchronously: no wall-clock time passes before these asserts.
+    expect(screen.getByText("Loading...")).toBeInTheDocument();
     expect(screen.queryByText(/first start/i)).toBeNull();
     await vi.advanceTimersByTimeAsync(5_000);
     expect(await screen.findByText(/first start/i)).toBeInTheDocument();

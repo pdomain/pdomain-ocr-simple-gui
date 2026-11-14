@@ -57,16 +57,15 @@ def _check_allowlist(resolved: Path) -> None:
     roots = get_allowlist()
     if roots is None:
         return
-    resolved_str = str(resolved)
     for root in roots:
         try:
             root_resolved = root.resolve()
         except OSError:
             # Non-existent root — skip silently.
             continue
-        root_str = str(root_resolved)
-        # strict child: resolved must start with root/ and not equal root exactly
-        if resolved_str.startswith(root_str + os.sep) and resolved_str != root_str:
+        # Strict child, compared by path parts: a string prefix with os.sep
+        # never matched under a drive root such as C:\ or under /.
+        if is_strictly_within(resolved, root_resolved):
             return
     raise ValueError(
         f"source path {resolved!r} is not within any allowed source root "

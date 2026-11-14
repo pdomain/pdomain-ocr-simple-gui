@@ -1,12 +1,12 @@
 ---
 Status: active
 Owner: CT
-Created: 2026-11-14
-Last verified: 2026-11-14
+Created: 2026-11-13
+Last verified: 2026-11-13
 Kind: research
 ---
 
-# Windows GUI proof, 2026-11-13 to 2026-11-14
+# Windows GUI proof, 2026-11-13
 
 ## Agent Index
 

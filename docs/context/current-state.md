@@ -43,7 +43,7 @@ release review.
 Local `master` after `v0.5.4` holds unreleased Windows and layout fixes; see
 the [changelog](../../CHANGELOG.md). They came from running 0.5.4 on Windows
 11 as a standard user, recorded in the
-[Windows proof](../research/2026-11-14-windows-gui-proof.md). 0.5.4 cannot open
+[Windows proof](../research/2026-11-13-windows-gui-proof.md). 0.5.4 cannot open
 any job on Windows, so these fixes matter for Windows users.
 
 The suite settings routes need a pdomain-ops fix to mount on Windows. That fix

@@ -96,24 +96,34 @@ def _torch_is_installed() -> bool:
     return importlib.util.find_spec("torch") is not None
 
 
+def _needs_vc_runtime(exc: BaseException) -> bool:
+    """True when a torch import failure looks like missing Windows DLLs.
+
+    WinError 126 is the error seen without the Visual C++ runtime. After a
+    first failed import, torch raises "initialized once" for every later
+    import in the process, which hides the original error.
+    """
+    text = str(exc)
+    return (
+        getattr(exc, "winerror", None) == 126
+        or "DLL" in text
+        or "c10.dll" in text
+        or "initialized once" in text
+    )
+
+
 @functools.cache
-def detect_doctr() -> OcrEngineStatus:
-    """Report whether DocTR can run, by importing PyTorch once.
+def _load_torch_status() -> OcrEngineStatus:
+    """Import torch once and cache the outcome.
 
-    On Windows without the Visual C++ runtime, importing torch raises
-    OSError (WinError 126 loading c10.dll). The app used to report DocTR as
-    available and then fail every page with an unrelated message.
-
-    "Not installed" is decided by whether torch can be found, not by the
-    exception type: after one failed import, torch raises ImportError ("can
-    only be initialized once") for every later import in the process.
+    A failed load must be cached: torch cannot be imported again in the same
+    process. Any exception counts, not only ImportError and OSError, so a
+    broken install reports DocTR as unavailable instead of failing /api/config.
     """
     try:
         _import_torch()
-    except (ImportError, OSError) as exc:
-        if not _torch_is_installed():
-            reason = f"PyTorch is not installed: {exc}"
-        elif sys.platform == "win32":
+    except Exception as exc:  # noqa: BLE001  # any torch import failure makes DocTR unavailable; the reason carries the detail
+        if sys.platform == "win32" and _needs_vc_runtime(exc):
             reason = (
                 "PyTorch is installed but could not load. Install the Microsoft Visual C++ "
                 f"Redistributable (x64) from {VC_REDIST_URL}, then restart this app. "
@@ -123,6 +133,26 @@ def detect_doctr() -> OcrEngineStatus:
             reason = f"PyTorch is installed but could not load: {exc}"
         return OcrEngineStatus(id="doctr", label="DocTR", available=False, reason=reason)
     return OcrEngineStatus(id="doctr", label="DocTR", available=True)
+
+
+def detect_doctr() -> OcrEngineStatus:
+    """Report whether DocTR can run.
+
+    On Windows without the Visual C++ runtime, importing torch raises
+    OSError (WinError 126 loading c10.dll). The app used to report DocTR as
+    available and then fail every page with an unrelated message.
+
+    "Not installed" is decided by whether torch can be found, and is not
+    cached, so installing torch while the app runs is picked up.
+    """
+    if not _torch_is_installed():
+        return OcrEngineStatus(
+            id="doctr",
+            label="DocTR",
+            available=False,
+            reason="PyTorch is not installed in this app's environment.",
+        )
+    return _load_torch_status()
 
 
 def detect_ocr_engines() -> list[dict[str, object]]:

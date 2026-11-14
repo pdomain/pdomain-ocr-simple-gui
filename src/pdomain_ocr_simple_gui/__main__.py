@@ -207,7 +207,8 @@ def _tolerate_unencodable_output() -> None:
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if callable(reconfigure):
-            _ = reconfigure(errors="backslashreplace")
+            with contextlib.suppress(ValueError, OSError):
+                _ = reconfigure(errors="backslashreplace")
 
 
 def main(argv: list[str] | None = None) -> None:

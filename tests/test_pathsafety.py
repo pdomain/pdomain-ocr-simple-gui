@@ -29,7 +29,13 @@ SRC = Path(__file__).resolve().parents[1] / "src" / "pdomain_ocr_simple_gui"
         (PureWindowsPath(r"C:\data\up"), PureWindowsPath(r"C:\data\up"), False),
         (PureWindowsPath(r"C:\data\upx\b.png"), PureWindowsPath(r"C:\data\up"), False),
         (PureWindowsPath(r"D:\data\up\b.png"), PureWindowsPath(r"C:\data\up"), False),
+        (PureWindowsPath(r"c:\data\UP\b.png"), PureWindowsPath(r"C:\Data\up"), True),
+        (PureWindowsPath(r"\\host\share\up\b.png"), PureWindowsPath(r"\\host\share\up"), True),
+        (PureWindowsPath(r"\\host\other\b.png"), PureWindowsPath(r"\\host\share\up"), False),
+        (PureWindowsPath(r"C:evil.png"), PureWindowsPath(r"C:\data\up"), False),
+        (PureWindowsPath(r"C:\a.png"), PureWindowsPath("C:\\"), True),
         (PurePosixPath("/srv/projects/abc"), PurePosixPath("/srv/projects"), True),
+        (PurePosixPath("/a.png"), PurePosixPath("/"), True),
         (PurePosixPath("/srv/projects"), PurePosixPath("/srv/projects"), False),
         (PurePosixPath("/srv/projectsx/abc"), PurePosixPath("/srv/projects"), False),
         (PurePosixPath("/srv/abc"), PurePosixPath("/srv/projects"), False),
@@ -40,7 +46,7 @@ def test_is_strictly_within(candidate: PurePath, root: PurePath, expected: bool)
 
 
 def test_no_posix_only_containment_checks_remain() -> None:
-    pattern = re.compile(r'\+\s*"/"\)')
+    pattern = re.compile(r'\+\s*("/"|os\.sep)\)')
     offenders = [
         f"{path.relative_to(SRC)}:{n}"
         for path in SRC.rglob("*.py")
