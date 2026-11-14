@@ -32,23 +32,24 @@ follow-ups and former GitHub #26 are shipped and retired; tombstones are in
 
 ## Released version
 
-0.5.3 is the current release. Tag `v0.5.3` is commit `76067d7`. It is
-published as a GitHub Release and on the live pdomain pip index. The 0.5.1,
-0.5.2, and 0.5.3 tags were all cut on 2026-11-13.
+0.5.4 is the current release. Tag `v0.5.4` is commit `b4938cd`. It is
+published as a GitHub Release and on the live pdomain pip index, with wheel
+SHA256 `70592c71360bbd6c7358b51eaa0cc2af2b971642db0c6020a4a2d8943291cde6`.
+It carries the download fixes and the real-OCR release gate from the 0.5.3
+release review.
 
 ## In-flight work
 
-Branch `fix/release-review-exports` holds two unreleased fixes from the 0.5.3
-release review. Neither is merged to `master` or released.
+Local `master` after `v0.5.4` holds unreleased Windows and layout fixes; see
+the [changelog](../../CHANGELOG.md). They came from running 0.5.4 on Windows
+11 as a standard user, recorded in the
+[Windows proof](../research/2026-11-14-windows-gui-proof.md). 0.5.4 cannot open
+any job on Windows, so these fixes matter for Windows users.
 
-- **Downloads now carry saved edits and reruns.** Save and single-page rerun
-  refresh the output mirror that the ZIP streams, along with both combined
-  texts. See [runtime flows](../architecture/runtime-flows.md) and the
-  [decision](decisions.md).
-- **The release preflight now runs a real-OCR browser test.** `just ci-slow`
-  runs `just ci` and then the real-OCR acceptance test. That test covers
-  upload, OCR, edit, rerun, and ZIP export on the CPU. See
-  [quality gates](../architecture/quality-gates.md).
+The suite settings routes need a pdomain-ops fix to mount on Windows. That fix
+is on pdomain-ops branch `fix/windows-suite-bootstrap`, not merged or
+released. With pdomain-ops 0.12.4, OCR, editing and downloads work on Windows
+and the settings panel cannot load preferences.
 
 Product work remains on the [roadmap](../roadmap.md).
 

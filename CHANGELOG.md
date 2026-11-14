@@ -14,17 +14,41 @@ All notable changes to `pdomain-ocr-simple-gui` are documented here.
 
 ## [Unreleased]
 
-### Download fixes
+### Windows fixes
 
-- ZIP downloads now carry saved page edits and single-page reruns. Save and
-  rerun refresh the output folder and both combined texts. Each page JSON
-  keeps the engine text and word boxes, with the saved edit in `edited_text`.
+Found by running the app on Windows 11 as a standard user, driven by
+Playwright and Edge.
+
+- Jobs open on Windows. Path checks compared paths as strings with a `/`
+  separator, so every job id was rejected and `GET /api/jobs/<id>` returned
+  400. ZIP uploads would also have been refused.
+- The app starts when its output is redirected. A startup line with an emoji
+  could not be encoded in Windows' cp1252 and stopped the app.
+- Unknown `/api/*` paths return 404 JSON instead of the page HTML, so a
+  missing route fails visibly instead of leaving the page waiting.
+- When PyTorch cannot load, for example on Windows without the Microsoft
+  Visual C++ Redistributable, DocTR is reported as unavailable with the reason
+  and the download link. The home page shows it and DocTR jobs are refused.
+- The home page explains a slow first start. On a cold Windows CPU start,
+  loading the OCR runtime took 52 s.
+- The suite settings routes still fail to mount on Windows until pdomain-ops
+  accepts Windows paths for installed apps; OCR, editing and downloads work.
 
 ### Layout fixes
 
 - The page view's button row now wraps inside the text panel. Before, it was
   wider than the panel on laptop screens such as 1280x720. A download click
   then scrolled the panel sideways and hid the OCR text.
+
+---
+
+## [0.5.4] — 2026-11-13
+
+### Download fixes
+
+- ZIP downloads now carry saved page edits and single-page reruns. Save and
+  rerun refresh the output folder and both combined texts. Each page JSON
+  keeps the engine text and word boxes, with the saved edit in `edited_text`.
 
 ### Release gate
 

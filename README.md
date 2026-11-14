@@ -68,10 +68,27 @@ chmod +x pdomain-ocr-simple-gui-installer-x86_64.AppImage
 
 ### Tier 3 — manual install via uv
 
+Linux and macOS:
+
 ```sh
-uv tool install pdomain-ocr-simple-gui \
-  --extra-index-url https://pdomain.github.io/pdomain-index-pip/simple/
+uv tool install pdomain-ocr-simple-gui --python 3.13 \
+  --index-strategy first-index \
+  --index pdomain=https://pdomain.github.io/pdomain-index-pip/simple/
 ```
+
+Windows (PowerShell, no administrator rights needed):
+
+```powershell
+uv tool install pdomain-ocr-simple-gui --python 3.13 --index-strategy first-index --index pdomain=https://pdomain.github.io/pdomain-index-pip/simple/
+```
+
+On Windows, OCR also needs the Microsoft Visual C++ Redistributable (x64).
+If it is missing, the home page says "DocTR cannot run on this computer".
+An administrator installs it from <https://aka.ms/vc14/vc_redist.x64.exe>;
+then restart the app.
+
+The named `--index` keeps the pdomain packages from resolving from any other
+index, including one set in the `UV_INDEX` environment variable.
 
 ## Launch
 
