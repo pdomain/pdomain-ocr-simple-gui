@@ -1,8 +1,8 @@
 ---
 Status: active
 Owner: CT
-Created: 2026-11-14
-Last verified: 2026-11-14
+Created: 2026-11-13
+Last verified: 2026-11-13
 Kind: runbook
 ---
 
@@ -24,8 +24,8 @@ handling, startup output, engine detection, file writes, or the web pages.
 The release helper cannot run it, because it needs a Windows machine.
 
 The script is `scripts/windows_acceptance.py`. It is the maintained version of
-the driver proven on 2026-11-14 in
-[the Windows GUI proof](../research/2026-11-14-windows-gui-proof.md). It
+the driver proven on 2026-11-13 in
+[the Windows GUI proof](../research/2026-11-13-windows-gui-proof.md). It
 mirrors `tests/e2e/test_real_ocr_acceptance.py`, but it tests the installed
 tool in Microsoft Edge and never imports the app package.
 
@@ -125,6 +125,9 @@ install, run `uv tool uninstall pdomain-ocr-simple-gui`.
   state and does not test a Tesseract rerun.
 - One page, one fixture. It does not cover multi-page jobs or folder sources.
 - Edge only by default. Other browsers need `--browser-channel`.
-- It was proven by hand on 2026-11-14, as recorded in
-  [the proof](../research/2026-11-14-windows-gui-proof.md). The script itself
-  has not yet run on Windows.
+- The flow was first proven on 2026-11-13, as recorded in
+  [the proof](../research/2026-11-13-windows-gui-proof.md). The script itself
+  then passed all 12 checks on Windows 11 as a standard user with Edge and
+  real DocTR on the CPU, in 32.7 s, with the pdomain-ops fix branch
+  installed. With pdomain-ops 0.12.4 the `suite-prefs-route` check fails,
+  because the settings routes do not mount on Windows.
