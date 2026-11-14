@@ -428,6 +428,20 @@ _task-build: _task-frontend-build
     uv build --sdist
     uv build --wheel
 
+# It installs the latest release with install.sh -y and runs the acceptance script.
+# runner: macos-26 (default) or macos-15, both Apple Silicon.
+# Start the manual macOS install test on GitHub Actions and follow it.
+mac-test runner="macos-26":
+    ./scripts/mac-test.sh start "{{ runner }}"
+
+# Follow a macOS install test run; default: the newest one.
+mac-test-watch run="":
+    ./scripts/mac-test.sh watch "{{ run }}"
+
+# Print the failed steps' logs of a macOS install test run; default: the newest one.
+mac-test-logs run="":
+    ./scripts/mac-test.sh logs "{{ run }}"
+
 [default]
 ci:
     #!/usr/bin/env bash

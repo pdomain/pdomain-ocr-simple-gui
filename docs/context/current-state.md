@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-14
-Last verified: 2026-11-13
+Last verified: 2026-11-14
 Kind: context
 ---
 
@@ -82,8 +82,9 @@ a note saying so. The smoke test still records a failed job as `xfail`.
 The dispatcher timeout bounds a hung OCR await but does not stop the underlying
 executor thread, which can still race the shared predictor cache in pdomain-ops
 ([ocr-container-meta#397](https://github.com/ConcaveTrillion/ocr-container-meta/issues/397)).
-The repository has no GitHub workflows since `0bb3a4a` (2026-09-13, owner
-request); `AI=1 just ci` run locally is the gate, and releases run from
+Nothing runs on GitHub automatically since `0bb3a4a` (2026-09-13, owner
+request). The only workflow, `.github/workflows/macos-install.yml`, runs when
+`just mac-test` starts it. `AI=1 just ci` run locally is the gate, and releases run from
 `scripts/release-common.sh`.
 
 ## Current gate and architecture verification

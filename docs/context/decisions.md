@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-14
-Last verified: 2026-11-13
+Last verified: 2026-11-14
 Kind: context
 ---
 
@@ -15,6 +15,21 @@ Kind: context
 - **Read when:** checking why documentation or product direction changed.
 - **Search terms:** decisions, deviations, retirement, tombstones, security, tests,
   GitHub issue migration.
+
+### 2026-11-14 — A manual macOS install test runs on GitHub Actions
+
+- **Context:** The owner asked for a macOS check of the CPU path and the
+  Playwright flow. No Mac is available, and GitHub's standard macOS runners
+  cost nothing for a public repository.
+- **Decision:** `.github/workflows/macos-install.yml` has only a
+  `workflow_dispatch` trigger. `just mac-test [runner]` starts it on master and
+  follows it; `macos-26` and `macos-15` are both Apple Silicon. The job runs
+  `install.sh -y`, checks that `opencv-python` is the only OpenCV
+  distribution, and runs `scripts/windows_acceptance.py` against the installed
+  app in headless chromium.
+- **Consequence:** The 2026-09-13 rule that nothing runs on GitHub
+  automatically still holds. The runners are virtual machines, so MPS may be
+  missing; the job reports it and then covers the CPU path.
 
 ### 2026-07-19 — GitHub issue migration repair (ledger over false backlog)
 
