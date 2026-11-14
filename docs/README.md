@@ -39,7 +39,7 @@ of remaining work.
 - Plans: none active.
 - Decisions: [jobs location](decisions/2026-06-04-jobs-location-setting.md) and [preserved runtime boundaries](decisions/2026-07-13-preserved-runtime-boundaries.md).
 - Process: [lint deviations](process/lint-deviations.md), [local development](process/local-dev.md), and [writing style](process/writing-style.md).
-- Runbooks: [installation](runbooks/install.md), [CUDA setup](runbooks/cuda-setup.md), and [release](runbooks/release.md).
+- Runbooks: [installation](runbooks/install.md), [CUDA setup](runbooks/cuda-setup.md), [release](runbooks/release.md), and [Windows acceptance](runbooks/windows-acceptance.md).
 - Unbuilt design: [download model](specs/2026-05-29-download-model.md).
 - Living screen contracts, read by `scripts/behavior_coverage.py`: [behavior-spec index](specs/behavior/README.md), [coverage](specs/behavior/coverage.md), [flows](specs/behavior/flows.md), [app shell](specs/behavior/screen-app-shell.md), [home](specs/behavior/screen-home.md), [page view](specs/behavior/screen-page-view.md), and [results](specs/behavior/screen-results.md).
 

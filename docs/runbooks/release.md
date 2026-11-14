@@ -55,6 +55,8 @@ scheduled fallback:
 Confirm the tag, the GitHub Release artifacts, and that the package appears on
 the index after running the publish script. The implementation sources are
 `scripts/do-release.sh` and `scripts/release-common.sh`.
+Before a release that affects Windows, also do the manual
+[Windows acceptance run](windows-acceptance.md).
 
 ## Rollback
 
