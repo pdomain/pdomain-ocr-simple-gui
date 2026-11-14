@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-11-13
-Last verified: 2026-11-13
+Last verified: 2026-11-14
 Kind: runbook
 ---
 
@@ -22,6 +22,10 @@ Kind: runbook
 Run this before a release that affects Windows. That means changes to path
 handling, startup output, engine detection, file writes, or the web pages.
 The release helper cannot run it, because it needs a Windows machine.
+
+`just win-test` runs the same script on a GitHub-hosted Windows runner, headless
+in Edge. That run is an administrator on an image that already has the Visual
+C++ runtime, so it does not replace this standard-user run.
 
 The script is `scripts/windows_acceptance.py`. It is the maintained version of
 the driver proven on 2026-11-13 in

@@ -1,17 +1,31 @@
 #!/usr/bin/env bash
-# Start and follow the manual macOS install test on GitHub Actions
-# (.github/workflows/macos-install.yml).
+# Start and follow a manual install test on GitHub Actions:
+# .github/workflows/macos-install.yml or windows-install.yml.
 #
 # Usage:
-#   scripts/mac-test.sh start [runner]   start a run on master and follow it
-#   scripts/mac-test.sh watch [run-id]   follow a run; default: the newest one
-#   scripts/mac-test.sh logs [run-id]    print the failed steps' logs
+#   scripts/install-test.sh <macos|windows> start [runner]   start a run on master and follow it
+#   scripts/install-test.sh <macos|windows> watch [run-id]   follow a run; default: the newest one
+#   scripts/install-test.sh <macos|windows> logs [run-id]    print the failed steps' logs
 #
-# runner is macos-26 (default) or macos-15. The workflow must already be on
-# master, because GitHub only dispatches workflows that exist on the ref.
+# macOS runners: macos-26 (default) or macos-15, both Apple Silicon.
+# Windows runners: windows-2025 (default) or windows-2022, both x64.
+# The workflow must already be on master, because GitHub only dispatches
+# workflows that exist on the ref.
 set -euo pipefail
 
-readonly WORKFLOW="macos-install.yml"
+case "${1:-}" in
+  macos)
+    readonly WORKFLOW="macos-install.yml" DEFAULT_RUNNER="macos-26" RECIPE="mac-test"
+    ;;
+  windows)
+    readonly WORKFLOW="windows-install.yml" DEFAULT_RUNNER="windows-2025" RECIPE="win-test"
+    ;;
+  *)
+    echo "Usage: $0 <macos|windows> start [runner] | watch [run-id] | logs [run-id]" >&2
+    exit 2
+    ;;
+esac
+shift
 
 repo_slug() {
   local url
@@ -26,7 +40,7 @@ newest_run() {
   run_id="$(gh run list -R "$REPO" --workflow "$WORKFLOW" --limit 1 \
     --json databaseId -q '.[0].databaseId')"
   if [[ -z "$run_id" ]]; then
-    echo "ERROR: $REPO has no $WORKFLOW runs yet. Start one with: just mac-test" >&2
+    echo "ERROR: $REPO has no $WORKFLOW runs yet. Start one with: just $RECIPE" >&2
     exit 1
   fi
   printf '%s\n' "$run_id"
@@ -41,7 +55,7 @@ watch_run() {
     echo "The run failed. Failed steps:"
     gh run view -R "$REPO" "$run_id" --log-failed | tail -n 80 || true
     echo ""
-    echo "Full logs: just mac-test-logs $run_id"
+    echo "Full logs: just $RECIPE-logs $run_id"
   fi
   return "$status"
 }
@@ -79,7 +93,7 @@ pick_run() {
 }
 
 case "${1:-}" in
-  start) start_run "${2:-macos-26}" ;;
+  start) start_run "${2:-$DEFAULT_RUNNER}" ;;
   watch)
     run_id="$(pick_run "${2:-}")"
     watch_run "$run_id"
@@ -89,7 +103,7 @@ case "${1:-}" in
     gh run view -R "$REPO" "$run_id" --log-failed
     ;;
   *)
-    echo "Usage: $0 start [runner] | watch [run-id] | logs [run-id]" >&2
+    echo "Usage: $0 <macos|windows> start [runner] | watch [run-id] | logs [run-id]" >&2
     exit 2
     ;;
 esac

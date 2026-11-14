@@ -16,20 +16,26 @@ Kind: context
 - **Search terms:** decisions, deviations, retirement, tombstones, security, tests,
   GitHub issue migration.
 
-### 2026-11-14 — A manual macOS install test runs on GitHub Actions
+### 2026-11-14 — Manual macOS and Windows install tests run on GitHub Actions
 
-- **Context:** The owner asked for a macOS check of the CPU path and the
-  Playwright flow. No Mac is available, and GitHub's standard macOS runners
-  cost nothing for a public repository.
-- **Decision:** `.github/workflows/macos-install.yml` has only a
-  `workflow_dispatch` trigger. `just mac-test [runner]` starts it on master and
-  follows it; `macos-26` and `macos-15` are both Apple Silicon. The job runs
-  `install.sh -y`, checks that `opencv-python` is the only OpenCV
-  distribution, and runs `scripts/windows_acceptance.py` against the installed
-  app in headless chromium.
+- **Context:** The owner asked for macOS and Windows checks of the CPU path
+  and the Playwright flow. GitHub's standard runners cost nothing for a public
+  repository.
+- **Decision:** `.github/workflows/macos-install.yml` and `windows-install.yml`
+  have only a `workflow_dispatch` trigger. `just mac-test [runner]` and
+  `just win-test [runner]` start a run on master and follow it, both through
+  `scripts/install-test.sh`. The macOS runners `macos-26` and `macos-15` are
+  Apple Silicon; the Windows runners `windows-2025` and `windows-2022` are x64.
+  The macOS job runs `install.sh -y`; the Windows job runs the README's
+  `uv tool install` command. Both check that `opencv-python` is the only
+  OpenCV distribution, then run `scripts/windows_acceptance.py` against the
+  installed app headless: chromium on macOS, Edge on Windows.
 - **Consequence:** The 2026-09-13 rule that nothing runs on GitHub
-  automatically still holds. The runners are virtual machines, so MPS may be
-  missing; the job reports it and then covers the CPU path.
+  automatically still holds. The runners are virtual machines with no GPU. The
+  first macOS 26 run passed on the CPU path with OCR overlap 1.0, and PyTorch
+  reported no MPS. The Windows job runs as an administrator on an image that
+  already has the Visual C++ runtime, so the standard-user run in
+  `docs/runbooks/windows-acceptance.md` still needs a real Windows machine.
 
 ### 2026-07-19 — GitHub issue migration repair (ledger over false backlog)
 

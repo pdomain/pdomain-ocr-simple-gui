@@ -47,7 +47,7 @@ Architecture doc: `docs/architecture/00-overview.md`.
 | `AI=1 just ci-slow` | release preflight: `just ci` + `real-ocr-acceptance` |
 | `AI=1 just real-ocr-acceptance` | real DocTR + Tesseract on the CPU in headless chromium: upload, OCR, edit, rerun, ZIP export; fails, never skips, without its prerequisites |
 | `AI=1 just ci-full` | `just ci` + `e2e-browser` (Playwright) |
-| `just mac-test [runner]` | start the manual macOS install test on GitHub Actions and follow it: `install.sh -y`, then `scripts/windows_acceptance.py` in headless chromium; `mac-test-watch` and `mac-test-logs` follow or show a run |
+| `just mac-test [runner]` / `just win-test [runner]` | start the manual macOS or Windows install test on GitHub Actions and follow it: install the latest release, then run `scripts/windows_acceptance.py` headless (chromium on macOS, Edge on Windows); `-watch` and `-logs` variants follow or show a run |
 | `just run` | launch on :8004 |
 | `just local-setup` | clone any missing sibling pd-* repos |
 | `just local-dev` | switch to local-dev mode (Python + npm siblings editable + marker) |

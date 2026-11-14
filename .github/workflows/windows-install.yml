@@ -1,0 +1,94 @@
+# Manual Windows install test. Start it with `just win-test`.
+#
+# It installs the latest release with the README's PowerShell command, then
+# runs scripts/windows_acceptance.py against the installed app in headless
+# Microsoft Edge: upload, real OCR, edit, rerun and ZIP export. GitHub's
+# Windows runners are x64 virtual machines with no GPU, where the job runs as
+# an administrator and the Visual C++ runtime is already present. So this
+# covers the CPU path; the standard-user run in docs/runbooks/windows-acceptance.md
+# still needs a real Windows machine.
+name: Windows install test
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: Windows runner image (both are x64)
+        type: choice
+        options:
+          - windows-2025
+          - windows-2022
+        default: windows-2025
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-install-${{ inputs.runner }}
+  cancel-in-progress: false
+
+jobs:
+  acceptance:
+    name: Install and run acceptance on ${{ inputs.runner }}
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out the acceptance script and fixtures
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The README's Windows install assumes uv is already installed.
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: false
+
+      - name: Put uv's tool directory on PATH
+        run: Add-Content -Path $env:GITHUB_PATH -Value "$env:USERPROFILE\.local\bin"
+
+      - name: Install the latest release with the README command
+        run: uv tool install pdomain-ocr-simple-gui --python 3.13 --index-strategy first-index --index pdomain=https://pdomain.github.io/pdomain-index-pip/simple/
+
+      - name: Report the installed environment
+        run: |
+          $toolPython = Join-Path (uv tool dir) "pdomain-ocr-simple-gui\Scripts\python.exe"
+          $code = @'
+          import importlib.metadata as metadata
+          import platform
+          import sys
+
+          import torch
+
+          print("python", platform.python_version(), platform.machine())
+          for name in ("pdomain-ocr-simple-gui", "pdomain-book-tools", "torch", "python-doctr"):
+              print(name, metadata.version(name))
+          print("cuda available", torch.cuda.is_available())
+          opencv = sorted(
+              d.metadata["Name"]
+              for d in metadata.distributions()
+              if d.metadata["Name"].lower().startswith("opencv")
+          )
+          print("opencv distributions", opencv)
+          if opencv != ["opencv-python"]:
+              sys.exit(f"expected only opencv-python, found {opencv}")
+          import cv2
+
+          print("cv2", cv2.__version__)
+          '@
+          $code | & $toolPython -I -
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run the acceptance script against the installed app in Edge
+        run: uv run --no-project --with playwright python -I scripts\windows_acceptance.py --headless --out-dir acceptance-out
+
+      - name: Keep the results, screenshots and server log
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-acceptance-${{ inputs.runner }}
+          path: acceptance-out/
+          if-no-files-found: ignore

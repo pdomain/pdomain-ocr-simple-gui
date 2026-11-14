@@ -432,15 +432,29 @@ _task-build: _task-frontend-build
 # runner: macos-26 (default) or macos-15, both Apple Silicon.
 # Start the manual macOS install test on GitHub Actions and follow it.
 mac-test runner="macos-26":
-    ./scripts/mac-test.sh start "{{ runner }}"
+    ./scripts/install-test.sh macos start "{{ runner }}"
 
 # Follow a macOS install test run; default: the newest one.
 mac-test-watch run="":
-    ./scripts/mac-test.sh watch "{{ run }}"
+    ./scripts/install-test.sh macos watch "{{ run }}"
 
 # Print the failed steps' logs of a macOS install test run; default: the newest one.
 mac-test-logs run="":
-    ./scripts/mac-test.sh logs "{{ run }}"
+    ./scripts/install-test.sh macos logs "{{ run }}"
+
+# It installs the latest release with the README's PowerShell command and runs the acceptance script in Edge.
+# runner: windows-2025 (default) or windows-2022, both x64.
+# Start the manual Windows install test on GitHub Actions and follow it.
+win-test runner="windows-2025":
+    ./scripts/install-test.sh windows start "{{ runner }}"
+
+# Follow a Windows install test run; default: the newest one.
+win-test-watch run="":
+    ./scripts/install-test.sh windows watch "{{ run }}"
+
+# Print the failed steps' logs of a Windows install test run; default: the newest one.
+win-test-logs run="":
+    ./scripts/install-test.sh windows logs "{{ run }}"
 
 [default]
 ci:
