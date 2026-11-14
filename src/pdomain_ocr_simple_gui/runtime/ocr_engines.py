@@ -115,8 +115,9 @@ def detect_doctr() -> OcrEngineStatus:
             reason = f"PyTorch is not installed: {exc}"
         elif sys.platform == "win32":
             reason = (
-                f"PyTorch is installed but could not load ({exc}). Install the Microsoft "
-                f"Visual C++ Redistributable (x64) from {VC_REDIST_URL}, then restart this app."
+                "PyTorch is installed but could not load. Install the Microsoft Visual C++ "
+                f"Redistributable (x64) from {VC_REDIST_URL}, then restart this app. "
+                f"Detail: {exc}"
             )
         else:
             reason = f"PyTorch is installed but could not load: {exc}"
