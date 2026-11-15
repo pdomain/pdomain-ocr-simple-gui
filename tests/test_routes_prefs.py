@@ -200,8 +200,8 @@ class TestPutPrefs:
         assert data["default_engine"] == "doctr"
         assert data["default_language"] == "en"
 
-    async def test_put_no_adapter_returns_200(self, client_no_prefs: AsyncClient) -> None:
-        """PUT /api/prefs with no adapter should still return 200 (best-effort)."""
+    async def test_put_no_adapter_reports_unavailable(self, client_no_prefs: AsyncClient) -> None:
+        """An unavailable store must never report an unsaved change as saved."""
         payload = {
             "default_engine": "doctr",
             "default_language": "en",
@@ -209,7 +209,7 @@ class TestPutPrefs:
             "recent_projects": [],
         }
         resp = await client_no_prefs.put("/api/prefs", json=payload)
-        assert resp.status_code == 200
+        assert resp.status_code == 503
 
     async def test_put_ui_prefs_subset(self, client_with_mock_prefs: AsyncClient) -> None:
         """PUT /api/prefs accepts {ui_prefs: {theme, density, font_scale}} and returns 200."""

@@ -381,6 +381,9 @@ class TestDeleteJob:
             pages=[PageResult(page_idx=0, page_name="page-001", state="succeeded")],
         )
         write_project(spec, status)
+        meta_dir = meta_root / project_id
+        meta_dir.mkdir(parents=True, exist_ok=True)
+        (meta_dir / "output_mode.json").write_text(json.dumps({"mode": "managed"}), encoding="utf-8")
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             # Download works before delete.
@@ -1171,3 +1174,93 @@ class TestJobMetaAtomicWrite:
         matches = [content for dst, content in observed if dst == str(meta_file)]
         assert matches and json.loads(matches[0]) == {"mode": "managed"}
         assert meta_file.read_text(encoding="utf-8") == matches[0]
+
+
+@pytest.mark.parametrize("output_mode", ["legacy", "specified", "next_to_source", "managed"])
+async def test_create_refuses_outputs_in_the_removable_runtime_before_persistence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, async_client: AsyncClient, output_mode: str
+) -> None:
+    import sys
+
+    from pdomain_ocr_simple_gui.routes import jobs
+
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    monkeypatch.setattr(sys, "prefix", str(runtime))
+    unsafe = runtime / "ocr-results"
+    source = tmp_path / "source"
+    if output_mode == "next_to_source":
+        source = runtime / "source"
+    source.mkdir()
+    before = sorted(runtime.iterdir())
+    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_OUTPUT_ROOT", str(unsafe))
+    persist = MagicMock()
+    metadata = MagicMock()
+    enqueue = MagicMock()
+    monkeypatch.setattr(jobs, "write_project", persist)
+    monkeypatch.setattr(jobs, "_write_job_meta", metadata)
+    monkeypatch.setattr(jobs, "_pipeline_run_job_with_semaphore", enqueue)
+    body: dict[str, object] = {**JOB_PAYLOAD, "source_path": str(source), "output_dir": str(unsafe)}
+    if output_mode != "legacy":
+        body["output"] = {"mode": output_mode, "path": str(unsafe)}
+    response = await async_client.post("/api/jobs", json=body)
+    assert response.status_code == 400
+    assert "outside" in response.json()["detail"]
+    assert sorted(runtime.iterdir()) == before
+    persist.assert_not_called()
+    metadata.assert_not_called()
+    enqueue.assert_not_called()
+
+
+@pytest.mark.parametrize("alias", ["parent-components", "symlink"])
+async def test_legacy_output_alias_into_runtime_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, async_client: AsyncClient, alias: str
+) -> None:
+    import sys
+
+    from pdomain_ocr_simple_gui.routes import jobs
+
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    monkeypatch.setattr(sys, "prefix", str(runtime))
+    if alias == "symlink":
+        root = tmp_path / "runtime-alias"
+        root.symlink_to(runtime, target_is_directory=True)
+        target = root / "outputs"
+    else:
+        target = tmp_path / "unused/../runtime/outputs"
+    persist = MagicMock()
+    monkeypatch.setattr(jobs, "write_project", persist)
+    response = await async_client.post("/api/jobs", json={**JOB_PAYLOAD, "output_dir": str(target)})
+    assert response.status_code == 400
+    assert "outside" in response.json()["detail"]
+    assert list(runtime.iterdir()) == []
+    persist.assert_not_called()
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+async def test_malformed_output_choice_returns_400_before_persistence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, async_client: AsyncClient, legacy: bool
+) -> None:
+    from pdomain_ocr_simple_gui.routes import jobs
+
+    source = tmp_path / "source"
+    source.mkdir()
+    persist = MagicMock()
+    metadata = MagicMock()
+    enqueue = MagicMock()
+    monkeypatch.setattr(jobs, "write_project", persist)
+    monkeypatch.setattr(jobs, "_write_job_meta", metadata)
+    monkeypatch.setattr(jobs, "_pipeline_run_job_with_semaphore", enqueue)
+    body: dict[str, object] = {**JOB_PAYLOAD, "source_path": str(source)}
+    bad = str(tmp_path / "bad\0output")
+    if legacy:
+        body["output_dir"] = bad
+    else:
+        body["output"] = {"mode": "specified", "path": bad}
+    response = await async_client.post("/api/jobs", json=body)
+    assert response.status_code == 400
+    assert "resolve" in response.json()["detail"]
+    persist.assert_not_called()
+    metadata.assert_not_called()
+    enqueue.assert_not_called()

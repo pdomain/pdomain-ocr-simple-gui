@@ -27,7 +27,6 @@ router = APIRouter()
 # ``upload-`` prefix. Bans dots, slashes, and percent-encoded traversal.
 _UPLOAD_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
-_DEFAULT_ROOT = Path.home() / ".local/share/pdomain-ocr-simple-gui/uploads"
 _DEFAULT_MAX_BYTES = 2 * 1024**3  # 2 GiB total per request
 _DEFAULT_MAX_FILES = 5000
 
@@ -53,8 +52,9 @@ def _open_staged(path: Path) -> tuple[int, Path]:
 
 def _upload_root() -> Path:
     """Return (and create) the staging root directory for uploads."""
-    raw = os.environ.get("PD_OCR_SIMPLE_GUI_UPLOAD_ROOT")
-    root = Path(raw) if raw else _DEFAULT_ROOT
+    from pdomain_ocr_simple_gui.locations import get_locations
+
+    root = get_locations().uploads_root
     root.mkdir(parents=True, exist_ok=True)
     return root
 

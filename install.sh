@@ -104,11 +104,36 @@ _MARKER="$_MARKER_DIR/uv-installed-by-installer"
 # ---------------------------------------------------------------------------
 # Install uv if not already present -- with a confirmation gate.
 # ---------------------------------------------------------------------------
+_UV_BIN_DIR="${UV_UNMANAGED_INSTALL:-${UV_INSTALL_DIR:-${XDG_BIN_HOME:-${XDG_DATA_HOME:+$XDG_DATA_HOME/../bin}}}}"
+_UV_BIN_DIR="${_UV_BIN_DIR:-$HOME/.local/bin}"
+if ! command -v uv >/dev/null 2>&1 && [ -x "$_UV_BIN_DIR/uv" ]; then
+    export PATH="$_UV_BIN_DIR:$PATH"
+fi
+
+bootstrap_uv() (
+    # Materialize the downloader output so a failed curl cannot be hidden by
+    # a successful shell. Keep cleanup local to this bootstrap operation.
+    _UV_BOOTSTRAP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/pdomain-uv-bootstrap.XXXXXX") || return "$?"
+    trap 'rm -rf "$_UV_BOOTSTRAP_DIR"' 0
+    trap 'exit 129' HUP
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    curl -LsSf https://astral.sh/uv/install.sh -o "$_UV_BOOTSTRAP_DIR/install.sh" || return "$?"
+    UV_INSTALL_DIR="$_UV_BIN_DIR" UV_NO_MODIFY_PATH=1 sh "$_UV_BOOTSTRAP_DIR/install.sh" || return "$?"
+    if [ ! -x "$_UV_BIN_DIR/uv" ] || ! "$_UV_BIN_DIR/uv" --version >/dev/null 2>&1; then
+        printf '%s\n' "The uv installer did not provide a working executable at $_UV_BIN_DIR/uv." >&2
+        return 1
+    fi
+)
+
 if ! command -v uv >/dev/null 2>&1; then
     if prompt_yn "uv is not installed. Install it now via astral.sh/uv/install.sh?" "Y"; then
         echo "Installing uv..."
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        export PATH="$HOME/.local/bin:$PATH"
+        if ! bootstrap_uv; then
+            printf '%s\n' 'uv installation failed. Fix the error above and retry this installer.' >&2
+            exit 1
+        fi
+        export PATH="$_UV_BIN_DIR:$PATH"
         # Record that this installer bootstrapped uv
         mkdir -p "$_MARKER_DIR"
         touch "$_MARKER"
@@ -223,38 +248,57 @@ fi
 WHEEL_URL=""
 RELEASE_TAG=""
 
-if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-    echo "Resolving latest release (gh detected)..."
-    # `gh release view --json` returns assets with their download URLs.
-    RELEASE_JSON=$(gh release view --repo "$REPO" --json tagName,assets 2>/dev/null || true)
-    if [ -n "$RELEASE_JSON" ]; then
-        RELEASE_TAG=$(printf '%s' "$RELEASE_JSON" | grep -o '"tagName":"[^"]*"' | head -1 | sed 's/.*"tagName":"\([^"]*\)".*/\1/')
-        # Pull the first .whl asset's URL.
-        WHEEL_URL=$(printf '%s' "$RELEASE_JSON" |
-            tr ',' '\n' |
-            grep -o '"url":"[^"]*\.whl"' |
-            head -1 |
-            sed 's/.*"url":"\([^"]*\)".*/\1/')
-    fi
-fi
-
-if [ -z "$WHEEL_URL" ]; then
-    echo "Resolving latest release via GitHub API..."
-    RELEASE_JSON=$(curl -sSfL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null || true)
-    if [ -z "$RELEASE_JSON" ]; then
-        echo "Could not query the GitHub Releases API for ${REPO}." >&2
-        echo "   Check your network, or install manually with:" >&2
-        echo "     uv tool install git+https://github.com/${REPO}" >&2
+RELEASE_JSON=""
+if [ -n "${PD_SIMPLE_GUI_INSTALL_WHEEL:-}" ]; then
+    case "$PD_SIMPLE_GUI_INSTALL_WHEEL" in
+        /*.whl) ;;
+        *)
+            echo "Bundled wheel must be an absolute .whl path." >&2
+            exit 1
+            ;;
+    esac
+    if [ ! -f "$PD_SIMPLE_GUI_INSTALL_WHEEL" ]; then
+        echo "Bundled wheel does not exist: $PD_SIMPLE_GUI_INSTALL_WHEEL" >&2
         exit 1
     fi
-    RELEASE_TAG=$(printf '%s' "$RELEASE_JSON" |
-        grep '"tag_name"' | head -1 |
-        sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
-    WHEEL_URL=$(printf '%s' "$RELEASE_JSON" |
-        grep '"browser_download_url"' |
-        grep '\.whl"' |
-        head -1 |
-        sed 's/.*"browser_download_url": *"\([^"]*\)".*/\1/')
+    WHEEL_URL="$PD_SIMPLE_GUI_INSTALL_WHEEL"
+    RELEASE_TAG="bundled wheel"
+    NO_APPIMAGE=1
+else
+    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+        echo "Resolving latest release (gh detected)..."
+        # `gh release view --json` returns assets with their download URLs.
+        RELEASE_JSON=$(gh release view --repo "$REPO" --json tagName,assets 2>/dev/null || true)
+        if [ -n "$RELEASE_JSON" ]; then
+            RELEASE_TAG=$(printf '%s' "$RELEASE_JSON" | grep -o '"tagName":"[^"]*"' | head -1 | sed 's/.*"tagName":"\([^"]*\)".*/\1/')
+            # Pull the first .whl asset's URL.
+            WHEEL_URL=$(printf '%s' "$RELEASE_JSON" |
+                tr ',' '\n' |
+                grep -o '"url":"[^"]*\.whl"' |
+                head -1 |
+                sed 's/.*"url":"\([^"]*\)".*/\1/')
+        fi
+    fi
+
+    if [ -z "$WHEEL_URL" ]; then
+        echo "Resolving latest release via GitHub API..."
+        RELEASE_JSON=$(curl -sSfL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null || true)
+        if [ -z "$RELEASE_JSON" ]; then
+            echo "Could not query the GitHub Releases API for ${REPO}." >&2
+            echo "   Check your network, or install manually with:" >&2
+            echo "     uv tool install git+https://github.com/${REPO}" >&2
+            exit 1
+        fi
+        RELEASE_TAG=$(printf '%s' "$RELEASE_JSON" |
+            grep '"tag_name"' | head -1 |
+            sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
+        WHEEL_URL=$(printf '%s' "$RELEASE_JSON" |
+            grep '"browser_download_url"' |
+            grep '\.whl"' |
+            head -1 |
+            sed 's/.*"browser_download_url": *"\([^"]*\)".*/\1/')
+    fi
+
 fi
 
 if [ -z "$WHEEL_URL" ]; then
@@ -365,11 +409,15 @@ echo "Downloading wheel..."
 # `gh` asset URLs (api.github.com/repos/.../assets/<id>) require an Accept
 # header to receive the binary; public browser_download_url variants do not.
 # Sending the header for both forms is harmless.
-if ! curl -sSfL \
-    -H "Accept: application/octet-stream" \
-    -o "$WHEEL_FILE" "$WHEEL_URL"; then
-    echo "Failed to download wheel from ${WHEEL_URL}" >&2
-    exit 1
+if [ -n "${PD_SIMPLE_GUI_INSTALL_WHEEL:-}" ]; then
+    cp "$PD_SIMPLE_GUI_INSTALL_WHEEL" "$WHEEL_FILE"
+else
+    if ! curl -sSfL \
+        -H "Accept: application/octet-stream" \
+        -o "$WHEEL_FILE" "$WHEEL_URL"; then
+        echo "Failed to download wheel from ${WHEEL_URL}" >&2
+        exit 1
+    fi
 fi
 
 # ---------------------------------------------------------------------------

@@ -7,9 +7,8 @@ server subprocess orphaned by a previously-killed ``pytest -n auto`` run -- the
 next ``read()``/``write_app()`` raises ``PrefsLockTimeout`` after the timeout
 instead of blocking forever.
 
-``GET``/``PUT /api/prefs`` must catch ``PrefsLockTimeout`` and degrade
-gracefully (GET → defaults, PUT → log + still return the merged payload)
-rather than surfacing a raw 500 to the caller.
+``GET`` returns defaults on contention; ``PUT`` reports a retryable failure
+without claiming an unsaved change succeeded.
 """
 
 from __future__ import annotations
@@ -74,15 +73,10 @@ async def test_get_prefs_returns_defaults_when_lock_held(
 
 
 @pytest.mark.asyncio
-async def test_put_prefs_returns_success_when_lock_held(
+async def test_put_prefs_reports_retryable_failure_when_lock_held(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """PUT /api/prefs returns 200 promptly when the prefs lock is held.
-
-    The write degrades gracefully (lock contention is logged, merged payload is
-    returned) instead of raising a 500. The caller receives the merged prefs so
-    the UI can stay consistent even though the write was not persisted.
-    """
+    """Report an unsaved change promptly when the preferences lock is held."""
     from pdomain_ops.suite.prefs import LocalFilePrefs
 
     import pdomain_ocr_simple_gui.app as app_mod
@@ -104,27 +98,26 @@ async def test_put_prefs_returns_success_when_lock_held(
             )
             elapsed = time.monotonic() - start
 
-        assert resp.status_code == 200, f"expected 200, got {resp.status_code}: {resp.text}"
+        assert resp.status_code == 503, f"expected 503, got {resp.status_code}: {resp.text}"
         assert elapsed < 10.0, f"PUT /api/prefs blocked {elapsed:.1f}s on a held lock"
-        # The merged payload should reflect the requested change
-        assert resp.json()["default_engine"] == "tesseract"
+        assert "saved" in resp.json()["detail"].lower()
     finally:
         holder.kill()
         holder.wait()
 
 
 @pytest.mark.asyncio
-async def test_lifespan_wires_local_file_prefs(monkeypatch: pytest.MonkeyPatch) -> None:
-    """App startup wires LocalFilePrefs directly (no more TimeoutBoundedPrefs wrapper)."""
+async def test_lifespan_wires_app_owned_preferences(monkeypatch: pytest.MonkeyPatch) -> None:
+    """App startup separates app preferences from shared suite preferences."""
     from fastapi import FastAPI
-    from pdomain_ops.suite.prefs import LocalFilePrefs
 
     import pdomain_ocr_simple_gui.app as app_mod
     from pdomain_ocr_simple_gui.app import lifespan
+    from pdomain_ocr_simple_gui.app_preferences import AppPrefsAdapterProxy
 
     monkeypatch.setenv("PDOMAIN_OCR_FAKE_DISPATCHER", "1")
     async with lifespan(FastAPI()):
         adapter = app_mod.get_prefs_adapter()
-        assert isinstance(adapter, LocalFilePrefs), (
-            f"lifespan must wire LocalFilePrefs, got {type(adapter).__name__}"
+        assert isinstance(adapter, AppPrefsAdapterProxy), (
+            f"lifespan must wire app-owned preferences, got {type(adapter).__name__}"
         )

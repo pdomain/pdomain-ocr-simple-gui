@@ -21,6 +21,8 @@ dependencies = [
     "pydantic>=2.13",
     "pydantic-settings>=2.15",
     "aiofiles>=25.1",
+    "filelock>=3.18",
+    "platformdirs>=4.14",
     "python-multipart>=0.0.29",
     "typing-extensions>=4.16",
     "python-statemachine>=3.2.1",
@@ -28,6 +30,9 @@ dependencies = [
 
 [project.scripts]
 pdomain-ocr-simple-gui = "pdomain_ocr_simple_gui.__main__:main"
+
+[project.gui-scripts]
+pdomain-ocr-simple-gui-desktop = "pdomain_ocr_simple_gui.desktop:main"
 
 [project.urls]
 Homepage = "https://github.com/pdomain/pdomain-ocr-simple-gui"
@@ -170,7 +175,7 @@ convention = "google"
 "src/pdomain_ocr_simple_gui/__main__.py" = ["ANN", "D", "T201"]
 
 [tool.basedpyright]
-include = ["src", "tests", "installer", "scripts/windows_acceptance.py"]
+include = ["src", "tests", "installer", "scripts/windows_acceptance.py", "scripts/macos_native_acceptance.py"]
 exclude = ["**/__pycache__", "**/.venv", "**/node_modules"]
 typeCheckingMode = "recommended"
 failOnWarnings = true

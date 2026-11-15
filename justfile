@@ -144,7 +144,7 @@ typecheck:
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ -n "${AI:-}" ]]; then exec just --quiet _ai typecheck; fi
-    uv run basedpyright src/pdomain_ocr_simple_gui installer/
+    uv run basedpyright src/pdomain_ocr_simple_gui installer/ scripts/windows_acceptance.py scripts/macos_native_acceptance.py
 
 pre-commit-check:
     #!/usr/bin/env bash

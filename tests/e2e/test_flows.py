@@ -37,8 +37,10 @@ from pathlib import Path
 import httpx
 import pytest
 from playwright.sync_api import Page, expect
+from pydantic import TypeAdapter
 
 pytestmark = [pytest.mark.slow, pytest.mark.e2e]
+_OBJECT_ADAPTER = TypeAdapter(dict[str, object])
 
 # Minimal valid 1x1 greyscale PNG
 _PNG_1X1 = (
@@ -82,12 +84,12 @@ def _wait_for_terminal_job_state(base_url: str, project_id: str, timeout: float 
     raise TimeoutError(f"job {project_id} not terminal after {timeout}s; last state {body.get('state')!r}")
 
 
-def _read_prefs_file(e2e_data_root: Path) -> dict:
-    """Read ui-prefs.json; return empty dict if absent."""
-    p = e2e_data_root / "suite_data" / "ui-prefs.json"
-    if not p.exists():
+def _read_app_prefs(preferences_path: Path) -> dict[str, object]:
+    """Read the app section; return empty when no preference file exists."""
+    if not preferences_path.exists():
         return {}
-    return json.loads(p.read_text(encoding="utf-8"))
+    payload = _OBJECT_ADAPTER.validate_json(preferences_path.read_text(encoding="utf-8"))
+    return _OBJECT_ADAPTER.validate_python(payload.get("app", {}))
 
 
 # F-UPLOAD-OCR-DOWNLOAD-01 — Upload, run OCR, review results, edit, download
@@ -305,7 +307,7 @@ def test_rerun_preserves_edit_flow(
 def test_prefs_roundtrip_flow(
     page: Page,
     live_server_url: str,
-    e2e_data_root: Path,
+    e2e_default_preferences_path: Path,
 ) -> None:
     """Covers: F-PREFS-ROUNDTRIP-01
 
@@ -322,8 +324,7 @@ def test_prefs_roundtrip_flow(
     End state:
     - data-theme="light" on documentElement after reload.
     - data-density="compact" on app-shell element after reload.
-    - ui-prefs.json on disk has apps.pdomain-ocr-simple-gui.ui_prefs.theme="light"
-      and ...density="compact".
+    - preferences.json on disk has app.ui_prefs.theme="light" and density="compact".
     - Settings modal is closed; no toast error.
 
     Bad-state: PUT /api/prefs 500 → sonner toast (tested in test_click_paths_app_shell).
@@ -369,10 +370,8 @@ def test_prefs_roundtrip_flow(
         f"Expected density='compact' in GET /api/prefs; got: {prefs!r}"
     )
 
-    # On-disk: ui-prefs.json carries both values.
-    disk_prefs = _read_prefs_file(e2e_data_root)
-    app_disk = disk_prefs.get("apps", {}).get("pdomain-ocr-simple-gui", {})
-    ui_disk = app_disk.get("ui_prefs", {})
+    disk_prefs = _read_app_prefs(e2e_default_preferences_path)
+    ui_disk = _OBJECT_ADAPTER.validate_python(disk_prefs.get("ui_prefs", {}))
     assert ui_disk.get("theme") == "light", f"Expected theme='light' on disk; got: {disk_prefs!r}"
     assert ui_disk.get("density") == "compact", f"Expected density='compact' on disk; got: {disk_prefs!r}"
 

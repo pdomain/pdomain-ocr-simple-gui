@@ -17,8 +17,14 @@ from pydantic import BaseModel
 
 from pdomain_ocr_simple_gui.auth import require_token
 from pdomain_ocr_simple_gui.constants import APP_ID as _APP_ID
+from pdomain_ocr_simple_gui.locations import get_locations
 from pdomain_ocr_simple_gui.models import AppPrefs, PageResult, ProjectSpec, ProjectStatus
-from pdomain_ocr_simple_gui.output.config import OutputConfig, OutputConfigError, resolve_output_dir
+from pdomain_ocr_simple_gui.output.config import (
+    OutputConfig,
+    OutputConfigError,
+    resolve_output_dir,
+    validate_output_destination,
+)
 from pdomain_ocr_simple_gui.pipeline import NO_IMAGES_ERROR, collect_images, run_project
 from pdomain_ocr_simple_gui.runtime.mode import Mode, read_mode
 from pdomain_ocr_simple_gui.runtime.ocr_engines import (
@@ -65,16 +71,14 @@ def _max_concurrent_jobs() -> int:
 # Module-level semaphore — monkeypatch target for tests.
 _job_semaphore: asyncio.Semaphore = asyncio.Semaphore(_max_concurrent_jobs())
 
-_DEFAULT_OUTPUT_ROOT = Path.home() / ".local/share/pdomain-ocr-simple-gui/outputs"
-_DEFAULT_UPLOAD_ROOT = Path.home() / ".local/share/pdomain-ocr-simple-gui/uploads"
-_DEFAULT_JOBS_META_ROOT = Path.home() / ".local/share/pdomain-ocr-simple-gui/jobs"
 ApiJobState = Literal["queued", "running", "succeeded", "failed", "cancelled"]
 
 
 def _jobs_meta_root() -> Path:
     """Return the root for per-job sidecar metadata files (PD_OCR_SIMPLE_GUI_JOBS_META_ROOT)."""
-    raw = os.environ.get("PD_OCR_SIMPLE_GUI_JOBS_META_ROOT")
-    root = Path(raw) if raw else _DEFAULT_JOBS_META_ROOT
+    from pdomain_ocr_simple_gui.locations import get_locations
+
+    root = get_locations().jobs_root
     root.mkdir(parents=True, exist_ok=True)
     return root
 
@@ -110,16 +114,18 @@ def _read_job_meta_output_mode(job_id: str) -> str | None:
 
 def _managed_output_root() -> Path:
     """Return the server-managed output root directory (PD_OCR_SIMPLE_GUI_OUTPUT_ROOT)."""
-    raw = os.environ.get("PD_OCR_SIMPLE_GUI_OUTPUT_ROOT")
-    root = Path(raw) if raw else _DEFAULT_OUTPUT_ROOT
+    from pdomain_ocr_simple_gui.locations import get_locations
+
+    root = get_locations().outputs_root
     root.mkdir(parents=True, exist_ok=True)
     return root
 
 
 def _upload_root() -> Path:
     """Return the upload staging root directory (PD_OCR_SIMPLE_GUI_UPLOAD_ROOT)."""
-    raw = os.environ.get("PD_OCR_SIMPLE_GUI_UPLOAD_ROOT")
-    root = Path(raw) if raw else _DEFAULT_UPLOAD_ROOT
+    from pdomain_ocr_simple_gui.locations import get_locations
+
+    root = get_locations().uploads_root
     root.mkdir(parents=True, exist_ok=True)
     return root
 
@@ -312,7 +318,7 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
                     body.output,
                     mode=mode,
                     source_dir=Path(source_dir_str),
-                    managed_root=_managed_output_root(),
+                    managed_root=get_locations().outputs_root,
                     job_id=project_id,
                     source_is_folder=source_is_folder,
                 )
@@ -324,7 +330,12 @@ async def create_job(body: CreateJobRequest, background_tasks: BackgroundTasks) 
         else:
             # Legacy path: source_path and output_dir are used as-is.
             resolved_source_path = body.source_path
-            resolved_output_dir = body.output_dir
+            try:
+                if body.output_dir:
+                    validate_output_destination(Path(body.output_dir))
+                resolved_output_dir = body.output_dir
+            except OutputConfigError as exc:
+                raise HTTPException(status_code=400, detail=f"output: {exc}") from exc
 
         spec = ProjectSpec(
             project_id=project_id,
@@ -400,22 +411,38 @@ def _delete_job_meta(job_id: str) -> None:
         shutil.rmtree(meta_dir, ignore_errors=True)
 
 
-def _delete_output_mirror(output_dir: str) -> None:
-    """Remove the user-visible output mirror dir (spec.output_dir). Best-effort.
-
-    The mirror is what ``GET /api/jobs/{id}/download`` streams; leaving it
-    behind on delete meant a deleted job's ZIP was still downloadable
-    (B-RESULTS-014). Guarded so we never rmtree an empty/unset path or one
-    outside the managed output root unintentionally.
-    """
+def _delete_output_mirror(project_id: str, output_dir: str, output_mode: str | None) -> None:
+    """Remove a verified app-managed output mirror. Best-effort."""
     import shutil
 
-    if not output_dir:
+    if output_mode != "managed" or not output_dir:
         return
+
+    managed_root = _managed_output_root()
     mirror = Path(output_dir)
-    # Only remove a directory that exists; a stray file path is left alone.
-    if mirror.is_dir():
-        shutil.rmtree(mirror, ignore_errors=True)
+    expected_mirror = managed_root / project_id
+    if (
+        managed_root.is_symlink()
+        or expected_mirror.is_symlink()
+        or mirror.is_symlink()
+        or not mirror.is_dir()
+    ):
+        return
+
+    try:
+        managed_root_resolved = managed_root.resolve(strict=True)
+        mirror_resolved = mirror.resolve(strict=True)
+        expected_mirror_resolved = expected_mirror.resolve(strict=True)
+    except OSError:
+        return
+
+    if (
+        mirror_resolved != expected_mirror_resolved
+        or mirror_resolved == managed_root_resolved
+        or managed_root_resolved not in mirror_resolved.parents
+    ):
+        return
+    shutil.rmtree(mirror, ignore_errors=True)
 
 
 @router.delete("/{project_id}", response_class=Response, dependencies=[Depends(require_token)])
@@ -440,11 +467,13 @@ async def delete_job(project_id: str) -> Response:
     if not proj_dir.exists():
         return Response(status_code=204)
 
-    # Read the spec (for output_dir) BEFORE rmtree removes project.json.
+    # Read the spec and mode before rmtree removes the project and its sidecar.
     output_dir = ""
+    output_mode: str | None = None
     try:
         spec, _ = read_project(project_id)
         output_dir = spec.output_dir
+        output_mode = _read_job_meta_output_mode(project_id)
     except FileNotFoundError:
         # No readable spec — canonical dir exists but project.json is gone;
         # we can still remove the canonical dir + meta below.
@@ -456,7 +485,7 @@ async def delete_job(project_id: str) -> Response:
     # Remove from recent_projects in prefs (best-effort)
     await _remove_from_recent_projects(project_id)
     delete_project(project_id)
-    _delete_output_mirror(output_dir)
+    _delete_output_mirror(project_id, output_dir, output_mode)
     _delete_job_meta(project_id)
     return Response(status_code=200, content='{"status": "deleted"}', media_type="application/json")
 

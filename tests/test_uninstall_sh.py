@@ -8,9 +8,37 @@ REPO = Path(__file__).resolve().parents[1]
 UNINSTALL_SH = REPO / "uninstall.sh"
 
 
-# ---------------------------------------------------------------------------
-# Static assertions -- no network, no actual uninstall.
-# ---------------------------------------------------------------------------
+def _write_executable(path: Path, body: str) -> None:
+    _ = path.write_text(f"#!/bin/sh\nset -eu\n{body}\n", encoding="utf-8")
+    _ = path.chmod(0o755)
+
+
+def _fake_environment(tmp_path: Path, *, with_uv: bool = True) -> tuple[dict[str, str], Path, Path]:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    call_log = tmp_path / "calls.log"
+    app = bin_dir / "pdomain-ocr-simple-gui"
+    _write_executable(app, f'printf "app %s\\n" "$*" >> "{call_log}"')
+    if with_uv:
+        uv = bin_dir / "uv"
+        _write_executable(uv, f'printf "uv %s\\n" "$*" >> "{call_log}"')
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
+    env["HOME"] = str(tmp_path / "home")
+    env["XDG_DATA_HOME"] = str(tmp_path / "data")
+    return env, call_log, app
+
+
+def _run_uninstall(tmp_path: Path, env: dict[str, str], *args: str) -> subprocess.CompletedProcess[str]:
+    shell = os.environ.get("UNINSTALL_TEST_SHELL", "sh")
+    return subprocess.run(
+        [shell, str(UNINSTALL_SH), *args],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
 
 
 def test_uninstall_sh_exists() -> None:
@@ -21,18 +49,13 @@ def test_uninstall_sh_is_executable() -> None:
     assert os.access(UNINSTALL_SH, os.X_OK), "uninstall.sh is not executable"
 
 
-def test_uninstall_sh_shebang() -> None:
-    first_line = UNINSTALL_SH.read_text(encoding="utf-8").splitlines()[0]
-    assert first_line == "#!/bin/sh", f"Bad shebang: {first_line!r}"
-
-
-def test_uninstall_sh_set_e() -> None:
+def test_uninstall_sh_is_posix_strict() -> None:
     content = UNINSTALL_SH.read_text(encoding="utf-8")
-    assert "set -e" in content, "uninstall.sh must contain 'set -e'"
+    assert content.startswith("#!/bin/sh\nset -eu\n")
 
 
 def test_uninstall_sh_syntax() -> None:
-    """sh -n is a pure-syntax pass; never executes the script."""
+    """sh -n is a pure-syntax pass; it never executes the script."""
     result = subprocess.run(
         ["sh", "-n", str(UNINSTALL_SH)],
         capture_output=True,
@@ -43,214 +66,102 @@ def test_uninstall_sh_syntax() -> None:
 
 
 def test_uninstall_sh_no_bashisms() -> None:
-    """Grep for common bashisms that are not valid POSIX sh."""
     content = UNINSTALL_SH.read_text(encoding="utf-8")
     assert "=(" not in content, "uninstall.sh uses bash array syntax '=('"
     assert "[[" not in content, "uninstall.sh uses bash double-bracket '[['"
 
 
-# ---------------------------------------------------------------------------
-# TTY / gate mechanism assertions (static grep)
-# ---------------------------------------------------------------------------
-
-
-def test_uninstall_sh_tty_detection_uses_dev_tty() -> None:
-    """Gate reads from /dev/tty, not stdin, so curl-pipe works."""
+def test_uninstall_sh_uses_controlling_terminal_for_confirmation() -> None:
     content = UNINSTALL_SH.read_text(encoding="utf-8")
-    assert "/dev/tty" in content, "uninstall.sh must reference /dev/tty for terminal detection"
+    assert "exec 3</dev/tty" in content
+    assert 'sh -c "exec 3</dev/tty"' in content
+    assert "read -r answer <&3" in content
 
 
-def test_uninstall_sh_tty_detection_exec_style() -> None:
-    """Must use exec 3</dev/tty style; must not use [ -t 0 ] outside of comments."""
+def test_uninstall_sh_never_removes_uv() -> None:
     content = UNINSTALL_SH.read_text(encoding="utf-8")
-    assert "exec 3</dev/tty" in content, "uninstall.sh must use 'exec 3</dev/tty' for TTY detection"
-    # [ -t 0 ] must not appear as actual sh code (comments are fine)
-    non_comment_lines = [line for line in content.splitlines() if not line.lstrip().startswith("#")]
-    assert not any("[ -t 0 ]" in line for line in non_comment_lines), (
-        "uninstall.sh must NOT use [ -t 0 ] in executable code (false under curl|sh)"
-    )
-    # Must use the subshell-probe pattern for dash-compatible TTY detection
-    assert 'sh -c "exec 3</dev/tty"' in content, (
-        "uninstall.sh must probe /dev/tty in a subshell for dash compatibility"
-    )
+    assert "uv self uninstall" not in content
+    assert "uv-installed-by-installer" not in content
+    assert "Keeping uv, its Python installations, and other uv tools." in content
 
 
-def test_uninstall_sh_read_from_fd3() -> None:
-    """Gate reads answer from fd 3 (the /dev/tty fd)."""
+def test_uninstall_sh_documents_actual_data_locations_and_overrides() -> None:
     content = UNINSTALL_SH.read_text(encoding="utf-8")
-    assert "read _ans <&3" in content, "uninstall.sh must read answer from fd 3"
+    assert "pdomain-suite/simple-gui/projects" in content
+    assert "PD_OCR_SIMPLE_GUI_PROJECTS_ROOT" in content
+    assert "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT" in content
+    assert "PD_OCR_SIMPLE_GUI_UPLOAD_ROOT" in content
+    assert "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT" in content
+    assert "rm -rf" not in content
 
 
-def test_uninstall_sh_assume_yes_flag() -> None:
-    """Must support -y / --yes flag and ASSUME_YES env var."""
-    content = UNINSTALL_SH.read_text(encoding="utf-8")
-    assert "ASSUME_YES" in content, "uninstall.sh must support ASSUME_YES env var"
-    assert "-y|--yes" in content, "uninstall.sh must parse -y/--yes flag"
-    assert '[ "$ASSUME_YES" = "1" ]' in content, "uninstall.sh must gate on ASSUME_YES=1"
+def test_uninstall_sh_cancel_has_no_side_effects(tmp_path: Path) -> None:
+    env, call_log, _ = _fake_environment(tmp_path)
+
+    result = _run_uninstall(tmp_path, env)
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    assert not call_log.exists(), call_log.read_text(encoding="utf-8")
+    assert "No changes were made." in result.stdout
 
 
-# ---------------------------------------------------------------------------
-# Step content assertions (static grep)
-# ---------------------------------------------------------------------------
+def test_uninstall_sh_yes_removes_only_the_app_and_preserves_uv(tmp_path: Path) -> None:
+    env, call_log, _ = _fake_environment(tmp_path)
 
-
-def test_uninstall_sh_calls_remove_desktop_shortcut() -> None:
-    """Must call --remove-desktop-shortcut on the app (best-effort)."""
-    content = UNINSTALL_SH.read_text(encoding="utf-8")
-    assert "--remove-desktop-shortcut" in content, (
-        "uninstall.sh must call pdomain-ocr-simple-gui --remove-desktop-shortcut"
-    )
-
-
-def test_uninstall_sh_calls_unregister_suite() -> None:
-    """Must call --unregister-suite on the app (best-effort)."""
-    content = UNINSTALL_SH.read_text(encoding="utf-8")
-    assert "--unregister-suite" in content, "uninstall.sh must call pdomain-ocr-simple-gui --unregister-suite"
-
-
-def test_uninstall_sh_suite_registry_note() -> None:
-    """Must mention installed.toml so user can hand-edit if needed."""
-    content = UNINSTALL_SH.read_text(encoding="utf-8")
-    assert "installed.toml" in content, "uninstall.sh must mention installed.toml for manual registry editing"
-
-
-def test_uninstall_sh_uv_tool_uninstall() -> None:
-    """Must call uv tool uninstall pdomain-ocr-simple-gui."""
-    content = UNINSTALL_SH.read_text(encoding="utf-8")
-    assert "uv tool uninstall pdomain-ocr-simple-gui" in content, (
-        "uninstall.sh must call 'uv tool uninstall pdomain-ocr-simple-gui'"
-    )
-
-
-def test_uninstall_sh_remove_app_gate() -> None:
-    """Must gate tool removal with prompt_yn."""
-    content = UNINSTALL_SH.read_text(encoding="utf-8")
-    assert 'prompt_yn "Remove pdomain-ocr-simple-gui?" "Y"' in content, (
-        "uninstall.sh must gate uv tool uninstall with prompt_yn 'Remove pdomain-ocr-simple-gui?'"
-    )
-
-
-def test_uninstall_sh_uv_marker_aware() -> None:
-    """Must check the uv-installed-by-installer marker for context-aware default."""
-    content = UNINSTALL_SH.read_text(encoding="utf-8")
-    assert "uv-installed-by-installer" in content, (
-        "uninstall.sh must check the uv-installed-by-installer marker"
-    )
-
-
-def test_uninstall_sh_uv_removal_default_n_when_marker_present() -> None:
-    """When marker is present, default for uv removal prompt must be N.
-
-    Removing uv is destructive to all other uv-managed tools on the system,
-    so N is the safe default even when our installer originally bootstrapped uv.
-    The marker is used only to tailor the message (informing the user uv came
-    from this app's installer), not to change the default to opt-out removal.
-    """
-    content = UNINSTALL_SH.read_text(encoding="utf-8")
-    # Both branches must set _UV_DEFAULT="N"
-    assert '_UV_DEFAULT="Y"' not in content, (
-        "uninstall.sh must NOT default to Y (remove uv) in any branch — "
-        "uv removal is always opt-in (N default) because it is destructive to "
-        "all other uv-managed tools"
-    )
-
-
-def test_uninstall_sh_uv_removal_default_n_both_branches() -> None:
-    """Both marker-present and marker-absent branches must default to N for uv removal."""
-    content = UNINSTALL_SH.read_text(encoding="utf-8")
-    # Count occurrences of _UV_DEFAULT="N" -- must appear at least twice
-    # (once for marker-present branch, once for marker-absent branch)
-    n_default_count = content.count('_UV_DEFAULT="N"')
-    assert n_default_count >= 2, (
-        f"Expected _UV_DEFAULT='N' in both marker-present and marker-absent branches, "
-        f"found {n_default_count} occurrence(s)"
-    )
-
-
-def test_uninstall_sh_uv_self_uninstall() -> None:
-    """Must attempt uv self uninstall."""
-    content = UNINSTALL_SH.read_text(encoding="utf-8")
-    assert "uv self uninstall" in content, "uninstall.sh must attempt 'uv self uninstall'"
-
-
-def test_uninstall_sh_uv_removal_warning() -> None:
-    """Must warn that removing uv affects other tools."""
-    content = UNINSTALL_SH.read_text(encoding="utf-8")
-    assert "other uv-managed tools" in content or "other uv" in content.lower(), (
-        "uninstall.sh must warn that removing uv breaks other uv tools"
-    )
-
-
-def test_uninstall_sh_xcb_cursor_note() -> None:
-    """Must mention the xcb-cursor lib and that it is usually safe to leave."""
-    content = UNINSTALL_SH.read_text(encoding="utf-8")
-    assert "xcb-cursor" in content or "libxcb-cursor" in content, (
-        "uninstall.sh must mention the xcb-cursor system lib in final notes"
-    )
-    assert "system package" in content or "package manager" in content or "package" in content, (
-        "uninstall.sh must note that the xcb-cursor lib is a system package"
-    )
-
-
-def test_uninstall_sh_model_cache_note() -> None:
-    """Must mention where OCR model caches can be found."""
-    content = UNINSTALL_SH.read_text(encoding="utf-8")
-    assert "doctr" in content.lower() or "model" in content.lower(), (
-        "uninstall.sh must mention model cache paths in final notes"
-    )
-    assert ".cache" in content, "uninstall.sh must mention ~/.cache paths for model weights"
-
-
-# ---------------------------------------------------------------------------
-# Integration smoke -- fake environment, ASSUME_YES=1, no real uninstall.
-# ---------------------------------------------------------------------------
-
-
-def test_uninstall_sh_runs_end_to_end(tmp_path: Path) -> None:
-    """Run uninstall.sh in a fake env with ASSUME_YES; verify expected calls."""
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    call_log = tmp_path / "calls.log"
-
-    # Fake pdomain-ocr-simple-gui: log flags and exit 0
-    (bin_dir / "pdomain-ocr-simple-gui").write_text(
-        f"#!/bin/sh\nprintf 'pdomain-ocr-simple-gui %s\\n' \"$@\" >> {call_log}\nexit 0\n",
-        encoding="utf-8",
-    )
-    (bin_dir / "pdomain-ocr-simple-gui").chmod(0o755)
-
-    # Fake uv: log args and exit 0; uv self uninstall also exits 0
-    (bin_dir / "uv").write_text(
-        f"#!/bin/sh\nprintf 'uv %s\\n' \"$@\" >> {call_log}\nexit 0\n",
-        encoding="utf-8",
-    )
-    (bin_dir / "uv").chmod(0o755)
-
-    env = os.environ.copy()
-    env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
-    env["ASSUME_YES"] = "1"
-    env["HOME"] = str(tmp_path)
-    env["XDG_DATA_HOME"] = str(tmp_path / ".local" / "share")
-
-    result = subprocess.run(
-        ["sh", str(UNINSTALL_SH)],
-        cwd=tmp_path,
-        env=env,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    result = _run_uninstall(tmp_path, env, "-y")
 
     assert result.returncode == 0, result.stderr + result.stdout
     log = call_log.read_text(encoding="utf-8")
+    assert "app --remove-desktop-shortcut" in log
+    assert "app --unregister-suite" in log
+    assert "uv tool uninstall pdomain-ocr-simple-gui" in log
+    assert "uv self uninstall" not in log
+    assert "Keeping uv, its Python installations, and other uv tools." in result.stdout
 
-    # Must have called --remove-desktop-shortcut
-    assert "--remove-desktop-shortcut" in log, f"Expected --remove-desktop-shortcut in calls; got:\n{log}"
 
-    # Must have called --unregister-suite
-    assert "--unregister-suite" in log, f"Expected --unregister-suite in calls; got:\n{log}"
+def test_uninstall_sh_headless_mode_does_not_mutate(tmp_path: Path) -> None:
+    env, call_log, _ = _fake_environment(tmp_path)
 
-    # Must have called uv tool uninstall
-    assert "uv tool uninstall pdomain-ocr-simple-gui" in log or (
-        "tool" in log and "uninstall" in log and "pdomain-ocr-simple-gui" in log
-    ), f"Expected uv tool uninstall in calls; got:\n{log}"
+    result = _run_uninstall(tmp_path, env)
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    assert not call_log.exists(), call_log.read_text(encoding="utf-8")
+
+
+def test_uninstall_sh_handles_absent_uv_without_side_effects(tmp_path: Path) -> None:
+    env, call_log, _ = _fake_environment(tmp_path, with_uv=False)
+    env["ASSUME_YES"] = "1"
+    env["PATH"] = f"{tmp_path / 'bin'}:/usr/bin:/bin"
+
+    result = _run_uninstall(tmp_path, env)
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    assert not call_log.exists(), call_log.read_text(encoding="utf-8")
+    assert "uv is not on PATH" in result.stdout
+
+
+def test_uninstall_sh_propagates_native_shortcut_failure(tmp_path: Path) -> None:
+    env, call_log, app = _fake_environment(tmp_path)
+    _write_executable(app, f'printf "app %s\\n" "$*" >> "{call_log}"\nexit 23')
+    env["ASSUME_YES"] = "1"
+
+    result = _run_uninstall(tmp_path, env)
+
+    assert result.returncode == 23, result.stderr + result.stdout
+    log = call_log.read_text(encoding="utf-8")
+    assert "app --remove-desktop-shortcut" in log
+    assert "uv tool uninstall" not in log
+
+
+def test_uninstall_sh_propagates_uv_failure(tmp_path: Path) -> None:
+    env, call_log, _ = _fake_environment(tmp_path)
+    _write_executable(
+        tmp_path / "bin" / "uv",
+        f'printf "uv %s\\n" "$*" >> "{call_log}"\nexit 37',
+    )
+    env["ASSUME_YES"] = "1"
+
+    result = _run_uninstall(tmp_path, env)
+
+    assert result.returncode == 37, result.stderr + result.stdout
+    assert "uv tool uninstall pdomain-ocr-simple-gui" in call_log.read_text(encoding="utf-8")

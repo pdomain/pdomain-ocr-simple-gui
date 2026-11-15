@@ -30,7 +30,7 @@
 #      prove that a bare double-click works even with no FUSE present.
 #
 # Prerequisites: python3, bash.
-# The resulting .AppImage runs on any Linux x86_64 distro with python3 >= 3.8,
+# The resulting .AppImage runs on any Linux x86_64 distro with python3 >= 3.10,
 # even without FUSE installed.
 
 set -euo pipefail
@@ -38,6 +38,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 OUT_DIR="${REPO_ROOT}/dist"
+BUNDLED_WHEEL=""
 TOOLS_DIR="${REPO_ROOT}/tools"
 APPIMAGETOOL_URL="https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
 # Type2 static runtime — embeds FUSE-less self-extract fallback into the AppImage.
@@ -49,17 +50,31 @@ TYPE2_RUNTIME_URL="https://github.com/AppImage/type2-runtime/releases/download/c
 # ── Parse args ─────────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --out) OUT_DIR="$2"; shift 2 ;;
-        --help|-h) echo "Usage: $0 [--out <dir>]"; exit 0 ;;
-        *) echo "Unknown option: $1"; exit 1 ;;
+        --out)
+            OUT_DIR="$2"
+            shift 2
+            ;;
+        --wheel)
+            BUNDLED_WHEEL="$2"
+            shift 2
+            ;;
+        --help | -h)
+            echo "Usage: $0 [--out <dir>] [--wheel <wheel>]"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
     esac
 done
 
 mkdir -p "${OUT_DIR}" "${TOOLS_DIR}"
+touch "${OUT_DIR}/.nobackup" "${TOOLS_DIR}/.nobackup"
 
 # Verify python3 is available (required at runtime for the wizard)
 if ! command -v python3 &>/dev/null; then
-    echo "ERROR: python3 not found. The AppImage wizard requires python3 at runtime." >&2
+    echo "ERROR: python3 not found. The AppImage wizard requires Python 3.10+ at runtime." >&2
     exit 1
 fi
 echo "Using system python3: $(command -v python3) ($(python3 --version))"
@@ -100,6 +115,7 @@ APP_NAME="pdomain-ocr-simple-gui-installer"
 APPDIR="${REPO_ROOT}/.appdir-build/${APP_NAME}.AppDir"
 rm -rf "${APPDIR}"
 mkdir -p "${APPDIR}/usr/lib/python"
+touch "${REPO_ROOT}/.appdir-build/.nobackup"
 
 # Entry point + desktop integration
 install -m 0755 "${SCRIPT_DIR}/appimage/AppRun" "${APPDIR}/AppRun"
@@ -118,14 +134,25 @@ data = base64.b64decode(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 )
 sys.stdout.buffer.write(data)
-" > "${APPDIR}/pdomain-ocr-simple-gui.png" || true
+" >"${APPDIR}/pdomain-ocr-simple-gui.png" || true
 fi
 
 # Installer Python sources (no Python binary — AppRun uses system python3)
 mkdir -p "${APPDIR}/usr/lib/python/installer"
 install -m 0644 "${SCRIPT_DIR}/install_engine.py" "${APPDIR}/usr/lib/python/installer/install_engine.py"
-install -m 0644 "${SCRIPT_DIR}/wizard.py"         "${APPDIR}/usr/lib/python/installer/wizard.py"
+install -m 0644 "${SCRIPT_DIR}/wizard.py" "${APPDIR}/usr/lib/python/installer/wizard.py"
 touch "${APPDIR}/usr/lib/python/installer/__init__.py"
+mkdir -p "${APPDIR}/usr/lib/python/installer/unix"
+install -m 0644 "${SCRIPT_DIR}/unix/native.py" "${SCRIPT_DIR}/unix/__init__.py" "${APPDIR}/usr/lib/python/installer/unix/"
+install -m 0644 "${REPO_ROOT}/install.sh" "${APPDIR}/install.sh"
+install -m 0644 "${REPO_ROOT}/uninstall.sh" "${APPDIR}/uninstall.sh"
+if [[ -n "${BUNDLED_WHEEL}" ]]; then
+    if [[ ! -f "${BUNDLED_WHEEL}" || "${BUNDLED_WHEEL}" != *.whl ]]; then
+        echo "Expected an existing wheel file: ${BUNDLED_WHEEL}" >&2
+        exit 1
+    fi
+    install -m 0644 "${BUNDLED_WHEEL}" "${APPDIR}/$(basename "${BUNDLED_WHEEL}")"
+fi
 
 # ── Build the AppImage ──────────────────────────────────────────────────────
 OUTPUT="${OUT_DIR}/${APP_NAME}-x86_64.AppImage"
@@ -137,6 +164,7 @@ echo "Building AppImage → ${OUTPUT}"
 # AppImage requires FUSE at run time (the --runtime-file flag handles that).
 ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "${APPIMAGETOOL}" --runtime-file "${TYPE2_RUNTIME}" "${APPDIR}" "${OUTPUT}"
 chmod +x "${OUTPUT}"
+cp "${OUTPUT}" "${OUT_DIR}/OCR-Simple-GUI-Installer.AppImage"
 
 # ── Verify the built AppImage can be invoked ───────────────────────────────
 # The type2 static runtime uses FUSE3 (/dev/fuse) when present, falling back
@@ -180,5 +208,5 @@ echo ""
 echo "AppImage built and verified successfully:"
 echo "  ${OUTPUT}"
 echo ""
-echo "To run (double-click or from terminal — requires FUSE3 on Linux):"
+echo "To run (double-click or from terminal; no FUSE installation required):"
 echo "  ./${APP_NAME}-x86_64.AppImage [--cli] [--dry-run]"

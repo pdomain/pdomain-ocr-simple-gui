@@ -20,7 +20,9 @@ from pdomain_ops.suite.prefs import LocalFilePrefs
 
 import pdomain_ocr_simple_gui.app as app_mod
 from pdomain_ocr_simple_gui.app import create_app, lifespan
+from pdomain_ocr_simple_gui.app_preferences import AppPreferencesStore
 from pdomain_ocr_simple_gui.constants import APP_ID
+from pdomain_ocr_simple_gui.locations import get_locations
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -31,6 +33,11 @@ if TYPE_CHECKING:
 def _prefs_snapshot(suite_data_root: Path) -> UIPrefs:
     """Read the ui-prefs.json snapshot written under *suite_data_root*."""
     return LocalFilePrefs(root=suite_data_root / "ui-prefs.json").read()
+
+
+def _app_prefs_snapshot() -> dict[str, object]:
+    """Read this app's preference section from app-owned storage."""
+    return AppPreferencesStore(get_locations().preferences_path).read_app()
 
 
 def test_device_put_persists_under_real_app_id(
@@ -48,9 +55,8 @@ def test_device_put_persists_under_real_app_id(
     resp = client.put("/api/suite/device", json={"scope": "app", "device": "cpu"})
 
     assert resp.status_code == 200
-    snap = _prefs_snapshot(tmp_prefs)
-    assert snap.apps.get(APP_ID, {}).get("compute_device") == "cpu"
-    assert "unknown" not in snap.apps
+    assert _app_prefs_snapshot()["compute_device"] == "cpu"
+    assert APP_ID not in _prefs_snapshot(tmp_prefs).apps
 
 
 @pytest.mark.asyncio
@@ -73,9 +79,8 @@ async def test_lifespan_migrates_unknown_device_pref_to_real_app_id(
     async with lifespan(FastAPI()):
         pass
 
-    snap = _prefs_snapshot(tmp_prefs)
-    assert snap.apps[APP_ID]["compute_device"] == "cuda:0"
-    assert snap.apps.get("unknown", {}).get("compute_device") is None
+    assert _app_prefs_snapshot()["compute_device"] == "cuda:0"
+    assert _prefs_snapshot(tmp_prefs).apps.get("unknown", {}).get("compute_device") is None
 
 
 @pytest.mark.asyncio

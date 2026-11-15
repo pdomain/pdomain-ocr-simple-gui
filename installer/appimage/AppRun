@@ -22,17 +22,54 @@ set -euo pipefail
 
 APPDIR="${APPDIR:-$(dirname "$(readlink -f "$0")")}"
 
-# Locate system python3 (no bundled binary)
-PYTHON=$(command -v python3 2>/dev/null || true)
-if [ -z "$PYTHON" ]; then
-    echo "ERROR: python3 not found on PATH." >&2
-    echo "  The installer wizard requires Python 3.8+." >&2
-    echo "  Install it with your distro's package manager, e.g.:" >&2
-    echo "    sudo apt-get install -y python3" >&2
+GUI_MODE=1
+for argument in "$@"; do
+    if [[ "$argument" == --cli ]]; then GUI_MODE=0; fi
+done
+
+if [[ "$GUI_MODE" == 1 ]] && ! python3 -c 'import sys; assert sys.version_info >= (3, 10); import tkinter' >/dev/null 2>&1; then
+    if command -v zenity >/dev/null 2>&1; then
+        if ! zenity --question --title="Install OCR Simple GUI" --text="The installer needs system Python 3.10+ and Tk. Install these prerequisites? A password dialog will appear."; then
+            exit 0
+        fi
+    elif command -v kdialog >/dev/null 2>&1; then
+        if ! kdialog --yesno "The installer needs system Python 3.10+ and Tk. Install these prerequisites? A password dialog will appear."; then
+            exit 0
+        fi
+    else
+        if command -v notify-send >/dev/null 2>&1; then
+            notify-send "OCR Simple GUI installer" "System Python 3.10+ and Tk are required. Install your distribution's Python Tk package and retry."
+        fi
+        exit 1
+    fi
+    AUTH=$(command -v pkexec-queued || command -v pkexec || true)
+    if [[ -z "$AUTH" ]]; then exit 1; fi
+    if command -v apt-get >/dev/null 2>&1; then
+        "$AUTH" apt-get install -y python3 python3-tk
+    elif command -v pacman >/dev/null 2>&1; then
+        "$AUTH" pacman -S --needed --noconfirm python tk
+    elif command -v dnf >/dev/null 2>&1; then
+        "$AUTH" dnf install -y python3 python3-tkinter
+    else
+        exit 1
+    fi
+fi
+PYTHON=$(command -v python3 || true)
+if [[ -z "$PYTHON" ]]; then
+    echo "System Python 3.10+ is required." >&2
+    exit 1
+fi
+
+if ! "$PYTHON" -c 'import sys; raise SystemExit(sys.version_info < (3, 10))'; then
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send "OCR Simple GUI installer" "Python 3.10 or newer is required. Upgrade system Python and retry."
+    fi
+    echo "System Python 3.10+ is required." >&2
     exit 1
 fi
 
 # Add bundled installer packages to PYTHONPATH so the wizard and engine are importable
+export PD_SIMPLE_GUI_INSTALL_ROOT="${APPDIR}"
 export PYTHONPATH="${APPDIR}/usr/lib/python:${PYTHONPATH:-}"
 
 # Pass all arguments through to the wizard.

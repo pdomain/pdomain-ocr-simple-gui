@@ -90,6 +90,8 @@ class AppPrefs(BaseModel):
     # Switch-not-migrate: changing this affects NEW jobs only; existing jobs
     # in the previous location are not moved.
     jobs_location: str = ""
+    keep_running: bool = False
+    model_cache_location: str = ""
 
 
 class AppPrefsResponse(AppPrefs):

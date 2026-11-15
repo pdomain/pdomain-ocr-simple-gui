@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import argparse
 import shutil
-import subprocess
 import sys
 from typing import cast
 
@@ -30,7 +29,6 @@ from installer.install_engine import (
     cuda_supports_book_tools_gpu,
     detect_nvidia,
     detect_pkg_manager,
-    display_command,
     plan_steps,
     run,
 )
@@ -80,145 +78,14 @@ def _run_cli(*, assume_yes: bool, dry_run: bool) -> None:
 
 
 def _run_gui(*, dry_run: bool) -> None:
-    """Launch the tkinter step-by-step wizard.
+    """Install through the bundled script with native progress and retry."""
+    import os
+    from pathlib import Path
 
-    The wizard is a simple multi-page dialog:
-      Page 0 — welcome / prerequisites summary
-      Pages 1…N — one step per page (description + command + Yes/Skip)
-      Final page — success summary
+    from installer.unix.native import linux_dialog
 
-    tkinter is imported here (not at module level) so the module is importable
-    in headless environments without raising TclError.
-    """
-    import tkinter as tk
-    from tkinter import ttk
-
-    steps = _build_steps()
-
-    root = tk.Tk()
-    root.title("pdomain-ocr-simple-gui Installer")
-    root.resizable(False, False)
-
-    # ── State ──────────────────────────────────────────────────────────────
-    # Index 0 = welcome page; indices 1…N = step pages; index N+1 = done page
-    current: list[int] = [0]  # mutable int via list (tk callbacks are closures)
-
-    # ── Widgets ────────────────────────────────────────────────────────────
-    frame = ttk.Frame(root, padding=20)
-    frame.grid(sticky="nsew")
-    _ = root.columnconfigure(0, weight=1)
-    _ = root.rowconfigure(0, weight=1)
-
-    title_var = tk.StringVar()
-    body_var = tk.StringVar()
-    cmd_var = tk.StringVar()
-
-    ttk.Label(frame, textvariable=title_var, font=("TkDefaultFont", 14, "bold")).grid(
-        row=0, column=0, columnspan=2, sticky="w", pady=(0, 8)
-    )
-    ttk.Label(frame, textvariable=body_var, wraplength=480, justify="left").grid(
-        row=1, column=0, columnspan=2, sticky="w", pady=(0, 6)
-    )
-    cmd_label = ttk.Label(
-        frame,
-        textvariable=cmd_var,
-        font=("TkFixedFont", 10),
-        foreground="#555",
-        wraplength=480,
-        justify="left",
-    )
-    cmd_label.grid(row=2, column=0, columnspan=2, sticky="w", pady=(0, 12))
-
-    btn_yes = ttk.Button(frame, text="Install →")
-    btn_yes.grid(row=3, column=0, sticky="w", padx=(0, 4))
-    btn_skip = ttk.Button(frame, text="Skip")
-    btn_skip.grid(row=3, column=1, sticky="w")
-
-    status_var = tk.StringVar()
-    ttk.Label(frame, textvariable=status_var, foreground="#c00").grid(
-        row=4, column=0, columnspan=2, sticky="w", pady=(6, 0)
-    )
-
-    # ── Page rendering ─────────────────────────────────────────────────────
-
-    def render_page(idx: int) -> None:
-        """Update labels and button states for page at index ``idx``."""
-        if idx == 0:
-            title_var.set("pdomain-ocr-simple-gui Installer")
-            body_var.set(
-                "This wizard will install pdomain-ocr-simple-gui, a browser-based OCR app.\n\n"
-                + f"{len(steps)} step(s) identified for this system.\n\n"
-                + "After installation, launch the app from your application menu or run\n"
-                + "    pdomain-ocr-simple-gui\n"
-                + "and it will open automatically in your default web browser.\n\n"
-                + "Click 'Begin →' to start."
-            )
-            cmd_var.set("")
-            _ = btn_yes.config(text="Begin →", state="normal")
-            _ = btn_skip.config(state="disabled")
-        elif idx <= len(steps):
-            step = steps[idx - 1]
-            sudo_tag = " (requires sudo)" if step.needs_sudo else ""
-            title_var.set(f"Step {idx} of {len(steps)}: {step.id}")
-            body_var.set(step.description + sudo_tag)
-            cmd_var.set(f"$ {display_command(step.command)}")
-            _ = btn_yes.config(text="Run this step →", state="normal")
-            _ = btn_skip.config(state="normal")
-        else:
-            title_var.set("Installation complete")
-            body_var.set(
-                "pdomain-ocr-simple-gui has been installed.\n\n"
-                + "Launch it from your application menu or run:\n"
-                + "    pdomain-ocr-simple-gui\n\n"
-                + "The app will open automatically in your default web browser.\n\n"
-                + "Close this window to exit."
-            )
-            cmd_var.set("")
-            _ = btn_yes.config(text="Close", state="normal")
-            _ = btn_skip.config(state="disabled")
-
-    # ── Button handlers ────────────────────────────────────────────────────
-
-    def on_yes() -> None:
-        idx = current[0]
-        if idx == 0:
-            # Welcome page — advance
-            current[0] = 1
-            render_page(1)
-            return
-        if idx > len(steps):
-            # Done page — close
-            root.destroy()
-            return
-        step = steps[idx - 1]
-        status_var.set("")
-        if not dry_run:
-            import shlex as _shlex
-
-            cmd_tokens = list(step.command) if isinstance(step.command, list) else _shlex.split(step.command)
-            if step.needs_sudo:
-                cmd_tokens = ["sudo", *cmd_tokens]
-            try:
-                _ = subprocess.run(cmd_tokens, check=True)  # noqa: S603
-            except subprocess.CalledProcessError as exc:
-                status_var.set(f"Step failed (exit {exc.returncode}). Check terminal output.")
-                return
-        _advance()
-
-    def on_skip() -> None:
-        status_var.set("")
-        _advance()
-
-    def _advance() -> None:
-        next_idx = current[0] + 1
-        current[0] = next_idx
-        render_page(next_idx)
-
-    _ = btn_yes.config(command=on_yes)
-    _ = btn_skip.config(command=on_skip)
-
-    render_page(0)
-    root.mainloop()
+    payload = Path(os.environ.get("PD_SIMPLE_GUI_INSTALL_ROOT", Path(__file__).resolve().parent.parent))
+    linux_dialog(payload, removing=False, dry_run=dry_run)
 
 
 # ---------------------------------------------------------------------------

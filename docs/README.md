@@ -24,8 +24,7 @@ How documentation is organized in this repo.
 | `templates/` | Issue, spec, plan, ADR boilerplate. Empty today; the issue template is `issues/TEMPLATE.md`. | Adding a starter template for a new doc type. |
 | `usage/` | Downstream reference — how to consume this app/tool/library. | A user or integrator needs to know how to use it. |
 
-`plans/`, `research/`, `templates/`, and `usage/` are empty on purpose and
-kept with `.gitkeep`. There is no `docs/archive/` folder. A retired doc is
+Empty `research/`, `templates/`, and `usage/` folders are kept with `.gitkeep`. There is no `docs/archive/` folder. A retired doc is
 tombstoned in [decisions](context/decisions.md), and the old file stays in
 git history. `roadmap.md` sits at the top of `docs/` and is the only list
 of remaining work.
@@ -36,11 +35,11 @@ of remaining work.
 - Context: [current state](context/current-state.md), [intent map](context/intent-map.md), [decisions](context/decisions.md), [GitHub issue migration ledger](context/github-issue-migration-ledger.md), and [deletion journal](context/github-issue-deletion-journal.md).
 - Issues: [index](issues/README.md) and open [dep-refresh auto-land](issues/2026-08-08-dep-refresh-cannot-auto-land.md).
 - Roadmap: [remaining work, including work for other repos](roadmap.md).
-- Plans: none active.
+- Plans: [one-click desktop implementation](plans/2026-11-15-one-click-desktop.md).
 - Decisions: [jobs location](decisions/2026-06-04-jobs-location-setting.md) and [preserved runtime boundaries](decisions/2026-07-13-preserved-runtime-boundaries.md).
 - Process: [lint deviations](process/lint-deviations.md), [local development](process/local-dev.md), and [writing style](process/writing-style.md).
 - Runbooks: [installation](runbooks/install.md), [CUDA setup](runbooks/cuda-setup.md), [release](runbooks/release.md), and [Windows acceptance](runbooks/windows-acceptance.md).
-- Unbuilt design: [download model](specs/2026-05-29-download-model.md).
+- Designs: [one-click desktop, awaiting full platform acceptance](specs/2026-11-15-one-click-desktop.md) and [unbuilt download model](specs/2026-05-29-download-model.md).
 - Living screen contracts, read by `scripts/behavior_coverage.py`: [behavior-spec index](specs/behavior/README.md), [coverage](specs/behavior/coverage.md), [flows](specs/behavior/flows.md), [app shell](specs/behavior/screen-app-shell.md), [home](specs/behavior/screen-home.md), [page view](specs/behavior/screen-page-view.md), and [results](specs/behavior/screen-results.md).
 
 Former repository GitHub issues (#1–#34, #36–#38) were deleted; status and

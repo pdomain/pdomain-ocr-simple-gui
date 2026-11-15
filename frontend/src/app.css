@@ -715,3 +715,16 @@ form > [class*="Field"] {
   border-radius: 6px;
   background: var(--bg-sunk);
 }
+
+.desktop-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.desktop-controls p {
+  max-width: 280px;
+  font-size: 12px;
+  color: var(--ink-2);
+}

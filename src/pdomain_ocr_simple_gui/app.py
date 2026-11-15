@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib.metadata
 import importlib.resources
 import json
@@ -45,6 +46,20 @@ def get_dispatcher() -> LocalStageDispatcher | None:
     return _dispatcher
 
 
+def _create_prefs_adapter() -> PrefsAdapter:
+    """Create the app-owned proxy around the suite preference adapter."""
+    from pdomain_ops.suite.prefs import LocalFilePrefs
+
+    from pdomain_ocr_simple_gui.app_preferences import AppPreferencesStore, AppPrefsAdapterProxy
+    from pdomain_ocr_simple_gui.locations import get_locations
+
+    return AppPrefsAdapterProxy(
+        APP_ID,
+        AppPreferencesStore(get_locations().preferences_path),
+        LocalFilePrefs(),
+    )
+
+
 class _SharedPrefsAdapter:
     """``PrefsAdapter`` that prefers the lifespan-managed singleton.
 
@@ -68,9 +83,7 @@ class _SharedPrefsAdapter:
         if adapter is not None:
             return adapter
         if self._fallback is None:
-            from pdomain_ops.suite.prefs import LocalFilePrefs
-
-            self._fallback = LocalFilePrefs()
+            self._fallback = _create_prefs_adapter()
         return self._fallback
 
     def read(self) -> UIPrefs:
@@ -186,13 +199,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning(_msg)
 
     try:
-        from pdomain_ops.suite.prefs import LocalFilePrefs
-
         # LocalFilePrefs acquires its file lock with a finite timeout (DEFAULT_LOCK_TIMEOUT
         # = 5s as of pdomain-ops v0.10.0). On timeout it raises PrefsLockTimeout instead
         # of blocking forever. Route handlers catch PrefsLockTimeout and degrade gracefully
         # (GET → defaults, PUT → log + return merged payload). See routes/prefs.py.
-        _prefs_adapter = LocalFilePrefs()
+        _prefs_adapter = _create_prefs_adapter()
     except Exception:  # optional prefs integration — app runs without it
         logger.exception(
             "Failed to initialise prefs adapter; running without prefs",
@@ -240,10 +251,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             "PDOMAIN_API_TOKEN is not set — API auth is DISABLED. Set this env var to enable capability token protection.",
         )
 
-    # Suite registration is handled by bootstrap_spa() in __main__.py before uvicorn.run().
-    yield
-    _prefs_adapter = None
-    _dispatcher = None
+    from pdomain_ocr_simple_gui.desktop_runtime import DesktopRuntime
+
+    runtime: object = getattr(app.state, "desktop_runtime", None)
+    stop_monitor = asyncio.Event()
+    monitor = (
+        asyncio.create_task(runtime.monitor(stop_monitor)) if isinstance(runtime, DesktopRuntime) else None
+    )
+    try:
+        yield
+    finally:
+        stop_monitor.set()
+        if monitor is not None:
+            await monitor
+        _prefs_adapter = None
+        _dispatcher = None
 
 
 _FRONTEND_DIR = Path(__file__).parent / "frontend"
@@ -273,11 +295,20 @@ def create_app() -> FastAPI:
 
     _app.add_middleware(BaseHTTPMiddleware, dispatch=suite_token_middleware)
 
+    from pdomain_ocr_simple_gui.activity_gate import StorageActivityMiddleware, StorageGate
+    from pdomain_ocr_simple_gui.desktop_runtime import LifecycleActivityMiddleware
+
+    _app.add_middleware(LifecycleActivityMiddleware)
+    _app.state.storage_gate = StorageGate()
+    _app.add_middleware(StorageActivityMiddleware)
+
     # Register routes.
     # Imported here (not at module level) to avoid circular imports at collection time.
     from pdomain_ocr_simple_gui.routes.config import router as config_router
     from pdomain_ocr_simple_gui.routes.downloads import router as downloads_router
     from pdomain_ocr_simple_gui.routes.jobs import router as jobs_router
+    from pdomain_ocr_simple_gui.routes.lifecycle import router as lifecycle_router
+    from pdomain_ocr_simple_gui.routes.locations import router as locations_router
     from pdomain_ocr_simple_gui.routes.model_cache import router as model_cache_router
     from pdomain_ocr_simple_gui.routes.pages import router as pages_router
     from pdomain_ocr_simple_gui.routes.prefs import router as prefs_router
@@ -285,6 +316,8 @@ def create_app() -> FastAPI:
     from pdomain_ocr_simple_gui.routes.words import router as words_router
 
     _app.include_router(jobs_router)
+    _app.include_router(lifecycle_router)
+    _app.include_router(locations_router)
     _app.include_router(pages_router)
     _app.include_router(prefs_router)
     _app.include_router(config_router)

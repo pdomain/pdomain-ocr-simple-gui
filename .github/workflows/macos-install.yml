@@ -17,6 +17,13 @@ on:
           - macos-26
           - macos-15
         default: macos-26
+      mode:
+        description: Published CLI release or current-source native bundles
+        type: choice
+        options:
+          - published-cli
+          - checkout-native
+        default: published-cli
 
 permissions:
   contents: read
@@ -44,9 +51,11 @@ jobs:
         run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Install the latest release with install.sh
+        if: inputs.mode == 'published-cli'
         run: sh install.sh -y
 
       - name: Report the installed environment
+        if: inputs.mode == 'published-cli'
         run: |
           tool_python="$(uv tool dir)/pdomain-ocr-simple-gui/bin/python"
           "$tool_python" -I - <<'PY'
@@ -74,19 +83,65 @@ jobs:
           PY
 
       - name: Install Playwright's Chromium
+        if: inputs.mode == 'published-cli'
         run: uv run --no-project --with playwright python -m playwright install chromium
 
       - name: Run the acceptance script against the installed app
+        if: inputs.mode == 'published-cli'
         run: >-
           uv run --no-project --with playwright python -I scripts/windows_acceptance.py
           --headless --browser-channel chromium
           --exe "$HOME/.local/bin/pdomain-ocr-simple-gui"
           --out-dir acceptance-out
 
+      - name: Provision current-source build tools
+        if: inputs.mode == 'checkout-native'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          brew install uv just mise jq
+          mise install
+
+      - name: Build the current-source wheel and native installer
+        if: inputs.mode == 'checkout-native'
+        env:
+          AI: "1"
+          UV_PYTHON: "3.13"
+        run: |
+          mise exec -- just build
+          wheel=$(ls "$PWD"/dist/*.whl)
+          test "$(printf '%s\n' "$wheel" | wc -l | tr -d ' ')" = 1
+          sh installer/macos/build.sh "$PWD/native-artifacts" "$wheel"
+          /usr/bin/ditto -c -k --keepParent "$PWD/native-artifacts/Install OCR Simple GUI.app" "$PWD/native-artifacts/OCR-Simple-GUI-Installer.zip"
+          /usr/bin/osacompile -o "$RUNNER_TEMP/macos-native-controls.scpt" scripts/macos_native_controls.applescript
+
+      - name: Provision the native acceptance browser
+        if: inputs.mode == 'checkout-native'
+        env:
+          UV_PYTHON: "3.13"
+        run: uv run --group e2e python -m playwright install chromium
+
+      - name: Test actual macOS install, run, browser lifecycle and uninstall controls
+        if: inputs.mode == 'checkout-native'
+        env:
+          UV_PYTHON: "3.13"
+          OMP_NUM_THREADS: "2"
+          OPENBLAS_NUM_THREADS: "2"
+          MKL_NUM_THREADS: "2"
+          PDOMAIN_GPU_BACKEND: cpu
+        run: |
+          uv run --group e2e python scripts/macos_native_acceptance.py \
+            --installer "$PWD/native-artifacts/Install OCR Simple GUI.app" \
+            --work-dir "$RUNNER_TEMP/ocr-simple-gui-native" \
+            --out-dir acceptance-out/native
+          jq -e '.passed == true' acceptance-out/native/results.json
+
       - name: Keep the results, screenshots and server log
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: macos-acceptance-${{ inputs.runner }}
-          path: acceptance-out/
+          name: macos-acceptance-${{ inputs.runner }}-${{ inputs.mode }}
+          path: |
+            acceptance-out/
+            native-artifacts/OCR-Simple-GUI-Installer.zip
           if-no-files-found: ignore

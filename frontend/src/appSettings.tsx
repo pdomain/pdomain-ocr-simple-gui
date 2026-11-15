@@ -1,7 +1,8 @@
 import type { SettingsPanelDescriptor } from "@pdomain/pdomain-ui/shell";
-import { JobsLocationSettings } from "./components/JobsLocationSettings";
+import { StorageSettings } from "./components/StorageSettings";
 import { ModelCacheSettings } from "./components/ModelCacheSettings";
 import { ApiTokenSettings } from "./components/ApiTokenSettings";
+import { LifecycleSettings } from "./components/LifecycleSettings";
 import { ComputePanelContent, UpdatePanelContent } from "./appSettingsPanels";
 
 /**
@@ -15,10 +16,11 @@ import { ComputePanelContent, UpdatePanelContent } from "./appSettingsPanels";
  * localStorage key that apiFetch.ts reads — no backend endpoint involved.
  */
 export const settingsPanels: SettingsPanelDescriptor[] = [
+  { id: "app", label: "App", content: <LifecycleSettings /> },
   {
     id: "jobs",
-    label: "Jobs",
-    content: <JobsLocationSettings />,
+    label: "Storage",
+    content: <StorageSettings />,
   },
   {
     id: "compute",

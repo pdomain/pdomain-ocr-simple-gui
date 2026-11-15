@@ -220,7 +220,7 @@ def test_install_sh_uv_marker_written_in_bootstrap_branch() -> None:
     # (i.e., after the astral.sh install, before the fi closing the if uv block)
     uv_install_pos = content.find("astral.sh/uv/install.sh")
     marker_touch_pos = content.find('touch "$_MARKER"')
-    uv_block_end = content.find("fi\n", uv_install_pos)
+    uv_block_end = content.find('echo "uv is required', marker_touch_pos)
     assert uv_install_pos < marker_touch_pos < uv_block_end, (
         "uv marker must be written inside the uv bootstrap branch, not unconditionally"
     )

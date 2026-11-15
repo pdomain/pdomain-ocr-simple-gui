@@ -172,8 +172,8 @@ class TestOpenBrowserWhenReady:
         open_calls: list[str] = []
 
         with (
-            patch("pdomain_ocr_simple_gui.__main__.bootstrap_spa", return_value=8004),
-            patch("uvicorn.run"),
+            patch("pdomain_ocr_simple_gui.__main__._serve"),
+            patch("pdomain_ocr_simple_gui.__main__.register_self"),
             patch.object(threading.Thread, "start", _capture_start),
             patch("webbrowser.open", side_effect=open_calls.append),
         ):
@@ -196,8 +196,8 @@ class TestOpenBrowserWhenReady:
             started_threads.append(self)
 
         with (
-            patch("pdomain_ocr_simple_gui.__main__.bootstrap_spa", return_value=8004),
-            patch("uvicorn.run"),
+            patch("pdomain_ocr_simple_gui.__main__._serve"),
+            patch("pdomain_ocr_simple_gui.__main__.register_self"),
             patch.object(threading.Thread, "start", _capture_start),
         ):
             from pdomain_ocr_simple_gui.__main__ import main

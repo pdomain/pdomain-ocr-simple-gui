@@ -87,6 +87,27 @@ def _assert_suite_data_dir_is_tmp(suite_data_dir: str) -> None:
     )
 
 
+_APP_ROOT_ENVIRONMENTS = (
+    ("PD_OCR_SIMPLE_GUI_CONFIG_ROOT", "config"),
+    ("PD_OCR_SIMPLE_GUI_DATA_ROOT", "data"),
+    ("PD_OCR_SIMPLE_GUI_STATE_ROOT", "state"),
+    ("PD_OCR_SIMPLE_GUI_CACHE_ROOT", "cache"),
+)
+
+
+def _assert_app_roots_are_tmp(env: dict[str, str]) -> None:
+    """Raise AssertionError when an app-owned root is not isolated in tmp."""
+    tmp_root = Path(tempfile.gettempdir()).resolve()
+    for environment_name, _ in _APP_ROOT_ENVIRONMENTS:
+        value = env.get(environment_name, "")
+        assert value, f"{environment_name} must be set before running e2e tests"
+        path = Path(value).resolve()
+        assert path == tmp_root or tmp_root in path.parents, (
+            f"{environment_name} must be set to a tmp path before running e2e tests "
+            f"(current value: {value!r})"
+        )
+
+
 # Helpers
 
 
@@ -196,6 +217,7 @@ def _boot_server(env_overrides: dict[str, str], *, ready_timeout: float = 30.0) 
 
     env = {**os.environ, **env_overrides}
     _assert_suite_data_dir_is_tmp(env.get("PD_SUITE_DATA_DIR", ""))
+    _assert_app_roots_are_tmp(env)
 
     # Redirect server stdout/stderr to a real file — NOT subprocess.PIPE.
     # A PIPE that nobody reads has a fixed OS buffer (~64KB); once uvicorn's
@@ -246,7 +268,27 @@ def e2e_data_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
         subpath = root / subdir
         subpath.mkdir(parents=True, exist_ok=True)
         _assert_under_tmp(subpath, root)
+    for profile in ("default", "cpu", "containerized", "real_ocr", "real_ocr_cpu"):
+        for _, root_name in _APP_ROOT_ENVIRONMENTS:
+            subpath = root / "app_roots" / profile / root_name
+            subpath.mkdir(parents=True, exist_ok=True)
+            _assert_under_tmp(subpath, root)
     return root
+
+
+def _app_root_env(e2e_data_root: Path, profile: str) -> dict[str, str]:
+    """Return isolated app-owned roots for one server profile."""
+    profile_root = e2e_data_root / "app_roots" / profile
+    return {
+        environment_name: str(profile_root / root_name)
+        for environment_name, root_name in _APP_ROOT_ENVIRONMENTS
+    }
+
+
+@pytest.fixture(scope="session")
+def e2e_default_preferences_path(e2e_data_root: Path) -> Path:
+    """Return the app-owned preference file used by ``live_server_url``."""
+    return e2e_data_root / "app_roots" / "default" / "config" / "preferences.json"
 
 
 # Session-scoped server fixture
@@ -256,6 +298,7 @@ def e2e_data_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
 def live_server_url(e2e_data_root: Path) -> Generator[str, None, None]:
     """Start the app on a free port; yield the base URL; shut down after session."""
     env = {
+        **_app_root_env(e2e_data_root, "default"),
         # Redirect all server data into the session-scoped tmpdir so tests
         # can write fixtures into the same paths without racing against the
         # real home-dir storage.
@@ -263,9 +306,8 @@ def live_server_url(e2e_data_root: Path) -> Generator[str, None, None]:
         "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(e2e_data_root / "outputs"),
         "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(e2e_data_root / "jobs_meta"),
         "PD_OCR_SIMPLE_GUI_UPLOAD_ROOT": str(e2e_data_root / "uploads"),
-        # Redirect pdomain-ops suite data (including ui-prefs.json) into the
-        # session-scoped tmpdir so prefs mutations in one test never bleed into
-        # another test or the real user prefs file on disk.
+        # Keep pdomain-ops common and other-app preferences in the shared
+        # session-scoped suite data; this app's preferences use its config root.
         # PD_SUITE_DATA_DIR is per-xdist-worker because tmp_path_factory is
         # worker-scoped; combined with reset_prefs (function-scoped autouse)
         # this gives full per-test prefs isolation.
@@ -301,11 +343,12 @@ def reset_prefs(live_server_url: str) -> None:
     """
     from pdomain_ocr_simple_gui.models import AppPrefs
 
-    httpx.put(
+    response = httpx.put(
         f"{live_server_url}/api/prefs",
         json=AppPrefs().model_dump(mode="json"),
         timeout=5.0,
     )
+    _ = response.raise_for_status()
 
 
 # Seeded-job fixtures (Option B — write artifacts directly to disk)
@@ -494,6 +537,7 @@ def live_server_url_cpu(e2e_data_root: Path) -> Generator[str, None, None]:
     rendered; when gpu_available=True it is absent from the DOM.
     """
     env = {
+        **_app_root_env(e2e_data_root, "cpu"),
         "PD_OCR_SIMPLE_GUI_PROJECTS_ROOT": str(e2e_data_root / "projects"),
         "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(e2e_data_root / "outputs"),
         "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(e2e_data_root / "jobs_meta"),
@@ -516,6 +560,7 @@ def live_server_url_containerized(e2e_data_root: Path) -> Generator[str, None, N
     (B-HOME-004).
     """
     env = {
+        **_app_root_env(e2e_data_root, "containerized"),
         "PD_OCR_SIMPLE_GUI_PROJECTS_ROOT": str(e2e_data_root / "projects"),
         "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(e2e_data_root / "outputs"),
         "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(e2e_data_root / "jobs_meta"),
@@ -540,6 +585,7 @@ def live_server_url_real_ocr(e2e_data_root: Path) -> Generator[str, None, None]:
     default CI.
     """
     env = {
+        **_app_root_env(e2e_data_root, "real_ocr"),
         "PD_OCR_SIMPLE_GUI_PROJECTS_ROOT": str(e2e_data_root / "rp"),
         "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(e2e_data_root / "ro"),
         "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(e2e_data_root / "rj"),
@@ -561,6 +607,7 @@ def live_server_url_real_ocr_cpu(e2e_data_root: Path) -> Generator[str, None, No
     shared with other work, so this server never touches it.
     """
     env = {
+        **_app_root_env(e2e_data_root, "real_ocr_cpu"),
         "PD_OCR_SIMPLE_GUI_PROJECTS_ROOT": str(e2e_data_root / "cp"),
         "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": str(e2e_data_root / "co"),
         "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": str(e2e_data_root / "cj"),

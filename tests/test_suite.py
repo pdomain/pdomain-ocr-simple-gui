@@ -92,24 +92,25 @@ class TestSuiteRoutes:
 
 
 class TestRegisterSelf:
-    def test_bootstrap_spa_invoked_on_startup(self) -> None:
-        """bootstrap_spa is actually called when main() runs (behavioral, not source-grep)."""
+    def test_register_self_called_with_bound_port(self) -> None:
+        """main() registers the port it actually holds (behavioral, not source-grep)."""
         import sys
         from unittest.mock import MagicMock
 
         import pdomain_ocr_simple_gui.__main__ as main_mod
 
-        mock_bootstrap = MagicMock(return_value=8099)
-        mock_run = MagicMock()
+        mock_register = MagicMock()
         with (
-            patch("pdomain_ocr_simple_gui.__main__.bootstrap_spa", mock_bootstrap),
-            patch("uvicorn.run", mock_run),
-            patch.object(sys, "argv", ["pdomain-ocr-simple-gui"]),
+            patch("pdomain_ocr_simple_gui.__main__.register_self", mock_register),
+            patch("pdomain_ocr_simple_gui.__main__._serve"),
+            patch.object(sys, "argv", ["pdomain-ocr-simple-gui", "--no-browser"]),
         ):
             main_mod.main()
 
-        # bootstrap_spa must have been called (not just referenced in source)
-        assert mock_bootstrap.call_count == 1
+        assert mock_register.call_count == 1
+        _, kwargs = mock_register.call_args
+        assert kwargs["_caller_package"] == "pdomain_ocr_simple_gui"
+        assert isinstance(kwargs["actual_port"], int)
 
     def test_register_self_is_importable(self) -> None:
         """register_self is importable from pdomain_ops.suite."""

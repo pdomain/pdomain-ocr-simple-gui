@@ -21,6 +21,7 @@ import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, TypeAlias, cast
+from urllib.parse import urlsplit
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -78,6 +79,18 @@ class HttpResult:
     status: int
     content_type: str
     body: bytes
+
+
+@dataclass(frozen=True)
+class ServerOrigin:
+    """A validated loopback HTTP origin."""
+
+    host: str
+    port: int
+
+    @property
+    def url(self) -> str:
+        return f"http://{self.host}:{self.port}"
 
 
 @dataclass
@@ -175,9 +188,9 @@ def free_port() -> int:
     return port
 
 
-def http_get(port: int, path: str, timeout: float) -> HttpResult:
-    """GET *path* from the local server."""
-    conn = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
+def http_get(server: ServerOrigin, path: str, timeout: float) -> HttpResult:
+    """GET *path* from the configured server."""
+    conn = http.client.HTTPConnection(server.host, server.port, timeout=timeout)
     try:
         conn.request("GET", path)
         response = conn.getresponse()
@@ -194,14 +207,12 @@ def json_object(body: bytes) -> dict[str, object]:
     return {str(k): v for k, v in cast("dict[object, object]", value).items()}
 
 
-def wait_for_server(server: subprocess.Popen[bytes], port: int) -> None:
-    """Block until the server answers on *port*, or raise."""
+def wait_for_server(server: ServerOrigin) -> None:
+    """Block until the server answers, or raise."""
     deadline = time.monotonic() + SERVER_START_TIMEOUT_S
     while time.monotonic() < deadline:
-        if server.poll() is not None:
-            raise AcceptanceError(f"server exited with code {server.returncode}")
         try:
-            _ = http_get(port, "/", timeout=2)
+            _ = http_get(server, "/", timeout=2)
         except OSError:
             time.sleep(1)
         else:
@@ -209,22 +220,37 @@ def wait_for_server(server: subprocess.Popen[bytes], port: int) -> None:
     raise AcceptanceError("server never answered")
 
 
-def wait_for_job(port: int, job_id: str) -> dict[str, object]:
+def wait_for_owned_server(process: subprocess.Popen[bytes], server: ServerOrigin) -> None:
+    """Wait for an owned server and report an early process exit."""
+    deadline = time.monotonic() + SERVER_START_TIMEOUT_S
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            raise AcceptanceError(f"server exited with code {process.returncode}")
+        try:
+            _ = http_get(server, "/", timeout=2)
+        except OSError:
+            time.sleep(1)
+        else:
+            return
+    raise AcceptanceError("server never answered")
+
+
+def wait_for_job(server: ServerOrigin, job_id: str) -> dict[str, object]:
     """Poll the job until it reaches a terminal state or the limit passes."""
     deadline = time.monotonic() + FIRST_PASS_TIMEOUT_S
     body: dict[str, object] = {}
     while time.monotonic() < deadline:
-        body = json_object(http_get(port, f"/api/jobs/{job_id}", timeout=30).body)
+        body = json_object(http_get(server, f"/api/jobs/{job_id}", timeout=30).body)
         if body.get("state") in TERMINAL_JOB_STATES:
             break
         time.sleep(2)
     return body
 
 
-def probe_server(rec: Recorder, port: int) -> None:
+def probe_server(rec: Recorder, server: ServerOrigin) -> None:
     """Time /api/config twice and check the prefs and unknown-path routes."""
     started = time.monotonic()
-    config = json_object(http_get(port, "/api/config", API_CONFIG_TIMEOUT_S).body)
+    config = json_object(http_get(server, "/api/config", API_CONFIG_TIMEOUT_S).body)
     engines = config.get("ocr_engines")
     names = (
         ",".join(str(e.get("name", e.get("id", "?"))) for e in engines if isinstance(e, dict))  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType, reportUnknownArgumentType]
@@ -238,11 +264,11 @@ def probe_server(rec: Recorder, port: int) -> None:
         engines=names,
     )
     started = time.monotonic()
-    _ = http_get(port, "/api/config", API_CONFIG_TIMEOUT_S)
+    _ = http_get(server, "/api/config", API_CONFIG_TIMEOUT_S)
     rec.step("api-config-again", seconds=round(time.monotonic() - started, 1))
-    prefs = http_get(port, "/api/suite/prefs", 30)
+    prefs = http_get(server, "/api/suite/prefs", 30)
     rec.check("suite-prefs-route", prefs.status == 200, f"status {prefs.status} {prefs.content_type}")
-    unknown = http_get(port, "/api/does-not-exist", 30)
+    unknown = http_get(server, "/api/does-not-exist", 30)
     rec.check(
         "unknown-api-path-is-404", unknown.status == 404, f"status {unknown.status} {unknown.content_type}"
     )
@@ -271,7 +297,7 @@ def edited_text_of(data: dict[str, object]) -> str:
     return normalise_newlines(value) if isinstance(value, str) else ""
 
 
-def drive_browser(rec: Recorder, args: AcceptanceArgs, fixture: Fixture, port: int) -> None:
+def drive_browser(rec: Recorder, args: AcceptanceArgs, fixture: Fixture, server: ServerOrigin) -> None:
     """Upload, OCR, edit, save, export, rerun with DocTR, export again."""
     from playwright.sync_api import expect, sync_playwright
 
@@ -285,7 +311,7 @@ def drive_browser(rec: Recorder, args: AcceptanceArgs, fixture: Fixture, port: i
         )
         try:
             page = browser.new_page(accept_downloads=True)
-            _ = page.goto(f"http://127.0.0.1:{port}")
+            _ = page.goto(server.url)
             expect(page.get_by_test_id("home-page")).to_be_visible(timeout=OCR_TEXT_TIMEOUT_MS)
             page.get_by_test_id("source-picker-file-pick").set_input_files(str(fixture.image))
             expect(page.get_by_test_id("job-config-inline")).to_be_visible(timeout=UI_TIMEOUT_MS)
@@ -296,7 +322,7 @@ def drive_browser(rec: Recorder, args: AcceptanceArgs, fixture: Fixture, port: i
             rec.require("job-id-in-url", job_id is not None, page.url)
             if job_id is None:
                 return
-            job = wait_for_job(port, job_id)
+            job = wait_for_job(server, job_id)
             rec.step("first-pass", state=str(job.get("state")), error=str(job.get("error")))
             rec.require("first-pass-succeeded", job.get("state") == "succeeded", str(job.get("error")))
 
@@ -391,6 +417,7 @@ class AcceptanceArgs:
     browser_channel: str
     headless: bool
     exe: str | None
+    url: ServerOrigin | None
     skip_text_quality: bool
 
 
@@ -400,7 +427,32 @@ class _Namespace(argparse.Namespace):
     browser_channel: str = DEFAULT_CHANNEL
     headless: bool = False
     exe: str | None = None
+    url: ServerOrigin | None = None
     skip_text_quality: bool = False
+
+
+def external_server_url(value: str) -> ServerOrigin:
+    """Parse a supported external server URL."""
+    parsed = urlsplit(value)
+    try:
+        port = parsed.port
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("--url must use a port from 1 through 65535") from error
+    if (
+        parsed.scheme != "http"
+        or parsed.hostname != "127.0.0.1"
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path not in {"", "/"}
+        or "?" in value
+        or "#" in value
+        or port is None
+        or not 1 <= port <= 65535
+    ):
+        raise argparse.ArgumentTypeError(
+            "--url must be an http://127.0.0.1:PORT origin with an optional trailing /"
+        )
+    return ServerOrigin(host="127.0.0.1", port=port)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> AcceptanceArgs:
@@ -412,7 +464,13 @@ def parse_args(argv: Sequence[str] | None = None) -> AcceptanceArgs:
     )
     _ = parser.add_argument("--browser-channel", default=DEFAULT_CHANNEL)
     _ = parser.add_argument("--headless", action="store_true")
-    _ = parser.add_argument("--exe", help="path to pdomain-ocr-simple-gui; default: search PATH")
+    source = parser.add_mutually_exclusive_group()
+    _ = source.add_argument("--exe", help="path to pdomain-ocr-simple-gui; default: search PATH")
+    _ = source.add_argument(
+        "--url",
+        type=external_server_url,
+        help="existing http://127.0.0.1:PORT server to test without starting or stopping it",
+    )
     _ = parser.add_argument(
         "--skip-text-quality",
         action="store_true",
@@ -425,12 +483,21 @@ def parse_args(argv: Sequence[str] | None = None) -> AcceptanceArgs:
         browser_channel=ns.browser_channel,
         headless=ns.headless,
         exe=ns.exe,
+        url=ns.url,
         skip_text_quality=ns.skip_text_quality,
     )
 
 
 def run(args: AcceptanceArgs, rec: Recorder) -> None:
-    """Start the installed app, probe it, and drive the browser flow."""
+    """Probe a server and drive the browser flow."""
+    if args.url is not None:
+        fixture = resolve_fixtures(args.fixtures)
+        wait_for_server(args.url)
+        rec.step("server-up", url=args.url.url, ownership="external")
+        probe_server(rec, args.url)
+        drive_browser(rec, args, fixture, args.url)
+        return
+
     exe = args.exe or shutil.which("pdomain-ocr-simple-gui")
     rec.require(
         "exe-found", exe is not None, "" if exe else "pdomain-ocr-simple-gui is not on PATH; pass --exe"
@@ -438,16 +505,16 @@ def run(args: AcceptanceArgs, rec: Recorder) -> None:
     if exe is None:
         return
     fixture = resolve_fixtures(args.fixtures)
-    port = free_port()
+    server_origin = ServerOrigin(host="127.0.0.1", port=free_port())
     with (args.out_dir / "server.log").open("w", encoding="utf-8") as log:
         server = subprocess.Popen(
-            [exe, "--no-browser", "--port", str(port)], stdout=log, stderr=subprocess.STDOUT
+            [exe, "--no-browser", "--port", str(server_origin.port)], stdout=log, stderr=subprocess.STDOUT
         )
         try:
-            wait_for_server(server, port)
-            rec.step("server-up", exe=exe, port=port)
-            probe_server(rec, port)
-            drive_browser(rec, args, fixture, port)
+            wait_for_owned_server(server, server_origin)
+            rec.step("server-up", exe=exe, port=server_origin.port)
+            probe_server(rec, server_origin)
+            drive_browser(rec, args, fixture, server_origin)
         finally:
             server.terminate()
             try:

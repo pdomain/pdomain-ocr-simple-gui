@@ -57,6 +57,7 @@ class TestProjectsRootPrecedence:
         pref_root = tmp_path / "pref_projects"
         pref_root.mkdir()
         monkeypatch.delenv(_ENV_VAR, raising=False)
+        monkeypatch.delenv("PD_OCR_SIMPLE_GUI_DATA_ROOT", raising=False)
         monkeypatch.setattr(app_mod, "_prefs_adapter", _adapter_with_jobs_location(str(pref_root)))
 
         assert _projects_root() == pref_root.resolve()
@@ -66,29 +67,32 @@ class TestProjectsRootPrecedence:
         import pdomain_ocr_simple_gui.app as app_mod
 
         monkeypatch.delenv(_ENV_VAR, raising=False)
+        monkeypatch.delenv("PD_OCR_SIMPLE_GUI_DATA_ROOT", raising=False)
         monkeypatch.setattr(app_mod, "_prefs_adapter", _adapter_with_jobs_location("~/sub/jobs"))
 
         assert _projects_root() == (Path.home() / "sub" / "jobs").resolve()
 
-    def test_default_when_both_unset(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Env unset + pref empty → the shipped default is used."""
+    def test_default_when_both_unset(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A data-root override wins when no project-root override is set."""
         import pdomain_ocr_simple_gui.app as app_mod
-        from pdomain_ocr_simple_gui.storage import _PROJECTS_ROOT_DEFAULT
 
+        data_root = tmp_path / "data-root"
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_DATA_ROOT", str(data_root))
         monkeypatch.delenv(_ENV_VAR, raising=False)
         monkeypatch.setattr(app_mod, "_prefs_adapter", _adapter_with_jobs_location(""))
 
-        assert _projects_root() == _PROJECTS_ROOT_DEFAULT
+        assert _projects_root() == data_root / "projects"
 
-    def test_default_when_no_adapter(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Env unset + no adapter → the shipped default is used."""
+    def test_default_when_no_adapter(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A data-root override works without a preferences adapter."""
         import pdomain_ocr_simple_gui.app as app_mod
-        from pdomain_ocr_simple_gui.storage import _PROJECTS_ROOT_DEFAULT
 
+        data_root = tmp_path / "data-root"
+        monkeypatch.setenv("PD_OCR_SIMPLE_GUI_DATA_ROOT", str(data_root))
         monkeypatch.delenv(_ENV_VAR, raising=False)
         monkeypatch.setattr(app_mod, "_prefs_adapter", None)
 
-        assert _projects_root() == _PROJECTS_ROOT_DEFAULT
+        assert _projects_root() == data_root / "projects"
 
 
 class TestPutPrefsJobsLocationValidation:
@@ -139,17 +143,10 @@ class TestPutPrefsJobsLocationValidation:
         assert resp.status_code == 200
         assert resp.json()["jobs_location"] == ""
 
-    async def test_mkdir_happens_even_without_prefs_adapter(
+    async def test_unavailable_preferences_do_not_create_a_jobs_folder(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """PUT /api/prefs creates the jobs_location directory even when no prefs adapter is present.
-
-        Regression guard: validation (mkdir + write-probe) must run regardless of
-        whether a PrefsAdapter is wired up.  Without an adapter the PUT is still
-        best-effort (the pref is not persisted), but the directory must be created
-        so any subsequent code that reads the pref and uses it as a path does not
-        encounter a missing parent.
-        """
+        """An unsaved path change must fail without creating a directory."""
         import pdomain_ocr_simple_gui.app as app_mod
 
         monkeypatch.setattr(app_mod, "_prefs_adapter", None)
@@ -157,10 +154,8 @@ class TestPutPrefsJobsLocationValidation:
         target = tmp_path / "no_adapter_jobs"
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             resp = await ac.put("/api/prefs", json={"jobs_location": str(target)})
-        assert resp.status_code == 200
-        # Directory was created by _validate_jobs_location even though no adapter
-        # persisted the pref — the filesystem side-effect is unconditional.
-        assert target.is_dir()
+        assert resp.status_code == 503
+        assert not target.exists()
 
     async def test_non_writable_location_returns_400(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -204,6 +199,7 @@ class TestJobsLocationIntegration:
         pref_root = tmp_path / "pref_projects"
         pref_root.mkdir()
         monkeypatch.delenv(_ENV_VAR, raising=False)
+        monkeypatch.delenv("PD_OCR_SIMPLE_GUI_DATA_ROOT", raising=False)
         monkeypatch.setattr(app_mod, "_prefs_adapter", _adapter_with_jobs_location(str(pref_root)))
 
         spec = ProjectSpec(
@@ -229,3 +225,57 @@ class TestJobsLocationIntegration:
         assert (pref_root.resolve() / "integ-proj-001" / "project.json").exists()
         listed = [s.project_id for s, _ in list_projects()]
         assert "integ-proj-001" in listed
+
+
+@pytest.mark.parametrize("alias", [False, True])
+async def test_new_jobs_location_inside_runtime_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, client_with_mock_prefs: AsyncClient, alias: bool
+) -> None:
+    import sys
+
+    from pdomain_ocr_simple_gui.app import get_prefs_adapter
+
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    monkeypatch.setattr(sys, "prefix", str(runtime))
+    root = runtime
+    if alias:
+        root = tmp_path / "runtime-alias"
+        root.symlink_to(runtime, target_is_directory=True)
+    target = root / "keep-my-scans"
+    adapter = get_prefs_adapter()
+    assert adapter is not None
+    saved = MagicMock()
+    monkeypatch.setattr(adapter, "write_app", saved)
+    response = await client_with_mock_prefs.put("/api/prefs", json={"jobs_location": str(target)})
+    assert response.status_code == 400
+    assert "outside" in response.json()["detail"]
+    assert not target.exists()
+    saved.assert_not_called()
+
+
+async def test_existing_unsafe_legacy_locations_do_not_block_an_unrelated_preference(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import sys
+
+    from pdomain_ops.suite.types import UIPrefs
+
+    import pdomain_ocr_simple_gui.app as app_mod
+
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    monkeypatch.setattr(sys, "prefix", str(runtime))
+    mock = MagicMock()
+    existing = UIPrefs()
+    existing.apps["pdomain-ocr-simple-gui"] = {
+        "jobs_location": str(runtime / "legacy-jobs"),
+        "model_cache_location": str(runtime / "legacy-models"),
+    }
+    mock.read.return_value = existing
+    monkeypatch.setattr(app_mod, "_prefs_adapter", mock)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.put("/api/prefs", json={"default_engine": "tesseract"})
+    assert response.status_code == 200
+    assert response.json()["jobs_location"] == str(runtime / "legacy-jobs")
+    assert sorted(runtime.iterdir()) == []

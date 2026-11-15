@@ -62,6 +62,7 @@ import PageViewPage from "./pages/PageViewPage";
 import TesseractHelpPage from "./pages/TesseractHelpPage";
 import { apiFetch } from "./api/apiFetch";
 import { settingsPanels } from "./appSettings";
+import { DesktopControls } from "./components/DesktopControls";
 import { uiPrefsConfig } from "./appUiPrefsConfig";
 import {
   ComputeStateWarmup,
@@ -290,6 +291,7 @@ function SimpleGuiHeader({
         }}
       >
         {actions}
+        <DesktopControls />
         <div className="app-header__jobs-panel-owner">
           <JobsPill activeJobs={activeJobs} onClick={() => toggle("jobs")} />
         </div>

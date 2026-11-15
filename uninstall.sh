@@ -1,167 +1,140 @@
 #!/bin/sh
-set -e
+set -eu
 
-# Uninstall pdomain-ocr-simple-gui.
-#
-# Removes the app installed via uv tool install, and optionally removes uv
-# itself (always defaulting to N -- uv removal is destructive to all other
-# uv-managed tools, so it is always opt-in regardless of whether this
-# installer originally bootstrapped uv).
+# Uninstall pdomain-ocr-simple-gui without removing shared dependencies or data.
 #
 # Usage:
 #   curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/uninstall.sh | sh
 #
-# Unattended (skip all confirmation prompts):
+# Unattended app removal (uv itself is always preserved):
 #   curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/uninstall.sh | sh -s -- -y
 #   ASSUME_YES=1 curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/uninstall.sh | sh
 
 ASSUME_YES="${ASSUME_YES:-0}"
 
-# ---------------------------------------------------------------------------
-# Parse flags: -y / --yes
-# ---------------------------------------------------------------------------
-for _arg in "$@"; do
-    case "$_arg" in
-        -y|--yes) ASSUME_YES=1 ;;
-    esac
-done
-
-# ---------------------------------------------------------------------------
-# TTY detection -- MUST use /dev/tty, not [ -t 0 ].
-# Under `curl ... | sh`, fd 0 is the piped script, so [ -t 0 ] is false even
-# in a real terminal. The controlling terminal is still reachable via /dev/tty.
-#
-# Implementation note: `if { exec 3</dev/tty; } ...` exits the script in dash
-# when the redirect fails, even inside an `if` condition. The safe
-# cross-shell pattern is to probe in a subshell first, then exec in the
-# main shell only when the probe succeeded.
-# ---------------------------------------------------------------------------
-HAS_TTY=0
-if sh -c "exec 3</dev/tty" 2>/dev/null; then
-    exec 3</dev/tty
-    HAS_TTY=1
-fi
-
-# prompt_yn "Question?" "Y"   ($2 = default: Y or N) -> returns 0 for yes
-prompt_yn() {
-    # auto-yes flag
-    [ "$ASSUME_YES" = "1" ] && return 0
-    # headless -- take the default
-    if [ "$HAS_TTY" != "1" ]; then return 0; fi
-    _def="$2"
-    _hint="[Y/n]"
-    [ "$_def" = "N" ] && _hint="[y/N]"
-    printf '%s %s ' "$1" "$_hint" >/dev/tty
-    read _ans <&3 || _ans=""
-    [ -z "$_ans" ] && _ans="$_def"
-    case "$_ans" in y|Y|yes|YES) return 0 ;; *) return 1 ;; esac
+usage() {
+	printf '%s\n' 'Usage: uninstall.sh [-y|--yes]'
+	printf '%s\n' '  -y, --yes  Remove only pdomain-ocr-simple-gui without an interactive prompt.'
+	printf '%s\n' '             uv, its Python installations, other uv tools, caches, drivers, and data stay.'
 }
 
-# ---------------------------------------------------------------------------
-# uv-installed-by-installer marker (written by install.sh when it bootstrapped uv)
-# ---------------------------------------------------------------------------
-_MARKER_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/pdomain-ocr-simple-gui"
-_MARKER="$_MARKER_DIR/uv-installed-by-installer"
+for arg in "$@"; do
+	case "$arg" in
+	-y | --yes) ASSUME_YES=1 ;;
+	-h | --help)
+		usage
+		exit 0
+		;;
+	*)
+		usage >&2
+		exit 64
+		;;
+	esac
+done
 
-# ---------------------------------------------------------------------------
-# Step 1 -- Remove desktop shortcut (best-effort)
-# ---------------------------------------------------------------------------
-echo "Removing desktop shortcut (best-effort)..."
-if command -v pdomain-ocr-simple-gui >/dev/null 2>&1; then
-    pdomain-ocr-simple-gui --remove-desktop-shortcut || true
-else
-    echo "  pdomain-ocr-simple-gui not on PATH; skipping shortcut removal."
+# A piped installer script has no terminal on standard input.  Probe the
+# controlling terminal in a subshell before opening it in this shell: dash
+# exits if an unsuccessful redirection is attempted directly in an if body.
+HAS_TTY=0
+if sh -c "exec 3</dev/tty" 2>/dev/null; then
+	exec 3</dev/tty
+	HAS_TTY=1
 fi
 
-# ---------------------------------------------------------------------------
-# Step 2 -- Unregister from suite registry (best-effort)
-# ---------------------------------------------------------------------------
-# The app registers itself in installed.toml via pdomain_ops.suite.register_self.
-# The --unregister-suite flag calls LocalTomlSuiteRegistry().unregister().
-echo "Unregistering from suite registry (best-effort)..."
-if command -v pdomain-ocr-simple-gui >/dev/null 2>&1; then
-    pdomain-ocr-simple-gui --unregister-suite || true
-else
-    echo "  pdomain-ocr-simple-gui not on PATH; suite registry not updated."
-    echo "  To remove manually, edit:"
-    echo "    ${XDG_DATA_HOME:-$HOME/.local/share}/pd-suite/installed.toml"
-    echo "  and delete the [apps.pdomain-ocr-simple-gui] entry."
+# prompt_yn "Question?" "N" returns zero only for an explicit yes.  A
+# non-interactive run without -y cannot confirm a destructive action.
+prompt_yn() {
+	prompt=$1
+	default=$2
+	if [ "$ASSUME_YES" = "1" ]; then
+		return 0
+	fi
+	if [ "$HAS_TTY" != "1" ]; then
+		return 1
+	fi
+	hint="[y/N]"
+	if [ "$default" = "Y" ]; then
+		hint="[Y/n]"
+	fi
+	printf '%s %s ' "$prompt" "$hint" >/dev/tty
+	if IFS= read -r answer <&3; then
+		:
+	else
+		answer=""
+	fi
+	if [ -z "$answer" ]; then
+		answer=$default
+	fi
+	case "$answer" in
+	y | Y | yes | YES) return 0 ;;
+	*) return 1 ;;
+	esac
+}
+
+printf '%s\n' 'This removes only pdomain-ocr-simple-gui.'
+printf '%s\n' 'uv, its Python installations, other uv tools, model caches, drivers, and user data are preserved.'
+printf '%s\n' 'Close any running app before continuing. This script does not stop processes; press Ctrl+C to cancel.'
+
+if ! prompt_yn "Remove pdomain-ocr-simple-gui?" "N"; then
+	printf '%s\n' 'Cancelled. No changes were made.'
+	exit 0
 fi
 
-# ---------------------------------------------------------------------------
-# Step 3 -- Uninstall the tool
-# ---------------------------------------------------------------------------
 if ! command -v uv >/dev/null 2>&1; then
-    echo "uv is not on PATH -- nothing to uninstall via uv."
-    echo "If you installed pdomain-ocr-simple-gui via another method, remove it manually."
-    exit 0
+	printf '%s\n' 'uv is not on PATH, so pdomain-ocr-simple-gui was not removed.'
+	printf '%s\n' 'No shortcut or suite-registry changes were made.'
+	exit 0
 fi
 
-if prompt_yn "Remove pdomain-ocr-simple-gui?" "Y"; then
-    echo "Uninstalling pdomain-ocr-simple-gui..."
-    uv tool uninstall pdomain-ocr-simple-gui
-    echo "pdomain-ocr-simple-gui removed."
+# The app command owns its shortcut and suite registration.  Run those cleanup
+# operations only after confirmation, and stop if either native operation fails.
+if command -v pdomain-ocr-simple-gui >/dev/null 2>&1; then
+	printf '%s\n' 'Removing desktop shortcut...'
+	if pdomain-ocr-simple-gui --remove-desktop-shortcut; then
+		:
+	else
+		status=$?
+		printf '%s\n' 'Could not remove the desktop shortcut; the app was not uninstalled.' >&2
+		exit "$status"
+	fi
+
+	printf '%s\n' 'Unregistering from the suite registry...'
+	if pdomain-ocr-simple-gui --unregister-suite; then
+		:
+	else
+		status=$?
+		printf '%s\n' 'Could not unregister the app; the app was not uninstalled.' >&2
+		exit "$status"
+	fi
 else
-    echo "Skipped removal of pdomain-ocr-simple-gui."
-    exit 0
+	printf '%s\n' 'pdomain-ocr-simple-gui is not on PATH; its shortcut and registry entry were left unchanged.'
 fi
 
-# ---------------------------------------------------------------------------
-# Step 4 -- Offer to remove uv itself
-# ---------------------------------------------------------------------------
-# Default is always N -- removing uv is destructive to all other uv-managed
-# tools on the system, so it must always be an explicit opt-in.
-# The marker is used only to tailor the message (informing the user that uv
-# was installed by this app's installer), not to change the default.
-if [ -f "$_MARKER" ]; then
-    _UV_PROMPT="uv was installed by this app's installer. Remove uv as well? (this affects ALL other uv-managed tools)"
-    _UV_DEFAULT="N"
+printf '%s\n' 'Uninstalling pdomain-ocr-simple-gui...'
+if uv tool uninstall pdomain-ocr-simple-gui; then
+	:
 else
-    _UV_PROMPT="Also remove uv? (this affects ALL other uv-managed tools)"
-    _UV_DEFAULT="N"
+	status=$?
+	printf '%s\n' 'uv could not uninstall pdomain-ocr-simple-gui.' >&2
+	exit "$status"
 fi
 
-if prompt_yn "$_UV_PROMPT" "$_UV_DEFAULT"; then
-    echo ""
-    echo "WARNING: Removing uv will break all other uv-installed tools on this system."
-    echo ""
-    # uv self uninstall works when uv was installed via the standalone installer.
-    if uv self uninstall 2>/dev/null; then
-        echo "uv removed via 'uv self uninstall'."
-    else
-        echo "uv self uninstall not available (may have been installed via package manager)."
-        echo "To remove uv manually:"
-        echo "  rm -f \"\$HOME/.local/bin/uv\" \"\$HOME/.local/bin/uvx\""
-        echo "  rm -rf \"\${XDG_DATA_HOME:-\$HOME/.local/share}/uv\""
-        echo "  rm -rf \"\${XDG_CACHE_HOME:-\$HOME/.cache}/uv\""
-    fi
-    # Remove the marker regardless of which removal path ran.
-    rm -f "$_MARKER"
-else
-    echo "Keeping uv."
-fi
-
-# ---------------------------------------------------------------------------
-# Step 5 -- Final informational notes (no action taken)
-# ---------------------------------------------------------------------------
-echo ""
-echo "Cleanup notes:"
-echo ""
-echo "  The Qt xcb-cursor lib (libxcb-cursor0 / xcb-util-cursor) is a tiny"
-echo "  system package shared by many applications.  It is usually safe to"
-echo "  leave installed.  If you are certain nothing else uses it, remove it"
-echo "  with your system package manager (e.g. apt-get remove libxcb-cursor0)."
-echo ""
-echo "  AppImage installer (if downloaded by install.sh) can be removed:"
-echo "    rm -f \"\$HOME/.local/bin/pdomain-ocr-simple-gui-installer.AppImage\""
-echo ""
-echo "  OCR model weights and caches can be removed manually:"
-echo "    ~/.cache/doctr/         (DocTR model weights)"
-echo "    ~/.cache/torch/         (PyTorch/DocTR model cache)"
-echo "    ~/.cache/huggingface/   (HuggingFace model cache, if used)"
-echo ""
-echo "  App data (projects, preferences) is stored at:"
-echo "    \${PD_SUITE_DATA_DIR:-\${XDG_DATA_HOME:-\$HOME/.local/share}/pdomain-ocr-simple-gui/}"
-echo "  Remove manually if desired."
-echo ""
-echo "Uninstall complete."
+printf '%s\n' 'pdomain-ocr-simple-gui removed.'
+printf '%s\n' 'Keeping uv, its Python installations, and other uv tools.'
+printf '%s\n' ''
+printf '%s\n' 'Preserved data and dependencies:'
+printf '%s\n' '  uv, its managed Python installations, and every other uv tool remain installed.'
+printf '%s\n' '  OCR model caches and system graphics or GPU drivers remain installed.'
+printf '%s\n' '  Shared suite preferences and registry data remain in the platform-specific suite data directory.'
+printf '%s\n' '    PD_SUITE_DATA_DIR, when set, selects that shared location; other pdomain apps may use it.'
+printf '%s\n' "  Projects default to \$HOME/.local/share/pdomain-suite/simple-gui/projects."
+printf '%s\n' '    PD_OCR_SIMPLE_GUI_PROJECTS_ROOT or the app\047s Jobs location preference can select another location.'
+printf '%s\n' '  App-managed outputs, uploads, and job metadata default to:'
+printf '%s\n' "    \$HOME/.local/share/pdomain-ocr-simple-gui/outputs"
+printf '%s\n' "    \$HOME/.local/share/pdomain-ocr-simple-gui/uploads"
+printf '%s\n' "    \$HOME/.local/share/pdomain-ocr-simple-gui/jobs"
+printf '%s\n' '    Their overrides are PD_OCR_SIMPLE_GUI_OUTPUT_ROOT, PD_OCR_SIMPLE_GUI_UPLOAD_ROOT,'
+printf '%s\n' '    and PD_OCR_SIMPLE_GUI_JOBS_META_ROOT.'
+printf '%s\n' '  If you downloaded the AppImage installer, its single file is at:'
+printf '%s\n' "    \$HOME/.local/bin/pdomain-ocr-simple-gui-installer.AppImage"
+printf '%s\n' 'Review those locations individually before removing anything.'

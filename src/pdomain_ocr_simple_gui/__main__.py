@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import logging
+import os
 import sys
 import threading
 import time
@@ -12,31 +13,58 @@ import webbrowser
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
-from pdomain_ops.suite import bootstrap_spa
+from pdomain_ops.suite import register_self
 from pdomain_ops.suite.desktop import (
     install_shortcut,
     remove_shortcut,
 )
 from pdomain_ops.suite.update import apply_upgrade
+from uvicorn.config import STARTUP_FAILURE
+
+from pdomain_ocr_simple_gui.ports import (
+    PORT_ENV_VAR,
+    PREFERRED_PORT,
+    bind_listening_socket,
+    is_valid_port,
+    normalize_host,
+    resolve_start_port,
+    url_host,
+)
 
 if TYPE_CHECKING:
+    import socket
+
+    import uvicorn
     from pdomain_ops.suite.types import InstalledApp
 
 logger = logging.getLogger(__name__)
 
-PREFERRED_PORT = 8004
+_APP_IMPORT = "pdomain_ocr_simple_gui.app:app"
 
 
 @dataclass(frozen=True)
 class _CliArgs:
     host: str
-    port: int
+    port: int | None
     reload: bool
     no_browser: bool
     update: bool
     unregister_suite: bool
     install_desktop_shortcut: bool
     remove_desktop_shortcut: bool
+
+
+def _port_arg(text: str) -> int:
+    """argparse type for ``--port``: an integer from 1 to 65535."""
+    try:
+        value = int(text)
+    except ValueError:
+        msg = f"invalid port: {text!r}"
+        raise argparse.ArgumentTypeError(msg) from None
+    if not is_valid_port(value):
+        msg = f"port must be 1-65535, got {value}"
+        raise argparse.ArgumentTypeError(msg)
+    return value
 
 
 def _parse_args(argv: list[str] | None = None) -> _CliArgs:
@@ -50,9 +78,13 @@ def _parse_args(argv: list[str] | None = None) -> _CliArgs:
     )
     _ = parser.add_argument(
         "--port",
-        type=int,
-        default=PREFERRED_PORT,
-        help="Port to listen on (default: 8004, or PD_OCR_SIMPLE_GUI_PORT env var)",
+        type=_port_arg,
+        default=None,
+        help=(
+            "Port to listen on. Precedence: this flag, then the "
+            f"{PORT_ENV_VAR} env var, then {PREFERRED_PORT}. "
+            "If that port is taken, the next free port is used."
+        ),
     )
     _ = parser.add_argument(
         "--reload",
@@ -89,7 +121,7 @@ def _parse_args(argv: list[str] | None = None) -> _CliArgs:
     values = cast("dict[str, object]", vars(parsed))
     return _CliArgs(
         host=cast("str", values["host"]),
-        port=cast("int", values["port"]),
+        port=cast("int | None", values["port"]),
         reload=cast("bool", values["reload"]),
         no_browser=cast("bool", values["no_browser"]),
         update=cast("bool", values["update"]),
@@ -145,7 +177,8 @@ def _browser_url(host: str, port: int) -> str:
     Returns:
         A URL string like 'http://127.0.0.1:8004'.
     """
-    connect_host = "127.0.0.1" if host in ("0.0.0.0", "::") else host  # noqa: S104
+    bare = normalize_host(host)
+    connect_host = "127.0.0.1" if bare in ("0.0.0.0", "::") else url_host(bare)  # noqa: S104
     return f"http://{connect_host}:{port}"
 
 
@@ -211,6 +244,37 @@ def _tolerate_unencodable_output() -> None:
                 _ = reconfigure(errors="backslashreplace")
 
 
+def _register_and_announce(*, host: str, port: int) -> None:
+    """Record the real port in the suite registry and print the URL line."""
+    try:
+        register_self(_caller_package="pdomain_ocr_simple_gui", actual_port=port)
+    except Exception as exc:  # noqa: BLE001  # optional registry; startup continues
+        logger.warning("Suite registry registration failed (non-fatal): %s", exc)
+    line = f"🚀 pdomain-ocr-simple-gui at http://{url_host(host)}:{port}/"
+    try:
+        print(line)  # startup URL is intentional CLI output
+    except UnicodeEncodeError:
+        # cp1252 redirected stdout on Windows has no emoji; nothing was written.
+        print(line.removeprefix("🚀 "))  # startup URL is intentional CLI output
+
+
+def _serve(sock: socket.socket, config: uvicorn.Config) -> None:
+    """Run uvicorn on the already-bound, listening ``sock``."""
+    import uvicorn
+    from uvicorn.supervisors import ChangeReload
+
+    server = uvicorn.Server(config)
+    try:
+        if config.should_reload:
+            ChangeReload(config, target=server.run, sockets=[sock]).run()
+        else:
+            server.run(sockets=[sock])
+    except KeyboardInterrupt:
+        return
+    if not server.started and not config.should_reload:
+        sys.exit(STARTUP_FAILURE)
+
+
 def main(argv: list[str] | None = None) -> None:
     """Start the pdomain-ocr-simple-gui server."""
     _tolerate_unencodable_output()
@@ -257,25 +321,30 @@ def main(argv: list[str] | None = None) -> None:
 
     import uvicorn
 
-    port = bootstrap_spa(
-        preferred=args.port,
-        caller_package="pdomain_ocr_simple_gui",
-        port_env="PD_OCR_SIMPLE_GUI_PORT",
-        host=args.host,
-        url_label="pdomain-ocr-simple-gui",
-    )
+    from pdomain_ocr_simple_gui.cache_configuration import apply_saved_model_cache_location
 
-    if _should_open_browser(no_browser=args.no_browser):
-        url = _browser_url(args.host, port)
-        t = threading.Thread(target=_open_browser_when_ready, args=(url,), daemon=True)
-        t.start()
+    apply_saved_model_cache_location()
+    host = normalize_host(args.host)
+    sock = bind_listening_socket(host, resolve_start_port(args.port, os.environ))
+    try:
+        port = int(cast("tuple[str, int]", sock.getsockname())[1])
+        config = uvicorn.Config(_APP_IMPORT, host=host, port=port, reload=args.reload)
+        if not config.should_reload:
+            # Load the config and import the app first, so an import failure exits before the
+            # registry write, the URL line and the browser open, as before.
+            config.load()
+        _register_and_announce(host=host, port=port)
 
-    uvicorn.run(
-        "pdomain_ocr_simple_gui.app:app",
-        host=args.host,
-        port=port,
-        reload=args.reload,
-    )
+        if _should_open_browser(no_browser=args.no_browser):
+            url = _browser_url(host, port)
+            t = threading.Thread(target=_open_browser_when_ready, args=(url,), daemon=True)
+            t.start()
+
+        _serve(sock, config)
+    finally:
+        # uvicorn closes its own sockets on shutdown; a second close is a
+        # harmless no-op, and this one covers every path that never reached it.
+        sock.close()
 
 
 if __name__ == "__main__":

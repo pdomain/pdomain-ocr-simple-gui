@@ -591,49 +591,60 @@ if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
     Write-Host "No GPU detected -- installing CPU-only PyTorch."
 }
 
-$ReleaseEndpoint = "latest"
-if ($env:PD_SIMPLE_GUI_INSTALL_VERSION) {
-    if ($env:PD_SIMPLE_GUI_INSTALL_VERSION -notmatch '^v?\d+\.\d+\.\d+$') {
-        throw "PD_SIMPLE_GUI_INSTALL_VERSION must be a release version such as 0.5.7."
+if ($env:PD_SIMPLE_GUI_INSTALL_WHEEL) {
+    $LocalWheel = Get-Item -LiteralPath $env:PD_SIMPLE_GUI_INSTALL_WHEEL
+    if ($LocalWheel.PSIsContainer -or $LocalWheel.Extension -ne ".whl") {
+        throw "PD_SIMPLE_GUI_INSTALL_WHEEL must name an existing wheel file."
     }
-    $ReleaseEndpoint = "tags/v" + $env:PD_SIMPLE_GUI_INSTALL_VERSION.TrimStart("v")
-}
-$ReleaseUrl = "https://api.github.com/repos/$Repo/releases/$ReleaseEndpoint"
-Write-Host "Resolving release via GitHub API..."
-$Release = Invoke-RestMethod -Uri $ReleaseUrl
-$ReleaseTag = $Release.tag_name
-$WheelAsset = $Release.assets |
-    Where-Object { $_.name -like "*.whl" -or $_.browser_download_url -like "*.whl" } |
-    Select-Object -First 1
-
-if (-not $WheelAsset) {
-    throw "Latest release $ReleaseTag has no wheel asset attached."
-}
-
-$WheelUrl = $WheelAsset.browser_download_url
-$WheelName = if ($WheelAsset.name) {
-    $WheelAsset.name
+    $WheelName = $LocalWheel.Name
+    $ReleaseTag = "bundled artifact"
+    Write-Host "Installing explicit local wheel: $($LocalWheel.FullName)"
 } else {
-    Split-Path -Leaf ([Uri]$WheelUrl).AbsolutePath
-}
+    $ReleaseEndpoint = "latest"
+    if ($env:PD_SIMPLE_GUI_INSTALL_VERSION) {
+        if ($env:PD_SIMPLE_GUI_INSTALL_VERSION -notmatch '^v?\d+\.\d+\.\d+$') {
+            throw "PD_SIMPLE_GUI_INSTALL_VERSION must be a release version such as 0.5.7."
+        }
+        $ReleaseEndpoint = "tags/v" + $env:PD_SIMPLE_GUI_INSTALL_VERSION.TrimStart("v")
+    }
+    $ReleaseUrl = "https://api.github.com/repos/$Repo/releases/$ReleaseEndpoint"
+    Write-Host "Resolving release via GitHub API..."
+    $Release = Invoke-RestMethod -Uri $ReleaseUrl
+    $ReleaseTag = $Release.tag_name
+    $WheelAsset = $Release.assets |
+        Where-Object { $_.name -like "*.whl" -or $_.browser_download_url -like "*.whl" } |
+        Select-Object -First 1
 
-# Fail closed on any missing or malformed digest, before downloading. A
-# digest that is absent or not a well-formed sha256 means we cannot verify
-# the wheel we're about to fetch, so refuse rather than install unverified.
-# Use the case-SENSITIVE -cnotmatch: plain -notmatch is case-insensitive in
-# PowerShell, which would accept uppercase hex here while install.sh (grep,
-# case-sensitive by default) rejects it — the spec requires lowercase only,
-# and both installers must agree on what they accept.
-$WheelDigest = $WheelAsset.digest
-if (-not $WheelDigest -or $WheelDigest -cnotmatch '^sha256:[0-9a-f]{64}$') {
-    throw "Latest release $ReleaseTag wheel asset '$WheelName' has no verifiable sha256 digest (got: '$WheelDigest'). Refusing to install an unverified wheel."
-}
-$WheelDigestHex = $WheelDigest.Substring(7)
+    if (-not $WheelAsset) {
+        throw "Latest release $ReleaseTag has no wheel asset attached."
+    }
 
-Write-Host "Latest release: $ReleaseTag"
-Write-Host "Wheel asset:    $WheelUrl"
-Write-Host "Wheel digest:   $WheelDigest"
-Write-Host "pdomain-index-pip:       $PdIndexUrl"
+    $WheelUrl = $WheelAsset.browser_download_url
+    $WheelName = if ($WheelAsset.name) {
+        $WheelAsset.name
+    } else {
+        Split-Path -Leaf ([Uri]$WheelUrl).AbsolutePath
+    }
+
+    # Fail closed on any missing or malformed digest, before downloading. A
+    # digest that is absent or not a well-formed sha256 means we cannot verify
+    # the wheel we're about to fetch, so refuse rather than install unverified.
+    # Use the case-SENSITIVE -cnotmatch: plain -notmatch is case-insensitive in
+    # PowerShell, which would accept uppercase hex here while install.sh (grep,
+    # case-sensitive by default) rejects it — the spec requires lowercase only,
+    # and both installers must agree on what they accept.
+    $WheelDigest = $WheelAsset.digest
+    if (-not $WheelDigest -or $WheelDigest -cnotmatch '^sha256:[0-9a-f]{64}$') {
+        throw "Latest release $ReleaseTag wheel asset '$WheelName' has no verifiable sha256 digest (got: '$WheelDigest'). Refusing to install an unverified wheel."
+    }
+    $WheelDigestHex = $WheelDigest.Substring(7)
+
+    Write-Host "Latest release: $ReleaseTag"
+    Write-Host "Wheel asset:    $WheelUrl"
+    Write-Host "Wheel digest:   $WheelDigest"
+    Write-Host "pdomain-index-pip:       $PdIndexUrl"
+
+}
 
 $TempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("pdomain-ocr-install-" + [guid]::NewGuid().ToString("N"))
 $TempDirItem = New-Item -ItemType Directory -Path $TempDir
@@ -652,18 +663,22 @@ if ($PSVersionTable.PSVersion.Major -ge 6 -and -not $IsWindows) {
 
 try {
     $WheelFile = Join-Path $TempDir $WheelName
-    Write-Host "Downloading wheel..."
-    Invoke-WebRequest -Uri $WheelUrl -OutFile $WheelFile -UseBasicParsing
+    if ($env:PD_SIMPLE_GUI_INSTALL_WHEEL) {
+        Copy-Item -LiteralPath $LocalWheel.FullName -Destination $WheelFile
+    } else {
+        Write-Host "Downloading wheel..."
+        Invoke-WebRequest -Uri $WheelUrl -OutFile $WheelFile -UseBasicParsing
 
-    # Verify the downloaded wheel against the digest GitHub reported for it,
-    # BEFORE calling `uv tool install`. A digest that doesn't match the bytes
-    # we actually fetched means the download was tampered with or corrupted;
-    # either way, installing it would be worse than failing here.
-    $WheelActualHex = (Get-FileHash -Algorithm SHA256 -Path $WheelFile).Hash.ToLowerInvariant()
-    if ($WheelActualHex -ne $WheelDigestHex) {
-        throw "Wheel digest mismatch for $WheelFile.`n  expected: sha256:$WheelDigestHex`n  actual:   sha256:$WheelActualHex"
+        # Verify the downloaded wheel against the digest GitHub reported for it,
+        # BEFORE calling `uv tool install`. A digest that doesn't match the bytes
+        # we actually fetched means the download was tampered with or corrupted;
+        # either way, installing it would be worse than failing here.
+        $WheelActualHex = (Get-FileHash -Algorithm SHA256 -Path $WheelFile).Hash.ToLowerInvariant()
+        if ($WheelActualHex -ne $WheelDigestHex) {
+            throw "Wheel digest mismatch for $WheelFile.`n  expected: sha256:$WheelDigestHex`n  actual:   sha256:$WheelActualHex"
+        }
+        Write-Host "Digest verified: sha256:$WheelActualHex"
     }
-    Write-Host "Digest verified: sha256:$WheelActualHex"
 
     Write-Host "Installing pdomain-ocr-simple-gui $ReleaseTag from $WheelName..."
     # "first-index" makes uv stop looking once a package name resolves on an

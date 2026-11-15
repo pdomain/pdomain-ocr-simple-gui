@@ -7,7 +7,7 @@ Marked ``slow`` and ``e2e`` — excluded from ``just test``, included in
 
 Every test cites its behavior record (``Covers: B-SHELL-NNN``), asserts the
 observable DOM output, re-queries the backend API where there is a backend effect,
-and inspects on-disk artifacts (ui-prefs.json) for prefs records.  Each record
+and inspects the app-owned preferences file for persisted records. Each record
 has a good path and at least one bad path.
 
 Settings modal (B-SHELL-006/007/008/009/010):
@@ -43,10 +43,10 @@ NOTE on registry-vs-local-dev:
     present in the registry 0.2.2 dist (hooks.d.ts + hooks.js).
 
 On-disk prefs location:
-  The ``reset_prefs`` autouse fixture wipes ui-prefs.json before each test
-  (commit f575aea).  The prefs file path is
-  ``<PD_SUITE_DATA_DIR>/ui-prefs.json``.  All e2e prefs tests must read the
-  file relative to ``e2e_data_root / "suite_data"`` to stay in-scope.
+  The ``reset_prefs`` autouse fixture writes app defaults before each test.
+  The prefs file path is
+  ``<PD_OCR_SIMPLE_GUI_CONFIG_ROOT>/preferences.json`` with the app payload
+  under ``app``. All e2e prefs tests use ``e2e_default_preferences_path``.
 """
 
 from __future__ import annotations
@@ -58,16 +58,18 @@ from pathlib import Path
 import httpx
 import pytest
 from playwright.sync_api import Page, expect
+from pydantic import TypeAdapter
 
 pytestmark = [pytest.mark.slow, pytest.mark.e2e]
+_OBJECT_ADAPTER = TypeAdapter(dict[str, object])
 
 
-def _read_prefs(e2e_data_root: Path) -> dict:
-    """Read ui-prefs.json; return empty dict if absent."""
-    p = e2e_data_root / "suite_data" / "ui-prefs.json"
-    if not p.exists():
+def _read_app_prefs(preferences_path: Path) -> dict[str, object]:
+    """Read the app section; return empty when no preference file exists."""
+    if not preferences_path.exists():
         return {}
-    return json.loads(p.read_text(encoding="utf-8"))
+    payload = _OBJECT_ADAPTER.validate_json(preferences_path.read_text(encoding="utf-8"))
+    return _OBJECT_ADAPTER.validate_python(payload.get("app", {}))
 
 
 # B-SHELL-001 — App loads and renders shell with config
@@ -405,7 +407,7 @@ def test_settings_modal_closes_on_close_button(page: Page, live_server_url: str)
 # B-SHELL-008 — Theme toggle persists via /api/prefs
 
 
-def test_theme_persists_via_ui(page: Page, live_server_url: str, e2e_data_root: Path) -> None:
+def test_theme_persists_via_ui(page: Page, live_server_url: str, e2e_default_preferences_path: Path) -> None:
     """Covers: B-SHELL-008 — clicking Light theme radio in settings modal
     applies data-theme="light" and persists via PUT /api/prefs.
 
@@ -436,13 +438,10 @@ def test_theme_persists_via_ui(page: Page, live_server_url: str, e2e_data_root: 
     ui_prefs = prefs.get("ui_prefs", {})
     assert ui_prefs.get("theme") == "light", f"Expected theme='light' in GET /api/prefs; got: {prefs!r}"
 
-    # On-disk: App.tsx's persistCommon sends {ui_prefs: prefs} which is stored
-    # in apps.pdomain-ocr-simple-gui.ui_prefs by write_app().
-    disk_prefs = _read_prefs(e2e_data_root)
-    app_on_disk = disk_prefs.get("apps", {}).get("pdomain-ocr-simple-gui", {})
-    ui_prefs_on_disk = app_on_disk.get("ui_prefs", {})
+    disk_prefs = _read_app_prefs(e2e_default_preferences_path)
+    ui_prefs_on_disk = _OBJECT_ADAPTER.validate_python(disk_prefs.get("ui_prefs", {}))
     assert ui_prefs_on_disk.get("theme") == "light", (
-        f"Expected apps.pdomain-ocr-simple-gui.ui_prefs.theme='light' on disk; got: {disk_prefs!r}"
+        f"Expected app.ui_prefs.theme='light' on disk; got: {disk_prefs!r}"
     )
 
     # UI: reload — data-theme="light" is restored from prefs on boot.
@@ -458,7 +457,7 @@ def test_theme_persists_via_ui(page: Page, live_server_url: str, e2e_data_root: 
     # Error path (persist error → sonner toast) is covered there.
 
 
-def test_theme_persists_via_api(page: Page, live_server_url: str, e2e_data_root: Path) -> None:
+def test_theme_persists_via_api(page: Page, live_server_url: str, e2e_default_preferences_path: Path) -> None:
     """Covers: B-SHELL-008 — API-level fallback: PUT /api/prefs theme persists and
     survives reload even without UI interaction.
 
@@ -478,13 +477,10 @@ def test_theme_persists_via_api(page: Page, live_server_url: str, e2e_data_root:
         f"Expected theme='light' in GET /api/prefs; got: {prefs!r}"
     )
 
-    # On-disk: ui-prefs.json stores ui_prefs under apps.pdomain-ocr-simple-gui.
-    # (PUT /api/prefs writes via write_app(), not write_common(); the `common`
-    # key is only written when AppShell's persistCommon fires after a UI toggle.)
-    disk_prefs = _read_prefs(e2e_data_root)
-    app_prefs_on_disk = disk_prefs.get("apps", {}).get("pdomain-ocr-simple-gui", {})
-    assert app_prefs_on_disk.get("ui_prefs", {}).get("theme") == "light", (
-        f"Expected ui_prefs.theme='light' in apps.pdomain-ocr-simple-gui on disk; got: {disk_prefs!r}"
+    disk_prefs = _read_app_prefs(e2e_default_preferences_path)
+    ui_prefs_on_disk = _OBJECT_ADAPTER.validate_python(disk_prefs.get("ui_prefs", {}))
+    assert ui_prefs_on_disk.get("theme") == "light", (
+        f"Expected app.ui_prefs.theme='light' on disk; got: {disk_prefs!r}"
     )
 
     # UI: reload — data-theme="light" should be applied on boot.
@@ -502,7 +498,9 @@ def test_theme_persists_via_api(page: Page, live_server_url: str, e2e_data_root:
 # B-SHELL-009 — Density toggle persists via /api/prefs
 
 
-def test_density_persists_via_ui(page: Page, live_server_url: str, e2e_data_root: Path) -> None:
+def test_density_persists_via_ui(
+    page: Page, live_server_url: str, e2e_default_preferences_path: Path
+) -> None:
     """Covers: B-SHELL-009 — clicking the Compact density radio in settings modal
     applies data-density="compact" and persists via PUT /api/prefs.
 
@@ -536,13 +534,10 @@ def test_density_persists_via_ui(page: Page, live_server_url: str, e2e_data_root
         f"Expected density='compact' in GET /api/prefs; got: {prefs!r}"
     )
 
-    # On-disk: App.tsx's persistCommon sends {ui_prefs: prefs} which is stored
-    # in apps.pdomain-ocr-simple-gui.ui_prefs by write_app().
-    disk_prefs = _read_prefs(e2e_data_root)
-    app_on_disk = disk_prefs.get("apps", {}).get("pdomain-ocr-simple-gui", {})
-    ui_prefs_on_disk = app_on_disk.get("ui_prefs", {})
+    disk_prefs = _read_app_prefs(e2e_default_preferences_path)
+    ui_prefs_on_disk = _OBJECT_ADAPTER.validate_python(disk_prefs.get("ui_prefs", {}))
     assert ui_prefs_on_disk.get("density") == "compact", (
-        f"Expected apps.pdomain-ocr-simple-gui.ui_prefs.density='compact' on disk; got: {disk_prefs!r}"
+        f"Expected app.ui_prefs.density='compact' on disk; got: {disk_prefs!r}"
     )
 
     # UI: reload — compact density restored.
@@ -558,7 +553,9 @@ def test_density_persists_via_ui(page: Page, live_server_url: str, e2e_data_root
     )
 
 
-def test_density_persists_via_api(page: Page, live_server_url: str, e2e_data_root: Path) -> None:
+def test_density_persists_via_api(
+    page: Page, live_server_url: str, e2e_default_preferences_path: Path
+) -> None:
     """Covers: B-SHELL-009 — PUT /api/prefs density persists and survives reload.
 
     Regression: yes — same silent-catch as B-SHELL-008.
@@ -575,10 +572,10 @@ def test_density_persists_via_api(page: Page, live_server_url: str, e2e_data_roo
         f"Expected density='compact' in GET /api/prefs; got: {prefs!r}"
     )
 
-    disk_prefs = _read_prefs(e2e_data_root)
-    app_prefs_on_disk = disk_prefs.get("apps", {}).get("pdomain-ocr-simple-gui", {})
-    assert app_prefs_on_disk.get("ui_prefs", {}).get("density") == "compact", (
-        f"Expected ui_prefs.density='compact' in apps.pdomain-ocr-simple-gui on disk; got: {disk_prefs!r}"
+    disk_prefs = _read_app_prefs(e2e_default_preferences_path)
+    ui_prefs_on_disk = _OBJECT_ADAPTER.validate_python(disk_prefs.get("ui_prefs", {}))
+    assert ui_prefs_on_disk.get("density") == "compact", (
+        f"Expected app.ui_prefs.density='compact' on disk; got: {disk_prefs!r}"
     )
 
     # UI: reload — data-density="compact" applied to the app-shell element.
@@ -598,7 +595,9 @@ def test_density_persists_via_api(page: Page, live_server_url: str, e2e_data_roo
 # NOTE: slider drag via UI is deferred; API round-trip + error-path are covered here.
 
 
-def test_fontscale_persists_via_api(page: Page, live_server_url: str, e2e_data_root: Path) -> None:
+def test_fontscale_persists_via_api(
+    page: Page, live_server_url: str, e2e_default_preferences_path: Path
+) -> None:
     """Covers: B-SHELL-010 — moving the slider saves font_scale and it is applied after reload.
 
     Regression: yes — the frontend sent fontScale, which the backend dropped.
@@ -622,9 +621,8 @@ def test_fontscale_persists_via_api(page: Page, live_server_url: str, e2e_data_r
         f"Expected font_scale=1.2 in GET /api/prefs; got: {prefs!r}"
     )
 
-    disk_prefs = _read_prefs(e2e_data_root)
-    app_disk = disk_prefs.get("apps", {}).get("pdomain-ocr-simple-gui", {})
-    ui_disk = app_disk.get("ui_prefs", {})
+    disk_prefs = _read_app_prefs(e2e_default_preferences_path)
+    ui_disk = _OBJECT_ADAPTER.validate_python(disk_prefs.get("ui_prefs", {}))
     assert ui_disk.get("font_scale") == 1.2, f"Expected font_scale=1.2 on disk; got: {disk_prefs!r}"
 
     page.goto(live_server_url)
@@ -674,7 +672,7 @@ def test_prefs_persist_error_shows_toast(page: Page, live_server_url: str) -> No
 # B-SHELL-011 — Prefs survive page reload (round-trip)
 
 
-def test_prefs_survive_reload(page: Page, live_server_url: str, e2e_data_root: Path) -> None:
+def test_prefs_survive_reload(page: Page, live_server_url: str, e2e_default_preferences_path: Path) -> None:
     """Covers: B-SHELL-011 — prefs written via PUT /api/prefs survive a reload."""
     # Seed all three common-prefs fields.
     put_resp = httpx.put(
@@ -689,10 +687,9 @@ def test_prefs_survive_reload(page: Page, live_server_url: str, e2e_data_root: P
     assert prefs.get("ui_prefs", {}).get("theme") == "light"
     assert prefs.get("ui_prefs", {}).get("density") == "comfortable"
 
-    # On-disk: confirm file exists before reload.
-    disk_prefs = _read_prefs(e2e_data_root)
-    app_disk = disk_prefs.get("apps", {}).get("pdomain-ocr-simple-gui", {})
-    assert app_disk.get("ui_prefs", {}).get("theme") == "light"
+    disk_prefs = _read_app_prefs(e2e_default_preferences_path)
+    ui_prefs_on_disk = _OBJECT_ADAPTER.validate_python(disk_prefs.get("ui_prefs", {}))
+    assert ui_prefs_on_disk.get("theme") == "light"
 
     # UI: full page reload — prefs applied by uiPrefsConfig.load.
     page.goto(live_server_url)

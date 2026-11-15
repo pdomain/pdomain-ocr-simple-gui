@@ -65,13 +65,9 @@ def _projects_root() -> Path:
        resolved to an absolute path.
     3. The shipped default under the user data dir.
     """
-    raw = os.environ.get("PD_OCR_SIMPLE_GUI_PROJECTS_ROOT")
-    if raw:
-        return Path(raw)
-    pref = _jobs_location_pref()
-    if pref:
-        return Path(pref).expanduser().resolve()
-    return _PROJECTS_ROOT_DEFAULT
+    from pdomain_ocr_simple_gui.locations import get_locations
+
+    return get_locations(legacy_jobs_location=_jobs_location_pref()).projects_root
 
 
 def get_projects_root() -> Path:

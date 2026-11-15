@@ -58,6 +58,10 @@ def _no_layout_weight_download(monkeypatch: pytest.MonkeyPatch) -> None:
 
 # Every env var the app / suite reads to locate on-disk data.
 _DATA_ROOT_VARS: dict[str, str] = {
+    "PD_OCR_SIMPLE_GUI_CONFIG_ROOT": "config",
+    "PD_OCR_SIMPLE_GUI_DATA_ROOT": "data",
+    "PD_OCR_SIMPLE_GUI_STATE_ROOT": "state",
+    "PD_OCR_SIMPLE_GUI_CACHE_ROOT": "cache",
     "PD_OCR_SIMPLE_GUI_PROJECTS_ROOT": "projects",
     "PD_OCR_SIMPLE_GUI_OUTPUT_ROOT": "outputs",
     "PD_OCR_SIMPLE_GUI_JOBS_META_ROOT": "jobs_meta",
@@ -155,6 +159,7 @@ def tmp_prefs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / "suite_data"
     root.mkdir()
     monkeypatch.setenv("PD_SUITE_DATA_DIR", str(root))
+    monkeypatch.setenv("PD_OCR_SIMPLE_GUI_CONFIG_ROOT", str(tmp_path / "config"))
     return root
 
 

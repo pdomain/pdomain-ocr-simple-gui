@@ -1,130 +1,13 @@
-"""Tests for dynamic port selection via bootstrap_spa."""
+"""Tests for the pdomain_ops port helpers and the CLI port flag.
+
+The launch-time port behaviour is tested in ``test_port_selection.py``.
+"""
 
 from __future__ import annotations
 
 import socket
+import subprocess
 import sys
-from unittest.mock import MagicMock, patch
-
-
-class TestDynamicPortCLI:
-    """Unit tests: bootstrap_spa drives uvicorn.run."""
-
-    def test_uvicorn_called_with_picked_port(self) -> None:
-        """uvicorn.run receives the port returned by bootstrap_spa."""
-        import pdomain_ocr_simple_gui.__main__ as main_mod
-
-        mock_run = MagicMock()
-        with (
-            patch(
-                "pdomain_ocr_simple_gui.__main__.bootstrap_spa",
-                return_value=8007,
-            ),
-            patch("uvicorn.run", mock_run),
-            patch.object(sys, "argv", ["pdomain-ocr-simple-gui"]),
-        ):
-            main_mod.main()
-
-        assert mock_run.call_count == 1
-        _, kwargs = mock_run.call_args
-        assert kwargs["port"] == 8007
-
-    def test_uvicorn_not_called_when_port_is_zero(self) -> None:
-        """When bootstrap_spa returns 0 (invalid), uvicorn.run should still receive it
-        (the CLI trusts bootstrap_spa's return value; error handling is bootstrap_spa's job)."""
-        import pdomain_ocr_simple_gui.__main__ as main_mod
-
-        mock_run = MagicMock()
-        with (
-            patch(
-                "pdomain_ocr_simple_gui.__main__.bootstrap_spa",
-                return_value=0,
-            ),
-            patch("uvicorn.run", mock_run),
-            patch.object(sys, "argv", ["pdomain-ocr-simple-gui"]),
-        ):
-            main_mod.main()
-
-        # uvicorn.run is called with whatever port bootstrap_spa returns
-        assert mock_run.call_count == 1
-        _, kwargs = mock_run.call_args
-        assert kwargs["port"] == 0
-
-    def test_bootstrap_spa_called_with_expected_kwargs(self) -> None:
-        """bootstrap_spa receives preferred, caller_package, and port_env."""
-        import pdomain_ocr_simple_gui.__main__ as main_mod
-
-        mock_bootstrap = MagicMock(return_value=8004)
-        mock_run = MagicMock()
-        with (
-            patch(
-                "pdomain_ocr_simple_gui.__main__.bootstrap_spa",
-                mock_bootstrap,
-            ),
-            patch("uvicorn.run", mock_run),
-            patch.object(sys, "argv", ["pdomain-ocr-simple-gui"]),
-        ):
-            main_mod.main()
-
-        assert mock_bootstrap.call_count == 1
-        _, kwargs = mock_bootstrap.call_args
-        assert kwargs["caller_package"] == "pdomain_ocr_simple_gui"
-        assert kwargs["port_env"] == "PD_OCR_SIMPLE_GUI_PORT"
-
-    def test_bootstrap_spa_receives_host_kwarg(self) -> None:
-        """bootstrap_spa receives the host value passed via --host."""
-        import pdomain_ocr_simple_gui.__main__ as main_mod
-
-        captured: list[dict[str, object]] = []
-
-        def _fake_bootstrap(**kwargs: object) -> int:
-            captured.append(dict(kwargs))
-            return 9000
-
-        mock_run = MagicMock()
-        with (
-            patch("pdomain_ocr_simple_gui.__main__.bootstrap_spa", _fake_bootstrap),
-            patch("uvicorn.run", mock_run),
-            patch.object(sys, "argv", ["pdomain-ocr-simple-gui", "--host", "0.0.0.0"]),
-        ):
-            main_mod.main()
-
-        assert captured[0]["host"] == "0.0.0.0"
-
-    def test_cli_port_flag_overrides_default(self) -> None:
-        """--port N flag is forwarded as preferred= to bootstrap_spa."""
-        import pdomain_ocr_simple_gui.__main__ as main_mod
-
-        captured_preferred: list[int] = []
-
-        def _fake_bootstrap(**kwargs: object) -> int:
-            captured_preferred.append(int(kwargs["preferred"]))  # type: ignore[arg-type]
-            return int(kwargs["preferred"])  # type: ignore[return-value]
-
-        mock_run = MagicMock()
-        with (
-            patch(
-                "pdomain_ocr_simple_gui.__main__.bootstrap_spa",
-                _fake_bootstrap,
-            ),
-            patch("uvicorn.run", mock_run),
-            patch.object(sys, "argv", ["pdomain-ocr-simple-gui", "--port", "8010"]),
-        ):
-            main_mod.main()
-
-        assert captured_preferred == [8010]
-
-    def test_cli_invalid_port_flag_exits_nonzero(self) -> None:
-        """--port with a non-integer argument exits non-zero (argparse type check)."""
-        import subprocess
-
-        result = subprocess.run(
-            [sys.executable, "-m", "pdomain_ocr_simple_gui", "--port", "not-a-number"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        assert result.returncode != 0
 
 
 class TestBootstrapSpaImportable:
@@ -162,3 +45,15 @@ class TestBootstrapSpaImportable:
             result = find_available_port(occupied)
             assert isinstance(result, int)
             assert 1024 <= result <= 65535  # at minimum: valid port range, no crash
+
+
+def test_cli_invalid_port_flag_exits_nonzero() -> None:
+    """--port with a non-integer argument exits non-zero (argparse type check)."""
+    result = subprocess.run(
+        [sys.executable, "-m", "pdomain_ocr_simple_gui", "--port", "not-a-number"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    assert result.returncode != 0
