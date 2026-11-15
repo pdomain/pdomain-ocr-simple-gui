@@ -121,36 +121,14 @@ def _is_cuda_version(cuda_version: str | None) -> bool:
 
 
 def cuda_supports_book_tools_gpu(cuda_version: str | None) -> bool:
-    """Return True iff the CUDA version is >= 12.4 (required for pdomain-book-tools[gpu]).
-
-    CuPy (cupy-cuda12x) requires CUDA >= 12.4.  Mirrors the POSIX sh compare in
-    install.sh::
-
-        if [ "$CUDA_MAJOR" -gt 12 ] || { [ "$CUDA_MAJOR" -eq 12 ] && [ "$CUDA_MINOR" -ge 4 ]; }
-
-    Examples:
-        "13.0" → True
-        "12.4" → True
-        "12.3" → False
-        "11.8" → False
-        None   → False (no CUDA detected)
-        "garbage" → False (unparseable)
-
-    Args:
-        cuda_version: CUDA version string like "13.0" / "12.4", or None.
-
-    Returns:
-        True when version parses and is >= 12.4; False otherwise.
-    """
+    """Return whether CUDA supports the CUDA 13 CuPy extra."""
     if cuda_version is None or not _is_cuda_version(cuda_version):
         return False
     try:
-        major_str, minor_str = cuda_version.split(".")
-        major = int(major_str)
-        minor = int(minor_str)
+        major = int(cuda_version.split(".")[0])
     except ValueError:
         return False
-    return major > 12 or (major == 12 and minor >= 4)
+    return major >= 13
 
 
 # Minimum NVIDIA driver version that supports CUDA 12 (cu121 wheel ABI).
@@ -310,7 +288,7 @@ def plan_steps(
     - When ``gpu == 'nvidia'`` and no CUDA version was detected — CPU
       fallback: no ``--torch-backend`` flag.
     - ``--with pdomain-book-tools[gpu]`` (CuPy) is added only
-      when ``book_tools_gpu=True`` (requires CUDA >= 12.4).
+      when ``book_tools_gpu=True`` (requires CUDA >= 13).
 
     Args:
         has_uv:        True when ``uv`` is already installed.
@@ -323,7 +301,7 @@ def plan_steps(
                        fallback (no ``--torch-backend``).
         book_tools_gpu: When True, adds ``--with pdomain-book-tools[gpu]`` to
                        the tool install command (CuPy extra).
-                       Requires CUDA >= 12.4.  Computed by the wizard via
+                       Requires CUDA >= 13.  Computed by the wizard via
                        ``cuda_supports_book_tools_gpu()``.
     """
     steps: list[Step] = []
@@ -366,7 +344,7 @@ def plan_steps(
         # instead of an explicit cuXXX tag: uv's explicit values lag new
         # CUDA releases.
         tool_cmd += ["--torch-backend", "auto"]
-    if book_tools_gpu:
+    if book_tools_gpu and gpu == "nvidia" and cuda_supports_book_tools_gpu(cuda_version):
         tool_cmd += ["--with", "pdomain-book-tools[gpu]"]
 
     steps.append(

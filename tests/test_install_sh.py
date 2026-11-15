@@ -132,14 +132,14 @@ def test_install_sh_tty_detection_exec_style() -> None:
 def test_install_sh_read_from_fd3() -> None:
     """Gate reads answer from fd 3 (the /dev/tty fd)."""
     content = INSTALL_SH.read_text(encoding="utf-8")
-    assert "read _ans <&3" in content, "install.sh must read answer from fd 3 (the /dev/tty fd)"
+    assert "read -r _ans <&3" in content, "install.sh must read answer from fd 3 (the /dev/tty fd)"
 
 
 def test_install_sh_assume_yes_flag() -> None:
     """Must support -y / --yes flag and ASSUME_YES env var."""
     content = INSTALL_SH.read_text(encoding="utf-8")
     assert "ASSUME_YES" in content, "install.sh must support ASSUME_YES env var"
-    assert "-y|--yes" in content, "install.sh must parse -y/--yes flag"
+    assert "-y | --yes" in content, "install.sh must parse -y/--yes flag"
     assert '[ "$ASSUME_YES" = "1" ]' in content, "install.sh must gate on ASSUME_YES=1"
 
 
@@ -343,7 +343,7 @@ exit 0
     env["NO_APPIMAGE"] = "1"
 
     result = subprocess.run(
-        ["sh", str(INSTALL_SH)],
+        [os.environ.get("PD_INSTALL_TEST_SHELL", "sh"), str(INSTALL_SH)],
         cwd=tmp_path,
         env=env,
         text=True,
@@ -422,7 +422,7 @@ exit 0
     env["NO_APPIMAGE"] = "1"
 
     result = subprocess.run(
-        ["sh", str(INSTALL_SH)],
+        [os.environ.get("PD_INSTALL_TEST_SHELL", "sh"), str(INSTALL_SH)],
         cwd=tmp_path,
         env=env,
         text=True,
@@ -489,7 +489,7 @@ exit 0
     env["NO_APPIMAGE"] = "1"
 
     result = subprocess.run(
-        ["sh", str(INSTALL_SH)],
+        [os.environ.get("PD_INSTALL_TEST_SHELL", "sh"), str(INSTALL_SH)],
         cwd=tmp_path,
         env=env,
         text=True,
@@ -740,7 +740,7 @@ exit 0
     (tmp_path / "home").mkdir()
 
     result = subprocess.run(
-        ["sh", str(INSTALL_SH)],
+        [os.environ.get("PD_INSTALL_TEST_SHELL", "sh"), str(INSTALL_SH)],
         cwd=tmp_path,
         env=env,
         text=True,
@@ -811,7 +811,7 @@ exit 0
     env["DISPLAY"] = ":0"
 
     result = subprocess.run(
-        ["sh", str(INSTALL_SH)],
+        [os.environ.get("PD_INSTALL_TEST_SHELL", "sh"), str(INSTALL_SH)],
         cwd=tmp_path,
         env=env,
         text=True,
@@ -914,7 +914,7 @@ def _run_install_sh(
     env["ASSUME_YES"] = "1"
     env["NO_APPIMAGE"] = "1"
     result = subprocess.run(
-        ["sh", str(INSTALL_SH)],
+        [os.environ.get("PD_INSTALL_TEST_SHELL", "sh"), str(INSTALL_SH)],
         cwd=tmp_path,
         env=env,
         text=True,
@@ -984,3 +984,11 @@ def test_install_sh_failure_without_torch_backend_message_has_no_hint(tmp_path: 
     combined = result.stdout + result.stderr
     assert "No solution found" in combined
     assert "uv self update" not in combined
+
+
+@pytest.mark.parametrize("cuda", ["12.4", "12.8", "12.9"])
+def test_cuda_12_keeps_pytorch_gpu_but_omits_cupy_13(tmp_path: Path, cuda: str) -> None:
+    result, argv = _run_install_sh(tmp_path, nvidia_banner=f"CUDA Version: {cuda}")
+    assert result.returncode == 0, result.stderr + result.stdout
+    assert "--torch-backend" in argv
+    assert "pdomain-book-tools[gpu]" not in argv

@@ -392,7 +392,7 @@ def _write_job_meta(jobs_meta_root: Path, project_id: str, mode: str) -> None:
     (meta_dir / "output_mode.json").write_text(json.dumps({"mode": mode}), encoding="utf-8")
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def seeded_job_id(e2e_data_root: Path) -> str:
     """Yield a project_id for a completed (non-managed) job pre-seeded on disk.
 

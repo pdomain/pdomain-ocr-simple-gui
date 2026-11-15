@@ -459,7 +459,7 @@ def test_query_cuda_version_no_cuda_line(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 # ---------------------------------------------------------------------------
-# cuda_supports_book_tools_gpu — CUDA version >= 12.4 gate
+# cuda_supports_book_tools_gpu — CUDA version >= 13 gate
 # ---------------------------------------------------------------------------
 
 
@@ -469,8 +469,8 @@ def test_cuda_supports_book_tools_gpu_13_0() -> None:
 
 
 def test_cuda_supports_book_tools_gpu_12_4() -> None:
-    """'12.4' → True (exactly at boundary)."""
-    assert cuda_supports_book_tools_gpu("12.4") is True
+    """CUDA 12 cannot load the CUDA 13 CuPy extra."""
+    assert cuda_supports_book_tools_gpu("12.4") is False
 
 
 def test_cuda_supports_book_tools_gpu_12_3() -> None:
@@ -684,3 +684,11 @@ def test_display_command_renders_in_plan(capsys: pytest.CaptureFixture[str]) -> 
     out = capsys.readouterr().out
     assert "uv tool install" in out
     assert "['uv'" not in out  # the raw list repr must not appear
+
+
+@pytest.mark.parametrize("cuda", ["12.4", "12.9", None, "bad"])
+def test_cupy_request_cannot_override_cuda_13_requirement(cuda: str | None) -> None:
+    steps = plan_steps(has_uv=True, gpu="nvidia", cuda_version=cuda, book_tools_gpu=True)
+    command = next(step.command for step in steps if step.id == "tool_install")
+    assert isinstance(command, list)
+    assert "pdomain-book-tools[gpu]" not in command

@@ -76,15 +76,32 @@ uv tool install pdomain-ocr-simple-gui --python 3.13 \
   --index pdomain=https://pdomain.github.io/pdomain-index-pip/simple/
 ```
 
-Windows (PowerShell, no administrator rights needed):
+Windows: from a checkout that includes `install.ps1`, run this in PowerShell:
+
+```powershell
+Get-Content -Raw .\install.ps1 | Invoke-Expression
+```
+
+The PowerShell installer is new after v0.5.7; that release does not include it.
+Use the local file until a release or published checkout provides it.
+The script installs uv if needed, verifies the latest release wheel and
+reinstalls the app for your account. Only a missing or outdated Visual C++
+runtime needs administrator approval. The script never restarts Windows.
+
+To select a release, set `PD_SIMPLE_GUI_INSTALL_VERSION`, for example `0.5.7`.
+Set `PD_SIMPLE_GUI_INSTALL_PYTHON` to choose another supported Python version.
+CUDA detection selects PyTorch automatically. The optional CuPy package needs
+CUDA 13 or newer. `CUDA_VERSION` overrides CUDA detection when needed.
+
+For a manual Windows install with uv already installed:
 
 ```powershell
 uv tool install pdomain-ocr-simple-gui --python 3.13 --index-strategy first-index --index pdomain=https://pdomain.github.io/pdomain-index-pip/simple/
 ```
 
-To upgrade an existing install, run the same command with `--reinstall`.
-Releases before 0.5.6 installed two copies of OpenCV, and `--reinstall`
-replaces the whole tool environment, so no stale files are left behind.
+To upgrade a manual install, add `--reinstall`. Releases before 0.5.6 installed
+two copies of OpenCV. Reinstallation replaces the whole tool environment,
+so no stale files remain. The PowerShell script reinstalls automatically.
 
 On a Linux server or in a container, OCR and startup fail with
 `libxcb.so.1: cannot open shared object file` until OpenCV's X11 and OpenGL

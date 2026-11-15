@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+set -eu
 
 # Install pdomain-ocr-simple-gui as a standalone tool using uv.
 #
@@ -20,7 +20,7 @@ set -e
 #   automatically when launched.  No native window or Qt library is required.
 #
 # GPU auto-enable:
-#   The CUDA >= 12.4 branch below passes `--with pdomain-book-tools[gpu]`
+#   The CUDA >= 13 branch below passes `--with pdomain-book-tools[gpu]`
 #   to pull in the optional CuPy extra. That extra exists
 #   only in pdomain-book-tools >= v0.11.0. pdomain-book-tools is published
 #   on the self-hosted pdomain-index-pip PEP 503 index, so the wheel's
@@ -58,7 +58,7 @@ MIN_UV_VERSION="0.11.16"
 # ---------------------------------------------------------------------------
 for _arg in "$@"; do
     case "$_arg" in
-        -y|--yes) ASSUME_YES=1 ;;
+        -y | --yes) ASSUME_YES=1 ;;
         --no-appimage) NO_APPIMAGE=1 ;;
     esac
 done
@@ -89,9 +89,9 @@ prompt_yn() {
     _hint="[Y/n]"
     [ "$_def" = "N" ] && _hint="[y/N]"
     printf '%s %s ' "$1" "$_hint" >/dev/tty
-    read _ans <&3 || _ans=""
+    read -r _ans <&3 || _ans=""
     [ -z "$_ans" ] && _ans="$_def"
-    case "$_ans" in y|Y|yes|YES) return 0 ;; *) return 1 ;; esac
+    case "$_ans" in y | Y | yes | YES) return 0 ;; *) return 1 ;; esac
 }
 
 # ---------------------------------------------------------------------------
@@ -191,18 +191,17 @@ if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
         TORCH_BACKEND="auto"
         echo "Detected CUDA ${CUDA_VER} -- uv will pick the matching CUDA build of PyTorch."
 
-        # CuPy (cupy-cuda12x) requires CUDA >= 12.4. Only opt into the
+        # CuPy (cupy-cuda13x) requires CUDA >= 13. Only opt into the
         # pdomain-book-tools[gpu] extra when that minimum is satisfied;
         # otherwise the [gpu] resolve fails with a CuPy version error
         # and a working CPU-only install would have been preferable.
         # POSIX-sh version compare -- no `sort -V`, no `awk`.
         CUDA_MAJOR=${CUDA_VER%.*}
-        CUDA_MINOR=${CUDA_VER#*.}
-        if [ "$CUDA_MAJOR" -gt 12 ] || { [ "$CUDA_MAJOR" -eq 12 ] && [ "$CUDA_MINOR" -ge 4 ]; }; then
+        if [ "$CUDA_MAJOR" -ge 13 ]; then
             PD_BOOK_TOOLS_EXTRAS="[gpu]"
-            echo "CUDA ${CUDA_VER} >= 12.4 -- enabling pdomain-book-tools[gpu] (CuPy)."
+            echo "CUDA ${CUDA_VER} >= 13 -- enabling pdomain-book-tools[gpu] (CuPy)."
         else
-            echo "CUDA ${CUDA_VER} < 12.4 -- installing CPU-only book-tools (cupy-cuda12x needs >= 12.4)."
+            echo "CUDA ${CUDA_VER} < 13 -- installing CPU-only book-tools (cupy-cuda13x needs >= 13)."
         fi
     else
         echo "nvidia-smi found but could not detect CUDA version -- falling back to CPU."
@@ -231,11 +230,11 @@ if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
     if [ -n "$RELEASE_JSON" ]; then
         RELEASE_TAG=$(printf '%s' "$RELEASE_JSON" | grep -o '"tagName":"[^"]*"' | head -1 | sed 's/.*"tagName":"\([^"]*\)".*/\1/')
         # Pull the first .whl asset's URL.
-        WHEEL_URL=$(printf '%s' "$RELEASE_JSON" \
-            | tr ',' '\n' \
-            | grep -o '"url":"[^"]*\.whl"' \
-            | head -1 \
-            | sed 's/.*"url":"\([^"]*\)".*/\1/')
+        WHEEL_URL=$(printf '%s' "$RELEASE_JSON" |
+            tr ',' '\n' |
+            grep -o '"url":"[^"]*\.whl"' |
+            head -1 |
+            sed 's/.*"url":"\([^"]*\)".*/\1/')
     fi
 fi
 
@@ -248,14 +247,14 @@ if [ -z "$WHEEL_URL" ]; then
         echo "     uv tool install git+https://github.com/${REPO}" >&2
         exit 1
     fi
-    RELEASE_TAG=$(printf '%s' "$RELEASE_JSON" \
-        | grep '"tag_name"' | head -1 \
-        | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
-    WHEEL_URL=$(printf '%s' "$RELEASE_JSON" \
-        | grep '"browser_download_url"' \
-        | grep '\.whl"' \
-        | head -1 \
-        | sed 's/.*"browser_download_url": *"\([^"]*\)".*/\1/')
+    RELEASE_TAG=$(printf '%s' "$RELEASE_JSON" |
+        grep '"tag_name"' | head -1 |
+        sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
+    WHEEL_URL=$(printf '%s' "$RELEASE_JSON" |
+        grep '"browser_download_url"' |
+        grep '\.whl"' |
+        head -1 |
+        sed 's/.*"browser_download_url": *"\([^"]*\)".*/\1/')
 fi
 
 if [ -z "$WHEEL_URL" ]; then
@@ -304,18 +303,18 @@ _try_appimage() {
     _APPIMAGE_URL=""
     if [ -n "$RELEASE_JSON" ]; then
         # Try gh-style JSON first (assets array with url field)
-        _APPIMAGE_URL=$(printf '%s' "$RELEASE_JSON" \
-            | tr ',' '\n' \
-            | grep -o '"url":"[^"]*\.AppImage"' \
-            | head -1 \
-            | sed 's/.*"url":"\([^"]*\)".*/\1/' || true)
+        _APPIMAGE_URL=$(printf '%s' "$RELEASE_JSON" |
+            tr ',' '\n' |
+            grep -o '"url":"[^"]*\.AppImage"' |
+            head -1 |
+            sed 's/.*"url":"\([^"]*\)".*/\1/' || true)
         # Fall back to GitHub Releases API style (browser_download_url field)
         if [ -z "$_APPIMAGE_URL" ]; then
-            _APPIMAGE_URL=$(printf '%s' "$RELEASE_JSON" \
-                | grep '"browser_download_url"' \
-                | grep '\.AppImage"' \
-                | head -1 \
-                | sed 's/.*"browser_download_url": *"\([^"]*\)".*/\1/' || true)
+            _APPIMAGE_URL=$(printf '%s' "$RELEASE_JSON" |
+                grep '"browser_download_url"' |
+                grep '\.AppImage"' |
+                head -1 |
+                sed 's/.*"browser_download_url": *"\([^"]*\)".*/\1/' || true)
         fi
     fi
     if [ -z "$_APPIMAGE_URL" ]; then
@@ -327,8 +326,8 @@ _try_appimage() {
     mkdir -p "${HOME}/.local/bin"
     echo "Downloading AppImage installer to ${_APPIMAGE_DEST}..."
     if ! curl -sSfL \
-            -H "Accept: application/octet-stream" \
-            -o "$_APPIMAGE_DEST" "$_APPIMAGE_URL"; then
+        -H "Accept: application/octet-stream" \
+        -o "$_APPIMAGE_DEST" "$_APPIMAGE_URL"; then
         echo "Warning: AppImage download failed; falling back to script install." >&2
         rm -f "$_APPIMAGE_DEST"
         return 1
@@ -367,8 +366,8 @@ echo "Downloading wheel..."
 # header to receive the binary; public browser_download_url variants do not.
 # Sending the header for both forms is harmless.
 if ! curl -sSfL \
-        -H "Accept: application/octet-stream" \
-        -o "$WHEEL_FILE" "$WHEEL_URL"; then
+    -H "Accept: application/octet-stream" \
+    -o "$WHEEL_FILE" "$WHEEL_URL"; then
     echo "Failed to download wheel from ${WHEEL_URL}" >&2
     exit 1
 fi
@@ -380,7 +379,7 @@ if [ -n "$TORCH_BACKEND" ]; then
     if [ -n "$PD_BOOK_TOOLS_EXTRAS" ]; then
         _GPU_LABEL="CUDA ${CUDA_VER} (GPU build)"
     else
-        _GPU_LABEL="CUDA ${CUDA_VER} (CPU-only book-tools; CUDA < 12.4)"
+        _GPU_LABEL="CUDA ${CUDA_VER} (CPU-only book-tools; CUDA < 13)"
     fi
 elif [ "$(uname)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
     _GPU_LABEL="Apple Silicon / MPS"
@@ -419,7 +418,7 @@ echo "Installing pdomain-ocr-simple-gui ${RELEASE_TAG:-} from $(basename "$WHEEL
 #
 # pdomain-book-tools is published on the self-hosted pdomain-index-pip (GitHub
 # Pages PEP 503 index); pass --extra-index-url so uv can resolve the
-# Requires-Dist entry that the wheel's METADATA carries. When CUDA >= 12.4
+# Requires-Dist entry that the wheel's METADATA carries. When CUDA >= 13
 # was detected above, $PD_BOOK_TOOLS_EXTRAS is "[gpu]"; we pass --with to
 # pull that extra in.
 #

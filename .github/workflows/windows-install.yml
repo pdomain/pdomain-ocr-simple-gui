@@ -1,6 +1,6 @@
 # Manual Windows install test. Start it with `just win-test`.
 #
-# It installs the latest release with the README's PowerShell command, then
+# It installs the latest release with install.ps1 in Windows PowerShell 5.1, then
 # runs scripts/windows_acceptance.py against the installed app in headless
 # Microsoft Edge: upload, real OCR, edit, rerun and ZIP export. GitHub's
 # Windows runners are x64 virtual machines with no GPU, where the job runs as
@@ -41,17 +41,12 @@ jobs:
         with:
           persist-credentials: false
 
-      # The README's Windows install assumes uv is already installed.
-      - name: Install uv
-        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-        with:
-          enable-cache: false
-
       - name: Put uv's tool directory on PATH
         run: Add-Content -Path $env:GITHUB_PATH -Value "$env:USERPROFILE\.local\bin"
 
-      - name: Install the latest release with the README command
-        run: uv tool install pdomain-ocr-simple-gui --python 3.13 --index-strategy first-index --index pdomain=https://pdomain.github.io/pdomain-index-pip/simple/
+      - name: Install the latest release with install.ps1 in Windows PowerShell
+        shell: powershell
+        run: Get-Content -Raw .\install.ps1 | Invoke-Expression
 
       - name: Report the installed environment
         run: |

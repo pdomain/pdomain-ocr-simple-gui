@@ -442,7 +442,7 @@ mac-test-watch run="":
 mac-test-logs run="":
     ./scripts/install-test.sh macos logs "{{ run }}"
 
-# It installs the latest release with the README's PowerShell command and runs the acceptance script in Edge.
+# It runs install.ps1 in Windows PowerShell 5.1 and the acceptance script in Edge.
 # runner: windows-2025 (default) or windows-2022, both x64.
 # Start the manual Windows install test on GitHub Actions and follow it.
 win-test runner="windows-2025":

@@ -14,6 +14,15 @@ All notable changes to `pdomain-ocr-simple-gui` are documented here.
 
 ## [Unreleased]
 
+### Installers
+
+- Add a Windows PowerShell installer with uv bootstrap, verified release wheels,
+  CUDA detection, network retries and Visual C++ runtime repair.
+- Run the Windows install test through the installer in PowerShell 5.1 before
+  the existing Edge acceptance flow. The workflow remains manual.
+- Require CUDA 13 for the CuPy extra in both installer paths. CUDA 12 drivers
+  can still select compatible PyTorch builds without that extra.
+
 ---
 
 ## [0.5.7] — 2026-11-14

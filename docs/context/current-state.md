@@ -40,6 +40,11 @@ release review.
 
 ## In-flight work
 
+Branch `fix/windows-installer` adds a self-contained Windows PowerShell installer
+and requires CUDA 13 for the optional CuPy extra. Its Windows workflow runs the
+installer before Edge acceptance. These changes are unmerged and are not part
+of release 0.5.7; use the local script from that branch for testing.
+
 Local `master` after `v0.5.4` holds unreleased Windows and layout fixes; see
 the [changelog](../../CHANGELOG.md). They came from running 0.5.4 on Windows
 11 as a standard user, recorded in the
