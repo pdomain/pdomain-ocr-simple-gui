@@ -392,9 +392,13 @@ def _write_job_meta(jobs_meta_root: Path, project_id: str, mode: str) -> None:
     (meta_dir / "output_mode.json").write_text(json.dumps({"mode": mode}), encoding="utf-8")
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def seeded_job_id(e2e_data_root: Path) -> str:
     """Yield a project_id for a completed (non-managed) job pre-seeded on disk.
+
+    Function scope is required. A session-scoped id is shared by every test on
+    one xdist worker. The page-save test rewrites that job's output text, and
+    a later results test then reads the edited file instead of "Hello World".
 
     The job has:
     - status = succeeded, 1 page
