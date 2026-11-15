@@ -136,6 +136,9 @@ startup; this is the standard pattern for FastAPI app-level state before
   fixed subprocess arguments and print operator output.
   `installer/install_engine.py` uses all three, `installer/wizard.py` uses
   `S603` and `T201`, and `scripts/purge_test_jobs.py` uses `T201`.
+- `S603`: `desktop.py` selects an executable from a fixed list of OS dialog tools.
+  Error text is passed only as an argument or environment variable. The call uses no shell,
+  and tests check that message text cannot become a command.
 
 ### Type-checker boundary suppressions
 
