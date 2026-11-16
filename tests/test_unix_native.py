@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -10,8 +12,13 @@ import pytest
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-from installer.install_engine import GPU_SETUP_GUIDE_URL
-from installer.unix.native import install_command, install_entries, open_gpu_setup_guide
+from installer.install_engine import GPU_SETUP_GUIDE_URL as ENGINE_GUIDE_URL
+from installer.unix.native import (
+    GPU_SETUP_GUIDE_URL,
+    install_command,
+    install_entries,
+    open_gpu_setup_guide,
+)
 
 
 def test_open_gpu_setup_guide_uses_the_published_page(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -23,6 +30,7 @@ def test_open_gpu_setup_guide_uses_the_published_page(monkeypatch: pytest.Monkey
 
     monkeypatch.setattr("installer.unix.native.webbrowser.open", _open)
     open_gpu_setup_guide()
+    assert GPU_SETUP_GUIDE_URL == ENGINE_GUIDE_URL
     assert opened == [GPU_SETUP_GUIDE_URL]
 
 
@@ -34,6 +42,8 @@ def test_desktop_installers_name_the_gpu_guide() -> None:
     mac_install = (root / "installer/macos/install-native.sh").read_text(encoding="utf-8")
     assert "GPU setup guide" in native
     assert "GPU guide" in native
+    assert "from installer.install_engine import" not in native
+    assert GPU_SETUP_GUIDE_URL in native
     assert "GPU setup guide" in windows
     assert GPU_SETUP_GUIDE_URL in windows
     assert '{"Cancel", "GPU guide", "Continue"}' in applescript
@@ -45,6 +55,21 @@ def test_desktop_installers_name_the_gpu_guide() -> None:
     for script in (mac_install, build, install_sh):
         assert "sysctl.proc_translated" in script
         assert "/usr/bin/arch -arm64 /bin/sh" in script
+
+
+def test_payload_copy_runs_without_the_installer_package(tmp_path: Path) -> None:
+    script = tmp_path / "native.py"
+    source = Path(__file__).resolve().parents[1] / "installer/unix/native.py"
+    _ = script.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, "-I", str(script), "--help"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "integrate-only" in result.stdout
 
 
 def test_install_command_uses_payload_script(tmp_path: Path) -> None:

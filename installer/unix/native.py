@@ -16,7 +16,11 @@ import webbrowser
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from installer.install_engine import GPU_SETUP_GUIDE_URL
+# The Mac payload copies this file alone and runs it with the installed app's
+# Python. That interpreter cannot import the installer package.
+GPU_SETUP_GUIDE_URL = (
+    "https://github.com/pdomain/pdomain-ocr-simple-gui/blob/master/docs/usage/nvidia-gpu-setup.md"
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
