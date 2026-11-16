@@ -3,6 +3,7 @@ set -eu
 
 PAYLOAD=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 DIALOG="$PAYLOAD/dialog.applescript"
+GPU_SETUP_GUIDE_URL="https://github.com/pdomain/pdomain-ocr-simple-gui/blob/master/docs/usage/nvidia-gpu-setup.md"
 UV_BIN_DIR="${UV_UNMANAGED_INSTALL:-${UV_INSTALL_DIR:-${XDG_BIN_HOME:-${XDG_DATA_HOME:+$XDG_DATA_HOME/../bin}}}}"
 UV_BIN_DIR="${UV_BIN_DIR:-$HOME/.local/bin}"
 export PATH="$UV_BIN_DIR:$PATH"
@@ -20,8 +21,31 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 
+# Return 0 when the person chooses Continue. A GPU guide click opens the
+# driver page and shows the same dialog again. Cancel and other osascript
+# failures return that status so the caller can keep its existing exit.
+confirm_install() {
+    message=$1
+    while :; do
+        CONFIRM_STATUS=0
+        /usr/bin/osascript "$DIALOG" confirm "$message" >"$INSTALL_LOG" 2>&1 || CONFIRM_STATUS=$?
+        if [ "$CONFIRM_STATUS" -ne 0 ]; then
+            return "$CONFIRM_STATUS"
+        fi
+        if grep -Fq 'button returned:GPU guide' "$INSTALL_LOG"; then
+            open_status=0
+            /usr/bin/open "$GPU_SETUP_GUIDE_URL" || open_status=$?
+            if [ "$open_status" -ne 0 ]; then
+                return "$open_status"
+            fi
+            continue
+        fi
+        return 0
+    done
+}
+
 CONFIRM_STATUS=0
-/usr/bin/osascript "$DIALOG" confirm "Install OCR Simple GUI and required Python packages in your user account?" >"$INSTALL_LOG" 2>&1 || CONFIRM_STATUS=$?
+confirm_install "Install OCR Simple GUI and required Python packages in your user account? This installer does not install an NVIDIA driver. OCR works on the CPU until you install driver 525 or newer and run the installer again. The GPU guide button opens the steps." || CONFIRM_STATUS=$?
 if [ "$CONFIRM_STATUS" -ne 0 ]; then
     if [ "$CONFIRM_STATUS" -eq 1 ] && grep -Fq '(-128)' "$INSTALL_LOG"; then
         exit 0
@@ -53,7 +77,7 @@ while :; do
         exit 0
     fi
     DETAILS=$(tail -c 5000 "$INSTALL_LOG")
-    if ! /usr/bin/osascript "$DIALOG" confirm "Installation failed. Choose Continue to retry.
+    if ! confirm_install "Installation failed. Choose Continue to retry.
 
 $DETAILS"; then
         exit 1

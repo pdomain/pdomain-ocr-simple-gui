@@ -18,17 +18,6 @@ def _pwsh(body: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_get_book_tools_extras_gpu_at_cuda_13():
-    assert _pwsh("Get-BookToolsExtras '13.0'").stdout.strip() == "[gpu]"
-    assert _pwsh("Get-BookToolsExtras '13.1'").stdout.strip() == "[gpu]"
-
-
-def test_get_book_tools_extras_empty_below_cuda_13():
-    assert _pwsh("Get-BookToolsExtras '12.8'").stdout.strip() == ""
-    assert _pwsh("Get-BookToolsExtras '12.4'").stdout.strip() == ""
-    assert _pwsh("Get-BookToolsExtras '12.1'").stdout.strip() == ""
-
-
 def test_get_cuda_version_env_override():
     assert _pwsh("$env:CUDA_VERSION='12.6'; Get-CudaVersion").stdout.strip() == "12.6"
 

@@ -20,12 +20,12 @@ set -eu
 #   automatically when launched.  No native window or Qt library is required.
 #
 # GPU auto-enable:
-#   The CUDA >= 13 branch below passes `--with pdomain-book-tools[gpu]`
-#   to pull in the optional CuPy extra. That extra exists
-#   only in pdomain-book-tools >= v0.11.0. pdomain-book-tools is published
-#   on the self-hosted pdomain-index-pip PEP 503 index, so the wheel's
-#   Requires-Dist entry resolves automatically when we pass
-#   --extra-index-url to uv — no manual git-pin fetch needed.
+#   When nvidia-smi reports a CUDA version, the install passes
+#   `--torch-backend auto`, so uv picks the PyTorch CUDA build that matches
+#   the driver. OCR runs on that PyTorch build. This app does not install
+#   CuPy. pdomain-book-tools is published on the self-hosted pdomain-index-pip
+#   PEP 503 index, so the wheel's Requires-Dist entry resolves when we pass
+#   --extra-index-url to uv.
 #
 # Confirmation gates:
 #   The script prompts before auto-installing uv and before `uv tool install`.
@@ -206,8 +206,19 @@ fi
 # uv respects --torch-backend in `uv tool` commands since 0.9.19, below
 # MIN_UV_VERSION.
 TORCH_BACKEND=""
-PD_BOOK_TOOLS_EXTRAS=""
 PD_INDEX_URL="https://pdomain.github.io/pdomain-index-pip/simple/"
+
+# Printed when this run will not download the CUDA build of PyTorch.
+# The desktop window also has a button that opens the same guide.
+print_gpu_setup_hint() {
+    echo "This installer does not install the NVIDIA driver. OCR still works on CPU."
+    echo "To use an NVIDIA GPU:"
+    echo "  1. Install driver 525 or newer: https://www.nvidia.com/en-us/drivers/"
+    echo "  2. Reboot if the driver installer asks you to."
+    echo "  3. Run nvidia-smi and confirm it lists the GPU."
+    echo "  4. Run this installer again. It downloads the CUDA build of PyTorch."
+    echo "Step-by-step: https://github.com/pdomain/pdomain-ocr-simple-gui/blob/master/docs/usage/nvidia-gpu-setup.md"
+}
 
 # Auto-detect NVIDIA CUDA
 if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
@@ -215,27 +226,16 @@ if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
     if [ -n "$CUDA_VER" ]; then
         TORCH_BACKEND="auto"
         echo "Detected CUDA ${CUDA_VER} -- uv will pick the matching CUDA build of PyTorch."
-
-        # CuPy (cupy-cuda13x) requires CUDA >= 13. Only opt into the
-        # pdomain-book-tools[gpu] extra when that minimum is satisfied;
-        # otherwise the [gpu] resolve fails with a CuPy version error
-        # and a working CPU-only install would have been preferable.
-        # POSIX-sh version compare -- no `sort -V`, no `awk`.
-        CUDA_MAJOR=${CUDA_VER%.*}
-        if [ "$CUDA_MAJOR" -ge 13 ]; then
-            PD_BOOK_TOOLS_EXTRAS="[gpu]"
-            echo "CUDA ${CUDA_VER} >= 13 -- enabling pdomain-book-tools[gpu] (CuPy)."
-        else
-            echo "CUDA ${CUDA_VER} < 13 -- installing CPU-only book-tools (cupy-cuda13x needs >= 13)."
-        fi
     else
         echo "nvidia-smi found but could not detect CUDA version -- falling back to CPU."
+        print_gpu_setup_hint
     fi
 # Detect Apple Silicon (MPS)
 elif [ "$(uname)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
     echo "Detected Apple Silicon -- MPS acceleration will be used automatically."
 else
     echo "No GPU detected -- installing CPU-only PyTorch."
+    print_gpu_setup_hint
 fi
 
 # ---------------------------------------------------------------------------
@@ -424,11 +424,7 @@ fi
 # Build the GPU label for the summary block.
 # ---------------------------------------------------------------------------
 if [ -n "$TORCH_BACKEND" ]; then
-    if [ -n "$PD_BOOK_TOOLS_EXTRAS" ]; then
-        _GPU_LABEL="CUDA ${CUDA_VER} (GPU build)"
-    else
-        _GPU_LABEL="CUDA ${CUDA_VER} (CPU-only book-tools; CUDA < 13)"
-    fi
+    _GPU_LABEL="CUDA ${CUDA_VER}"
 elif [ "$(uname)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
     _GPU_LABEL="Apple Silicon / MPS"
 else
@@ -449,9 +445,8 @@ echo ""
 
 if [ -n "$TORCH_BACKEND" ]; then
     echo "Heads up - disk space: the CUDA-flavored PyTorch wheels are a large"
-    echo "  download, roughly 2-3 GB (more with the [gpu] CuPy"
-    echo "  extra). The CPU-only build is far smaller. This can take a while"
-    echo "  on a slow connection."
+    echo "  download, roughly 2-3 GB. The CPU-only build is far smaller."
+    echo "  This can take a while on a slow connection."
     echo ""
 fi
 
@@ -466,15 +461,11 @@ echo "Installing pdomain-ocr-simple-gui ${RELEASE_TAG:-} from $(basename "$WHEEL
 #
 # pdomain-book-tools is published on the self-hosted pdomain-index-pip (GitHub
 # Pages PEP 503 index); pass --extra-index-url so uv can resolve the
-# Requires-Dist entry that the wheel's METADATA carries. When CUDA >= 13
-# was detected above, $PD_BOOK_TOOLS_EXTRAS is "[gpu]"; we pass --with to
-# pull that extra in.
+# Requires-Dist entry that the wheel's METADATA carries.
 #
-# Browser-only install: plain package, no extra needed.
+# Browser-only install: plain package, no extra needed. OCR uses PyTorch,
+# not CuPy, so this command never passes --with pdomain-book-tools[gpu].
 set -- --reinstall "$WHEEL_FILE" --extra-index-url "$PD_INDEX_URL"
-if [ -n "$PD_BOOK_TOOLS_EXTRAS" ]; then
-    set -- "$@" --with "pdomain-book-tools${PD_BOOK_TOOLS_EXTRAS}"
-fi
 if [ -n "$TORCH_BACKEND" ]; then
     set -- "$@" --torch-backend "$TORCH_BACKEND"
 fi

@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-07-14
-Last verified: 2026-11-14
+Last verified: 2026-11-15
 Kind: context
 ---
 
@@ -41,8 +41,11 @@ release review.
 ## In-flight work
 
 Branch `fix/windows-installer` adds a self-contained Windows PowerShell installer
-and requires CUDA 13 for the optional CuPy extra. Its Windows workflow runs the
-installer before Edge acceptance. These changes are merged into local `master`
+and installs the matching CUDA build of PyTorch. It does not install CuPy.
+When `nvidia-smi` cannot report a CUDA version, the installer prints the NVIDIA
+driver steps and a link to the GPU setup guide. Linux and Windows install
+windows have a GPU setup guide button. The macOS confirm dialog has GPU guide.
+The Windows workflow runs the installer before Edge acceptance. These changes are merged into local `master`
 but are not part of release 0.5.7; use the local script from `master` for testing.
 
 Local `master` after `v0.5.4` holds unreleased Windows and layout fixes; see

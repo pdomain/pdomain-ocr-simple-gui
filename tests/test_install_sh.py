@@ -926,7 +926,7 @@ def _run_install_sh(
 
 
 def test_install_sh_gpu_path_uses_torch_backend_auto(tmp_path: Path) -> None:
-    """CUDA 13.4 detected: `--torch-backend auto`, no PyTorch index, [gpu] extra on."""
+    """CUDA 13.4 detected: `--torch-backend auto`, no PyTorch index, no CuPy."""
     result, argv = _run_install_sh(tmp_path, nvidia_banner=_UMD_BANNER)
     assert result.returncode == 0, result.stderr + result.stdout
     assert argv[:2] == ["tool", "install"]
@@ -935,8 +935,10 @@ def test_install_sh_gpu_path_uses_torch_backend_auto(tmp_path: Path) -> None:
     assert not any("download.pytorch.org" in token for token in argv)
     assert argv.count("--extra-index-url") == 1
     assert "--index-strategy" not in argv
-    assert "pdomain-book-tools[gpu]" in argv
+    assert "pdomain-book-tools[gpu]" not in argv
+    assert "--with" not in argv
     assert "Heads up - disk space" in result.stdout
+    assert "Step-by-step:" not in result.stdout
 
 
 def test_install_sh_gpu_path_below_12_4_keeps_cpu_book_tools(tmp_path: Path) -> None:
@@ -958,6 +960,8 @@ def test_install_sh_cpu_path_has_no_torch_backend(tmp_path: Path) -> None:
     assert "pdomain-book-tools[gpu]" not in argv
     assert not any("download.pytorch.org" in token for token in argv)
     assert "Heads up - disk space" not in result.stdout
+    assert "https://www.nvidia.com/en-us/drivers/" in result.stdout
+    assert "docs/usage/nvidia-gpu-setup.md" in result.stdout
 
 
 def test_install_sh_hints_uv_self_update_when_torch_backend_unknown(tmp_path: Path) -> None:

@@ -6,6 +6,6 @@ on run argv
     else if mode is "done" then
         display dialog messageText with title "OCR Simple GUI" buttons {"OK"} default button "OK"
     else
-        display dialog messageText with title "OCR Simple GUI" buttons {"Cancel", "Continue"} default button "Continue" cancel button "Cancel"
+        display dialog messageText with title "OCR Simple GUI" buttons {"Cancel", "GPU guide", "Continue"} default button "Continue" cancel button "Cancel"
     end if
 end run

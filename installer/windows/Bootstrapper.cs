@@ -45,7 +45,9 @@ internal sealed class SetupForm : Form
     private readonly Label status = new Label { Dock = DockStyle.Top, Height = 64, Padding = new Padding(10) };
     private readonly ProgressBar progress = new ProgressBar { Dock = DockStyle.Top, Height = 18 };
     private readonly Button action = new Button { Text = "Install", Width = 110 };
+    private readonly Button guide = new Button { Text = "GPU setup guide", Width = 150 };
     private readonly Button close = new Button { Text = "Cancel", Width = 110 };
+    private const string GpuGuide = "https://github.com/pdomain/pdomain-ocr-simple-gui/blob/master/docs/usage/nvidia-gpu-setup.md";
     private readonly bool uninstall;
     private string scratch;
     private bool running;
@@ -56,9 +58,12 @@ internal sealed class SetupForm : Form
         uninstall = removing;
         Text = uninstall ? "Remove OCR Simple GUI" : "Install OCR Simple GUI";
         Size = new Size(760, 500); MinimumSize = new Size(600, 380); StartPosition = FormStartPosition.CenterScreen;
-        status.Text = uninstall ? "Remove OCR Simple GUI? Projects, scans, outputs, model caches and shared tools will be kept." : "Install OCR Simple GUI for this Windows account. Internet is required for Python and OCR dependencies. Windows may request permission for the Microsoft runtime.";
+        status.Height = uninstall ? 64 : 110;
+        status.Text = uninstall ? "Remove OCR Simple GUI? Projects, scans, outputs, model caches and shared tools will be kept." : "Install OCR Simple GUI for this Windows account. Internet is required for Python and OCR dependencies. Windows may request permission for the Microsoft runtime. This installer does not install an NVIDIA driver. OCR works on the CPU until you install driver 525 or newer and run Setup again.";
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 45, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(5) };
         buttons.Controls.Add(close); buttons.Controls.Add(action);
+        if (!uninstall) buttons.Controls.Add(guide);
+        guide.Click += delegate { Process.Start(new ProcessStartInfo(GpuGuide) { UseShellExecute = true }); };
         Controls.Add(log); Controls.Add(progress); Controls.Add(status); Controls.Add(buttons);
         action.Text = uninstall ? "Remove" : "Install";
         action.Click += delegate { if (complete) { Program.Launch(); Close(); } else BeginOperation(); };

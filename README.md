@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-17
-Last verified: 2026-11-14
+Last verified: 2026-11-15
 Kind: usage
 ---
 
@@ -90,8 +90,13 @@ runtime needs administrator approval. The script never restarts Windows.
 
 To select a release, set `PD_SIMPLE_GUI_INSTALL_VERSION`, for example `0.5.7`.
 Set `PD_SIMPLE_GUI_INSTALL_PYTHON` to choose another supported Python version.
-CUDA detection selects PyTorch automatically. The optional CuPy package needs
-CUDA 13 or newer. `CUDA_VERSION` overrides CUDA detection when needed.
+CUDA detection selects the matching PyTorch build. The installer does not
+install the NVIDIA driver or CuPy. Without a driver it installs CPU PyTorch
+and prints the driver steps. Linux and Windows install windows have a
+**GPU setup guide** button. The macOS confirm dialog has **GPU guide**.
+The steps are in [NVIDIA GPU setup](docs/usage/nvidia-gpu-setup.md).
+In PowerShell, `$env:CUDA_VERSION` overrides CUDA detection in that same
+window. `install.sh` and the desktop wizard only read `nvidia-smi`.
 
 For a manual Windows install with uv already installed:
 

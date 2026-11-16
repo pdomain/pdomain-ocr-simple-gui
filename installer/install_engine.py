@@ -120,20 +120,27 @@ def _is_cuda_version(cuda_version: str | None) -> bool:
     return re.fullmatch(r"\d+\.\d+", cuda_version) is not None
 
 
-def cuda_supports_book_tools_gpu(cuda_version: str | None) -> bool:
-    """Return whether CUDA supports the CUDA 13 CuPy extra."""
-    if cuda_version is None or not _is_cuda_version(cuda_version):
-        return False
-    try:
-        major = int(cuda_version.split(".")[0])
-    except ValueError:
-        return False
-    return major >= 13
-
-
 # Minimum NVIDIA driver version that supports CUDA 12 (cu121 wheel ABI).
 # Spec §7.3: offer gpu acceleration only when driver >= this threshold.
 _MIN_DRIVER_VERSION = 525
+NVIDIA_DRIVER_URL = "https://www.nvidia.com/en-us/drivers/"
+GPU_SETUP_GUIDE_URL = (
+    "https://github.com/pdomain/pdomain-ocr-simple-gui/blob/master/docs/usage/nvidia-gpu-setup.md"
+)
+
+
+def gpu_setup_notice() -> str:
+    """Return the driver steps printed when CUDA PyTorch will not be installed."""
+    return (
+        "This installer does not install the NVIDIA driver. OCR still works on CPU.\n"
+        "To use an NVIDIA GPU:\n"
+        f"  1. Install driver {_MIN_DRIVER_VERSION} or newer: {NVIDIA_DRIVER_URL}\n"
+        "  2. Reboot if the driver installer asks you to.\n"
+        "  3. Run nvidia-smi and confirm it lists the GPU.\n"
+        "  4. Run this installer again. It downloads the CUDA build of PyTorch.\n"
+        f"Step-by-step: {GPU_SETUP_GUIDE_URL}"
+    )
+
 
 # Self-hosted PEP 503 simple index for pdomain-* packages.
 # pdomain-ocr-simple-gui, pdomain-ops, and pdomain-book-tools are all published
@@ -173,12 +180,12 @@ def detect_nvidia() -> str | None:
     A capable GPU requires both ``nvidia-smi`` on PATH **and** a driver version
     >= ``_MIN_DRIVER_VERSION`` (525, the minimum for CUDA 12).
 
-    If ``nvidia-smi`` is present but the driver is too old (or the version
-    cannot be parsed), returns ``None`` and prints a guidance message so the
-    caller's step-planner omits the ``gpu_torch`` step.  The user is directed
-    to the official driver download page to upgrade.
+    If ``nvidia-smi`` is missing, too old, or the version cannot be parsed,
+    returns ``None`` and prints the driver steps, including the GPU setup guide.
+    The caller's step-planner then omits the CUDA PyTorch download.
     """
     if not _which("nvidia-smi"):
+        print(gpu_setup_notice())  # noqa: T201
         return None
 
     version_str = _query_nvidia_driver()
@@ -187,8 +194,9 @@ def detect_nvidia() -> str | None:
         print(  # noqa: T201
             "WARNING: nvidia-smi found but driver version could not be determined. "
             + "GPU acceleration step will be skipped.\n"
-            + "To enable GPU support, ensure NVIDIA driver >= 525 is installed:\n"
-            + "  https://www.nvidia.com/en-us/drivers/"
+            + f"To enable GPU support, ensure NVIDIA driver >= {_MIN_DRIVER_VERSION} is installed:\n"
+            + f"  {NVIDIA_DRIVER_URL}\n"
+            + f"Step-by-step: {GPU_SETUP_GUIDE_URL}"
         )
         return None
 
@@ -199,8 +207,9 @@ def detect_nvidia() -> str | None:
         print(  # noqa: T201
             f"WARNING: Could not parse NVIDIA driver version '{version_str}'. "
             + "GPU acceleration step will be skipped.\n"
-            + "To enable GPU support, ensure NVIDIA driver >= 525 is installed:\n"
-            + "  https://www.nvidia.com/en-us/drivers/"
+            + f"To enable GPU support, ensure NVIDIA driver >= {_MIN_DRIVER_VERSION} is installed:\n"
+            + f"  {NVIDIA_DRIVER_URL}\n"
+            + f"Step-by-step: {GPU_SETUP_GUIDE_URL}"
         )
         return None
 
@@ -210,11 +219,12 @@ def detect_nvidia() -> str | None:
             + f"required for CUDA 12 (driver >= {_MIN_DRIVER_VERSION}).\n"
             + "GPU acceleration step will be skipped.\n"
             + "To enable GPU support, upgrade your NVIDIA driver:\n"
-            + "  Official:       https://www.nvidia.com/en-us/drivers/\n"
+            + f"  Official:       {NVIDIA_DRIVER_URL}\n"
             + "  Ubuntu/Debian:  ubuntu-drivers devices && sudo ubuntu-drivers install\n"
             + "  Arch Linux:     pacman -S nvidia\n"
             + "  Fedora:         dnf install akmod-nvidia\n"
-            + "After upgrading (and rebooting if necessary), re-run the installer."
+            + "After upgrading (and rebooting if necessary), re-run the installer.\n"
+            + f"Step-by-step: {GPU_SETUP_GUIDE_URL}"
         )
         return None
 
@@ -261,7 +271,6 @@ def plan_steps(
     gpu: str | None,
     mgr: str | None = None,  # pyright: ignore[reportUnusedParameter]
     cuda_version: str | None = None,
-    book_tools_gpu: bool = False,
 ) -> list[Step]:
     """Return the ordered list of gated installer steps.
 
@@ -287,8 +296,7 @@ def plan_steps(
       uv would take those from it, while pdomain-ops needs packaging>=26.
     - When ``gpu == 'nvidia'`` and no CUDA version was detected — CPU
       fallback: no ``--torch-backend`` flag.
-    - ``--with pdomain-book-tools[gpu]`` (CuPy) is added only
-      when ``book_tools_gpu=True`` (requires CUDA >= 13).
+    - CuPy is not installed. OCR uses the PyTorch build selected above.
 
     Args:
         has_uv:        True when ``uv`` is already installed.
@@ -299,10 +307,6 @@ def plan_steps(
                        Read by the wizard via ``_query_cuda_version()``.  When
                        None or unparseable and ``gpu == 'nvidia'`` → CPU
                        fallback (no ``--torch-backend``).
-        book_tools_gpu: When True, adds ``--with pdomain-book-tools[gpu]`` to
-                       the tool install command (CuPy extra).
-                       Requires CUDA >= 13.  Computed by the wizard via
-                       ``cuda_supports_book_tools_gpu()``.
     """
     steps: list[Step] = []
 
@@ -344,8 +348,6 @@ def plan_steps(
         # instead of an explicit cuXXX tag: uv's explicit values lag new
         # CUDA releases.
         tool_cmd += ["--torch-backend", "auto"]
-    if book_tools_gpu and gpu == "nvidia" and cuda_supports_book_tools_gpu(cuda_version):
-        tool_cmd += ["--with", "pdomain-book-tools[gpu]"]
 
     steps.append(
         Step(

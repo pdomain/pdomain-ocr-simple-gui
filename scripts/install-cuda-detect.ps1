@@ -29,16 +29,3 @@ function Get-CudaVersion {
 
     return $null
 }
-
-function Get-BookToolsExtras {
-    param([Parameter(Mandatory = $true)][string]$CudaVer)
-    try {
-        $Version = [version]$CudaVer
-    } catch {
-        return ""
-    }
-    if ($Version.Major -ge 13) {
-        return "[gpu]"
-    }
-    return ""
-}

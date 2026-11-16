@@ -26,7 +26,6 @@ from typing import cast
 from installer.install_engine import (
     Step,
     _query_cuda_version,  # pyright: ignore[reportPrivateUsage]
-    cuda_supports_book_tools_gpu,
     detect_nvidia,
     detect_pkg_manager,
     plan_steps,
@@ -47,14 +46,11 @@ def _build_steps() -> list[Step]:
     # A detected CUDA version turns on `--torch-backend auto`.
     # cuda_version is None when CUDA is not detectable (CPU fallback).
     cuda_version = _query_cuda_version() if gpu == "nvidia" else None
-    # pdomain-book-tools[gpu] (CuPy) requires CUDA >= 12.4.
-    book_tools_gpu = cuda_supports_book_tools_gpu(cuda_version)
     return plan_steps(
         has_uv=has_uv,
         gpu=gpu,
         mgr=mgr,
         cuda_version=cuda_version,
-        book_tools_gpu=book_tools_gpu,
     )
 
 

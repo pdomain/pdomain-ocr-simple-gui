@@ -23,7 +23,6 @@ from installer.install_engine import (
     Step,
     _build_exec_args,
     _query_cuda_version,
-    cuda_supports_book_tools_gpu,
     detect_nvidia,
     detect_pkg_manager,
     display_command,
@@ -192,7 +191,7 @@ def test_tool_install_uses_reinstall() -> None:
 
 def test_tool_install_no_desktop_extra_gpu_nvidia() -> None:
     """[desktop] must not appear even when GPU is configured."""
-    steps = plan_steps(has_uv=True, gpu="nvidia", cuda_version="13.0", book_tools_gpu=True)
+    steps = plan_steps(has_uv=True, gpu="nvidia", cuda_version="13.0")
     tool_step = next(s for s in steps if s.id == "tool_install")
     assert isinstance(tool_step.command, list)
     assert not any("[desktop]" in token for token in tool_step.command)
@@ -339,10 +338,15 @@ def test_build_exec_args_no_sudo_does_not_prepend() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_detect_nvidia_absent_no_smi(monkeypatch: pytest.MonkeyPatch) -> None:
-    """nvidia-smi not on PATH → returns None (no GPU, no driver check)."""
+def test_detect_nvidia_absent_no_smi(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """nvidia-smi not on PATH → returns None and prints the driver steps."""
     monkeypatch.setattr("installer.install_engine._which", lambda x: False)
     assert detect_nvidia() is None
+    captured = capsys.readouterr()
+    assert "https://www.nvidia.com/en-us/drivers/" in captured.out
+    assert "docs/usage/nvidia-gpu-setup.md" in captured.out
 
 
 def test_detect_nvidia_driver_ok(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -398,6 +402,7 @@ def test_detect_nvidia_plan_includes_driver_guidance(
     captured = capsys.readouterr()
     assert "525" in captured.out
     assert "driver" in captured.out.lower()
+    assert "docs/usage/nvidia-gpu-setup.md" in captured.out
 
 
 # ---------------------------------------------------------------------------
@@ -456,41 +461,6 @@ def test_query_cuda_version_no_cuda_line(monkeypatch: pytest.MonkeyPatch) -> Non
 
     monkeypatch.setattr("installer.install_engine._subprocess_run", fake_run)
     assert _query_cuda_version() is None
-
-
-# ---------------------------------------------------------------------------
-# cuda_supports_book_tools_gpu — CUDA version >= 13 gate
-# ---------------------------------------------------------------------------
-
-
-def test_cuda_supports_book_tools_gpu_13_0() -> None:
-    """'13.0' → True (major > 12)."""
-    assert cuda_supports_book_tools_gpu("13.0") is True
-
-
-def test_cuda_supports_book_tools_gpu_12_4() -> None:
-    """CUDA 12 cannot load the CUDA 13 CuPy extra."""
-    assert cuda_supports_book_tools_gpu("12.4") is False
-
-
-def test_cuda_supports_book_tools_gpu_12_3() -> None:
-    """'12.3' → False (below boundary)."""
-    assert cuda_supports_book_tools_gpu("12.3") is False
-
-
-def test_cuda_supports_book_tools_gpu_11_8() -> None:
-    """'11.8' → False (major < 12)."""
-    assert cuda_supports_book_tools_gpu("11.8") is False
-
-
-def test_cuda_supports_book_tools_gpu_none() -> None:
-    """None → False (no CUDA detected)."""
-    assert cuda_supports_book_tools_gpu(None) is False
-
-
-def test_cuda_supports_book_tools_gpu_garbage() -> None:
-    """'garbage' → False (unparseable)."""
-    assert cuda_supports_book_tools_gpu("garbage") is False
 
 
 # ---------------------------------------------------------------------------
@@ -608,39 +578,12 @@ def test_run_no_hint_when_cpu_install_fails(capsys: pytest.CaptureFixture[str]) 
     assert "uv self update" not in capsys.readouterr().out
 
 
-# ---------------------------------------------------------------------------
-# plan_steps — book_tools_gpu extra
-# ---------------------------------------------------------------------------
-
-
-def test_tool_install_book_tools_gpu_true_adds_with_flag() -> None:
-    """book_tools_gpu=True → command contains '--with' 'pdomain-book-tools[gpu]'."""
-    steps = plan_steps(
-        has_uv=True,
-        gpu="nvidia",
-        cuda_version="13.0",
-        book_tools_gpu=True,
-    )
-    tool_step = next(s for s in steps if s.id == "tool_install")
-    assert isinstance(tool_step.command, list)
-    argv = tool_step.command
-    assert "--with" in argv
-    idx = argv.index("--with")
-    assert argv[idx + 1] == "pdomain-book-tools[gpu]"
-
-
-def test_tool_install_book_tools_gpu_false_no_with_flag() -> None:
-    """book_tools_gpu=False (default) → no '--with pdomain-book-tools[gpu]' in command."""
-    steps = plan_steps(
-        has_uv=True,
-        gpu="nvidia",
-        cuda_version="13.0",
-        book_tools_gpu=False,
-    )
-    tool_step = next(s for s in steps if s.id == "tool_install")
-    assert isinstance(tool_step.command, list)
-    argv = tool_step.command
+def test_tool_install_cuda_13_does_not_install_cupy() -> None:
+    """OCR uses CUDA PyTorch and does not add the CuPy extra."""
+    argv = _tool_argv(plan_steps(has_uv=True, gpu="nvidia", cuda_version="13.0"))
+    assert "--torch-backend" in argv
     assert "pdomain-book-tools[gpu]" not in argv
+    assert "--with" not in argv
 
 
 # ---------------------------------------------------------------------------
@@ -686,9 +629,9 @@ def test_display_command_renders_in_plan(capsys: pytest.CaptureFixture[str]) -> 
     assert "['uv'" not in out  # the raw list repr must not appear
 
 
-@pytest.mark.parametrize("cuda", ["12.4", "12.9", None, "bad"])
-def test_cupy_request_cannot_override_cuda_13_requirement(cuda: str | None) -> None:
-    steps = plan_steps(has_uv=True, gpu="nvidia", cuda_version=cuda, book_tools_gpu=True)
+@pytest.mark.parametrize("cuda", ["13.0", "12.4", "12.9", None, "bad"])
+def test_install_never_adds_cupy(cuda: str | None) -> None:
+    steps = plan_steps(has_uv=True, gpu="nvidia", cuda_version=cuda)
     command = next(step.command for step in steps if step.id == "tool_install")
     assert isinstance(command, list)
     assert "pdomain-book-tools[gpu]" not in command

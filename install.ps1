@@ -45,17 +45,14 @@ function Get-CudaVersion {
     return $null
 }
 
-function Get-BookToolsExtras {
-    param([Parameter(Mandatory = $true)][string]$CudaVer)
-    try {
-        $Version = [version]$CudaVer
-    } catch {
-        return ""
-    }
-    if ($Version.Major -ge 13) {
-        return "[gpu]"
-    }
-    return ""
+function Write-GpuSetupHint {
+    Write-Host "This installer does not install the NVIDIA driver. OCR still works on CPU."
+    Write-Host "To use an NVIDIA GPU:"
+    Write-Host "  1. Install driver 525 or newer: https://www.nvidia.com/en-us/drivers/"
+    Write-Host "  2. Reboot if the driver installer asks you to."
+    Write-Host "  3. Run nvidia-smi and confirm it lists the GPU."
+    Write-Host "  4. Run this installer again. It downloads the CUDA build of PyTorch."
+    Write-Host "Step-by-step: https://github.com/pdomain/pdomain-ocr-simple-gui/blob/master/docs/usage/nvidia-gpu-setup.md"
 }
 
 # The functions below have no side effects when defined. Tests load them from
@@ -553,7 +550,6 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
 }
 
 $TorchBackend = ""
-$BookToolsExtras = ""
 
 if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
     $CudaVer = Get-CudaVersion
@@ -565,15 +561,9 @@ if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
         # it also serves old copies of common packages (packaging 24.1 at
         # most), and under first-index uv then takes `packaging` from it
         # alone, so the resolve fails (pdomain-ops needs packaging>=26).
+        # OCR uses that PyTorch build and does not install CuPy.
         $TorchBackend = "auto"
         Write-Host "Detected CUDA $CudaVer -- uv will pick the matching PyTorch CUDA build."
-
-        $BookToolsExtras = Get-BookToolsExtras $CudaVer
-        if ($BookToolsExtras -eq "[gpu]") {
-            Write-Host "CUDA $CudaVer >= 13 -- enabling pdomain-book-tools[gpu] (cupy-cuda13x)."
-        } else {
-            Write-Host "CUDA $CudaVer < 13 -- installing CPU-only book-tools (cupy-cuda13x needs CUDA 13)."
-        }
     } else {
         Write-Host ""
         Write-Host "WARNING: NVIDIA GPU detected but CUDA version could not be determined."
@@ -586,9 +576,11 @@ if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
         Write-Host "         Find your CUDA version by running:  nvidia-smi"
         Write-Host "         and looking for the 'CUDA Version' field in the output."
         Write-Host ""
+        Write-GpuSetupHint
     }
 } else {
     Write-Host "No GPU detected -- installing CPU-only PyTorch."
+    Write-GpuSetupHint
 }
 
 if ($env:PD_SIMPLE_GUI_INSTALL_WHEEL) {
@@ -694,9 +686,6 @@ try {
         "tool", "install", "--python", $PythonVersion, "--reinstall", $WheelFile,
         "--index-strategy", "first-index", "--index", "pdomain=$PdIndexUrl"
     )
-    if ($BookToolsExtras) {
-        $UvArgs += @("--with", "pdomain-book-tools$BookToolsExtras")
-    }
     if ($TorchBackend) {
         $UvArgs += @("--torch-backend", $TorchBackend)
     }

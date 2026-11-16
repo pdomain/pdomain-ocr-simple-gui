@@ -161,18 +161,18 @@ def test_install_ps1_piped_mode_is_self_contained_and_uses_release_wheel(
     assert "pdomain_ocr_simple_gui-9.9.9-py3-none-any.whl" in args
     assert "git+https://github.com/pdomain/pdomain-ocr-simple-gui" not in args
     # This harness's fake nvidia-smi reports CUDA 12.4 by default: uv picks
-    # the PyTorch CUDA build, and CUDA 12 gets no [gpu] extra.
+    # the PyTorch CUDA build and does not install CuPy.
     _assert_torch_backend_auto(args)
     assert "--with" not in args
 
 
-def test_install_ps1_cuda_13_enables_gpu_extra(tmp_path: Path) -> None:
+def test_install_ps1_cuda_13_uses_torch_backend_without_cupy(tmp_path: Path) -> None:
     result, uv_log = _run_install_ps1(tmp_path, f'digest = "{FAKE_WHEEL_DIGEST}"', cuda_version="13.0")
 
     assert result.returncode == 0, result.stderr + result.stdout
     args = uv_log.read_text(encoding="utf-8")
     _assert_torch_backend_auto(args)
-    assert "--with\npdomain-book-tools[gpu]" in args
+    assert "--with" not in args
 
 
 def test_install_ps1_without_cuda_passes_no_torch_backend(tmp_path: Path) -> None:
@@ -183,6 +183,9 @@ def test_install_ps1_without_cuda_passes_no_torch_backend(tmp_path: Path) -> Non
     assert "--torch-backend" not in args
     assert "pytorch-cuda" not in args
     assert "--with" not in args
+    combined = result.stdout + result.stderr
+    assert "https://www.nvidia.com/en-us/drivers/" in combined
+    assert "docs/usage/nvidia-gpu-setup.md" in combined
 
 
 def test_install_ps1_uses_first_index_strategy() -> None:

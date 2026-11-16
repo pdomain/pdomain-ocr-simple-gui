@@ -2,7 +2,7 @@
 Status: active
 Owner: CT
 Created: 2026-05-19
-Last verified: 2026-11-13
+Last verified: 2026-11-15
 Kind: process
 ---
 
@@ -34,7 +34,7 @@ of remaining work.
 - Architecture: [overview](architecture/00-overview.md), [module map](architecture/module-map.md), and [runtime flows](architecture/runtime-flows.md), and [quality gates and distribution](architecture/quality-gates.md).
 - Context: [current state](context/current-state.md), [intent map](context/intent-map.md), [decisions](context/decisions.md), [GitHub issue migration ledger](context/github-issue-migration-ledger.md), and [deletion journal](context/github-issue-deletion-journal.md).
 - Issues: [index](issues/README.md) and open [dep-refresh auto-land](issues/2026-08-08-dep-refresh-cannot-auto-land.md).
-- Usage: [one-click install, one-click run, and the Four Men walkthrough](usage/walkthrough.md).
+- Usage: [one-click install, one-click run, and the Four Men walkthrough](usage/walkthrough.md) and [NVIDIA GPU setup](usage/nvidia-gpu-setup.md).
 - Roadmap: [remaining work, including work for other repos](roadmap.md).
 - Plans: [one-click desktop implementation](plans/2026-11-15-one-click-desktop.md) and [draft full-book Four Men demo sequence and deferred checks](plans/2026-11-14-four-men-demo-sequence.md).
 - Decisions: [jobs location](decisions/2026-06-04-jobs-location-setting.md) and [preserved runtime boundaries](decisions/2026-07-13-preserved-runtime-boundaries.md).

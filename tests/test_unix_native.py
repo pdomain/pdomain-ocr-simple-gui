@@ -10,7 +10,36 @@ import pytest
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-from installer.unix.native import install_command, install_entries
+from installer.install_engine import GPU_SETUP_GUIDE_URL
+from installer.unix.native import install_command, install_entries, open_gpu_setup_guide
+
+
+def test_open_gpu_setup_guide_uses_the_published_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    opened: list[str] = []
+
+    def _open(url: str) -> bool:
+        opened.append(url)
+        return True
+
+    monkeypatch.setattr("installer.unix.native.webbrowser.open", _open)
+    open_gpu_setup_guide()
+    assert opened == [GPU_SETUP_GUIDE_URL]
+
+
+def test_desktop_installers_name_the_gpu_guide() -> None:
+    root = Path(__file__).resolve().parents[1]
+    native = (root / "installer/unix/native.py").read_text(encoding="utf-8")
+    windows = (root / "installer/windows/Bootstrapper.cs").read_text(encoding="utf-8")
+    applescript = (root / "installer/macos/dialog.applescript").read_text(encoding="utf-8")
+    mac_install = (root / "installer/macos/install-native.sh").read_text(encoding="utf-8")
+    assert "GPU setup guide" in native
+    assert "GPU guide" in native
+    assert "GPU setup guide" in windows
+    assert GPU_SETUP_GUIDE_URL in windows
+    assert '{"Cancel", "GPU guide", "Continue"}' in applescript
+    assert "button returned:GPU guide" in mac_install
+    assert GPU_SETUP_GUIDE_URL in mac_install
+    assert "does not install an NVIDIA driver" in mac_install
 
 
 def test_install_command_uses_payload_script(tmp_path: Path) -> None:
@@ -102,7 +131,8 @@ def test_local_wheel_skips_network_release_resolution(tmp_path: Path, shell: str
     )
     assert result.returncode == 0, result.stderr
     arguments = log.read_text()
-    assert "pdomain-book-tools[gpu]" in arguments
+    assert "pdomain-book-tools[gpu]" not in arguments
+    assert "--with" not in arguments
     assert "--torch-backend\nauto" in arguments
     assert wheel.name in arguments
 
@@ -257,6 +287,74 @@ async def test_macos_cancel_returns_without_mutation(tmp_path: Path, monkeypatch
     await native.mac_dialog(tmp_path, removing=True)
     assert len(calls) == 1
     assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.asyncio
+async def test_macos_install_retry_keeps_the_gpu_guide_button(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from installer.unix import native
+
+    calls: list[list[str]] = []
+    answers = iter(["button returned:Install", "button returned:Cancel"])
+
+    async def fake_execute(command: list[str], output: Callable[[str], None]) -> str:
+        del output
+        calls.append(command)
+        if command[0] == "/usr/bin/open":
+            return ""
+        return next(answers)
+
+    class FakeProgress:
+        returncode: int | None = None
+
+        def terminate(self) -> None:
+            self.returncode = -15
+
+        async def wait(self) -> int:
+            self.returncode = -15
+            return -15
+
+    async def fake_spawn(*_args: object, **_kwargs: object) -> FakeProgress:
+        return FakeProgress()
+
+    async def fail_install(payload: Path, output: Callable[[str], None]) -> None:
+        del payload, output
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(native, "execute", fake_execute)
+    monkeypatch.setattr(native.asyncio, "create_subprocess_exec", fake_spawn)
+    monkeypatch.setattr(native, "install", fail_install)
+    await native.mac_dialog(tmp_path, removing=False)
+
+    scripts = [command[2] for command in calls if command[0] == "/usr/bin/osascript"]
+    assert len(scripts) == 2
+    assert 'buttons {"Cancel", "GPU guide", "Install"}' in scripts[0]
+    assert 'default button "Install"' in scripts[0]
+    assert 'buttons {"Cancel", "GPU guide", "Retry"}' in scripts[1]
+    assert 'default button "Retry"' in scripts[1]
+
+
+@pytest.mark.asyncio
+async def test_macos_gpu_guide_opens_the_page_and_asks_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from installer.unix import native
+
+    calls: list[list[str]] = []
+    answers = iter(["button returned:GPU guide", "button returned:Cancel"])
+
+    async def fake_execute(command: list[str], output: Callable[[str], None]) -> str:
+        del output
+        calls.append(command)
+        if command[0] == "/usr/bin/open":
+            return ""
+        return next(answers)
+
+    monkeypatch.setattr(native, "execute", fake_execute)
+    await native.mac_dialog(tmp_path, removing=False)
+    assert calls[1] == ["/usr/bin/open", GPU_SETUP_GUIDE_URL]
+    assert len([command for command in calls if command[0] == "/usr/bin/osascript"]) == 2
 
 
 @pytest.mark.parametrize("platform", ["linux", "darwin"])

@@ -36,7 +36,7 @@ Python, React/TypeScript, WebSockets, POSIX shell, PowerShell and platform-nativ
 
 - Preserve the guide worker's exclusive `gui-walkthrough` worktree.
 - Keep source scans, specified output folders, other apps and shared dependencies intact.
-- CuPy requires CUDA 13; compatible CUDA 12 PyTorch selection remains supported.
+- OCR does not install CuPy. CUDA PyTorch selection stays on for every detected CUDA version, including CUDA 12.
 - Preserve explicit environment overrides and persistent headless operation.
 - No pushes, releases, paid services or reboots without their required authorization.
 - One full CI at a time; at most four test workers and two native OCR CPU threads.

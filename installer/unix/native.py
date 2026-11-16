@@ -12,8 +12,11 @@ import shutil
 import sys
 import tempfile
 import threading
+import webbrowser
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from installer.install_engine import GPU_SETUP_GUIDE_URL
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -31,6 +34,11 @@ def decode_object(text: str) -> dict[str, JSONValue]:
     if not isinstance(value, dict):
         raise TypeError("Expected a JSON object")
     return value
+
+
+def open_gpu_setup_guide() -> None:
+    """Open the NVIDIA driver steps in the default browser."""
+    _ = webbrowser.open(GPU_SETUP_GUIDE_URL)
 
 
 def install_command(payload: Path) -> list[str]:
@@ -339,10 +347,23 @@ def linux_dialog(payload: Path, *, removing: bool, dry_run: bool) -> None:
         else "Install OCR Simple GUI and its required Python packages for your user account?",
         wraplength=600,
     ).pack()
+    if not removing:
+        ttk.Label(
+            frame,
+            text=(
+                "This installer does not install an NVIDIA driver. OCR works on the CPU until "
+                "you install driver 525 or newer and run the installer again."
+            ),
+            wraplength=600,
+        ).pack(pady=(8, 0))
     buttons = ttk.Frame(frame)
     buttons.pack(side="bottom", fill="x")
     action = ttk.Button(buttons, text="Uninstall" if removing else "Install")
     action.pack(side="left")
+    if not removing:
+        ttk.Button(buttons, text="GPU setup guide", command=open_gpu_setup_guide).pack(
+            side="left", padx=(8, 0)
+        )
     close = ttk.Button(buttons, text="Cancel", command=root.destroy)
     close.pack(side="right")
     text = tk.Text(frame, width=85, height=20, state="disabled")
@@ -397,9 +418,16 @@ async def mac_dialog(payload: Path, *, removing: bool) -> None:
     message = (
         "Remove OCR Simple GUI? Your data and shared tools will be kept."
         if removing
-        else "Install OCR Simple GUI and required Python packages in your user account?"
+        else (
+            "Install OCR Simple GUI and required Python packages in your user account? "
+            "This installer does not install an NVIDIA driver. OCR works on the CPU until "
+            "you install driver 525 or newer and run the installer again. GPU guide opens the steps."
+        )
     )
     while True:
+        # Rebuild from the current action. A failed install sets action to Retry,
+        # and the default button must be one of the buttons AppleScript shows.
+        buttons = '{"Cancel", "' + action + '"}' if removing else '{"Cancel", "GPU guide", "' + action + '"}'
         try:
             response = await execute(
                 [
@@ -407,9 +435,9 @@ async def mac_dialog(payload: Path, *, removing: bool) -> None:
                     "-e",
                     "display dialog "
                     + json.dumps(message)
-                    + ' buttons {"Cancel", "'
-                    + action
-                    + '"} default button "'
+                    + " buttons "
+                    + buttons
+                    + ' default button "'
                     + action
                     + '" cancel button "Cancel"',
                 ],
@@ -419,6 +447,9 @@ async def mac_dialog(payload: Path, *, removing: bool) -> None:
             if exc.status == 1 and "(-128)" in exc.output:
                 return
             raise
+        if not removing and "GPU guide" in response:
+            _ = await execute(["/usr/bin/open", GPU_SETUP_GUIDE_URL], lambda _: None)
+            continue
         if action not in response:
             return
         progress = await asyncio.create_subprocess_exec(
