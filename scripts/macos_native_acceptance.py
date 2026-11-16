@@ -357,6 +357,22 @@ class NativeAcceptance:
             browser.close()
         self.record = None
 
+    def wait_until_idle(self) -> None:
+        """Wait until the open app has no API work. Uninstall refuses while any is active."""
+        if self.record is None:
+            raise AcceptanceError("No running app to check before uninstall")
+        deadline = time.monotonic() + 180
+        while time.monotonic() < deadline:
+            try:
+                status = request_instance(self.record, "status", timeout=5)
+            except (OSError, ValueError):
+                time.sleep(0.5)
+                continue
+            if status.accepted and status.active_operations == 0:
+                return
+            time.sleep(0.5)
+        raise AcceptanceError("App still had an active operation when uninstall started")
+
     def uninstall(self) -> None:
         saved = snapshot_files([self.config.work / "data", self.config.work / "config"])
         model_sizes = {
@@ -375,6 +391,7 @@ class NativeAcceptance:
         if not self.config.tool.is_dir() or not self.config.manifest.is_file():
             raise AcceptanceError("Cancelled native removal changed the installation")
         self.checks["native_uninstall_cancel"] = True
+        self.wait_until_idle()
         self.open_bundle(self.config.uninstaller)
         self.control("Uninstall", "Remove OCR Simple GUI?")
         self.control("OK", "Operation complete.", timeout=180)
