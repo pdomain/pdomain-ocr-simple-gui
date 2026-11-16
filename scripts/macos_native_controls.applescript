@@ -10,9 +10,18 @@ on run argv
     set messageMarker to item 3 of argv
     set deadline to (current date) + (item 4 of argv as integer)
     repeat while (current date) < deadline
+        -- Copy the ids first. A live "whose" list throws -1719 when a dialog exits mid-scan.
+        set procIds to {}
         try
             tell application "System Events"
-                repeat with candidate in (application processes whose name is "osascript")
+                set procIds to (unix id of every application process whose name is "osascript") as list
+            end tell
+        end try
+        repeat with procId in procIds
+            set oneId to contents of procId
+            try
+                tell application "System Events"
+                    set candidate to first application process whose unix id is oneId
                     repeat with candidateWindow in windows of candidate
                         set messageText to ""
                         repeat with labelElement in static texts of candidateWindow
@@ -28,14 +37,11 @@ on run argv
                             end if
                         end if
                     end repeat
-                end repeat
-            end tell
-        on error errText number errNum
-            if errText contains "Native installer reported failure" then error errText number errNum
-            -- A dialog's osascript exits while System Events is listing it.
-            -- -10000, -1712, -600 and -609 are that race, not a missing button.
-            if errNum is not -10000 and errNum is not -1712 and errNum is not -600 and errNum is not -609 then error errText number errNum
-        end try
+                end tell
+            on error errText number errNum
+                if errText contains "Native installer reported failure" then error errText number errNum
+            end try
+        end repeat
         delay 0.2
     end repeat
     error "Timed out waiting for " & buttonName & " in OCR dialog containing: " & messageMarker

@@ -47,6 +47,12 @@ def test_desktop_installers_name_the_gpu_guide() -> None:
     assert "GPU setup guide" in windows
     assert GPU_SETUP_GUIDE_URL in windows
     assert '{"Cancel", "GPU guide", "Continue"}' in applescript
+    assert "buttons {}" not in native
+    assert "buttons {}" not in applescript
+    assert "You can close this window" in native
+    controls = (root / "scripts/macos_native_controls.applescript").read_text(encoding="utf-8")
+    assert "unix id of every application process whose name is" in controls
+    assert "repeat with candidate in (application processes whose name is" not in controls
     assert "button returned:GPU guide" in mac_install
     assert GPU_SETUP_GUIDE_URL in mac_install
     assert "does not install an NVIDIA driver" in mac_install

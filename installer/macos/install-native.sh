@@ -74,7 +74,7 @@ if [ "$CONFIRM_STATUS" -ne 0 ]; then
 fi
 
 while :; do
-    /usr/bin/osascript "$DIALOG" progress "Installing OCR Simple GUI. Downloads can take several minutes. This window closes when installation finishes." >/dev/null 2>&1 &
+    /usr/bin/osascript "$DIALOG" progress "Installing OCR Simple GUI. Downloads can take several minutes. You can close this window. Installation continues until a later window says it is complete." >/dev/null 2>&1 &
     PROGRESS_PID=$!
     INSTALL_STATUS=0
     if [ -f "$PAYLOAD/bundled-wheel.path" ]; then

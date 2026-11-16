@@ -474,7 +474,7 @@ async def mac_dialog(payload: Path, *, removing: bool) -> None:
         progress = await asyncio.create_subprocess_exec(
             "/usr/bin/osascript",
             "-e",
-            'display dialog "Working. Installation or removal can take several minutes. This window closes when the operation finishes." buttons {} giving up after 86400',
+            'display dialog "Working. Installation or removal can take several minutes. You can close this window. The work continues until a later window says it is complete." buttons {"OK"} default button "OK" giving up after 86400',
         )
         try:
             await (uninstall(lambda _: None) if removing else install(payload, lambda _: None))
