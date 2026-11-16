@@ -1,6 +1,25 @@
 #!/bin/sh
 set -eu
 
+# A script-only Mac app can start under Rosetta. uname then says x86_64, and
+# current PyTorch has no macOS Intel wheel. Switch to arm64 before any download.
+if [ "$(uname -s)" = "Darwin" ]; then
+    _translated=$(/usr/sbin/sysctl -n sysctl.proc_translated 2>/dev/null || true)
+    if [ "$_translated" = "1" ]; then
+        if [ "${PD_OCR_NATIVE_ARM64:-}" = "1" ]; then
+            echo "Could not switch this Apple Silicon Mac out of Rosetta." >&2
+            exit 1
+        fi
+        PD_OCR_NATIVE_ARM64=1
+        export PD_OCR_NATIVE_ARM64
+        if [ -f "$0" ]; then
+            exec /usr/bin/arch -arm64 /bin/sh "$0" "$@"
+        fi
+        echo "This terminal is running under Rosetta. Open Terminal and run the installer again." >&2
+        exit 1
+    fi
+fi
+
 # Install pdomain-ocr-simple-gui as a standalone tool using uv.
 #
 # Pulls the wheel from the latest non-prerelease GitHub Release of

@@ -40,6 +40,11 @@ def test_desktop_installers_name_the_gpu_guide() -> None:
     assert "button returned:GPU guide" in mac_install
     assert GPU_SETUP_GUIDE_URL in mac_install
     assert "does not install an NVIDIA driver" in mac_install
+    build = (root / "installer/macos/build.sh").read_text(encoding="utf-8")
+    install_sh = (root / "install.sh").read_text(encoding="utf-8")
+    for script in (mac_install, build, install_sh):
+        assert "sysctl.proc_translated" in script
+        assert "/usr/bin/arch -arm64 /bin/sh" in script
 
 
 def test_install_command_uses_payload_script(tmp_path: Path) -> None:

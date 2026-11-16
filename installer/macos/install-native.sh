@@ -1,6 +1,25 @@
 #!/bin/sh
 set -eu
 
+# Launch Services can start this script-only app under Rosetta. Switch before
+# any temp files or downloads. install.sh repeats the check for a direct run.
+if [ "$(uname -s)" = "Darwin" ]; then
+    _translated=$(/usr/sbin/sysctl -n sysctl.proc_translated 2>/dev/null || true)
+    if [ "$_translated" = "1" ]; then
+        if [ "${PD_OCR_NATIVE_ARM64:-}" = "1" ]; then
+            echo "Could not switch this Apple Silicon Mac out of Rosetta." >&2
+            exit 1
+        fi
+        PD_OCR_NATIVE_ARM64=1
+        export PD_OCR_NATIVE_ARM64
+        if [ -f "$0" ]; then
+            exec /usr/bin/arch -arm64 /bin/sh "$0" "$@"
+        fi
+        echo "This terminal is running under Rosetta. Open Terminal and run the installer again." >&2
+        exit 1
+    fi
+fi
+
 PAYLOAD=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 DIALOG="$PAYLOAD/dialog.applescript"
 GPU_SETUP_GUIDE_URL="https://github.com/pdomain/pdomain-ocr-simple-gui/blob/master/docs/usage/nvidia-gpu-setup.md"

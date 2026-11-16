@@ -25,6 +25,20 @@ fi
 cat >"$CONTENTS/MacOS/launch" <<'SCRIPT'
 #!/bin/sh
 set -eu
+# Launch Services can start a script-only app under Rosetta. uname then says
+# x86_64 and the PyTorch install looks for an Intel wheel that does not exist.
+if [ "$(uname -s)" = "Darwin" ]; then
+    _translated=$(/usr/sbin/sysctl -n sysctl.proc_translated 2>/dev/null || true)
+    if [ "$_translated" = "1" ]; then
+        if [ "${PD_OCR_NATIVE_ARM64:-}" = "1" ]; then
+            echo "Could not switch this Apple Silicon Mac out of Rosetta." >&2
+            exit 1
+        fi
+        PD_OCR_NATIVE_ARM64=1
+        export PD_OCR_NATIVE_ARM64
+        exec /usr/bin/arch -arm64 /bin/sh "$0" "$@"
+    fi
+fi
 CONTENTS=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 exec /bin/sh "$CONTENTS/Resources/payload/install-native.sh"
 SCRIPT
