@@ -149,6 +149,15 @@ pdomain-ocr-simple-gui --no-browser
 # then open http://127.0.0.1:8004 (or the printed URL) in your browser
 ```
 
+## Use
+
+The [walkthrough](docs/usage/walkthrough.md) starts with one-click install and
+one-click run, then submits all 386 prepared page
+images from Belloc's *The Four Men* and reviews representative pages.
+It explains whole-folder and whole-ZIP input, saved edits and downloads.
+It separates Internet Archive download from page preparation. The version 0.5.7
+run verified all 386 pages, a saved correction, both ZIPs and job persistence.
+
 ## Uninstall
 
 One-liner:
