@@ -10,25 +10,32 @@ on run argv
     set messageMarker to item 3 of argv
     set deadline to (current date) + (item 4 of argv as integer)
     repeat while (current date) < deadline
-        tell application "System Events"
-            repeat with candidate in (application processes whose name is "osascript")
-                repeat with candidateWindow in windows of candidate
-                    set messageText to ""
-                    repeat with labelElement in static texts of candidateWindow
-                        try
-                            set messageText to messageText & (value of labelElement as text)
-                        end try
-                    end repeat
-                    if messageText contains "Installation failed." then error "Native installer reported failure: " & messageText
-                    if messageText contains messageMarker then
-                        if exists button buttonName of candidateWindow then
-                            if operation is "click" then click button buttonName of candidateWindow
-                            return "Found " & buttonName & " in the expected OCR dialog"
+        try
+            tell application "System Events"
+                repeat with candidate in (application processes whose name is "osascript")
+                    repeat with candidateWindow in windows of candidate
+                        set messageText to ""
+                        repeat with labelElement in static texts of candidateWindow
+                            try
+                                set messageText to messageText & (value of labelElement as text)
+                            end try
+                        end repeat
+                        if messageText contains "Installation failed." then error "Native installer reported failure: " & messageText
+                        if messageText contains messageMarker then
+                            if exists button buttonName of candidateWindow then
+                                if operation is "click" then click button buttonName of candidateWindow
+                                return "Found " & buttonName & " in the expected OCR dialog"
+                            end if
                         end if
-                    end if
+                    end repeat
                 end repeat
-            end repeat
-        end tell
+            end tell
+        on error errText number errNum
+            if errText contains "Native installer reported failure" then error errText number errNum
+            -- A dialog's osascript exits while System Events is listing it.
+            -- -10000, -1712, -600 and -609 are that race, not a missing button.
+            if errNum is not -10000 and errNum is not -1712 and errNum is not -600 and errNum is not -609 then error errText number errNum
+        end try
         delay 0.2
     end repeat
     error "Timed out waiting for " & buttonName & " in OCR dialog containing: " & messageMarker
