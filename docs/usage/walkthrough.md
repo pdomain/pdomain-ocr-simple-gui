@@ -2,7 +2,7 @@
 Status: draft
 Owner: CT
 Created: 2026-11-14
-Last verified: 2026-11-14
+Last verified: 2026-11-15
 Kind: usage
 ---
 
@@ -11,6 +11,10 @@ Kind: usage
 Use OCR Simple GUI to read prepared page images, check the text, save corrections,
 and download the results. OCR means optical character recognition: software reads
 printed words in an image and turns them into editable text.
+
+Install it with one click, then open it with one click. The installer and the
+app icon were tested on Linux and Windows. The macOS installer is built and was
+not run on a Mac for this guide.
 
 This walkthrough submits all 386 prepared page images from *The Four Men: A Farrago*
 by Hilaire Belloc, then reviews representative pages. You can submit a whole
@@ -28,8 +32,48 @@ recording notes and runtime evidence from these user steps.
 
 - **Kind:** usage
 - **Status:** draft
-- **Read when:** following the released 0.5.7 screenshot guide.
-- **Search terms:** walkthrough, Four Men, screenshots, version 0.5.7.
+- **Read when:** following one-click install, one-click run, and the Four Men screenshot guide.
+- **Search terms:** walkthrough, one-click install, one-click run, Four Men, screenshots.
+
+## One-click install
+
+Open the installer and click **Install**. You do not type the install commands.
+
+On Linux, the window asks to install OCR Simple GUI and its Python packages
+for your user account. Click **Install**. Wait until the log says
+"Installation complete. Open OCR Simple GUI from your applications menu."
+Then click **Close**.
+
+![Linux installer asking for one click](images/one-click/01-install-linux.png)
+
+![Linux installer finished and ready to close](images/one-click/02-install-linux-done.png)
+
+On Windows, open OCR Simple GUI Setup. The window asks to install the app for
+this Windows account. Internet is required for Python and the OCR packages.
+Windows may ask permission for the Microsoft runtime. Click **Install**.
+
+![Windows Setup asking for one click](images/one-click/04-install-windows.png)
+
+The Linux log can show a path warning from the test account. You do not type
+that warning. The line that matters is the instruction to open the app from
+your applications menu.
+
+## One-click run
+
+Open **OCR Simple GUI** from your applications menu on Linux, or from the
+Start menu on Windows. The app opens in your browser. You do not open a terminal.
+
+![The Linux app opened from its icon](images/one-click/03-run-linux.png)
+
+![The Windows app opened in the browser](images/one-click/05-run-windows.png)
+
+The Windows capture shows two browser tabs and a reconnecting notice. If the
+page says the app stopped, open the app icon again. A second open uses the
+app that is already running.
+
+**Quit app** is in the top bar. Use it to stop the app. If other browser tabs
+are open, the app asks you to confirm before quitting all of them. Closing one
+tab does not stop the app.
 
 ## Before you start
 
@@ -43,50 +87,11 @@ Browser uploads default to a 2 GiB total size limit and 5,000 files per request;
 check the size limit displayed by your app. GiB is about 1.07 billion bytes.
 ZIP extraction also defaults to a 2 GiB limit on the expanded contents.
 
-## Install on Linux, macOS or Windows
+## Step 1: Start from the open app
 
-On Linux or macOS, open Terminal and run the app's install script:
-
-```sh
-curl -sSL https://raw.githubusercontent.com/pdomain/pdomain-ocr-simple-gui/master/install.sh | sh
-```
-
-Follow its prompts and wait for completion.
-
-On Windows, open PowerShell. If uv is missing, install it first:
-
-```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-Reopen PowerShell, then install the app:
-
-```powershell
-uv tool install pdomain-ocr-simple-gui --python 3.13 --index-strategy first-index --index pdomain=https://pdomain.github.io/pdomain-index-pip/simple/
-```
-
-Windows also needs the [Microsoft Visual C++ Redistributable (x64)](https://aka.ms/vc14/vc_redist.x64.exe).
-Install it if needed; its installer may require administrator approval.
-See [Install](../../README.md#install) for upgrades and troubleshooting.
-The video shows app version 0.5.7; these commands install the current release.
-The Linux script was checked in an isolated environment. macOS and Windows
-instructions were source-checked and were not run for this recording.
-The public master branch has no `install.ps1`. The Windows steps above are
-the released uv commands. This guide describes that released app, not an
-unreleased desktop installer.
-
-## Step 1: Start the app
-
-Open a terminal, the application where you type commands, and run:
-
-```sh
-pdomain-ocr-simple-gui
-```
-
-The app starts a server on your computer and opens your default browser.
-If no tab opens, use the address printed in the terminal. Follow the printed
-address if the default port is busy; see [Launch](../../README.md#launch).
-A desktop shortcut is another option if your installation created one.
+The one-click run above is the way to open the app. The book screenshots
+below come from the version 0.5.7 recording. That home screen is the same
+upload page, without the later **Quit app** button.
 
 ![Version 0.5.7 home screen showing upload and local-path input](images/four-men/01-home.png)
 
@@ -324,19 +329,16 @@ a folder and click **Save**. Existing jobs stay in their earlier location.
 
 ## Stop the app
 
-Save edits and wait for OCR to finish before stopping. If you launched from a
-terminal, return there and press Ctrl+C. The previous session confirmed that
-Ctrl+C/SIGINT stops the server. This run also verified clean shutdown by SIGINT.
+Save edits and wait for OCR to finish before stopping. Click **Quit app**.
+If other browser tabs are open, confirm that you want to quit all of them.
 
-Closing a browser tab leaves the separate server running and stored jobs on disk.
+Closing one browser tab leaves the app running and stored jobs on disk.
 We verified the completed 386-page job and the saved p014 correction after
 closing and reopening a tab, then after stopping and restarting the server.
 Unsaved text is not a saved result. Do not treat closing the tab as a stop button.
 
-Version 0.5.7 has no Quit button for a desktop-shortcut launch. Start the app
-from a terminal when you need the verified stop above. Do not stop it by
-matching the process name. That can stop more than the copy you started, and
-this guide did not test that method.
+Do not stop the app by matching its process name. That can stop more than the
+copy you started.
 
 ## About the example pages
 
