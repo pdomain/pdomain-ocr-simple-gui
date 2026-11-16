@@ -6,15 +6,26 @@ Last verified: 2026-11-15
 Kind: usage
 ---
 
-# Install an NVIDIA driver for GPU reading
+# Get GPU reading after the NVIDIA driver is installed
 
-If `nvidia-smi` already lists your GPU, go to [Run the installer again](#run-the-installer-again). That is the setup after the driver is installed.
+Go to [Run the installer again](#run-the-installer-again) when `nvidia-smi` already lists your GPU and a CUDA version. That is the setup after the driver is installed.
+
+You do not have to uninstall first.
+
+`nvidia-smi` is the command that lists your graphics card. The graphics card is the GPU. CUDA Version is a label on that screen.
 
 The OCR installers do not install the NVIDIA driver.
 
-When `nvidia-smi` cannot report a CUDA version, they install a CPU copy of PyTorch. OCR still reads pages on the CPU.
+When `nvidia-smi` cannot report a CUDA version, the installers install a CPU copy of PyTorch. PyTorch is that package. OCR still reads pages on the CPU, the computer's main processor.
 
-A later install with a working driver downloads the CUDA build of PyTorch, roughly 2–3 GB. These apps use the CUDA libraries inside that package. OCR does not need a separate CUDA toolkit download.
+A later install downloads the CUDA build of PyTorch in either of these cases:
+
+- A Linux or Windows script can read a CUDA version.
+- The desktop wizard sees driver 525 or newer.
+
+The download is roughly 2–3 GB.
+
+OCR Simple GUI and command-line OCR use the CUDA libraries inside that package. OCR does not need a separate CUDA toolkit download.
 
 ## Agent Index
 
@@ -25,27 +36,40 @@ A later install with a working driver downloads the CUDA build of PyTorch, rough
 
 ## Macs have no NVIDIA driver step
 
-On a Mac, stop here.
+Do not install an NVIDIA driver. Return to the installer and continue.
 
-Apple Silicon Macs do not use an NVIDIA driver. The installer keeps that Mac on its own GPU path.
+Apple Silicon Macs keep their own GPU path.
 
 Intel Macs stay on the CPU.
 
-Neither Mac has an NVIDIA driver step.
-
 ## Run the installer again
 
-Do this when `nvidia-smi` lists the GPU and its top line shows a CUDA version. You do not have to uninstall first.
+Do this when `nvidia-smi` shows a CUDA version.
 
-Read the driver version on that screen before you start.
+You do not have to uninstall first.
 
-When the version is below 525, upgrade the driver before you use the desktop wizard. The Linux and Windows install scripts still download the CUDA build of PyTorch when `nvidia-smi` prints any CUDA version. The desktop wizard skips that download below 525.
+1. Open a terminal. On Windows, open PowerShell.
+2. Run `nvidia-smi`.
 
-When the driver is 525 or newer, run the installer again.
+The top line has two labels. Read both.
+
+CUDA Version is a number such as 12.4 or 13.0. Driver Version is a number such as 550.54.
+
+If the top line has no CUDA Version, do not start the installer. Go to [Check whether a driver is already installed](#check-whether-a-driver-is-already-installed).
+
+If you use the desktop wizard and Driver Version is below 525, do not click Install. Go to [Install driver 525 or newer](#install-driver-525-or-newer).
+
+The Linux and Windows install scripts still download the CUDA build of PyTorch when `nvidia-smi` prints any CUDA version. That includes a Driver Version below 525.
+
+The desktop wizard skips that download when Driver Version is below 525.
+
+When a CUDA Version is shown, run the commands below. For the desktop wizard, wait until Driver Version is 525 or newer.
 
 OCR Simple GUI: open the installer and click Install.
 
-On Linux and macOS you can also run `install.sh`. On Windows, run `install.ps1`.
+On Linux and macOS you can also run `install.sh`.
+
+On Windows, run `install.ps1` in PowerShell only when that file is already on the computer. If it is not, click Install.
 
 Command-line OCR on Linux and macOS:
 
@@ -59,25 +83,59 @@ Command-line OCR on Windows PowerShell:
 irm https://raw.githubusercontent.com/pdomain/pdomain-ocr-cli/master/install.ps1 | iex
 ```
 
-The installer reads the CUDA version from `nvidia-smi` and passes `--torch-backend auto` to uv. uv then downloads the matching CUDA build of PyTorch. The download is roughly 2–3 GB.
+`Detected CUDA` means the download is the CUDA build. That line can appear before the download finishes.
 
-The download is the CUDA build when the installer prints `Detected CUDA`.
+Do not open the app yet.
 
-It stayed on the CPU when the installer prints `falling back to CPU`, `CPU-only`, or `GPU acceleration step will be skipped`.
+Wait until the installer prints `Done!`.
 
-On Linux and Windows the install window button is **GPU setup guide**. On macOS the button is **GPU guide**. Either button opens this page.
+If it prints `Done, but Windows must restart before OCR can run`, restart Windows before you open the app.
 
-After OCR Simple GUI is installed, open it and drop in a folder of page images. Then open Settings, then Compute. GPU reading is available when that panel lists the CUDA device as a choice. It stayed on the CPU when the panel lists the NVIDIA GPU as unavailable.
+The installer does not restart Windows itself.
+
+On the Linux install window, wait until **Close** is available.
+
+On macOS, wait for the window that says the installation is complete, then click **OK**.
+
+The install stayed on the CPU when the installer prints `falling back to CPU`, `CPU-only`, or `GPU acceleration step will be skipped`.
+
+The installer reads the CUDA version from `nvidia-smi`. It passes `--torch-backend auto` to uv. uv is the tool that then downloads the matching CUDA build of PyTorch.
+
+The download is roughly 2–3 GB.
+
+Either button opens this page. On Linux and Windows the install window button is **GPU setup guide**. On macOS the button is **GPU guide**.
+
+If OCR Simple GUI is already open, click **Quit app** in the top bar. If **Quit all tabs** appears, click that too. Then wait until the page says `App stopped. Open the app icon to start again.`
+
+Then open OCR Simple GUI from your applications menu on Linux, or from the Start menu on Windows.
+
+1. Drop in a folder of page images.
+2. Open Settings, then Compute.
+
+GPU reading is available when that panel lists the CUDA device as a choice.
+
+GPU reading stayed on the CPU when the panel lists the NVIDIA GPU as unavailable.
 
 For the command-line app, run `pdomain-ocr` on one image. It prints `NVIDIA GPU detected but PyTorch is the CPU build` when the install stayed on the CPU.
 
-If `nvidia-smi` works but the PowerShell installer still cannot read a CUDA version, set the version in that same window. Then run the installer there. Replace `13.0` with the CUDA version `nvidia-smi` shows.
+If `nvidia-smi` shows a CUDA Version but the PowerShell installer still cannot read it, set the version in that same PowerShell window.
+
+Replace `13.0` with the CUDA Version on the `nvidia-smi` top line. Then run that app's install command again in the same window.
+
+Command-line OCR:
 
 ```powershell
 $env:CUDA_VERSION = "13.0"
+irm https://raw.githubusercontent.com/pdomain/pdomain-ocr-cli/master/install.ps1 | iex
 ```
 
-`install.sh` and the desktop wizard do not read `CUDA_VERSION`. They only parse `nvidia-smi`. The Windows Setup window does not see a value you set in a different PowerShell window.
+OCR Simple GUI: set `$env:CUDA_VERSION` the same way, then run `install.ps1` again in that window.
+
+Do not use the command-line command above for the GUI.
+
+The Windows Setup window and `install.sh` ignore `CUDA_VERSION`. They only parse `nvidia-smi`.
+
+A value you set in one PowerShell window is not visible to Setup.
 
 ## Check whether a driver is already installed
 
@@ -85,7 +143,9 @@ Open a terminal and run `nvidia-smi`.
 
 If the command is missing, or it does not list a GPU, install a driver in the next section.
 
-If it lists the GPU and a CUDA version, use [Run the installer again](#run-the-installer-again).
+If it lists the GPU but the top line has no CUDA Version, the driver is not ready. Install a driver in the next section. Do not start the OCR installer.
+
+If it lists the GPU and a CUDA Version, use [Run the installer again](#run-the-installer-again).
 
 ## Install driver 525 or newer
 
@@ -93,19 +153,24 @@ Download a current driver from <https://www.nvidia.com/en-us/drivers/>.
 
 Version 525 is the oldest driver the desktop wizard accepts for a GPU install.
 
-On Linux you can use the distribution package instead:
+On Linux you can use the distribution package instead of the download from the NVIDIA page. The terminal asks for your password and does not show what you type.
 
-1. Ubuntu or Debian: run `ubuntu-drivers devices`, then `sudo ubuntu-drivers install`.
-2. Arch Linux: run `sudo pacman -S nvidia`.
-3. Fedora: run `sudo dnf install akmod-nvidia`.
+- Ubuntu or Debian: run `ubuntu-drivers devices`, then `sudo ubuntu-drivers install`.
+- Arch Linux: run `sudo pacman -S nvidia`.
+- Fedora: run `sudo dnf install akmod-nvidia`.
 
 On Windows, run the installer from the NVIDIA page. Windows may ask for an administrator password.
 
-Reboot when the driver installer tells you to. Open a new terminal and run `nvidia-smi` again.
+1. Reboot when the driver installer tells you to.
+2. Open a new terminal and run `nvidia-smi` again.
 
-Stop if it still does not list the GPU and a CUDA version. Finish the driver install before you run the OCR installer again.
+If the top line lists the GPU and a CUDA Version, go to [Run the installer again](#run-the-installer-again).
 
-The install scripts download the CUDA build of PyTorch whenever `nvidia-smi` prints a CUDA version. The desktop wizard also skips that download when the driver version is below 525.
+When Driver Version is below 525, the install scripts can still download the CUDA build. The desktop wizard cannot.
+
+For the wizard, upgrade the driver first.
+
+If the new terminal still shows no GPU, or no CUDA Version, stop. Do not run the OCR installer. OCR stays on the CPU.
 
 ## When the install stays on the CPU
 
@@ -115,4 +180,12 @@ Any one of these leads to the CPU build:
 - A driver older than 525 in the desktop wizard
 - A CUDA version the installer cannot read
 
-Re-run the installer after `nvidia-smi` shows a CUDA version. For the desktop wizard, the driver also has to be 525 or newer. You do not have to uninstall the app first.
+You do not have to uninstall the app first.
+
+If the driver was missing, install it, then use [Run the installer again](#run-the-installer-again).
+
+If the desktop wizard skipped the download because Driver Version is below 525, upgrade the driver, then use [Run the installer again](#run-the-installer-again).
+
+If `nvidia-smi` already shows a CUDA Version and the PowerShell installer still used the CPU build, set `$env:CUDA_VERSION` in that same window.
+
+Then run that app's install command again there.
