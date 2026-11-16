@@ -421,7 +421,10 @@ def test_uninstall_entry_runs_after_tool_python_disappears(
     removal = entries[1]
     if platform == "darwin":
         launcher = ["/bin/sh", str(removal / "Contents/MacOS/launch")]
-        assert retained in (removal / "Contents/MacOS/launch").read_text()
+        launch_script = (removal / "Contents/MacOS/launch").read_text()
+        assert retained in launch_script
+        assert "sysctl.proc_translated" in launch_script
+        assert "/usr/bin/arch -arm64 /bin/sh" in launch_script
     else:
         launcher = shlex.split(
             next(line[5:] for line in removal.read_text().splitlines() if line.startswith("Exec="))

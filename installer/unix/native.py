@@ -68,9 +68,24 @@ def application_bundle(target: Path, command: list[str]) -> Path:
     contents = target / "Contents"
     executable = contents / "MacOS" / "launch"
     executable.parent.mkdir(parents=True, exist_ok=True)
-    import shlex
-
-    _ = executable.write_text("#!/bin/sh\nset -eu\nexec " + shlex.join(command) + "\n")
+    # Launch Services starts a script-only app under Rosetta. A translated
+    # shell cannot exec the arm64 interpreter, so switch before the launch.
+    script = """#!/bin/sh
+set -eu
+if [ "$(uname -s)" = "Darwin" ]; then
+    _translated=$(/usr/sbin/sysctl -n sysctl.proc_translated 2>/dev/null || true)
+    if [ "$_translated" = "1" ]; then
+        if [ "${PD_OCR_NATIVE_ARM64:-}" = "1" ]; then
+            echo "Could not switch this Apple Silicon Mac out of Rosetta." >&2
+            exit 1
+        fi
+        PD_OCR_NATIVE_ARM64=1
+        export PD_OCR_NATIVE_ARM64
+        exec /usr/bin/arch -arm64 /bin/sh "$0" "$@"
+    fi
+fi
+exec """
+    _ = executable.write_text(script + shlex.join(command) + "\n")
     executable.chmod(0o755)
     with (contents / "Info.plist").open("wb") as stream:
         plistlib.dump(
